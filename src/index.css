@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-heading: "Outfit", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+
+  --color-agri-950: #061B14;
+  --color-agri-900: #0B3326;
+  --color-agri-800: #0F4A37;
+  --color-agri-700: #14624A;
+  --color-agri-600: #1B8363;
+  --color-agri-500: #10B981;
+  --color-agri-400: #34D399;
+  --color-agri-100: #DCFCE7;
+  --color-agri-50: #F2FBF6;
+  
+  --color-surface-bg: #F8FAF8;
+  --color-surface-card: #FFFFFF;
+  --color-surface-border: #E5EDE8;
+  --color-text-main: #14211D;
+  --color-text-muted: #566861;
+}
+
+@layer base {
+  body {
+    background-color: #F8FAF8;
+    color: #14211D;
+    font-family: var(--font-sans);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* 3D Flip Card Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Staggered Soft Entrance Animation */
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-fade {
+  animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
