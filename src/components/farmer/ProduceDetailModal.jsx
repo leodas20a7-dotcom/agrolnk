@@ -19,6 +19,8 @@ import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 
+import { COMMODITY_IMAGES } from '../../utils/listings';
+
 export default function ProduceDetailModal({
   listing,
   isOpen,
@@ -32,6 +34,7 @@ export default function ProduceDetailModal({
   const isAuction = listing.saleType === 'auction';
   const totalValue =
     Number(listing.quantity || 0) * Number(listing.price || 0);
+  const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
   const handleCopy = () => {
     const text = `Agramaz Produce Lot #${listing.id}: ${listing.commodity} (${listing.variety || 'Standard'}), ${listing.quantity} ${listing.unit} at ₹${listing.price}/${listing.unit} from ${listing.district || ''}, ${listing.state}. Grade ${listing.grade}.`;
@@ -59,22 +62,22 @@ export default function ProduceDetailModal({
             {copied ? (
               <>
                 <Check className="w-4 h-4 text-[#10B981]" />
-                <span className="text-[#10B981]">Copied details!</span>
+                <span className="text-[#10B981]">Copied details</span>
               </>
             ) : (
               <>
-                <Share2 className="w-4 h-4" />
-                <span>Share Summary</span>
+                <Copy className="w-4 h-4" />
+                <span>Share Lot Reference</span>
               </>
             )}
           </button>
 
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={onClose}
-              className="px-4 py-2 font-bold"
+              className="px-4 py-2"
             >
               Close
             </Button>
@@ -99,11 +102,12 @@ export default function ProduceDetailModal({
         {/* Hero Section with Image & Badges */}
         <div className="relative h-48 sm:h-56 rounded-2xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8]">
           <img
-            src={
-              listing.images?.[0] ||
-              'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'
-            }
+            src={listing.images?.[0] || fallbackImg}
             alt={listing.commodity}
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = fallbackImg;
+            }}
             className="w-full h-full object-cover"
           />
 

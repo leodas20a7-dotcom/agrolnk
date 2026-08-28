@@ -3,9 +3,11 @@ import { MapPin, Tag, Gavel, Clock, ShieldCheck, Eye, Edit3 } from 'lucide-react
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import { COMMODITY_IMAGES } from '../../utils/listings';
 
 export default function ListingCard({ listing, onView, onEdit }) {
   const isAuction = listing.saleType === 'auction';
+  const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
   return (
     <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs flex flex-col justify-between space-y-4">
@@ -13,11 +15,12 @@ export default function ListingCard({ listing, onView, onEdit }) {
       <div className="space-y-3.5">
         <div className="relative h-44 rounded-2xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8]">
           <img
-            src={
-              listing.images?.[0] ||
-              'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'
-            }
+            src={listing.images?.[0] || fallbackImg}
             alt={listing.commodity}
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = fallbackImg;
+            }}
             className="w-full h-full object-cover"
           />
 

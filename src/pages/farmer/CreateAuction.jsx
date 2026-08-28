@@ -16,6 +16,7 @@ import {
   Check
 } from 'lucide-react';
 import { createAuction } from '../../utils/auctions';
+import { COMMODITY_IMAGES } from '../../utils/listings';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -31,14 +32,31 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     durationMinutes: '30',
     state: 'Tamil Nadu',
     district: 'Salem',
-    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'],
+    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'],
   });
 
   const [error, setError] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
 
-  const commodities = ['Tomato', 'Potato', 'Onion', 'Apple', 'Wheat', 'Maize', 'Other'];
-  const grades = ['A', 'B', 'C'];
+  const commodities = [
+    'Tomato',
+    'Onion',
+    'Potato',
+    'Mango',
+    'Red Chilli',
+    'Turmeric',
+    'Basmati Rice',
+    'Cotton',
+    'Wheat',
+    'Cardamom',
+    'Ginger',
+    'Apple',
+    'Maize',
+    'Soybean',
+    'Banana',
+    'Other'
+  ];
+  const grades = ['A', 'B', 'C', 'Export'];
   const units = ['kg', 'Quintal', 'MT'];
 
   const durations = [
@@ -51,10 +69,19 @@ export default function CreateAuction({ currentUser, onNavigate }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === 'commodity') {
+      const defaultImg = COMMODITY_IMAGES[value] || COMMODITY_IMAGES.Other;
+      setFormData((prev) => ({
+        ...prev,
+        commodity: value,
+        images: [defaultImg],
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const startingLotValue =

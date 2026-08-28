@@ -28,7 +28,7 @@ const DEFAULT_DEMO_AUCTIONS = [
     status: 'live', // 'live' | 'completed' | 'reserve_not_met'
     state: 'Tamil Nadu',
     district: 'Salem',
-    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'],
+    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'],
     createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
   },
   {
@@ -51,7 +51,7 @@ const DEFAULT_DEMO_AUCTIONS = [
     status: 'live',
     state: 'Tamil Nadu',
     district: 'Dindigul',
-    images: ['https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80'],
+    images: ['https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&auto=format&fit=crop&q=80'],
     createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
   },
   {
@@ -78,70 +78,69 @@ const DEFAULT_DEMO_AUCTIONS = [
     status: 'completed',
     state: 'Himachal Pradesh',
     district: 'Shimla',
-    images: ['https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=500&auto=format&fit=crop&q=80'],
+    images: ['https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=800&auto=format&fit=crop&q=80'],
     createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'auc_demo_04',
+    farmerId: 'usr_farmer_01',
+    farmerName: 'Sakthi Vel',
+    commodity: 'Cardamom',
+    variety: '8mm Bold Alleppey Green',
+    grade: 'Export',
+    quantity: 150,
+    unit: 'kg',
+    startingBid: 1850,
+    reservePrice: 1900,
+    currentBid: 1920,
+    highestBidderId: 'usr_buyer_04',
+    highestBidderName: 'Buyer #B12 (Kerala Spices Co)',
+    startsAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    endsAt: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+    durationMinutes: 60,
+    status: 'live',
+    state: 'Kerala',
+    district: 'Idukki',
+    images: ['https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=800&auto=format&fit=crop&q=80'],
+    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'auc_demo_05',
+    farmerId: 'usr_farmer_01',
+    farmerName: 'Sakthi Vel',
+    commodity: 'Mango',
+    variety: 'Ratnagiri Alphonso GI Tagged',
+    grade: 'Export',
+    quantity: 600,
+    unit: 'kg',
+    startingBid: 160,
+    reservePrice: 175,
+    currentBid: 178,
+    highestBidderId: 'usr_buyer_02',
+    highestBidderName: 'Buyer #A24 (Ananya Agro)',
+    startsAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+    endsAt: new Date(Date.now() + 70 * 60 * 1000).toISOString(),
+    durationMinutes: 90,
+    status: 'live',
+    state: 'Maharashtra',
+    district: 'Ratnagiri',
+    images: ['https://images.unsplash.com/photo-1553279768-865429fa0078?w=800&auto=format&fit=crop&q=80'],
+    createdAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
   },
 ];
 
-const DEFAULT_DEMO_BIDS = [
-  {
-    id: 'bid_01',
-    auctionId: 'auc_demo_01',
-    buyerId: 'usr_buyer_04',
-    buyerName: 'Buyer #B12',
-    amount: 44,
-    createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'bid_02',
-    auctionId: 'auc_demo_01',
-    buyerId: 'usr_buyer_03',
-    buyerName: 'Buyer #C09',
-    amount: 45,
-    createdAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'bid_03',
-    auctionId: 'auc_demo_01',
-    buyerId: 'usr_buyer_04',
-    buyerName: 'Buyer #B12',
-    amount: 47,
-    createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'bid_04',
-    auctionId: 'auc_demo_01',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Buyer #A24',
-    amount: 48,
-    createdAt: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'bid_05',
-    auctionId: 'auc_demo_03',
-    buyerId: 'usr_buyer_04',
-    buyerName: 'Buyer #B12',
-    amount: 115,
-    createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'bid_06',
-    auctionId: 'auc_demo_03',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Buyer #A24',
-    amount: 128,
-    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-  },
-];
+const AUCTIONS_DATA_VERSION = 'v3_diverse_auctions';
 
 /**
  * Get all auctions from localStorage
  */
 export function getAuctions() {
   try {
+    const storedVersion = localStorage.getItem('agramazAuctions_version');
     const raw = localStorage.getItem(AUCTIONS_STORAGE_KEY);
-    if (!raw) {
+    if (!raw || storedVersion !== AUCTIONS_DATA_VERSION) {
       localStorage.setItem(AUCTIONS_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_AUCTIONS));
+      localStorage.setItem('agramazAuctions_version', AUCTIONS_DATA_VERSION);
       return DEFAULT_DEMO_AUCTIONS;
     }
     const parsed = JSON.parse(raw);

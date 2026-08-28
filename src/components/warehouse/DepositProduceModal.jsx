@@ -74,11 +74,20 @@ export default function DepositProduceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
-        
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-3 sm:p-6 flex items-center justify-center animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose?.();
+        }
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-xl w-full max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-200 relative overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+        <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center">
               <Building2 className="w-5 h-5 text-[#34D399]" />
@@ -101,7 +110,8 @@ export default function DepositProduceModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
           
           {/* Warehouse Facility Selection */}
           <div className="space-y-1.5">
@@ -273,8 +283,10 @@ export default function DepositProduceModal({
             </span>
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-end gap-3">
+          </div>
+
+          {/* Action Buttons Footer */}
+          <div className="p-4 sm:p-6 pt-4 border-t border-[#E5EDE8] flex items-center justify-end gap-3 shrink-0 bg-[#FAFBF9]">
             <Button
               type="button"
               variant="ghost"

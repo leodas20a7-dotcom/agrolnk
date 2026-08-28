@@ -2,18 +2,27 @@ import React from 'react';
 import { Camera, Image as ImageIcon, MapPin, Tag, Sparkles, AlertCircle } from 'lucide-react';
 import Badge from '../ui/Badge';
 
-const COMMODITY_IMAGES = {
-  Tomato: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80',
-  Potato: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80',
-  Onion: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=500&auto=format&fit=crop&q=80',
-  Apple: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=500&auto=format&fit=crop&q=80',
-  Wheat: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=500&auto=format&fit=crop&q=80',
-  Maize: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=500&auto=format&fit=crop&q=80',
-  Other: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
-};
+import { COMMODITY_IMAGES } from '../../utils/listings';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
-  const commodities = ['Tomato', 'Potato', 'Onion', 'Apple', 'Wheat', 'Maize', 'Other'];
+  const commodities = [
+    'Tomato',
+    'Onion',
+    'Potato',
+    'Mango',
+    'Red Chilli',
+    'Turmeric',
+    'Basmati Rice',
+    'Cotton',
+    'Wheat',
+    'Cardamom',
+    'Ginger',
+    'Apple',
+    'Maize',
+    'Soybean',
+    'Banana',
+    'Other'
+  ];
   const grades = ['Grade A', 'Grade B', 'Grade C'];
   const units = ['kg', 'Quintal', 'MT'];
 

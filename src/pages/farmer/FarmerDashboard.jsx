@@ -235,7 +235,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           {/* Listings Grid */}
           {listings.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {listings.slice(0, 3).map((item) => (
+              {listings.slice(0, 6).map((item) => (
                 <ListingCard
                   key={item.id}
                   listing={item}

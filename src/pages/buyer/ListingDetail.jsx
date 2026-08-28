@@ -16,7 +16,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { createOrder } from '../../utils/orders';
-import { deductListingQuantity } from '../../utils/listings';
+import { deductListingQuantity, COMMODITY_IMAGES } from '../../utils/listings';
 
 export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Ananya Agro', id: 'usr_buyer_02', role: 'buyer' };
@@ -33,8 +33,10 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
     village: 'Attur Mandi',
     saleType: 'direct',
     farmerName: 'Sakthi Vel',
-    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'],
+    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'],
   };
+
+  const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const estimatedTotal = Number(listing.quantity || 0) * Number(listing.price || 0);
@@ -81,11 +83,12 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
           <div className="lg:col-span-7 space-y-4">
             <div className="relative h-72 sm:h-96 rounded-3xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8] shadow-xs">
               <img
-                src={
-                  listing.images?.[0] ||
-                  'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'
-                }
+                src={listing.images?.[0] || fallbackImg}
                 alt={listing.commodity}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = fallbackImg;
+                }}
                 className="w-full h-full object-cover"
               />
 

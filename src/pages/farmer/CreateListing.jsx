@@ -19,18 +19,8 @@ import {
   Calendar,
   Building2
 } from 'lucide-react';
-import { createListing } from '../../utils/listings';
+import { createListing, COMMODITY_IMAGES } from '../../utils/listings';
 import { createAuction } from '../../utils/auctions';
-
-const COMMODITY_IMAGES = {
-  Tomato: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80',
-  Potato: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80',
-  Onion: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=500&auto=format&fit=crop&q=80',
-  Apple: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=500&auto=format&fit=crop&q=80',
-  Wheat: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=500&auto=format&fit=crop&q=80',
-  Maize: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=500&auto=format&fit=crop&q=80',
-  Other: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
-};
 
 export default function CreateListing({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -59,7 +49,24 @@ export default function CreateListing({ currentUser, onNavigate }) {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const commodities = ['Tomato', 'Potato', 'Onion', 'Apple', 'Wheat', 'Maize', 'Other'];
+  const commodities = [
+    'Tomato',
+    'Onion',
+    'Potato',
+    'Mango',
+    'Red Chilli',
+    'Turmeric',
+    'Basmati Rice',
+    'Cotton',
+    'Wheat',
+    'Cardamom',
+    'Ginger',
+    'Apple',
+    'Maize',
+    'Soybean',
+    'Banana',
+    'Other'
+  ];
   const grades = ['A', 'B', 'C', 'Export'];
   const units = ['kg', 'Quintal', 'MT'];
 

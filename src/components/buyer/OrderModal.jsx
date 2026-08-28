@@ -49,11 +49,20 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
-        
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-3 sm:p-6 flex items-center justify-center animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose?.();
+        }
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-lg w-full max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-200 relative overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+        <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
               <ShoppingBag className="w-5 h-5 text-[#10B981]" />
@@ -73,6 +82,9 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Modal Body */}
+        <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 overscroll-contain">
 
         {/* Error Alert */}
         {error && (
@@ -155,8 +167,10 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
           <span>Payment is held safely in escrow until produce delivery is verified.</span>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 pt-2">
+        </div>
+
+        {/* Fixed Actions Footer */}
+        <div className="p-4 sm:p-6 pt-4 border-t border-[#E5EDE8] flex items-center gap-3 shrink-0 bg-[#FAFBF9]">
           <Button
             variant="secondary"
             size="md"
