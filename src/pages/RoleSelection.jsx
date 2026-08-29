@@ -85,35 +85,38 @@ export default function RoleSelection({ onNavigate, navState }) {
   return (
     <div className="min-h-screen overflow-y-auto sm:h-screen sm:max-h-screen sm:overflow-hidden bg-[#F8FAF8] flex flex-col justify-between p-4 sm:p-6 lg:p-7">
 
-      {/* 1. Top Header with Pixel-Perfect Center Alignment */}
-      <header className="max-w-7xl w-full mx-auto grid grid-cols-3 items-center shrink-0">
-        <div className="flex justify-start">
+      {/* 1. Top Header with Responsive Alignment */}
+      <header className="max-w-7xl w-full mx-auto flex items-center justify-between gap-2 shrink-0">
+        <div className="flex justify-start shrink-0">
           <button
             onClick={() => onNavigate('landing')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Home
+            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">Back to Home</span>
           </button>
         </div>
 
-        <div className="flex items-center justify-center">
-          <span className="text-2xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0B3326] font-heading">
+        <div className="flex-1 text-center px-2">
+          <h1 className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0B3326] font-heading whitespace-nowrap">
             Join With Us
-          </span>
+          </h1>
         </div>
 
-        <div className="flex justify-end text-xs text-[#566861]">
+        <div className="flex justify-end text-[11px] sm:text-xs text-[#566861] shrink-0">
           Step <span className="font-bold text-[#0B3326] ml-1 mr-1">1</span> of 2
         </div>
       </header>
 
       {/* 2. Main Center Content */}
-      <main className="max-w-7xl w-full mx-auto my-auto text-center space-y-4 sm:space-y-6">
+      <main className="max-w-7xl w-full mx-auto my-auto text-center space-y-3 sm:space-y-6">
 
         {/* Concise Subtitle Prompt */}
         <div className="max-w-xl mx-auto">
-          <p className="text-sm sm:text-base font-semibold text-[#0B3326]">
-            How will you participate in the digital agricultural exchange?
+          <p className="text-xs sm:text-base font-semibold text-[#0B3326]">
+            <span className="sm:hidden">Select your role in the exchange:</span>
+            <span className="hidden sm:inline">How will you participate in the digital agricultural exchange?</span>
           </p>
         </div>
 
