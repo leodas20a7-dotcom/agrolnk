@@ -59,6 +59,8 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
     setDeliveries(deliveryData);
   }, [user.id]);
 
+  const totalKg = listings.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
+
   const commodities = [
     { name: 'Tomato', emoji: '🍅', label: 'Tomatoes' },
     { name: 'Potato', emoji: '🥔', label: 'Potatoes' },
