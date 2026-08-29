@@ -59,7 +59,19 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
     setDeliveries(deliveryData);
   }, [user.id]);
 
-  const totalKg = listings.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
+  const commodities = [
+    { name: 'Tomato', emoji: '🍅', label: 'Tomatoes' },
+    { name: 'Potato', emoji: '🥔', label: 'Potatoes' },
+    { name: 'Onion', emoji: '🧅', label: 'Onions' },
+    { name: 'Apple', emoji: '🍎', label: 'Apples' },
+    { name: 'Wheat', emoji: '🌾', label: 'Wheat' },
+    { name: 'Maize', emoji: '🌽', label: 'Maize' },
+    { name: 'Turmeric', emoji: '🌿', label: 'Turmeric' },
+    { name: 'Cotton', emoji: '☁️', label: 'Cotton' },
+    { name: 'Rice', emoji: '🍚', label: 'Basmati Rice' },
+    { name: 'Chilli', emoji: '🌶️', label: 'Red Chilli' },
+    { name: 'Soybean', emoji: '🫘', label: 'Soybeans' },
+  ];
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -67,6 +79,10 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
       initialQuery: searchQuery,
       initialLocation: selectedLocation,
     });
+  };
+
+  const handleCommodityClick = (commodityName) => {
+    onNavigate('buyer-marketplace', { initialCommodity: commodityName });
   };
 
   return (
