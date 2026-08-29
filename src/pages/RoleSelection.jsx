@@ -233,7 +233,7 @@ export default function RoleSelection({ onNavigate, navState }) {
 
       {/* 3. Bottom Footer */}
       <footer className="max-w-6xl w-full mx-auto text-center text-[10px] text-[#566861]/70 shrink-0">
-        <span>AGRAMAZ Secure Agricultural Digital Exchange • Next Step: Account Verification</span>
+        <span>Agrolnk Secure Agricultural Digital Exchange • Next Step: Account Verification</span>
       </footer>
 
     </div>

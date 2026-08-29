@@ -51,7 +51,7 @@ export default function Register({ onNavigate, navState }) {
         '100% Escrow deposit protection',
       ],
       quote:
-        '“AGRAMAZ helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
+        '“Agrolnk helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
       author: 'Ramesh Patel, Producer (Madhya Pradesh)',
     },
     buyer: {
@@ -93,7 +93,7 @@ export default function Register({ onNavigate, navState }) {
         'Verified GPS and consignment handover protocol',
       ],
       quote:
-        '“No more empty return trips. AGRAMAZ connects our fleet directly to harvesting farmgates across states.”',
+        '“No more empty return trips. Agrolnk connects our fleet directly to harvesting farmgates across states.”',
       author: 'Vetri Logistics & Transport, Fleet Operator',
     },
     warehouse: {
@@ -107,7 +107,7 @@ export default function Register({ onNavigate, navState }) {
         'Seamless marketplace release order verification',
       ],
       quote:
-        '“AGRAMAZ digitizes our warehouse receipts and connects our storage chambers directly to national trade flows.”',
+        '“Agrolnk digitizes our warehouse receipts and connects our storage chambers directly to national trade flows.”',
       author: 'Salem Agri Cold Storage Hub, WDRA Accredited Operator',
     },
   };
@@ -187,12 +187,12 @@ export default function Register({ onNavigate, navState }) {
             <div className="flex items-center gap-3">
               <img
                 src={logoImg}
-                alt="AGRAMAZ Logo"
+                alt="Agrolnk Logo"
                 className="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-xs"
               />
               <div>
                 <span className="text-xl font-bold tracking-tight text-white font-heading">
-                  AGRAMAZ
+                  Agrolnk
                 </span>
                 <span className="block text-[10px] text-[#10B981] font-semibold uppercase tracking-widest">
                   Agricultural Digital Exchange
@@ -282,7 +282,7 @@ export default function Register({ onNavigate, navState }) {
             {/* Form Headline */}
             <div className="space-y-1 text-left">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
-                Create your AGRAMAZ account
+                Create your Agrolnk account
               </h1>
               <p className="text-xs sm:text-sm text-[#566861]">
                 Join a marketplace built for better agricultural opportunities.

@@ -1,8 +1,8 @@
-// AGRAMAZ Prototype Authentication Layer (LocalStorage)
+// Agrolnk Prototype Authentication Layer (LocalStorage)
 // Clean abstraction layer prepared for seamless future Supabase Auth migration.
 
-const USERS_STORAGE_KEY = 'agramaz_demo_users';
-const AGRAMAZ_USER_KEY = 'agramazUser';
+const USERS_STORAGE_KEY = 'agrolnk_demo_users';
+const AGROLNK_USER_KEY = 'agrolnkUser';
 const IS_AUTH_KEY = 'isAuthenticated';
 
 // Pre-seeded demo accounts for quick testing
@@ -10,7 +10,7 @@ const DEFAULT_DEMO_USERS = [
   {
     id: 'usr_farmer_01',
     name: 'Sakthi Vel',
-    email: 'farmer@agramaz.com',
+    email: 'farmer@agrolnk.com',
     phone: '+91 98765 43210',
     role: 'farmer',
     createdAt: new Date().toISOString(),
@@ -18,7 +18,7 @@ const DEFAULT_DEMO_USERS = [
   {
     id: 'usr_buyer_02',
     name: 'Ananya Agro Foods',
-    email: 'buyer@agramaz.com',
+    email: 'buyer@agrolnk.com',
     phone: '+91 98450 12345',
     role: 'buyer',
     createdAt: new Date().toISOString(),
@@ -26,7 +26,7 @@ const DEFAULT_DEMO_USERS = [
   {
     id: 'usr_financier_03',
     name: 'Kisan Capital Partners',
-    email: 'financier@agramaz.com',
+    email: 'financier@agrolnk.com',
     phone: '+91 97110 56789',
     role: 'financier',
     createdAt: new Date().toISOString(),
@@ -34,7 +34,7 @@ const DEFAULT_DEMO_USERS = [
   {
     id: 'usr_transporter_04',
     name: 'Vetri Logistics & Transport',
-    email: 'transporter@agramaz.com',
+    email: 'transporter@agrolnk.com',
     phone: '+91 94433 77889',
     role: 'transporter',
     vehicleType: '14ft Eicher Truck (4 Tonne)',
@@ -44,7 +44,7 @@ const DEFAULT_DEMO_USERS = [
   {
     id: 'usr_warehouse_05',
     name: 'Salem Agri Cold Storage Hub',
-    email: 'warehouse@agramaz.com',
+    email: 'warehouse@agrolnk.com',
     phone: '+91 98940 33221',
     role: 'warehouse',
     facilityType: 'WDRA Certified Cold Storage',
@@ -171,7 +171,7 @@ export function loginUser({ email, password }) {
  */
 export function setCurrentUser(user) {
   try {
-    localStorage.setItem(AGRAMAZ_USER_KEY, JSON.stringify(user));
+    localStorage.setItem(AGROLNK_USER_KEY, JSON.stringify(user));
     localStorage.setItem(IS_AUTH_KEY, 'true');
     if (user?.role) {
       localStorage.setItem('selectedRole', user.role);
@@ -186,7 +186,7 @@ export function setCurrentUser(user) {
  */
 export function getCurrentUser() {
   try {
-    const session = localStorage.getItem(AGRAMAZ_USER_KEY);
+    const session = localStorage.getItem(AGROLNK_USER_KEY) || localStorage.getItem('agramazUser');
     return session ? JSON.parse(session) : null;
   } catch {
     return null;
@@ -206,7 +206,8 @@ export function getUserRole() {
  */
 export function logoutUser() {
   try {
-    localStorage.removeItem(AGRAMAZ_USER_KEY);
+    localStorage.removeItem(AGROLNK_USER_KEY);
+    localStorage.removeItem('agramazUser');
     localStorage.removeItem(IS_AUTH_KEY);
   } catch (err) {
     console.error('Failed to logout:', err);

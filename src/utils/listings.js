@@ -1,7 +1,7 @@
-// AGRAMAZ Prototype Listings Engine (LocalStorage)
+// Agrolnk Prototype Listings Engine (LocalStorage)
 // Stores marketplace produce lots ready for future Supabase DB integration.
 
-const LISTINGS_STORAGE_KEY = 'agramazListings';
+const LISTINGS_STORAGE_KEY = 'agrolnkListings';
 
 export const COMMODITY_IMAGES = {
   Tomato: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80',
@@ -214,13 +214,13 @@ const LISTINGS_DATA_VERSION = 'v7_remove_ginger_cotton';
  */
 export function getListings() {
   try {
-    const storedVersion = localStorage.getItem('agramazListings_version');
-    const raw = localStorage.getItem(LISTINGS_STORAGE_KEY);
+    const storedVersion = localStorage.getItem('agrolnkListings_version') || localStorage.getItem('agramazListings_version');
+    const raw = localStorage.getItem(LISTINGS_STORAGE_KEY) || localStorage.getItem('agramazListings');
 
     // If no data or older version or data is homogeneous (only tomato), reset to rich diverse demo data
     if (!raw || storedVersion !== LISTINGS_DATA_VERSION) {
       localStorage.setItem(LISTINGS_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_LISTINGS));
-      localStorage.setItem('agramazListings_version', LISTINGS_DATA_VERSION);
+      localStorage.setItem('agrolnkListings_version', LISTINGS_DATA_VERSION);
       return DEFAULT_DEMO_LISTINGS;
     }
 

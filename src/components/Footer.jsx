@@ -15,12 +15,12 @@ export default function Footer({ onNavigate }) {
             <div className="flex items-center gap-2.5">
               <img
                 src={logoImg}
-                alt="AGRAMAZ Logo"
+                alt="Agrolnk Logo"
                 className="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-xs"
               />
               <div>
                 <span className="text-xl font-bold tracking-tight text-white font-heading">
-                  AGRAMAZ
+                  Agrolnk
                 </span>
                 <span className="block text-[10px] font-semibold text-[#10B981] uppercase tracking-widest">
                   Agricultural Digital Exchange
@@ -72,7 +72,7 @@ export default function Footer({ onNavigate }) {
 
         {/* Bottom Copyright & Status */}
         <div className="pt-8 border-t border-[#14624A]/40 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/50">
-          <p>© {new Date().getFullYear()} AGRAMAZ Inc. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Agrolnk Inc. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-white/70">
               <span className="w-2 h-2 rounded-full bg-[#10B981]" /> All Systems Operational

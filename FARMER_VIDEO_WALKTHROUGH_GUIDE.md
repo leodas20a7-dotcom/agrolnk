@@ -1,4 +1,4 @@
-# 🎥 AGRAMAZ — Complete Farmer Workflow Video Recording Guide
+# 🎥 Agrolnk — Complete Farmer Workflow Video Recording Guide
 
 This step-by-step production script ensures you cover **100% of the features** in the Farmer experience without missing any action, modal, or detail during your screen recording.
 
@@ -115,7 +115,7 @@ graph LR
 - [ ] **6.2 Show Loan Terms**:
   - Point to the **70% Loan-to-Value (LTV)** preset (`₹58,800`).
   - Select Purpose: *Input Procurement (Seeds, Fertilizer & Fuel)*.
-  - Select Repayment: *Auto-deduction on AGRAMAZ escrow payout*.
+  - Select Repayment: *Auto-deduction on Agrolnk escrow payout*.
   - Click **"Submit Financing Request"**.
 - [ ] **6.3 View Financing Desk (`farmer-financing`)**:
   - Show the status badge: *Pending Underwriting*.

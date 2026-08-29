@@ -18,6 +18,9 @@ import {
   Award,
   Tag,
   Sparkles,
+  FileText,
+  PieChart,
+  Receipt,
   Menu,
   X
 } from 'lucide-react';
@@ -34,7 +37,7 @@ export default function DashboardLayout({
 }) {
   const user = currentUser || {
     name: 'Sakthi Vel',
-    email: 'farmer@agramaz.com',
+    email: 'farmer@agrolnk.com',
     role: 'farmer',
   };
 
@@ -69,7 +72,7 @@ export default function DashboardLayout({
     },
     financier: {
       badge: 'amber',
-      title: 'Financier Portal',
+      title: 'Financial Institution',
     },
     transporter: {
       badge: 'purple',
@@ -214,9 +217,59 @@ export default function DashboardLayout({
     },
   ];
 
+  const financierNavGroups = [
+    {
+      type: 'single',
+      label: 'Executive Desk',
+      page: 'financier-dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+      type: 'dropdown',
+      id: 'credit-desk',
+      label: 'Credit Operations',
+      icon: Landmark,
+      items: [
+        {
+          label: 'Underwriting Queue',
+          page: 'financier-underwriting',
+          icon: FileText,
+          desc: 'Evaluate & approve loan requests',
+        },
+        {
+          label: 'Active Credit Portfolio',
+          page: 'financier-portfolio',
+          icon: PieChart,
+          desc: 'Live loans & repayment tracking',
+        },
+      ],
+    },
+    {
+      type: 'dropdown',
+      id: 'vault-ledger',
+      label: 'Vault & Settlements',
+      icon: Shield,
+      items: [
+        {
+          label: 'Collateral & e-NWR Vault',
+          page: 'financier-collateral-vault',
+          icon: Building2,
+          desc: 'WDRA receipts & escrow liens',
+        },
+        {
+          label: 'Disbursements & Yields',
+          page: 'financier-disbursements',
+          icon: Receipt,
+          desc: 'Payout ledger & interest returns',
+        },
+      ],
+    },
+  ];
+
   const getNavGroups = () => {
     if (user.role === 'buyer') return buyerNavGroups;
     if (user.role === 'farmer') return farmerNavGroups;
+    if (user.role === 'financier') return financierNavGroups;
     return [];
   };
 
@@ -237,12 +290,12 @@ export default function DashboardLayout({
               >
                 <img
                   src={logoImg}
-                  alt="AGRAMAZ Logo"
+                  alt="Agrolnk Logo"
                   className="w-9 h-9 object-contain rounded-xl bg-white border border-[#E5EDE8] p-0.5 shadow-xs"
                 />
                 <div className="text-left">
                   <span className="text-lg font-bold text-[#0B3326] font-heading leading-none block">
-                    AGRAMAZ
+                    Agrolnk
                   </span>
                   <span className="text-[10px] text-[#10B981] font-semibold uppercase tracking-wider block mt-0.5">
                     {currentRoleConfig.title}
@@ -438,7 +491,7 @@ export default function DashboardLayout({
       <footer className="border-t border-[#E5EDE8] bg-white py-4 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#566861]">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-[#0B3326]">AGRAMAZ</span>
+            <span className="font-bold text-[#0B3326]">Agrolnk</span>
             <span>• Fairer, Direct Agricultural Exchange</span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-[#10B981] font-semibold">

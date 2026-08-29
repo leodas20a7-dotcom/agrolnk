@@ -1,6 +1,6 @@
 -- ============================================================================
--- AGRAMAZ PRODUCTION DATABASE SCHEMA FOR SUPABASE (PostgreSQL)
--- Project: AGRAMAZ Agri-Fintech & Digital Commodity Exchange
+-- AGROLNK PRODUCTION DATABASE SCHEMA FOR SUPABASE (PostgreSQL)
+-- Project: AGROLNK Agri-Fintech & Digital Commodity Exchange
 -- ============================================================================
 
 -- Enable UUID extension
@@ -273,11 +273,11 @@ CREATE POLICY "Allow public insert/update financing_requests" ON public.financin
 -- Insert Demo Profiles
 INSERT INTO public.profiles (id, name, email, phone, role, company_name, state, district, kyc_status)
 VALUES
-    ('usr_farmer_01', 'Sakthi Vel', 'farmer@agramaz.com', '+91 98765 43210', 'farmer', 'Vel Farm Produce', 'Tamil Nadu', 'Salem', 'verified'),
-    ('usr_buyer_02', 'Ananya Agro Foods', 'buyer@agramaz.com', '+91 98765 43211', 'buyer', 'Ananya Agro Foods Pvt Ltd', 'Tamil Nadu', 'Chennai', 'verified'),
-    ('usr_financier_03', 'Kisan Capital Partners', 'financier@agramaz.com', '+91 98765 43212', 'financier', 'Kisan Capital NBFC', 'Maharashtra', 'Mumbai', 'verified'),
-    ('usr_transporter_04', 'Venkatesh Freight Logistics', 'transporter@agramaz.com', '+91 98765 43213', 'transporter', 'Venkatesh Road Carriers', 'Tamil Nadu', 'Coimbatore', 'verified'),
-    ('usr_warehouse_05', 'Salem Central Agri Vault', 'warehouse@agramaz.com', '+91 98765 43214', 'warehouse', 'Salem Agri Warehousing Corp', 'Tamil Nadu', 'Salem', 'verified')
+    ('usr_farmer_01', 'Sakthi Vel', 'farmer@agrolnk.com', '+91 98765 43210', 'farmer', 'Vel Farm Produce', 'Tamil Nadu', 'Salem', 'verified'),
+    ('usr_buyer_02', 'Ananya Agro Foods', 'buyer@agrolnk.com', '+91 98765 43211', 'buyer', 'Ananya Agro Foods Pvt Ltd', 'Tamil Nadu', 'Chennai', 'verified'),
+    ('usr_financier_03', 'Kisan Capital Partners', 'financier@agrolnk.com', '+91 98765 43212', 'financier', 'Kisan Capital NBFC', 'Maharashtra', 'Mumbai', 'verified'),
+    ('usr_transporter_04', 'Venkatesh Freight Logistics', 'transporter@agrolnk.com', '+91 98765 43213', 'transporter', 'Venkatesh Road Carriers', 'Tamil Nadu', 'Coimbatore', 'verified'),
+    ('usr_warehouse_05', 'Salem Central Agri Vault', 'warehouse@agrolnk.com', '+91 98765 43214', 'warehouse', 'Salem Agri Warehousing Corp', 'Tamil Nadu', 'Salem', 'verified')
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert Warehouses

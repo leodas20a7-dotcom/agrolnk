@@ -32,7 +32,7 @@ export default function MissionBanner({ onJoin }) {
               iconPosition="right"
               className="font-bold py-3.5 px-8 shadow-xs cursor-pointer text-sm sm:text-base"
             >
-              Get Started with AGRAMAZ
+              Get Started with Agrolnk
             </Button>
           </div>
 

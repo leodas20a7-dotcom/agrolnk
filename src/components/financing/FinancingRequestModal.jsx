@@ -46,7 +46,7 @@ export default function FinancingRequestModal({
       ];
 
   const repaymentOptions = [
-    { id: 'auto_escrow_deduction', label: 'Auto-deduction on AGRAMAZ escrow payout' },
+    { id: 'auto_escrow_deduction', label: 'Auto-deduction on Agrolnk escrow payout' },
     { id: '30_day_settlement', label: '30-day post-delivery settlement' },
     { id: 'harvest_cycle', label: 'Seasonal harvest cycle rollover' },
   ];
@@ -285,7 +285,7 @@ export default function FinancingRequestModal({
           <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
             <span>
-              This request is backed by verified AGRAMAZ order {order?.orderNumber}. No independent collateral required.
+              This request is backed by verified Agrolnk order {order?.orderNumber}. No independent collateral required.
             </span>
           </div>
 

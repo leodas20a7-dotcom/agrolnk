@@ -1,13 +1,13 @@
-// AGRAMAZ Prototype Warehouse & Inventory Engine (LocalStorage)
+// Agrolnk Prototype Warehouse & Inventory Engine (LocalStorage)
 // Manages Certified Warehouses & Electronic Negotiable Warehouse Receipts (e-NWR)
 
 import { createListing } from './listings';
 import { createAuction } from './auctions';
 
-const WAREHOUSES_STORAGE_KEY = 'agramazWarehouses';
-const INVENTORY_STORAGE_KEY = 'agramazInventory';
+const WAREHOUSES_STORAGE_KEY = 'agrolnkWarehouses';
+const INVENTORY_STORAGE_KEY = 'agrolnkInventory';
 
-// Certified WDRA & AGRAMAZ Hubs
+// Certified WDRA & Agrolnk Hubs
 const DEFAULT_DEMO_WAREHOUSES = [
   {
     id: 'wh_salem_01',
@@ -173,7 +173,7 @@ const DEFAULT_DEMO_INVENTORY = [
  */
 export function getWarehouses() {
   try {
-    const raw = localStorage.getItem(WAREHOUSES_STORAGE_KEY);
+    const raw = localStorage.getItem(WAREHOUSES_STORAGE_KEY) || localStorage.getItem('agramazWarehouses');
     if (!raw) {
       localStorage.setItem(WAREHOUSES_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_WAREHOUSES));
       return DEFAULT_DEMO_WAREHOUSES;
@@ -198,7 +198,7 @@ export function getWarehouseById(id) {
  */
 export function getInventory() {
   try {
-    const raw = localStorage.getItem(INVENTORY_STORAGE_KEY);
+    const raw = localStorage.getItem(INVENTORY_STORAGE_KEY) || localStorage.getItem('agramazInventory');
     if (!raw) {
       localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_INVENTORY));
       return DEFAULT_DEMO_INVENTORY;

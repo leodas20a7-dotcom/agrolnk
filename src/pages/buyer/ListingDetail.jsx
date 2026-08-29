@@ -199,7 +199,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   </Badge>
                 </div>
                 <p className="text-[11px] text-[#566861]">
-                  Direct grower with 100% past delivery fulfillment on AGRAMAZ.
+                  Direct grower with 100% past delivery fulfillment on Agrolnk.
                 </p>
               </div>
 

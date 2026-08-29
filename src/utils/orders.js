@@ -1,8 +1,8 @@
-// AGRAMAZ Prototype Orders Engine (LocalStorage)
+// Agrolnk Prototype Orders Engine (LocalStorage)
 // Enhanced lifecycle:
 // PENDING -> CONFIRMED -> (TRANSPORT_REQUESTED -> ASSIGNED -> PICKED_UP -> IN_TRANSIT -> DELIVERED) -> BUYER_CONFIRMS -> COMPLETED
 
-const ORDERS_STORAGE_KEY = 'agramazOrders';
+const ORDERS_STORAGE_KEY = 'agrolnkOrders';
 
 // Default multi-stage demo orders
 const DEFAULT_DEMO_ORDERS = [
@@ -103,7 +103,7 @@ const DEFAULT_DEMO_ORDERS = [
  */
 export function getOrders() {
   try {
-    const raw = localStorage.getItem(ORDERS_STORAGE_KEY);
+    const raw = localStorage.getItem(ORDERS_STORAGE_KEY) || localStorage.getItem('agramazOrders');
     if (!raw) {
       localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_ORDERS));
       return DEFAULT_DEMO_ORDERS;

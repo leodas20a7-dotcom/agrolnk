@@ -29,8 +29,12 @@ import BuyerDeliveries from './pages/buyer/BuyerDeliveries';
 // Shared Auction Room Page
 import AuctionRoom from './pages/auction/AuctionRoom';
 
-// Financier Dashboard
+// Financier Portal Experience Pages
 import FinancierDashboard from './pages/dashboards/FinancierDashboard';
+import UnderwritingDesk from './pages/financier/UnderwritingDesk';
+import FinancierPortfolio from './pages/financier/FinancierPortfolio';
+import CollateralVault from './pages/financier/CollateralVault';
+import DisbursementsLedger from './pages/financier/DisbursementsLedger';
 
 // Transporter Dashboard
 import TransporterDashboard from './pages/transporter/TransporterDashboard';
@@ -285,10 +289,46 @@ export default function App() {
         </ProtectedRoute>
       )}
 
-      {/* 8. Financier Dashboard */}
+      {/* 8. Financier Portal Experience Routes */}
       {currentPage === 'financier-dashboard' && (
         <ProtectedRoute requiredRole="financier" onNavigate={handleNavigate}>
           <FinancierDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'financier-underwriting' && (
+        <ProtectedRoute requiredRole="financier" onNavigate={handleNavigate}>
+          <UnderwritingDesk
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'financier-portfolio' && (
+        <ProtectedRoute requiredRole="financier" onNavigate={handleNavigate}>
+          <FinancierPortfolio
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'financier-collateral-vault' && (
+        <ProtectedRoute requiredRole="financier" onNavigate={handleNavigate}>
+          <CollateralVault
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'financier-disbursements' && (
+        <ProtectedRoute requiredRole="financier" onNavigate={handleNavigate}>
+          <DisbursementsLedger
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
           />

@@ -3,9 +3,8 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
-import FinancingCard from '../../components/financing/FinancingCard';
-import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
-import FinancingStatusBadge from '../../components/financing/FinancingStatusBadge';
+import InstitutionalUnderwriteModal from '../../components/financing/InstitutionalUnderwriteModal';
+import AddLiquidityModal from '../../components/financing/AddLiquidityModal';
 import {
   Landmark,
   Clock,
@@ -16,297 +15,451 @@ import {
   ArrowUpRight,
   Filter,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  PieChart,
+  Receipt,
+  Building2,
+  Calendar,
+  ArrowRight,
+  SlidersHorizontal,
+  Lock,
+  ChevronRight
 } from 'lucide-react';
-import { getFinancingRequests, getFinancingStats } from '../../utils/financing';
+import {
+  getFinancingRequests,
+  getFinancingStats,
+  getLiquidityPool,
+  getDisbursements
+} from '../../utils/financing';
 import { getTimeGreeting } from '../../utils/greeting';
 
 export default function FinancierDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Institutional Partner', role: 'financier' };
+  const user = currentUser || {
+    name: 'Kisan Capital Partners',
+    role: 'financier',
+    email: 'financier@agrolnk.com',
+  };
 
   const [requests, setRequests] = useState([]);
-  const [stats, setStats] = useState({
-    pendingRequests: 0,
-    activeFunding: 0,
-    totalFunded: 0,
-    completed: 0,
-  });
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'active' | 'completed' | 'all'
+  const [stats, setStats] = useState(null);
+  const [pool, setPool] = useState(null);
+  const [disbursements, setDisbursements] = useState([]);
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
+  const [isAddLiquidityOpen, setIsAddLiquidityOpen] = useState(false);
 
-  const loadFinancingData = () => {
+  const loadData = () => {
     const all = getFinancingRequests();
     setRequests(all);
     const computedStats = getFinancingStats();
     setStats(computedStats);
+    setPool(getLiquidityPool());
+    setDisbursements(getDisbursements());
   };
 
   useEffect(() => {
-    loadFinancingData();
+    loadData();
   }, []);
 
-  const tabs = [
-    {
-      id: 'pending',
-      label: 'Funding Requests',
-      count: requests.filter((r) => r.status === 'pending' || r.status === 'under_review').length,
-    },
-    {
-      id: 'active',
-      label: 'Active Funding',
-      count: requests.filter((r) => r.status === 'approved').length,
-    },
-    {
-      id: 'completed',
-      label: 'Completed',
-      count: stats.completed || 34,
-    },
-    {
-      id: 'all',
-      label: 'All Applications',
-      count: requests.length,
-    },
-  ];
-
-  const filteredRequests = requests.filter((r) => {
-    if (activeTab === 'pending') return r.status === 'pending' || r.status === 'under_review';
-    if (activeTab === 'active') return r.status === 'approved';
-    if (activeTab === 'completed') return r.status === 'completed';
-    return true;
-  });
+  const pendingRequests = requests.filter(
+    (r) => r.status === 'pending' || r.status === 'under_review'
+  );
+  const activeLoans = requests.filter((r) => r.status === 'approved');
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
         
-        {/* Welcome Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Landmark className="w-3.5 h-3.5" /> Trade Credit & NBFC Underwriting Desk
+        {/* 1. Executive Terminal Welcome Header */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#061B14] via-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] shadow-md">
+          <div className="space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <Landmark className="w-3.5 h-3.5" /> Institutional Capital & Trade Credit Terminal
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-heading">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading tracking-tight">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/80">
-              Deploy capital into verified agricultural invoices backed by AGRAMAZ escrow and digital produce receipts.
+            <p className="text-xs sm:text-sm text-[#DCFCE7]/85 leading-relaxed font-normal">
+              Direct underwriting, real-time escrow liens, and automated settlement of agricultural invoices and e-NWR warehouse receipts.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Badge variant="emerald" size="md">
-              Institutional Escrow Active
-            </Badge>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Button
+              variant="secondary"
+              size="md"
+              icon={Building2}
+              iconPosition="left"
+              onClick={() => onNavigate('financier-collateral-vault')}
+              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer font-semibold text-xs"
+            >
+              Collateral Vault
+            </Button>
+            <Button
+              variant="accent"
+              size="md"
+              icon={Plus}
+              iconPosition="left"
+              onClick={() => setIsAddLiquidityOpen(true)}
+              className="font-bold text-xs shadow-md cursor-pointer"
+            >
+              Deploy Capital
+            </Button>
           </div>
         </div>
 
-        {/* Section: 4 Core Metric Cards */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-              Financing Overview
-            </h2>
-            <span className="text-xs font-semibold text-[#566861]">
-              Live capital deployment
-            </span>
+        {/* 2. Four Core Institutional Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Available Lending Pool */}
+          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#566861]">
+              <span className="font-semibold">Available Liquidity Pool</span>
+              <div className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
+                <Landmark className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+              ₹{(pool?.availableLiquidity || 7544000).toLocaleString('en-IN')}
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span>Total Fund: ₹{(pool?.totalCommitted || 10000000).toLocaleString('en-IN')}</span>
+              <span className="text-[#10B981] font-bold">75.4% Liquid</span>
+            </div>
+          </Card>
+
+          {/* Active Capital Deployed */}
+          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#566861]">
+              <span className="font-semibold">Active Capital Deployed</span>
+              <div className="w-7 h-7 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+              ₹{(pool?.allocatedDeployed || 2456000).toLocaleString('en-IN')}
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span>Across {activeLoans.length + 2} Live Facilities</span>
+              <span className="text-[#D97706] font-bold">100% Escrow Lien</span>
+            </div>
+          </Card>
+
+          {/* Weighted Average Yield / IRR */}
+          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#566861]">
+              <span className="font-semibold">Weighted Average Yield (IRR)</span>
+              <div className="w-7 h-7 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
+                <PercentIcon className="w-4 h-4 text-[#10B981]" />
+              </div>
+            </div>
+            <div className="text-2xl font-extrabold text-[#10B981] font-heading">
+              {stats?.avgActiveYield || 11.4}% <span className="text-xs text-[#566861] font-normal">p.a.</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span>Net of Agrolnk exchange fee</span>
+              <span className="text-[#10B981] font-bold">+1.8% vs MIBOR</span>
+            </div>
+          </Card>
+
+          {/* Default Rate / Escrow Security */}
+          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#566861]">
+              <span className="font-semibold">Historical Default / NPA</span>
+              <div className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+              </div>
+            </div>
+            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+              0.00%
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span>34 Historical Settlements</span>
+              <span className="text-[#10B981] font-bold">100% On-Time</span>
+            </div>
+          </Card>
+
+        </div>
+
+        {/* 3. Quick Action Operations Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <button
+            onClick={() => onNavigate('financier-underwriting')}
+            className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold text-sm text-[#0B3326] block">Underwriting Desk</span>
+                <span className="text-xs text-[#566861]">{pendingRequests.length} pending review</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#566861] group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <button
+            onClick={() => onNavigate('financier-portfolio')}
+            className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
+                <PieChart className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold text-sm text-[#0B3326] block">Active Portfolio</span>
+                <span className="text-xs text-[#566861]">{activeLoans.length} active live loans</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#566861] group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <button
+            onClick={() => onNavigate('financier-disbursements')}
+            className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold text-sm text-[#0B3326] block">Disbursements & Ledger</span>
+                <span className="text-xs text-[#566861]">Bank UTRs & yield history</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#566861] group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
+
+        {/* 4. Main Two Column Section: Live Applications & Risk/Portfolio Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Left Column (7 Cols): High-Priority Underwriting Applications */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+                  High-Priority Loan Applications
+                </h2>
+                <p className="text-xs text-[#566861]">
+                  Verified trade agreements ready for credit assessment & liquidity deployment
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigate('financier-underwriting')}
+                className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>View All ({pendingRequests.length})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {pendingRequests.length === 0 ? (
+              <Card className="p-8 bg-white border border-[#E5EDE8] text-center space-y-2">
+                <CheckCircle2 className="w-8 h-8 text-[#10B981] mx-auto" />
+                <h4 className="text-sm font-bold text-[#0B3326]">Underwriting Queue Clear</h4>
+                <p className="text-xs text-[#566861]">
+                  All current trade credit and working capital requests have been processed.
+                </p>
+              </Card>
+            ) : (
+              <div className="space-y-3.5">
+                {pendingRequests.map((req) => {
+                  const ltv = Number(((req.requestedAmount / req.transactionValue) * 100).toFixed(1));
+
+                  return (
+                    <Card
+                      key={req.id}
+                      hoverEffect
+                      className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#0B3326] font-bold text-xs flex items-center justify-center">
+                            {req.applicantRole === 'farmer' ? '🌾' : '🛒'}
+                          </div>
+                          <div>
+                            <span className="font-bold text-xs sm:text-sm text-[#14211D] block">
+                              {req.applicantName}
+                            </span>
+                            <span className="text-[11px] text-[#566861]">
+                              {req.applicantLocation} • Score: <b className="text-[#10B981]">{req.creditScore || 780}</b>
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Badge variant="emerald" size="sm">
+                            {req.riskRating || 'Tier 1 Prime'}
+                          </Badge>
+                          <Badge variant="amber" size="sm">
+                            {req.status === 'under_review' ? 'Under Review' : 'Pending'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2.5 p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
+                        <div>
+                          <span className="text-[10px] text-[#566861] block">Requested</span>
+                          <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                            ₹{req.requestedAmount.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] block">LTV Ratio</span>
+                          <span className="font-bold text-[#10B981] text-xs sm:text-sm">
+                            {ltv}%
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] block">Collateral Value</span>
+                          <span className="font-bold text-[#14211D] text-xs sm:text-sm">
+                            ₹{req.transactionValue.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-[#566861] flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-[#10B981]" />
+                          <span>Lien: Order {req.orderNumber}</span>
+                        </span>
+
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          onClick={() => setSelectedRequestForReview(req)}
+                          className="font-bold text-xs cursor-pointer"
+                        >
+                          Underwrite & Structure
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Right Column (5 Cols): Portfolio Allocation & Maturity Pipeline */}
+          <div className="lg:col-span-5 space-y-6">
             
-            {/* Pending Requests */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">Pending Requests</span>
-                <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
-                  <Clock className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-                {stats.pendingRequests}
-              </div>
-              <div className="text-[11px] text-[#566861]">
-                Verified orders awaiting underwriting
-              </div>
-            </Card>
-
-            {/* Active Funding */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">Active Funding</span>
-                <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-                {stats.activeFunding}
-              </div>
-              <div className="text-[11px] text-[#566861]">
-                Active trade credit facilities
-              </div>
-            </Card>
-
-            {/* Total Funded */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">Total Funded</span>
-                <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                </div>
-              </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-                ₹{(stats.totalFunded / 100000).toFixed(1)}L
-              </div>
-              <div className="text-[11px] text-[#10B981] font-semibold">
-                100% Escrow protected
-              </div>
-            </Card>
-
-            {/* Completed */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">Completed</span>
-                <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-                {stats.completed}
-              </div>
-              <div className="text-[11px] text-[#566861]">
-                Fully settled agreements
-              </div>
-            </Card>
-
-          </div>
-        </div>
-
-        {/* Section: Funding Pipeline & Applications */}
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-              Funding Requests Pipeline
-            </h2>
-            <span className="text-xs text-[#566861]">
-              Select any request to inspect collateral & review terms
-            </span>
-          </div>
-
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-                    isActive
-                      ? 'bg-[#0B3326] text-white shadow-xs'
-                      : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      isActive
-                        ? 'bg-[#10B981] text-white'
-                        : 'bg-[#F8FAF8] text-[#566861]'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Application Cards Grid */}
-          {filteredRequests.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {filteredRequests.map((request) => (
-                <FinancingCard
-                  key={request.id}
-                  request={request}
-                  viewerRole="financier"
-                  onView={(item) => setSelectedRequestForReview(item)}
-                />
-              ))}
-            </div>
-          ) : (
-            <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
-                <FileText className="w-6 h-6 text-[#10B981]" />
-              </div>
-              <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                No {activeTab} funding requests
+            {/* Risk & Segment Distribution */}
+            <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
+              <h3 className="text-sm font-bold text-[#0B3326] font-heading uppercase tracking-wider">
+                Capital Deployment Breakdown
               </h3>
-              <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                When farmers or buyers submit liquidity requests for their verified orders, they will appear here for underwriting review.
-              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="text-[#14211D]">Farmer Working Capital</span>
+                    <span className="text-[#10B981]">55% (₹13.5 Lakhs)</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
+                    <div className="h-full bg-[#10B981] rounded-full" style={{ width: '55%' }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="text-[#14211D]">Buyer Invoice Discounting</span>
+                    <span className="text-[#0B3326]">30% (₹7.3 Lakhs)</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
+                    <div className="h-full bg-[#0B3326] rounded-full" style={{ width: '30%' }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="text-[#14211D]">WDRA e-NWR Vault Loans</span>
+                    <span className="text-[#D97706]">15% (₹3.7 Lakhs)</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
+                    <div className="h-full bg-[#D97706] rounded-full" style={{ width: '15%' }} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between text-xs text-[#566861]">
+                <span>Risk Distribution:</span>
+                <span className="font-bold text-[#10B981]">100% Tier 1 / Low Risk</span>
+              </div>
             </Card>
-          )}
-        </div>
 
-        {/* Section: Risk & Collateral Infrastructure */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-[#E5EDE8]">
-          <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5 text-[#10B981]" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                  Underwriting & Risk Protection
+            {/* Upcoming Repayment Maturities */}
+            <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[#0B3326] font-heading uppercase tracking-wider">
+                  Upcoming Maturities (30 Days)
                 </h3>
-                <span className="text-xs text-[#566861]">Institutional grade collateral</span>
+                <span className="text-[11px] font-semibold text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-full">
+                  Auto-Deduct Active
+                </span>
               </div>
-            </div>
 
-            <p className="text-xs text-[#566861] leading-relaxed">
-              Every loan application is backed by certified electronic Negotiable Warehouse Receipts (e-NWR) and direct buyer escrow lock, eliminating default exposure.
-            </p>
+              <div className="space-y-3">
+                {disbursements.slice(0, 3).map((disb) => (
+                  <div
+                    key={disb.id}
+                    className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs"
+                  >
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-[#14211D] block">
+                        {disb.applicantName}
+                      </span>
+                      <span className="text-[11px] text-[#566861]">
+                        Maturity: {new Date(disb.maturityDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
 
-            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs font-semibold text-[#0B3326]">
-              <span>Current Platform Default Rate</span>
-              <span className="text-[#10B981] font-bold">0.00% (Zero Loss)</span>
-            </div>
-          </Card>
-
-          <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
-                <TrendingUp className="w-5 h-5" />
+                    <div className="text-right">
+                      <span className="font-bold text-[#0B3326] block">
+                        ₹{disb.expectedReturn.toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-[10px] text-[#10B981] font-semibold">
+                        {disb.interestRate}% APR
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                  Automated Settlement Engine
-                </h3>
-                <span className="text-xs text-[#566861]">Instant repayment upon delivery</span>
-              </div>
-            </div>
+            </Card>
 
-            <p className="text-xs text-[#566861] leading-relaxed">
-              When buyer delivery is marked complete via GPS geo-fence and weight confirmation, principal plus accrued interest is automatically returned to your account.
-            </p>
+          </div>
 
-            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs font-semibold text-[#0B3326]">
-              <span>Avg Trade Turnaround Cycle</span>
-              <span className="text-[#0B3326] font-bold">14.2 Days</span>
-            </div>
-          </Card>
         </div>
 
       </div>
 
-      {/* Financier Review Modal */}
+      {/* Underwriting Modal */}
       {selectedRequestForReview && (
-        <FinancingReviewModal
-          request={selectedRequestForReview}
-          viewerRole="financier"
+        <InstitutionalUnderwriteModal
+          isOpen={Boolean(selectedRequestForReview)}
           onClose={() => setSelectedRequestForReview(null)}
-          onStatusUpdated={() => loadFinancingData()}
+          request={selectedRequestForReview}
+          onUpdated={loadData}
+        />
+      )}
+
+      {/* Add Liquidity Modal */}
+      {isAddLiquidityOpen && (
+        <AddLiquidityModal
+          isOpen={isAddLiquidityOpen}
+          onClose={() => setIsAddLiquidityOpen(false)}
+          onAdded={loadData}
         />
       )}
     </DashboardLayout>
+  );
+}
+
+function PercentIcon(props) {
+  return (
+    <span className="font-bold text-xs" {...props}>
+      %
+    </span>
   );
 }

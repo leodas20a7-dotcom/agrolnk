@@ -19,7 +19,7 @@ import { loginUser, registerUser } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 
 export default function Login({ onNavigate, navState }) {
-  // Flip state: false = Sign In (Front), true = Join AGRAMAZ (Back)
+  // Flip state: false = Sign In (Front), true = Join Agrolnk (Back)
   const [isFlipped, setIsFlipped] = useState(Boolean(navState?.initialRegister));
 
   // --- Sign In State ---
@@ -50,11 +50,11 @@ export default function Login({ onNavigate, navState }) {
   ];
 
   const demoAccounts = [
-    { label: 'Farmer', email: 'farmer@agramaz.com', icon: '🌾' },
-    { label: 'Buyer', email: 'buyer@agramaz.com', icon: '🛒' },
-    { label: 'Financier', email: 'financier@agramaz.com', icon: '💰' },
-    { label: 'Transporter', email: 'transporter@agramaz.com', icon: '🚚' },
-    { label: 'Warehouse', email: 'warehouse@agramaz.com', icon: '🏭' },
+    { label: 'Farmer', email: 'farmer@agrolnk.com', icon: '🌾' },
+    { label: 'Buyer', email: 'buyer@agrolnk.com', icon: '🛒' },
+    { label: 'Financier', email: 'financier@agrolnk.com', icon: '💰' },
+    { label: 'Transporter', email: 'transporter@agrolnk.com', icon: '🚚' },
+    { label: 'Warehouse', email: 'warehouse@agrolnk.com', icon: '🏭' },
   ];
 
   // Handle Sign In Submit
@@ -158,12 +158,12 @@ export default function Login({ onNavigate, navState }) {
                 <div className="flex items-center gap-3">
                   <img
                     src={logoImg}
-                    alt="AGRAMAZ Logo"
+                    alt="Agrolnk Logo"
                     className="w-11 h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
                     <span className="text-2xl font-bold tracking-tight text-white font-heading block">
-                      AGRAMAZ
+                      Agrolnk
                     </span>
                     <span className="text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Digital Agri Exchange
@@ -265,7 +265,7 @@ export default function Login({ onNavigate, navState }) {
                         type="email"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        placeholder="e.g. farmer@agramaz.com"
+                        placeholder="e.g. farmer@agrolnk.com"
                         className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         required
                       />
@@ -328,14 +328,14 @@ export default function Login({ onNavigate, navState }) {
                   onClick={() => setIsFlipped(true)}
                   className="font-bold text-[#0B3326] hover:text-[#10B981] hover:underline cursor-pointer inline-flex items-center gap-1"
                 >
-                  <span>Join AGRAMAZ</span>
+                  <span>Join Agrolnk</span>
                   <span className="text-[10px] text-[#10B981]">🔄</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* ================= BACK SIDE: JOIN AGRAMAZ (REGISTER) ================= */}
+          {/* ================= BACK SIDE: JOIN AGROLNK (REGISTER) ================= */}
           <div
             className={`absolute inset-0 w-full h-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden rotate-y-180 ${
               !isFlipped ? 'pointer-events-none' : ''
@@ -359,12 +359,12 @@ export default function Login({ onNavigate, navState }) {
                 <div className="flex items-center gap-3">
                   <img
                     src={logoImg}
-                    alt="AGRAMAZ Logo"
+                    alt="Agrolnk Logo"
                     className="w-11 h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
                     <span className="text-2xl font-bold tracking-tight text-white font-heading block">
-                      AGRAMAZ
+                      Agrolnk
                     </span>
                     <span className="text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Direct Agricultural Exchange
@@ -404,7 +404,7 @@ export default function Login({ onNavigate, navState }) {
               </div>
             </div>
 
-            {/* Right Join AGRAMAZ Form */}
+            {/* Right Join Agrolnk Form */}
             <div className="lg:col-span-7 p-7 sm:p-9 xl:p-11 flex flex-col justify-between bg-white space-y-5">
               <div className="space-y-4">
                 <div>

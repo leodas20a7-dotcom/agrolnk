@@ -1,10 +1,10 @@
-// AGRAMAZ Prototype Deliveries & Logistics Engine (LocalStorage)
+// Agrolnk Prototype Deliveries & Logistics Engine (LocalStorage)
 // Lifecycle:
 // TRANSPORT_REQUESTED -> ASSIGNED -> PICKED_UP -> IN_TRANSIT -> DELIVERED -> COMPLETED
 
 import { updateOrderDeliveryStatus, updateOrderStatus, confirmOrderReceipt } from './orders';
 
-const DELIVERIES_STORAGE_KEY = 'agramazDeliveries';
+const DELIVERIES_STORAGE_KEY = 'agrolnkDeliveries';
 
 // Default pre-seeded demo deliveries
 const DEFAULT_DEMO_DELIVERIES = [
@@ -175,7 +175,7 @@ const DEFAULT_DEMO_DELIVERIES = [
  */
 export function getDeliveries() {
   try {
-    const raw = localStorage.getItem(DELIVERIES_STORAGE_KEY);
+    const raw = localStorage.getItem(DELIVERIES_STORAGE_KEY) || localStorage.getItem('agramazDeliveries');
     if (!raw) {
       localStorage.setItem(DELIVERIES_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_DELIVERIES));
       return DEFAULT_DEMO_DELIVERIES;

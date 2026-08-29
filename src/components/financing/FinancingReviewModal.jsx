@@ -104,7 +104,7 @@ export default function FinancingReviewModal({
               </Badge>
             </div>
             <span className="text-xs text-[#566861] block">
-              Verified AGRAMAZ Trading Participant
+              Verified Agrolnk Trading Participant
             </span>
           </div>
 
@@ -287,7 +287,7 @@ export default function FinancingReviewModal({
               <span className="text-[#566861]">
                 {request.status === 'approved' && `Funding of ₹${request.approvedAmount?.toLocaleString('en-IN')} is approved and earmarked.`}
                 {request.status === 'under_review' && 'Institutional financier is evaluating your order collateral.'}
-                {request.status === 'pending' && 'Application submitted to verified AGRAMAZ trade finance network.'}
+                {request.status === 'pending' && 'Application submitted to verified Agrolnk trade finance network.'}
                 {request.status === 'rejected' && 'Application declined. You may adjust requested amount and reapply.'}
               </span>
             </div>

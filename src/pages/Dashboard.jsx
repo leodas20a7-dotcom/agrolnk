@@ -20,7 +20,7 @@ export default function Dashboard({ onNavigate, navState }) {
               Welcome back, {user.fullName || 'Partner'}!
             </h1>
             <p className="text-xs text-[#DCFCE7]/80">
-              Here is your AGRAMAZ {role} exchange overview and market activity.
+              Here is your Agrolnk {role} exchange overview and market activity.
             </p>
           </div>
           <div className="flex items-center gap-2">

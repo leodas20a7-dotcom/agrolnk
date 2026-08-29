@@ -206,7 +206,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                     <span className="text-[10px] text-[#566861]">Just now</span>
                   </div>
                   <p className="text-xs text-[#566861] mt-0.5">
-                    Your AGRAMAZ Farmer profile is active. You can now prepare your first produce batch for market listing.
+                    Your Agrolnk Farmer profile is active. You can now prepare your first produce batch for market listing.
                   </p>
                 </div>
               </div>

@@ -126,7 +126,7 @@ export default function OrderSummary({
               </span>
             </div>
             <span className="text-[11px] text-[#566861] block mt-0.5">
-              Verified AGRAMAZ Trading Partner
+              Verified Agrolnk Trading Partner
             </span>
           </div>
 

@@ -1,4 +1,4 @@
-// AGRAMAZ Time-Aware Greeting Utility
+// Agrolnk Time-Aware Greeting Utility
 
 /**
  * Returns dynamic, time-of-day greeting (morning, afternoon, evening, night)

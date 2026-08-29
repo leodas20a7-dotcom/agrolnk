@@ -1,10 +1,10 @@
-// AGRAMAZ Prototype Live Auctions Engine (LocalStorage)
+// Agrolnk Prototype Live Auctions Engine (LocalStorage)
 // Stores live auctions, bid logs, and manages reserve price settlement into Orders.
 
 import { createOrder } from './orders';
 
-const AUCTIONS_STORAGE_KEY = 'agramazAuctions';
-const BIDS_STORAGE_KEY = 'agramazBids';
+const AUCTIONS_STORAGE_KEY = 'agrolnkAuctions';
+const BIDS_STORAGE_KEY = 'agrolnkBids';
 
 // Default pre-seeded live auction lots
 const DEFAULT_DEMO_AUCTIONS = [
@@ -136,11 +136,11 @@ const AUCTIONS_DATA_VERSION = 'v3_diverse_auctions';
  */
 export function getAuctions() {
   try {
-    const storedVersion = localStorage.getItem('agramazAuctions_version');
-    const raw = localStorage.getItem(AUCTIONS_STORAGE_KEY);
+    const storedVersion = localStorage.getItem('agrolnkAuctions_version') || localStorage.getItem('agramazAuctions_version');
+    const raw = localStorage.getItem(AUCTIONS_STORAGE_KEY) || localStorage.getItem('agramazAuctions');
     if (!raw || storedVersion !== AUCTIONS_DATA_VERSION) {
       localStorage.setItem(AUCTIONS_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_AUCTIONS));
-      localStorage.setItem('agramazAuctions_version', AUCTIONS_DATA_VERSION);
+      localStorage.setItem('agrolnkAuctions_version', AUCTIONS_DATA_VERSION);
       return DEFAULT_DEMO_AUCTIONS;
     }
     const parsed = JSON.parse(raw);
@@ -336,7 +336,7 @@ export function placeBid(auctionId, buyerId, buyerName, amount) {
   // Masked anonymous buyer tag
   const maskedTag = buyerName ? buyerName : `Buyer #${buyerId?.slice(-3) || 'X99'}`;
 
-  // Create bid record in agramazBids
+  // Create bid record in agrolnkBids
   const newBid = {
     id: `bid_${Date.now()}`,
     auctionId,
@@ -366,7 +366,7 @@ export function placeBid(auctionId, buyerId, buyerName, amount) {
  * Finalizes an auction when countdown timer completes.
  * Prevents duplicate orders by checking auction.status === 'live'.
  * Evaluates reserve price threshold:
- * - If highestBid >= reservePrice: status = 'completed' -> creates Order in agramazOrders
+ * - If highestBid >= reservePrice: status = 'completed' -> creates Order in agrolnkOrders
  * - If highestBid < reservePrice or no bids: status = 'reserve_not_met' -> No order created
  */
 export function finalizeAuction(auctionId) {
@@ -395,7 +395,7 @@ export function finalizeAuction(auctionId) {
     const winningAmount = highestBid.amount;
     const totalOrderAmount = winningAmount * auction.quantity;
 
-    // 2. Create the unified AGRAMAZ Escrow Order
+    // 2. Create the unified Agrolnk Escrow Order
     const newOrder = createOrder({
       type: 'auction',
       auctionId: auction.id,

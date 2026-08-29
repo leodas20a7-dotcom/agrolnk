@@ -271,7 +271,7 @@ export default function CreateDeliveryModal({
           <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
             <span>
-              This dispatch is broadcast to verified AGRAMAZ logistics transporters. Escrow payout is protected throughout transit.
+              This dispatch is broadcast to verified Agrolnk logistics transporters. Escrow payout is protected throughout transit.
             </span>
           </div>
 

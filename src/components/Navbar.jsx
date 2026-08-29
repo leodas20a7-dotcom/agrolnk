@@ -39,12 +39,12 @@ export default function Navbar({ onNavigate }) {
           >
             <img
               src={logoImg}
-              alt="AGRAMAZ Logo"
+              alt="Agrolnk Logo"
               className="w-10 h-10 object-contain rounded-xl bg-white border border-[#E5EDE8] p-0.5 shadow-xs"
             />
             <div className="flex flex-col text-left">
               <span className="text-xl font-extrabold tracking-tight text-[#0B3326] font-heading leading-tight">
-                AGRAMAZ
+                Agrolnk
               </span>
               <span className="text-[10px] font-semibold text-[#10B981] uppercase tracking-widest">
                 Agri Exchange
@@ -83,7 +83,7 @@ export default function Navbar({ onNavigate }) {
               onClick={() => onNavigate?.('register')}
               className="cursor-pointer"
             >
-              Join AGRAMAZ
+              Join Agrolnk
             </Button>
           </div>
 
@@ -141,7 +141,7 @@ export default function Navbar({ onNavigate }) {
                 onNavigate?.('register');
               }}
             >
-              Join AGRAMAZ
+              Join Agrolnk
             </Button>
           </div>
         </div>
