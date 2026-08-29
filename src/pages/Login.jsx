@@ -98,12 +98,24 @@ export default function Login({ onNavigate, navState }) {
       setRegisterError('Please enter your full name.');
       return;
     }
+    if (!/^[A-Za-z\s.]{2,}$/.test(registerData.name.trim())) {
+      setRegisterError('Full name must contain only letters and spaces (no numbers).');
+      return;
+    }
     if (!registerData.phone.trim()) {
       setRegisterError('Please enter your mobile number.');
       return;
     }
+    if (registerData.phone.length !== 10 || !/^\d{10}$/.test(registerData.phone)) {
+      setRegisterError('Mobile number must be exactly 10 digits.');
+      return;
+    }
     if (!registerData.email.trim()) {
       setRegisterError('Please enter your email address.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email.trim())) {
+      setRegisterError('Please enter a valid email address (e.g. user@example.com).');
       return;
     }
 
@@ -462,8 +474,11 @@ export default function Login({ onNavigate, navState }) {
                         <input
                           type="text"
                           value={registerData.name}
-                          onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                          placeholder="e.g. Sakthi Vel"
+                          onChange={(e) => {
+                            const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.]/g, '');
+                            setRegisterData({ ...registerData, name: lettersOnly });
+                          }}
+                          placeholder="e.g. Sakthi Vel (letters only)"
                           className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                           required
                         />
@@ -478,9 +493,14 @@ export default function Login({ onNavigate, navState }) {
                         <Phone className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                           type="tel"
+                          inputMode="numeric"
+                          maxLength={10}
                           value={registerData.phone}
-                          onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
-                          placeholder="+91 98765 43210"
+                          onChange={(e) => {
+                            const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setRegisterData({ ...registerData, phone: digitsOnly });
+                          }}
+                          placeholder="9876543210 (10 digits)"
                           className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                           required
                         />

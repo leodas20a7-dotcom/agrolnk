@@ -116,9 +116,19 @@ export default function Register({ onNavigate, navState }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let cleanValue = value;
+
+    if (name === 'name') {
+      // Name: Only allow letters, spaces, dots (no numbers)
+      cleanValue = value.replace(/[^a-zA-Z\s.]/g, '');
+    } else if (name === 'phone') {
+      // Phone: Only allow digits, max 10 characters (no letters)
+      cleanValue = value.replace(/\D/g, '').slice(0, 10);
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === 'checkbox' ? checked : cleanValue,
     }));
   };
 
@@ -130,12 +140,24 @@ export default function Register({ onNavigate, navState }) {
       setError('Please enter your full name.');
       return;
     }
+    if (!/^[A-Za-z\s.]{2,}$/.test(formData.name.trim())) {
+      setError('Full name must contain only letters and spaces (no numbers).');
+      return;
+    }
     if (!formData.phone.trim()) {
       setError('Please enter your mobile number.');
       return;
     }
+    if (formData.phone.length !== 10 || !/^\d{10}$/.test(formData.phone)) {
+      setError('Mobile number must be exactly 10 digits.');
+      return;
+    }
     if (!formData.email.trim()) {
       setError('Please enter your email address.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      setError('Please enter a valid email address (e.g. user@example.com).');
       return;
     }
     if (!formData.password || formData.password.length < 6) {
@@ -311,7 +333,7 @@ export default function Register({ onNavigate, navState }) {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g. Sakthi Vel"
+                  placeholder="e.g. Sakthi Vel (letters only)"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
                 />
               </div>
@@ -323,11 +345,13 @@ export default function Register({ onNavigate, navState }) {
                 </label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   name="phone"
                   required
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="+91 98765 43210"
+                  placeholder="9876543210 (10 digits)"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
                 />
               </div>
