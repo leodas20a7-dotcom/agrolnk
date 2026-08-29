@@ -190,13 +190,13 @@ export default function Register({ onNavigate, navState }) {
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] flex flex-col justify-center py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
-      
+
       {/* Container with Split Layout on Desktop */}
       <div className="max-w-5xl w-full mx-auto bg-white rounded-3xl border border-[#E5EDE8] shadow-lg overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-        
+
         {/* Left Side (Desktop Only): Solid Deep Green Brand & Value Panel */}
         <div className="lg:col-span-5 bg-[#0B3326] text-white p-8 sm:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#14624A]">
-          
+
           {/* Top Logo & Back Nav */}
           <div className="space-y-6">
             <button
@@ -278,9 +278,9 @@ export default function Register({ onNavigate, navState }) {
 
         {/* Right Side: Clean Minimal Registration Form */}
         <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-between">
-          
+
           <div className="space-y-6">
-            
+
             {/* Top Account Type Banner with "Change" Link */}
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
               <div className="flex items-center gap-2">
@@ -321,7 +321,7 @@ export default function Register({ onNavigate, navState }) {
 
             {/* Registration Form Fields */}
             <form onSubmit={handleSubmit} className="space-y-4 text-left">
-              
+
               {/* Full Name */}
               <div>
                 <label className="block text-xs font-bold text-[#14211D] mb-1.5">
@@ -333,7 +333,7 @@ export default function Register({ onNavigate, navState }) {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g. Sakthi Vel (letters only)"
+                  placeholder="e.g. Ramesh Kumar"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
                 />
               </div>
@@ -367,7 +367,7 @@ export default function Register({ onNavigate, navState }) {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="sakthi@example.com"
+                  placeholder="ramesh@example.com"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
                 />
               </div>

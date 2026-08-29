@@ -138,23 +138,21 @@ export default function Login({ onNavigate, navState }) {
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] flex items-center justify-center p-4 sm:p-6 lg:p-8 xl:p-10">
-      
+
       {/* 3D Perspective Container (Expands dynamically on desktop) */}
       <div className="perspective-1000 w-full max-w-5xl xl:max-w-6xl">
-        
+
         {/* Flippable Card Wrapper */}
         <div
-          className={`relative w-full transition-transform duration-700 transform-style-3d ${
-            isFlipped ? 'rotate-y-180' : ''
-          }`}
+          className={`relative w-full transition-transform duration-700 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''
+            }`}
           style={{ transformStyle: 'preserve-3d' }}
         >
-          
+
           {/* ================= FRONT SIDE: SIGN IN ================= */}
           <div
-            className={`w-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden ${
-              isFlipped ? 'pointer-events-none' : ''
-            }`}
+            className={`w-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden ${isFlipped ? 'pointer-events-none' : ''
+              }`}
             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
           >
             {/* Left Brand Panel */}
@@ -349,9 +347,8 @@ export default function Login({ onNavigate, navState }) {
 
           {/* ================= BACK SIDE: JOIN AGROLNK (REGISTER) ================= */}
           <div
-            className={`absolute inset-0 w-full h-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden rotate-y-180 ${
-              !isFlipped ? 'pointer-events-none' : ''
-            }`}
+            className={`absolute inset-0 w-full h-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden rotate-y-180 ${!isFlipped ? 'pointer-events-none' : ''
+              }`}
             style={{
               backfaceVisibility: 'hidden',
               WebkitBackfaceVisibility: 'hidden',
@@ -441,11 +438,10 @@ export default function Login({ onNavigate, navState }) {
                           key={r.id}
                           type="button"
                           onClick={() => setSelectedRole(r.id)}
-                          className={`py-2 px-1.5 rounded-xl text-center transition-all cursor-pointer border text-xs font-bold flex flex-col items-center justify-center gap-1 ${
-                            isSelected
-                              ? 'bg-[#0B3326] text-white border-[#0B3326] shadow-xs'
-                              : 'bg-[#F8FAF8] text-[#566861] border-[#E5EDE8] hover:border-[#10B981]/50 hover:bg-white'
-                          }`}
+                          className={`py-2 px-1.5 rounded-xl text-center transition-all cursor-pointer border text-xs font-bold flex flex-col items-center justify-center gap-1 ${isSelected
+                            ? 'bg-[#0B3326] text-white border-[#0B3326] shadow-xs'
+                            : 'bg-[#F8FAF8] text-[#566861] border-[#E5EDE8] hover:border-[#10B981]/50 hover:bg-white'
+                            }`}
                         >
                           <span className="text-base">{r.icon}</span>
                           <span className="text-xs leading-none">{r.label}</span>
@@ -478,7 +474,7 @@ export default function Login({ onNavigate, navState }) {
                             const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.]/g, '');
                             setRegisterData({ ...registerData, name: lettersOnly });
                           }}
-                          placeholder="e.g. Sakthi Vel (letters only)"
+                          placeholder="e.g. Ramesh Kumar"
                           className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                           required
                         />
@@ -500,7 +496,7 @@ export default function Login({ onNavigate, navState }) {
                             const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
                             setRegisterData({ ...registerData, phone: digitsOnly });
                           }}
-                          placeholder="9876543210 (10 digits)"
+                          placeholder="10 digit number"
                           className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                           required
                         />
@@ -520,7 +516,7 @@ export default function Login({ onNavigate, navState }) {
                           type="email"
                           value={registerData.email}
                           onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                          placeholder="user@example.com"
+                          placeholder="ramesh@example.com"
                           className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                           required
                         />
