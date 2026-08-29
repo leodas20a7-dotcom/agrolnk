@@ -61,30 +61,12 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
 
   const totalKg = listings.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
 
-  const commodities = [
-    { name: 'Tomato', emoji: '🍅', label: 'Tomatoes' },
-    { name: 'Potato', emoji: '🥔', label: 'Potatoes' },
-    { name: 'Onion', emoji: '🧅', label: 'Onions' },
-    { name: 'Apple', emoji: '🍎', label: 'Apples' },
-    { name: 'Wheat', emoji: '🌾', label: 'Wheat' },
-    { name: 'Maize', emoji: '🌽', label: 'Maize' },
-    { name: 'Turmeric', emoji: '🌿', label: 'Turmeric' },
-    { name: 'Cotton', emoji: '☁️', label: 'Cotton' },
-    { name: 'Rice', emoji: '🍚', label: 'Basmati Rice' },
-    { name: 'Chilli', emoji: '🌶️', label: 'Red Chilli' },
-    { name: 'Soybean', emoji: '🫘', label: 'Soybeans' },
-  ];
-
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     onNavigate('buyer-marketplace', {
       initialQuery: searchQuery,
       initialLocation: selectedLocation,
     });
-  };
-
-  const handleCommodityClick = (commodityName) => {
-    onNavigate('buyer-marketplace', { initialCommodity: commodityName });
   };
 
   return (
@@ -188,24 +170,6 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
-
-            {/* Quick Sourcing Tags */}
-            <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
-              <span className="text-[11px] font-bold text-[#34D399] uppercase tracking-wider">
-                Popular:
-              </span>
-              {commodities.map((item) => (
-                <button
-                  key={item.name}
-                  type="button"
-                  onClick={() => handleCommodityClick(item.name)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium backdrop-blur-xs transition-colors cursor-pointer border border-white/10"
-                >
-                  <span>{item.emoji}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
