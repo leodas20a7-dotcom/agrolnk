@@ -129,6 +129,42 @@ const DEFAULT_DEMO_AUCTIONS = [
   },
 ];
 
+// Pre-seeded demo bids for active auction rooms
+const DEFAULT_DEMO_BIDS = [
+  {
+    id: 'bid_demo_01',
+    auctionId: 'auc_demo_01',
+    buyerId: 'usr_buyer_02',
+    buyerName: 'Buyer #A24 (Ananya Agro)',
+    amount: 48,
+    createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'bid_demo_02',
+    auctionId: 'auc_demo_02',
+    buyerId: 'usr_buyer_03',
+    buyerName: 'Buyer #C09 (Surya Foods)',
+    amount: 32,
+    createdAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'bid_demo_03',
+    auctionId: 'auc_demo_02',
+    buyerId: 'usr_buyer_02',
+    buyerName: 'Buyer #A24 (Ananya Agro)',
+    amount: 30,
+    createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'bid_demo_04',
+    auctionId: 'auc_demo_05',
+    buyerId: 'usr_buyer_02',
+    buyerName: 'Buyer #A24 (Ananya Agro)',
+    amount: 178,
+    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+  },
+];
+
 const AUCTIONS_DATA_VERSION = 'v3_diverse_auctions';
 
 /**
