@@ -55,15 +55,17 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
       <div className="space-y-8 text-left">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Receipt className="w-3.5 h-3.5" /> Institutional Settlement & Escrow Audit Ledger
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-5 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+          <div className="space-y-1 sm:space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <Receipt className="w-3.5 h-3.5" />
+              <span className="sm:hidden">Ledger & Audit</span>
+              <span className="hidden sm:inline">Institutional Settlement & Escrow Audit Ledger</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-heading">
+            <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
               Disbursements & Yields
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
+            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85">
               Complete transactional audit log with banking UTR numbers, legal escrow liens, and realized interest income.
             </p>
           </div>
@@ -75,55 +77,56 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
               icon={Download}
               iconPosition="left"
               onClick={handleExport}
-              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer font-semibold"
+              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer font-semibold py-2 px-3 sm:px-4"
             >
-              Export CSV / Audit
+              <span className="sm:hidden">Export</span>
+              <span className="hidden sm:inline">Export CSV / Audit</span>
             </Button>
           </div>
         </div>
 
         {downloadSuccess && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Audit statement downloaded successfully (Bank reconciliation format ready).</span>
           </div>
         )}
 
         {/* 3 Overview Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               Total Capital Disbursed
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               ₹{totalDisbursed.toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-[#566861]">
+            <div className="text-[10px] sm:text-[11px] text-[#566861]">
               Across {disbursements.length} facility dispatches
             </div>
           </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               Settled Escrow Realized
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#10B981] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#10B981] font-heading">
               ₹{totalSettled.toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-[#10B981] font-semibold">
+            <div className="text-[10px] sm:text-[11px] text-[#10B981] font-semibold">
               Principal + Realized Interest
             </div>
           </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               Escrow Lien Protection
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               100%
             </div>
-            <div className="text-[11px] text-[#10B981] font-bold">
-              0 Defaults • Direct NACH & Escrow Payouts
+            <div className="text-[10px] sm:text-[11px] text-[#10B981] font-bold">
+              0 Defaults • Direct NACH & Escrow
             </div>
           </Card>
         </div>

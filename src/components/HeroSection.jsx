@@ -24,20 +24,20 @@ export default function HeroSection({ onExplore, onJoin }) {
                 <span className="text-[#10B981]">for Agriculture.</span>
               </h1>
               
-              <p className="text-base sm:text-lg text-[#566861] font-normal leading-relaxed max-w-xl">
-                Trade produce directly without unnecessary middlemen. Transparent pricing, verified quality, and secure escrow payouts.
+              <p className="text-sm sm:text-lg text-[#566861] font-normal leading-relaxed max-w-xl">
+                Trade produce directly without middlemen. Transparent pricing, verified quality, and secure escrow.
               </p>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-1">
               <Button
                 variant="primary"
                 size="lg"
                 onClick={onJoin}
                 icon={ArrowRight}
                 iconPosition="right"
-                className="shadow-xs font-bold text-sm sm:text-base py-3.5 px-7 cursor-pointer"
+                className="shadow-xs font-bold text-sm sm:text-base py-3 sm:py-3.5 px-6 sm:px-7 cursor-pointer"
               >
                 Join Agrolnk
               </Button>
@@ -45,25 +45,28 @@ export default function HeroSection({ onExplore, onJoin }) {
                 variant="secondary"
                 size="lg"
                 onClick={onExplore}
-                className="font-bold text-sm sm:text-base py-3.5 px-7 cursor-pointer"
+                className="font-bold text-sm sm:text-base py-3 sm:py-3.5 px-6 sm:px-7 cursor-pointer"
               >
                 Explore Marketplace
               </Button>
             </div>
 
             {/* Clean Trust Metrics */}
-            <div className="pt-6 border-t border-[#E5EDE8] grid grid-cols-3 gap-6 max-w-lg">
+            <div className="pt-5 sm:pt-6 border-t border-[#E5EDE8] grid grid-cols-3 gap-4 sm:gap-6 max-w-lg">
               <div>
-                <div className="text-2xl font-extrabold text-[#0B3326] font-heading">₹0</div>
-                <div className="text-xs text-[#566861] mt-0.5">Commission</div>
+                <div className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">₹0</div>
+                <div className="text-[11px] sm:text-xs text-[#566861] mt-0.5">Commission</div>
               </div>
               <div>
-                <div className="text-2xl font-extrabold text-[#0B3326] font-heading">100%</div>
-                <div className="text-xs text-[#566861] mt-0.5">Escrow Secured</div>
+                <div className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">100%</div>
+                <div className="text-[11px] sm:text-xs text-[#566861] mt-0.5">Escrow Secured</div>
               </div>
               <div>
-                <div className="text-2xl font-extrabold text-[#0B3326] font-heading">Direct</div>
-                <div className="text-xs text-[#566861] mt-0.5">Trade Realization</div>
+                <div className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">Direct</div>
+                <div className="text-[11px] sm:text-xs text-[#566861] mt-0.5">
+                  <span className="sm:hidden">Payouts</span>
+                  <span className="hidden sm:inline">Trade Realization</span>
+                </div>
               </div>
             </div>
           </div>

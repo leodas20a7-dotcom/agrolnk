@@ -146,8 +146,8 @@ export default function Login({ onNavigate, navState }) {
             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
           >
             {/* Left Brand Panel */}
-            <div className="lg:col-span-5 bg-[#0B3326] text-white p-7 sm:p-9 xl:p-11 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#14624A]">
-              <div className="space-y-6">
+            <div className="lg:col-span-5 bg-[#0B3326] text-white p-5 sm:p-9 xl:p-11 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#14624A]">
+              <div className="space-y-4 sm:space-y-6">
                 <button
                   onClick={() => onNavigate('landing')}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#34D399] hover:text-white transition-colors cursor-pointer"
@@ -159,21 +159,21 @@ export default function Login({ onNavigate, navState }) {
                   <img
                     src={logoImg}
                     alt="Agrolnk Logo"
-                    className="w-11 h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
+                    className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
-                    <span className="text-2xl font-bold tracking-tight text-white font-heading block">
+                    <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-heading block">
                       Agrolnk
                     </span>
-                    <span className="text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
+                    <span className="text-[10px] sm:text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Digital Agri Exchange
                     </span>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <h2 className="text-2xl sm:text-3xl font-extrabold font-heading text-white leading-tight">
-                    Fair markets. <br />
+                <div className="space-y-1.5 sm:space-y-2 pt-1">
+                  <h2 className="text-xl sm:text-3xl font-extrabold font-heading text-white leading-tight">
+                    Fair markets. <br className="hidden sm:inline" />
                     <span className="text-[#34D399]">Better futures.</span>
                   </h2>
                   <p className="text-xs sm:text-sm text-[#DCFCE7]/80 leading-relaxed font-normal">
@@ -181,7 +181,7 @@ export default function Login({ onNavigate, navState }) {
                   </p>
                 </div>
 
-                <div className="space-y-3 pt-3 border-t border-[#14624A] text-xs sm:text-sm text-[#DCFCE7]/90">
+                <div className="hidden sm:block space-y-3 pt-3 border-t border-[#14624A] text-xs sm:text-sm text-[#DCFCE7]/90">
                   <div className="flex items-center gap-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#10B981] flex items-center justify-center shrink-0">
                       <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
@@ -203,7 +203,7 @@ export default function Login({ onNavigate, navState }) {
                 </div>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-[#14624A] text-xs text-[#DCFCE7]/60 flex items-center gap-2">
+              <div className="hidden sm:flex pt-6 mt-6 border-t border-[#14624A] text-xs text-[#DCFCE7]/60 items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#34D399]" />
                 <span>Escrow & Bank Grade Security</span>
               </div>
@@ -347,8 +347,8 @@ export default function Login({ onNavigate, navState }) {
             }}
           >
             {/* Left Brand Panel */}
-            <div className="lg:col-span-5 bg-[#0B3326] text-white p-7 sm:p-9 xl:p-11 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#14624A]">
-              <div className="space-y-6">
+            <div className="lg:col-span-5 bg-[#0B3326] text-white p-5 sm:p-9 xl:p-11 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#14624A]">
+              <div className="space-y-4 sm:space-y-6">
                 <button
                   onClick={() => setIsFlipped(false)}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#34D399] hover:text-white transition-colors cursor-pointer"
@@ -360,21 +360,21 @@ export default function Login({ onNavigate, navState }) {
                   <img
                     src={logoImg}
                     alt="Agrolnk Logo"
-                    className="w-11 h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
+                    className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
-                    <span className="text-2xl font-bold tracking-tight text-white font-heading block">
+                    <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-heading block">
                       Agrolnk
                     </span>
-                    <span className="text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
+                    <span className="text-[10px] sm:text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Direct Agricultural Exchange
                     </span>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <h2 className="text-2xl sm:text-3xl font-extrabold font-heading text-white leading-tight">
-                    Join the <br />
+                <div className="space-y-1.5 sm:space-y-2 pt-1">
+                  <h2 className="text-xl sm:text-3xl font-extrabold font-heading text-white leading-tight">
+                    Join the <br className="hidden sm:inline" />
                     <span className="text-[#34D399]">New Exchange.</span>
                   </h2>
                   <p className="text-xs sm:text-sm text-[#DCFCE7]/80 leading-relaxed font-normal">
@@ -382,7 +382,7 @@ export default function Login({ onNavigate, navState }) {
                   </p>
                 </div>
 
-                <div className="space-y-3 pt-3 border-t border-[#14624A] text-xs sm:text-sm text-[#DCFCE7]/90">
+                <div className="hidden sm:block space-y-3 pt-3 border-t border-[#14624A] text-xs sm:text-sm text-[#DCFCE7]/90">
                   <div className="flex items-center gap-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#10B981] flex items-center justify-center shrink-0">
                       <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
@@ -398,7 +398,7 @@ export default function Login({ onNavigate, navState }) {
                 </div>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-[#14624A] text-xs text-[#DCFCE7]/60 flex items-center gap-2">
+              <div className="hidden sm:flex pt-6 mt-6 border-t border-[#14624A] text-xs text-[#DCFCE7]/60 items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#34D399]" />
                 <span>WDRA & Escrow Protected</span>
               </div>

@@ -212,8 +212,8 @@ export default function Register({ onNavigate, navState }) {
           </div>
 
           {/* Middle: Role Specific Value Highlights */}
-          <div className="py-6 space-y-4 text-left">
-            <div className="p-4 rounded-2xl bg-[#0F4A37] border border-[#14624A] space-y-3">
+          <div className="py-3 sm:py-6 space-y-3 sm:space-y-4 text-left">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-[#0F4A37] border border-[#14624A] space-y-2 sm:space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#34D399] flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" /> For {currentRole.title}s
@@ -223,7 +223,7 @@ export default function Register({ onNavigate, navState }) {
                 </Badge>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5 sm:space-y-2">
                 {currentRole.bullets.map((bullet, idx) => (
                   <div key={idx} className="flex items-start gap-2 text-xs text-white/90">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0 mt-0.5" />
@@ -233,8 +233,8 @@ export default function Register({ onNavigate, navState }) {
               </div>
             </div>
 
-            {/* Testimonial Quote */}
-            <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-left">
+            {/* Testimonial Quote - hidden on mobile */}
+            <div className="hidden sm:block p-3.5 rounded-xl bg-white/5 border border-white/10 text-left">
               <p className="text-xs italic text-[#DCFCE7]/90 leading-relaxed">
                 {currentRole.quote}
               </p>
@@ -245,7 +245,7 @@ export default function Register({ onNavigate, navState }) {
           </div>
 
           {/* Bottom Security Note */}
-          <div className="pt-4 border-t border-[#14624A] flex items-center gap-2 text-xs text-[#34D399]">
+          <div className="hidden sm:flex pt-4 border-t border-[#14624A] items-center gap-2 text-xs text-[#34D399]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
             <span className="text-[11px] text-white/80">
               100% Escrow & Bank-Guaranteed Settlements

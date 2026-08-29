@@ -52,61 +52,64 @@ export default function CollateralVault({ currentUser, onNavigate }) {
       <div className="space-y-8 text-left">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Building2 className="w-3.5 h-3.5" /> WDRA Certified Vault & Physical Collateral Registry
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-5 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+          <div className="space-y-1 sm:space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <Building2 className="w-3.5 h-3.5" />
+              <span className="sm:hidden">WDRA Vault</span>
+              <span className="hidden sm:inline">WDRA Certified Vault & Physical Collateral Registry</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-heading">
+            <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
               Collateral Vault & e-NWRs
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
+            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85">
               Inspect electronic Negotiable Warehouse Receipts (e-NWR), lab assay parameters, and registered liens.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Badge variant="emerald" size="md">
-              WDRA Accredited
+            <Badge variant="emerald" size="sm">
+              <span className="sm:hidden">WDRA</span>
+              <span className="hidden sm:inline">WDRA Accredited</span>
             </Badge>
           </div>
         </div>
 
         {/* 3 Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               Total Pledged Vault Value
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               ₹{totalVaultValue.toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-[#10B981] font-semibold">
+            <div className="text-[10px] sm:text-[11px] text-[#10B981] font-semibold">
               Across {inventory.length} certified e-NWRs
             </div>
           </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               WDRA Accredited Hubs
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               {warehouses.length || 4} Hubs
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Live telemetry & chamber temperature logs
+            <div className="text-[10px] sm:text-[11px] text-[#566861]">
+              Live telemetry & chamber logs
             </div>
           </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               NABL Quality Assurance
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#10B981] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#10B981] font-heading">
               100%
             </div>
-            <div className="text-[11px] text-[#10B981] font-semibold">
-              Lab assayed moisture & purity verified
+            <div className="text-[10px] sm:text-[11px] text-[#10B981] font-semibold">
+              Lab assayed moisture & purity
             </div>
           </Card>
         </div>

@@ -24,27 +24,29 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8">
         
-        {/* Welcome Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Sprout className="w-3.5 h-3.5" /> Producer & FPO Portal
+        {/* Top Header Card */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-5 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+          <div className="space-y-1 sm:space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <Sprout className="w-3.5 h-3.5" />
+              <span className="sm:hidden">Farmer Desk</span>
+              <span className="hidden sm:inline">Producer & FPO Portal</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-heading">
+            <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
               Welcome back, {user.name} 👋
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/80">
+            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/80">
               Manage your crop listings, monitor live bids, and track guaranteed escrow payouts.
             </p>
           </div>
 
           <Button
             variant="accent"
-            size="md"
+            size="sm"
             icon={Plus}
             iconPosition="left"
             onClick={() => onNavigate('farmer-create-listing')}
-            className="font-bold shadow-xs shrink-0"
+            className="font-bold shadow-xs shrink-0 py-2 px-3 sm:px-4 text-xs sm:text-sm"
           >
             + List Produce
           </Button>
@@ -53,78 +55,78 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
         {/* Section: Your Marketplace */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+            <h2 className="text-lg sm:text-xl font-bold text-[#0B3326] font-heading">
               Your Marketplace
             </h2>
-            <span className="text-xs font-semibold text-[#566861]">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861]">
               Live overview
             </span>
           </div>
 
           {/* 4 Core Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             
             {/* My Listings */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3">
+            <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">My Listings</span>
-                <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
-                  <Package className="w-4 h-4" />
+                <span className="text-xs font-semibold text-[#566861]">Listings</span>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
+                  <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
                 0
               </div>
-              <div className="text-[11px] text-[#566861] flex items-center gap-1">
-                <span>Fixed-price direct lots</span>
+              <div className="text-[10px] sm:text-[11px] text-[#566861] flex items-center gap-1">
+                <span>Fixed-price lots</span>
               </div>
             </Card>
 
             {/* Active Auctions */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3">
+            <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">Active Auctions</span>
-                <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
-                  <Gavel className="w-4 h-4" />
+                <span className="text-xs font-semibold text-[#566861]">Auctions</span>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
+                  <Gavel className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
                 0
               </div>
-              <div className="text-[11px] text-[#566861] flex items-center gap-1">
-                <span>Live competitive bids</span>
+              <div className="text-[10px] sm:text-[11px] text-[#566861] flex items-center gap-1">
+                <span>Live bidding</span>
               </div>
             </Card>
 
             {/* Orders */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3">
+            <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-[#566861]">Orders</span>
-                <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
-                  <ShoppingBag className="w-4 h-4" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
+                  <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
                 0
               </div>
-              <div className="text-[11px] text-[#566861] flex items-center gap-1">
-                <span>Accepted trade agreements</span>
+              <div className="text-[10px] sm:text-[11px] text-[#566861] flex items-center gap-1">
+                <span>Trade contracts</span>
               </div>
             </Card>
 
             {/* Pending Payments */}
-            <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3">
+            <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">Pending Payments</span>
-                <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                <span className="text-xs font-semibold text-[#566861]">Escrow Balance</span>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
+                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
                 ₹0
               </div>
-              <div className="text-[11px] text-[#10B981] font-semibold flex items-center gap-1">
-                <span>Escrow release on dispatch</span>
+              <div className="text-[10px] sm:text-[11px] text-[#10B981] font-bold">
+                100% Guaranteed
               </div>
             </Card>
 

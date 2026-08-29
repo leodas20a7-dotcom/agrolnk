@@ -67,22 +67,25 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
       <div className="space-y-8 text-left">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Landmark className="w-3.5 h-3.5" /> Credit Assessment & Risk Underwriting
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-5 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+          <div className="space-y-1 sm:space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <Landmark className="w-3.5 h-3.5" />
+              <span className="sm:hidden">Credit Desk</span>
+              <span className="hidden sm:inline">Credit Assessment & Risk Underwriting</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-heading">
+            <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
               Underwriting Queue
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
+            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85">
               Review NABL assay test parameters, evaluate LTV collateral coverage, and issue institutional term-sheets.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Badge variant="emerald" size="md">
-              Auto-Escrow Settlement Active
+            <Badge variant="emerald" size="sm">
+              <span className="sm:hidden">Auto-Escrow</span>
+              <span className="hidden sm:inline">Auto-Escrow Settlement Active</span>
             </Badge>
           </div>
         </div>

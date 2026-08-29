@@ -492,11 +492,11 @@ export default function DashboardLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#566861]">
           <div className="flex items-center gap-2">
             <span className="font-bold text-[#0B3326]">Agrolnk</span>
-            <span>• Fairer, Direct Agricultural Exchange</span>
+            <span className="hidden sm:inline">• Fairer, Direct Agricultural Exchange</span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-[#10B981] font-semibold">
             <Shield className="w-3.5 h-3.5" />
-            <span>100% Escrow & Bank Grade Security</span>
+            <span>100% Escrow <span className="hidden sm:inline">& Bank Grade Security</span></span>
           </div>
         </div>
       </footer>

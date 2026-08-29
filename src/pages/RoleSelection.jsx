@@ -83,7 +83,7 @@ export default function RoleSelection({ onNavigate, navState }) {
   };
 
   return (
-    <div className="h-screen max-h-screen overflow-hidden bg-[#F8FAF8] flex flex-col justify-between p-4 sm:p-6 lg:p-7">
+    <div className="min-h-screen overflow-y-auto sm:h-screen sm:max-h-screen sm:overflow-hidden bg-[#F8FAF8] flex flex-col justify-between p-4 sm:p-6 lg:p-7">
 
       {/* 1. Top Header with Pixel-Perfect Center Alignment */}
       <header className="max-w-7xl w-full mx-auto grid grid-cols-3 items-center shrink-0">
@@ -169,8 +169,8 @@ export default function RoleSelection({ onNavigate, navState }) {
                     </div>
                   </div>
 
-                  {/* Description */}
-                  <p className="text-[11px] text-[#566861] leading-relaxed line-clamp-2">
+                  {/* Description - hidden on mobile */}
+                  <p className="hidden sm:block text-[11px] text-[#566861] leading-relaxed line-clamp-2">
                     {r.description}
                   </p>
 

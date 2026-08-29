@@ -71,110 +71,126 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
       <div className="space-y-8 text-left">
         
         {/* 1. Executive Terminal Welcome Header */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#061B14] via-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Landmark className="w-3.5 h-3.5" /> Institutional Capital & Trade Credit Terminal
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-6 p-5 sm:p-8 rounded-3xl bg-gradient-to-r from-[#061B14] via-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] shadow-md">
+          <div className="space-y-1.5 sm:space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <Landmark className="w-3.5 h-3.5" />
+              <span className="sm:hidden">Institutional Desk</span>
+              <span className="hidden sm:inline">Institutional Capital & Trade Credit Terminal</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading tracking-tight">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold font-heading tracking-tight">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/85 leading-relaxed font-normal">
+            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85 leading-relaxed font-normal">
               Direct underwriting, real-time escrow liens, and automated settlement of agricultural invoices and e-NWR warehouse receipts.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               icon={Building2}
               iconPosition="left"
               onClick={() => onNavigate('financier-collateral-vault')}
-              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer font-semibold text-xs"
+              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer font-semibold text-xs py-2 px-3 sm:px-4"
             >
-              Collateral Vault
+              <span className="sm:hidden">Vault</span>
+              <span className="hidden sm:inline">Collateral Vault</span>
             </Button>
             <Button
               variant="accent"
-              size="md"
+              size="sm"
               icon={Plus}
               iconPosition="left"
               onClick={() => setIsAddLiquidityOpen(true)}
-              className="font-bold text-xs shadow-md cursor-pointer"
+              className="font-bold text-xs shadow-md cursor-pointer py-2 px-3 sm:px-4"
             >
-              Deploy Capital
+              <span className="sm:hidden">+ Deploy</span>
+              <span className="hidden sm:inline">Deploy Capital</span>
             </Button>
           </div>
         </div>
 
         {/* 2. Four Core Institutional Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           
           {/* Available Lending Pool */}
-          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
-            <div className="flex items-center justify-between text-xs text-[#566861]">
-              <span className="font-semibold">Available Liquidity Pool</span>
-              <div className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
-                <Landmark className="w-4 h-4" />
+          <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
+            <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
+              <span className="font-semibold truncate">
+                <span className="sm:hidden">Available Pool</span>
+                <span className="hidden sm:inline">Available Liquidity Pool</span>
+              </span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                <Landmark className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               ₹{(pool?.availableLiquidity || 7544000).toLocaleString('en-IN')}
             </div>
-            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span>Total Fund: ₹{(pool?.totalCommitted || 10000000).toLocaleString('en-IN')}</span>
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span className="truncate hidden sm:inline">Total: ₹{(pool?.totalCommitted || 10000000).toLocaleString('en-IN')}</span>
               <span className="text-[#10B981] font-bold">75.4% Liquid</span>
             </div>
           </Card>
 
           {/* Active Capital Deployed */}
-          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
-            <div className="flex items-center justify-between text-xs text-[#566861]">
-              <span className="font-semibold">Active Capital Deployed</span>
-              <div className="w-7 h-7 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
-                <TrendingUp className="w-4 h-4" />
+          <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
+            <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
+              <span className="font-semibold truncate">
+                <span className="sm:hidden">Deployed</span>
+                <span className="hidden sm:inline">Active Capital Deployed</span>
+              </span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               ₹{(pool?.allocatedDeployed || 2456000).toLocaleString('en-IN')}
             </div>
-            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span>Across {activeLoans.length + 2} Live Facilities</span>
-              <span className="text-[#D97706] font-bold">100% Escrow Lien</span>
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span className="truncate hidden sm:inline">{activeLoans.length + 2} Live Facilities</span>
+              <span className="text-[#D97706] font-bold">100% Escrow</span>
             </div>
           </Card>
 
           {/* Weighted Average Yield / IRR */}
-          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
-            <div className="flex items-center justify-between text-xs text-[#566861]">
-              <span className="font-semibold">Weighted Average Yield (IRR)</span>
-              <div className="w-7 h-7 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
-                <PercentIcon className="w-4 h-4 text-[#10B981]" />
+          <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
+            <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
+              <span className="font-semibold truncate">
+                <span className="sm:hidden">Avg Yield (IRR)</span>
+                <span className="hidden sm:inline">Weighted Average Yield (IRR)</span>
+              </span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center shrink-0">
+                <PercentIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
               </div>
             </div>
-            <div className="text-2xl font-extrabold text-[#10B981] font-heading">
-              {stats?.avgActiveYield || 11.4}% <span className="text-xs text-[#566861] font-normal">p.a.</span>
+            <div className="text-lg sm:text-2xl font-extrabold text-[#10B981] font-heading">
+              {stats?.avgActiveYield || 11.4}% <span className="text-[10px] sm:text-xs text-[#566861] font-normal">p.a.</span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span>Net of Agrolnk exchange fee</span>
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span className="hidden sm:inline">Net fee</span>
               <span className="text-[#10B981] font-bold">+1.8% vs MIBOR</span>
             </div>
           </Card>
 
           {/* Default Rate / Escrow Security */}
-          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-2">
-            <div className="flex items-center justify-between text-xs text-[#566861]">
-              <span className="font-semibold">Historical Default / NPA</span>
-              <div className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+          <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
+            <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
+              <span className="font-semibold truncate">
+                <span className="sm:hidden">NPA Default</span>
+                <span className="hidden sm:inline">Historical Default / NPA</span>
+              </span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
               </div>
             </div>
-            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               0.00%
             </div>
-            <div className="flex items-center justify-between text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span>34 Historical Settlements</span>
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
+              <span className="hidden sm:inline">34 Settlements</span>
               <span className="text-[#10B981] font-bold">100% On-Time</span>
             </div>
           </Card>

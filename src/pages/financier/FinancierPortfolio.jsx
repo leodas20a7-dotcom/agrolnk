@@ -52,15 +52,17 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
       <div className="space-y-8 text-left">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <PieChart className="w-3.5 h-3.5" /> Live Credit Portfolio & Performance
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-5 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+          <div className="space-y-1 sm:space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <PieChart className="w-3.5 h-3.5" />
+              <span className="sm:hidden">Live Portfolio</span>
+              <span className="hidden sm:inline">Live Credit Portfolio & Performance</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-heading">
+            <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
               Active Portfolio
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
+            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85">
               Live loan facilities backed by agricultural escrow liens and electronic warehouse receipts.
             </p>
           </div>
@@ -72,48 +74,49 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
               icon={Receipt}
               iconPosition="left"
               onClick={() => onNavigate('financier-disbursements')}
-              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer py-2 px-3 sm:px-4"
             >
-              Disbursement Ledger
+              <span className="sm:hidden">Ledger</span>
+              <span className="hidden sm:inline">Disbursement Ledger</span>
             </Button>
           </div>
         </div>
 
         {/* 3 Overview Performance Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               Active Principal Deployed
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               ₹{totalPrincipal.toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-[#10B981] font-semibold flex items-center gap-1">
+            <div className="text-[10px] sm:text-[11px] text-[#10B981] font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>100% Escrow Lien Collateralized</span>
             </div>
           </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               Maturity Settlement Value
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               ₹{Math.round(totalExpectedReturn).toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Automated payout deduction upon delivery
+            <div className="text-[10px] sm:text-[11px] text-[#566861]">
+              Automated payout deduction
             </div>
           </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <span className="text-xs font-semibold text-[#566861] block">
+          <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
               Net Projected Yield
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#10B981] font-heading">
+            <div className="text-xl sm:text-3xl font-extrabold text-[#10B981] font-heading">
               +₹{totalYieldEarned.toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-[#10B981] font-bold">
+            <div className="text-[10px] sm:text-[11px] text-[#10B981] font-bold">
               Avg IRR: 10.8% p.a.
             </div>
           </Card>
