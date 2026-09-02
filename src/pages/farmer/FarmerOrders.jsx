@@ -238,33 +238,46 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
-                  Seller Actions
+                  Seller Fulfillment Options
                 </span>
                 <span className="text-xs text-white/80">
                   {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
-                    'Buyer escrow payment is secured. Confirm this lot agreement & dispatch produce to proceed.'}
+                    'Buyer escrow is secured. Choose to request a platform freight carrier or deliver using your own vehicle.'}
                   {selectedOrder.status === 'in_transit' &&
-                    'Produce consignment is dispatched / in transit. Click below once delivered at buyer destination.'}
+                    'Consignment is in transit. Click below once dropped off at the buyer terminal.'}
                   {selectedOrder.status === 'delivered' &&
-                    'Consignment dropped off at destination. Awaiting buyer verification & receipt confirmation.'}
+                    'Consignment reached destination. Awaiting buyer quality check & receipt release.'}
                   {selectedOrder.status === 'completed' &&
-                    'Order is 100% completed and escrow payout is released to your account.'}
+                    'Order is 100% completed and escrow payout has been released.'}
                 </span>
               </div>
 
-              <div className="shrink-0 w-full sm:w-auto flex items-center gap-2">
+              <div className="shrink-0 w-full sm:w-auto flex flex-wrap items-center gap-2.5">
                 {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
-                  <Button
-                    variant="accent"
-                    size="md"
-                    disabled={isUpdating}
-                    onClick={() => handleAdvanceStatus('in_transit')}
-                    icon={Check}
-                    iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer text-sm"
-                  >
-                    {isUpdating ? 'Confirming...' : 'Confirm Order & Dispatch Freight'}
-                  </Button>
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setOrderForDelivery(selectedOrder)}
+                      icon={Truck}
+                      iconPosition="left"
+                      className="w-full sm:w-auto font-bold py-2.5 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer text-xs"
+                    >
+                      Request Platform Carrier
+                    </Button>
+
+                    <Button
+                      variant="accent"
+                      size="md"
+                      disabled={isUpdating}
+                      onClick={() => handleAdvanceStatus('in_transit')}
+                      icon={Check}
+                      iconPosition="left"
+                      className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer text-xs"
+                    >
+                      {isUpdating ? 'Dispatching...' : 'Self-Arranged Transport'}
+                    </Button>
+                  </>
                 )}
 
                 {selectedOrder.status === 'in_transit' && (
@@ -275,7 +288,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     onClick={() => handleAdvanceStatus('delivered')}
                     icon={CheckCircle2}
                     iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
+                    className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer text-xs"
                   >
                     {isUpdating ? 'Updating...' : 'Mark as Delivered at Destination'}
                   </Button>

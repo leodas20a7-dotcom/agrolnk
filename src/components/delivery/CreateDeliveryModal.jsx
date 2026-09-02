@@ -39,7 +39,7 @@ export default function CreateDeliveryModal({
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!pickupAddress.trim() || !deliveryAddress.trim()) {
@@ -82,7 +82,7 @@ export default function CreateDeliveryModal({
         notes: notes.trim(),
       };
 
-      const created = createDelivery(deliveryPayload);
+      const created = await createDelivery(deliveryPayload);
       setIsSubmitting(false);
       onSuccess?.(created);
       onClose();
