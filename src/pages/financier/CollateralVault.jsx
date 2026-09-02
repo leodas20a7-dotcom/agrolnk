@@ -29,21 +29,40 @@ export default function CollateralVault({ currentUser, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    setInventory(getInventory());
-    setWarehouses(getWarehouses());
+    let isMounted = true;
+    const loadVault = async () => {
+      try {
+        const [inv, wh] = await Promise.all([
+          getInventory(),
+          Promise.resolve(getWarehouses()),
+        ]);
+        if (isMounted) {
+          setInventory(Array.isArray(inv) ? inv : []);
+          setWarehouses(Array.isArray(wh) ? wh : []);
+        }
+      } catch (err) {
+        console.error('Error loading collateral vault:', err);
+      }
+    };
+    loadVault();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const filteredInventory = inventory.filter((item) => {
+  const safeInventory = Array.isArray(inventory) ? inventory : [];
+
+  const filteredInventory = safeInventory.filter((item) => {
     return (
-      item.commodity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.warehouseName.toLowerCase().includes(searchQuery.toLowerCase())
+      item?.commodity?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item?.receiptNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item?.farmerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item?.warehouseName?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
 
-  const totalVaultValue = inventory.reduce(
-    (sum, item) => sum + (Number(item.estimatedValue) || 0),
+  const totalVaultValue = safeInventory.reduce(
+    (sum, item) => sum + (Number(item?.estimatedValue) || 0),
     0
   );
 

@@ -69,10 +69,15 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
     };
   }, [user.id]);
 
-  const directCount = listings.filter((l) => l.saleType === 'direct').length;
-  const liveAuctionsCount = auctions.filter((a) => a.status === 'live').length;
-  const pendingOrdersCount = orders.filter((o) => o.status === 'pending').length;
-  const totalStoredKg = inventory.reduce((sum, i) => sum + (Number(i.totalQuantity) || 0), 0);
+  const safeListings = Array.isArray(listings) ? listings : [];
+  const safeAuctions = Array.isArray(auctions) ? auctions : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeInventory = Array.isArray(inventory) ? inventory : [];
+
+  const directCount = safeListings.filter((l) => l.saleType === 'direct').length;
+  const liveAuctionsCount = safeAuctions.filter((a) => a.status === 'live').length;
+  const pendingOrdersCount = safeOrders.filter((o) => o.status === 'pending').length;
+  const totalStoredKg = safeInventory.reduce((sum, i) => sum + (Number(i.totalQuantity) || 0), 0);
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>

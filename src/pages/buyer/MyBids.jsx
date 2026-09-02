@@ -39,26 +39,28 @@ export default function MyBids({ currentUser, onNavigate }) {
     };
   }, [user.id]);
 
+  const safeBids = Array.isArray(bids) ? bids : [];
+
   const tabs = [
-    { id: 'all', label: 'All Bids', count: bids.length },
+    { id: 'all', label: 'All Bids', count: safeBids.length },
     {
       id: 'won',
       label: 'Won 🎉',
-      count: bids.filter((b) => b.isWinner).length,
+      count: safeBids.filter((b) => b.isWinner).length,
     },
     {
       id: 'leading',
       label: 'Leading 🟢',
-      count: bids.filter((b) => b.isLeading && b.auction?.status === 'live').length,
+      count: safeBids.filter((b) => b.isLeading && b.auction?.status === 'live').length,
     },
     {
       id: 'outbid',
       label: 'Outbid / Lost',
-      count: bids.filter((b) => (!b.isLeading && b.auction?.status === 'live') || b.isOutbid).length,
+      count: safeBids.filter((b) => (!b.isLeading && b.auction?.status === 'live') || b.isOutbid).length,
     },
   ];
 
-  const filteredBids = bids.filter((b) => {
+  const filteredBids = safeBids.filter((b) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'won') return b.isWinner;
     if (activeTab === 'leading') return b.isLeading && b.auction?.status === 'live';

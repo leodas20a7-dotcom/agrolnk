@@ -50,16 +50,19 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
     loadData();
   }, [user.id]);
 
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
+
   // Confirmed orders that need transport
-  const confirmedOrdersNeedingTransport = orders.filter(
+  const confirmedOrdersNeedingTransport = safeOrders.filter(
     (o) => o.status === 'confirmed' || o.status === 'ready_for_delivery'
   );
 
-  const activeDeliveries = deliveries.filter(
+  const activeDeliveries = safeDeliveries.filter(
     (d) => d.status !== 'completed'
   );
 
-  const completedDeliveries = deliveries.filter(
+  const completedDeliveries = safeDeliveries.filter(
     (d) => d.status === 'completed'
   );
 

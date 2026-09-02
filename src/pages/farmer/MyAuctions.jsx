@@ -66,26 +66,28 @@ export default function MyAuctions({ currentUser, onNavigate }) {
     return `${pad(minutes)}:${pad(seconds)}`;
   };
 
+  const safeAuctions = Array.isArray(auctions) ? auctions : [];
+
   const tabs = [
-    { id: 'all', label: 'All Auctions', count: auctions.length },
+    { id: 'all', label: 'All Auctions', count: safeAuctions.length },
     {
       id: 'live',
       label: 'Live Now',
-      count: auctions.filter((a) => a.status === 'live').length,
+      count: safeAuctions.filter((a) => a.status === 'live').length,
     },
     {
       id: 'completed',
       label: 'Completed / Won',
-      count: auctions.filter((a) => a.status === 'completed').length,
+      count: safeAuctions.filter((a) => a.status === 'completed').length,
     },
     {
       id: 'unsold',
       label: 'Reserve Not Met',
-      count: auctions.filter((a) => a.status === 'reserve_not_met' || a.status === 'ended_unsold').length,
+      count: safeAuctions.filter((a) => a.status === 'reserve_not_met' || a.status === 'ended_unsold').length,
     },
   ];
 
-  const filteredAuctions = auctions.filter((a) => {
+  const filteredAuctions = safeAuctions.filter((a) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'live') return a.status === 'live';
     if (activeTab === 'completed') return a.status === 'completed';

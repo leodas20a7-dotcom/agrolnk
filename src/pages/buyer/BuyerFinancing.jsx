@@ -49,15 +49,18 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
     loadData();
   }, [user.id]);
 
-  const activeRequestsCount = financingRequests.filter(
+  const safeRequests = Array.isArray(financingRequests) ? financingRequests : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
+  const activeRequestsCount = safeRequests.filter(
     (r) => r.status === 'pending' || r.status === 'under_review'
   ).length;
 
-  const totalApprovedFunding = financingRequests
+  const totalApprovedFunding = safeRequests
     .filter((r) => r.status === 'approved')
     .reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
 
-  const totalPurchaseVolume = orders.reduce(
+  const totalPurchaseVolume = safeOrders.reduce(
     (sum, o) => sum + (Number(o.totalAmount) || 0), 0
   );
 

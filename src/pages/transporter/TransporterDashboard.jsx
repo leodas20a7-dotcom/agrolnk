@@ -63,8 +63,10 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
     loadData();
   }, [user.id]);
 
-  const availableJobs = deliveries.filter((d) => d.status === 'transport_requested');
-  const myDeliveries = deliveries.filter((d) => d.transporterId === user.id || (d.status !== 'transport_requested' && !d.transporterId));
+  const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
+
+  const availableJobs = safeDeliveries.filter((d) => d.status === 'transport_requested');
+  const myDeliveries = safeDeliveries.filter((d) => d.transporterId === user.id || (d.status !== 'transport_requested' && !d.transporterId));
   const activeTrips = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'picked_up' || d.status === 'in_transit');
   const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed');
 
@@ -72,7 +74,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
     { id: 'available', label: 'Available Freight Jobs', count: availableJobs.length },
     { id: 'active', label: 'My Active Trips', count: activeTrips.length },
     { id: 'completed', label: 'Completed Deliveries', count: completedTrips.length },
-    { id: 'all', label: 'All Manifests', count: deliveries.length },
+    { id: 'all', label: 'All Manifests', count: safeDeliveries.length },
   ];
 
   const getFilteredList = () => {

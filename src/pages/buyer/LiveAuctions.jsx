@@ -38,7 +38,9 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
     };
   }, []);
 
-  const filteredAuctions = auctions.filter((a) => {
+  const safeAuctions = Array.isArray(auctions) ? auctions : [];
+
+  const filteredAuctions = safeAuctions.filter((a) => {
     return (
       searchQuery === '' ||
       a.commodity.toLowerCase().includes(searchQuery.toLowerCase()) ||

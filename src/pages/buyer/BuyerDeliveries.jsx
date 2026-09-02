@@ -47,15 +47,17 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
     loadData();
   }, [user.id]);
 
-  const inTransitDeliveries = deliveries.filter(
+  const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
+
+  const inTransitDeliveries = safeDeliveries.filter(
     (d) => d.status === 'in_transit' || d.status === 'picked_up' || d.status === 'assigned'
   );
 
-  const awaitingConfirmationDeliveries = deliveries.filter(
+  const awaitingConfirmationDeliveries = safeDeliveries.filter(
     (d) => d.status === 'delivered'
   );
 
-  const completedDeliveries = deliveries.filter(
+  const completedDeliveries = safeDeliveries.filter(
     (d) => d.status === 'completed'
   );
 

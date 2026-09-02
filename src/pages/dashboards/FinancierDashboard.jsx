@@ -48,23 +48,31 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
   const [isAddLiquidityOpen, setIsAddLiquidityOpen] = useState(false);
 
-  const loadData = () => {
-    const all = getFinancingRequests();
-    setRequests(all);
-    const computedStats = getFinancingStats();
-    setStats(computedStats);
-    setPool(getLiquidityPool());
-    setDisbursements(getDisbursements());
+  const loadData = async () => {
+    try {
+      const [all, computedStats, allDisb] = await Promise.all([
+        getFinancingRequests(),
+        getFinancingStats(),
+        getDisbursements(),
+      ]);
+      setRequests(Array.isArray(all) ? all : []);
+      setStats(computedStats);
+      setPool(getLiquidityPool());
+      setDisbursements(Array.isArray(allDisb) ? allDisb : []);
+    } catch (err) {
+      console.error('Error loading financier data:', err);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const pendingRequests = requests.filter(
+  const safeRequests = Array.isArray(requests) ? requests : [];
+  const pendingRequests = safeRequests.filter(
     (r) => r.status === 'pending' || r.status === 'under_review'
   );
-  const activeLoans = requests.filter((r) => r.status === 'approved');
+  const activeLoans = safeRequests.filter((r) => r.status === 'approved');
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>

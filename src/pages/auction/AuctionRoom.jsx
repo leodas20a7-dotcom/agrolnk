@@ -42,18 +42,21 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
-  const fetchAuctionData = () => {
-    const lot = getAuctionById(auctionId);
-    if (lot) {
-      // Check if endsAt has expired in real time
-      if (lot.status === 'live' && new Date(lot.endsAt).getTime() <= Date.now()) {
-        const finalized = finalizeAuction(lot.id);
-        setAuction(finalized);
-      } else {
+  const fetchAuctionData = async () => {
+    try {
+      let lot = await getAuctionById(auctionId);
+      if (lot) {
+        // Check if endsAt has expired in real time
+        if (lot.status === 'live' && new Date(lot.endsAt).getTime() <= Date.now()) {
+          const finalized = await finalizeAuction(lot.id);
+          lot = finalized || lot;
+        }
         setAuction(lot);
+        const lotBids = await getBidsForAuction(lot.id);
+        setBids(Array.isArray(lotBids) ? lotBids : []);
       }
-      const lotBids = getBidsForAuction(lot.id);
-      setBids(lotBids);
+    } catch (err) {
+      console.error('Error fetching auction data:', err);
     }
   };
 
@@ -87,7 +90,8 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
     (auction.winnerId === user.id || auction.highestBidderId === user.id);
   const isCurrentUserLeading = auction.highestBidderId === user.id;
 
-  const hasUserBid = bids.some((b) => b.buyerId === user.id);
+  const safeBids = Array.isArray(bids) ? bids : [];
+  const hasUserBid = safeBids.some((b) => b.bidderId === user.id || b.buyerId === user.id);
   const isUserOutbid = hasUserBid && !isCurrentUserLeading && !isAuctionEnded;
 
   const handleInitiateBid = (amount) => {
@@ -95,11 +99,11 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
     setConfirmModalOpen(true);
   };
 
-  const handleConfirmBid = () => {
+  const handleConfirmBid = async () => {
     setIsSubmittingBid(true);
     try {
-      placeBid(auction.id, user.id, user.name, pendingBidAmount);
-      fetchAuctionData();
+      await placeBid(auction.id, user.id, user.name, pendingBidAmount);
+      await fetchAuctionData();
       setIsSubmittingBid(false);
       setConfirmModalOpen(false);
       setActionSuccessMsg(`Your bid of ₹${pendingBidAmount}/${auction.unit} is now leading!`);
@@ -115,9 +119,9 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
     }
   };
 
-  const handleAuctionTimeUp = () => {
-    finalizeAuction(auction.id);
-    fetchAuctionData();
+  const handleAuctionTimeUp = async () => {
+    await finalizeAuction(auction.id);
+    await fetchAuctionData();
   };
 
   const winningRate = auction.winningBid || auction.currentBid;

@@ -49,14 +49,6 @@ export default function Login({ onNavigate, navState }) {
     { id: 'warehouse', label: 'Warehouse', icon: '🏭' },
   ];
 
-  const demoAccounts = [
-    { label: 'Farmer', email: 'farmer@agrolnk.com', icon: '🌾' },
-    { label: 'Buyer', email: 'buyer@agrolnk.com', icon: '🛒' },
-    { label: 'Financier', email: 'financier@agrolnk.com', icon: '💰' },
-    { label: 'Transporter', email: 'transporter@agrolnk.com', icon: '🚚' },
-    { label: 'Warehouse', email: 'warehouse@agrolnk.com', icon: '🏭' },
-  ];
-
   // Handle Sign In Submit
   const handleSignInSubmit = async (e) => {
     e.preventDefault();
@@ -75,17 +67,6 @@ export default function Login({ onNavigate, navState }) {
     } catch (err) {
       setSignInError(err.message || "We couldn't sign you in. Please check your email and try again.");
       setIsSigningIn(false);
-    }
-  };
-
-  // Handle Quick Demo Login
-  const handleQuickDemoLogin = async (demoEmail) => {
-    setSignInError('');
-    try {
-      const user = await loginUser({ email: demoEmail, password: 'password' });
-      onNavigate(`${user.role}-dashboard`, { user });
-    } catch (err) {
-      setSignInError(err.message || "We couldn't sign you in. Please check your email and try again.");
     }
   };
 
@@ -231,32 +212,6 @@ export default function Login({ onNavigate, navState }) {
                   </p>
                 </div>
 
-                {/* 1-Click Demo Pills */}
-                <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[#0B3326]">
-                      ⚡ 1-Click Demo Access
-                    </span>
-                    <span className="text-[11px] text-[#566861]">
-                      Instant Test Sign-In
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {demoAccounts.map((demo) => (
-                      <button
-                        key={demo.label}
-                        type="button"
-                        onClick={() => handleQuickDemoLogin(demo.email)}
-                        className="py-2 px-2.5 rounded-xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] transition-all text-center text-xs font-bold text-[#14211D] hover:text-[#0B3326] flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <span className="text-sm">{demo.icon}</span>
-                        <span className="text-xs">{demo.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {signInError && (
                   <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
@@ -275,7 +230,7 @@ export default function Login({ onNavigate, navState }) {
                         type="email"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        placeholder="e.g. farmer@agrolnk.com"
+                        placeholder="e.g. yourname@example.com"
                         className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         required
                       />
@@ -289,7 +244,7 @@ export default function Login({ onNavigate, navState }) {
                       </label>
                       <button
                         type="button"
-                        onClick={() => setSignInError('For prototype testing, click any 1-Click demo button above.')}
+                        onClick={() => setSignInError('Please contact support or register a new verified account.')}
                         className="text-[11px] font-semibold text-[#10B981] hover:underline cursor-pointer"
                       >
                         Forgot password?

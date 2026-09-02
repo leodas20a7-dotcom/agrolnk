@@ -177,8 +177,18 @@ export async function getUserBids(userId) {
 /**
  * Place a bid in an auction
  */
-export async function placeBid({ auctionId, bidderId, bidderName, amount }) {
+export async function placeBid(arg1, arg2, arg3, arg4) {
   try {
+    let auctionId, bidderId, bidderName, amount;
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      ({ auctionId, bidderId, bidderName, amount } = arg1);
+    } else {
+      auctionId = arg1;
+      bidderId = arg2;
+      bidderName = arg3;
+      amount = arg4;
+    }
+
     const numAmount = Number(amount);
 
     // Fetch current auction

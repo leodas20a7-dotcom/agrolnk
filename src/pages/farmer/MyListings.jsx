@@ -38,18 +38,20 @@ export default function MyListings({ currentUser, onNavigate }) {
     };
   }, [user.id]);
 
+  const safeListings = Array.isArray(listings) ? listings : [];
+
   const tabs = [
-    { id: 'all', label: 'All Listings', count: listings.length },
+    { id: 'all', label: 'All Listings', count: safeListings.length },
     {
       id: 'active',
       label: 'Active',
-      count: listings.filter((l) => l.status === 'active').length,
+      count: safeListings.filter((l) => l.status === 'active').length,
     },
     { id: 'sold', label: 'Sold', count: 0 },
     { id: 'drafts', label: 'Drafts', count: 0 },
   ];
 
-  const filteredListings = listings.filter((item) => {
+  const filteredListings = safeListings.filter((item) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'active') return item.status === 'active';
     if (activeTab === 'sold') return item.status === 'sold';

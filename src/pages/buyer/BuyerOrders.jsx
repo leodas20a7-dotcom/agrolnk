@@ -54,26 +54,28 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
     fetchOrders();
   }, [user.id]);
 
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
   const tabs = [
-    { id: 'all', label: 'All Orders', count: orders.length },
+    { id: 'all', label: 'All Orders', count: safeOrders.length },
     {
       id: 'pending',
       label: 'Pending',
-      count: orders.filter((o) => o.status === 'pending').length,
+      count: safeOrders.filter((o) => o.status === 'pending').length,
     },
     {
       id: 'confirmed',
       label: 'In Progress',
-      count: orders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'delivered').length,
+      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'delivered').length,
     },
     {
       id: 'completed',
       label: 'Completed',
-      count: orders.filter((o) => o.status === 'completed').length,
+      count: safeOrders.filter((o) => o.status === 'completed').length,
     },
   ];
 
-  const filteredOrders = orders.filter((o) => {
+  const filteredOrders = safeOrders.filter((o) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return o.status === 'pending';
     if (activeTab === 'confirmed')
