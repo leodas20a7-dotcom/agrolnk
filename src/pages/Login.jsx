@@ -385,7 +385,7 @@ export default function Login({ onNavigate, navState }) {
                   <label className="text-xs font-bold text-[#14211D] uppercase tracking-wider block">
                     Choose Your Role
                   </label>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {roles.map((r) => {
                       const isSelected = selectedRole === r.id;
                       return (
@@ -393,13 +393,15 @@ export default function Login({ onNavigate, navState }) {
                           key={r.id}
                           type="button"
                           onClick={() => setSelectedRole(r.id)}
-                          className={`py-2 px-1.5 rounded-xl text-center transition-all cursor-pointer border text-xs font-bold flex flex-col items-center justify-center gap-1 ${isSelected
+                          className={`flex-1 min-w-[65px] sm:min-w-0 py-2.5 px-1.5 rounded-xl text-center transition-all cursor-pointer border flex flex-col items-center justify-center gap-1 ${isSelected
                             ? 'bg-[#0B3326] text-white border-[#0B3326] shadow-xs'
                             : 'bg-[#F8FAF8] text-[#566861] border-[#E5EDE8] hover:border-[#10B981]/50 hover:bg-white'
                             }`}
                         >
                           <span className="text-base">{r.icon}</span>
-                          <span className="text-xs leading-none">{r.label}</span>
+                          <span className="text-[11px] sm:text-xs font-bold leading-tight truncate max-w-full">
+                            {r.label}
+                          </span>
                         </button>
                       );
                     })}
