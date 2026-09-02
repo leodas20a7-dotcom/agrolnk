@@ -198,13 +198,13 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
       {/* Order Inspection & Action Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs p-3 sm:p-6 flex items-center justify-center">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col border border-[#E5EDE8] shadow-2xl text-left animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
             
             {/* Modal Header */}
-            <div className="p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] flex items-center justify-between shrink-0 bg-white">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
               <div className="flex items-center gap-2">
-                <span className="text-lg sm:text-xl font-extrabold text-[#0B3326] font-heading">
+                <span className="text-lg font-bold text-[#0B3326] font-heading">
                   Order Management: {selectedOrder.orderNumber}
                 </span>
               </div>
@@ -216,67 +216,66 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
               </button>
             </div>
 
-            {/* Scrollable Modal Content */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-              {/* Order Summary Spec with In-Order Financing & Delivery */}
-              <OrderSummary
-                order={selectedOrder}
-                viewerRole="farmer"
-                onRequestFinancing={(ord) => setOrderForFinancing(ord)}
-                onViewFinancing={(req) => setRequestForReview(req)}
-                onArrangeDelivery={(ord) => setOrderForDelivery(ord)}
-                onViewDelivery={(dlv) => setDeliveryForDetail(dlv)}
-              />
+            {/* Order Summary Spec with In-Order Financing & Delivery */}
+            <OrderSummary
+              order={selectedOrder}
+              viewerRole="farmer"
+              onRequestFinancing={(ord) => setOrderForFinancing(ord)}
+              onViewFinancing={(req) => setRequestForReview(req)}
+              onArrangeDelivery={(ord) => setOrderForDelivery(ord)}
+              onViewDelivery={(dlv) => setDeliveryForDetail(dlv)}
+            />
 
-              {/* Status Progression Timeline */}
-              <div className="p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
-                <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
-                  Order Lifecycle Timeline
-                </h4>
-                <OrderTimeline currentStatus={selectedOrder.status} />
-              </div>
+            {/* 5-Step Status Progression Timeline */}
+            <div className="p-6 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-4">
+              <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
+                Order Lifecycle Timeline
+              </h4>
+              <OrderTimeline currentStatus={selectedOrder.status} />
             </div>
 
-            {/* Sticky Action Footer - Always visible on screen */}
-            <div className="p-4 sm:p-5 bg-[#0B3326] text-white border-t border-[#14624A] shrink-0 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-              <div className="space-y-0.5 text-center sm:text-left w-full sm:w-auto">
+            {/* Farmer Lifecycle Action Buttons */}
+            <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-0.5">
                 <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
-                  Seller Fulfillment Actions
+                  Seller Fulfillment Options
                 </span>
-                <span className="text-[11px] sm:text-xs text-white/80 line-clamp-1 sm:line-clamp-none">
+                <span className="text-xs text-white/80">
                   {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
-                    'Escrow secured. Choose carrier option to proceed:'}
+                    'Buyer escrow is secured. Choose to request a platform freight carrier or deliver using your own vehicle.'}
                   {selectedOrder.status === 'in_transit' &&
-                    'Produce is in transit. Mark delivered once at buyer depot:'}
+                    'Consignment is in transit. Click below once dropped off at the buyer terminal.'}
                   {selectedOrder.status === 'delivered' &&
-                    'Consignment delivered. Awaiting buyer quality check & payout release.'}
+                    'Consignment reached destination. Awaiting buyer quality check & receipt release.'}
                   {selectedOrder.status === 'completed' &&
-                    'Order 100% completed and escrow payout released.'}
+                    'Order is 100% completed and escrow payout has been released.'}
+                  {selectedOrder.status === 'cancelled' &&
+                    'This order agreement has been cancelled.'}
                 </span>
               </div>
 
-              <div className="shrink-0 w-full sm:w-auto flex flex-wrap sm:flex-nowrap items-center justify-end gap-2">
+              <div className="shrink-0 w-full sm:w-auto flex flex-wrap items-center gap-2.5">
                 {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
                   <>
                     <Button
                       variant="secondary"
-                      size="sm"
+                      size="md"
                       onClick={() => setOrderForDelivery(selectedOrder)}
                       icon={Truck}
                       iconPosition="left"
-                      className="w-full sm:w-auto font-bold py-2.5 px-3.5 bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer text-xs"
+                      className="w-full sm:w-auto font-bold py-2.5 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer text-xs"
                     >
                       Request Platform Carrier
                     </Button>
 
                     <Button
                       variant="accent"
-                      size="sm"
+                      size="md"
                       disabled={isUpdating}
                       onClick={() => handleAdvanceStatus('in_transit')}
                       icon={Check}
                       iconPosition="left"
-                      className="w-full sm:w-auto font-bold py-2.5 px-4 shadow-xs cursor-pointer text-xs"
+                      className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer text-xs"
                     >
                       {isUpdating ? 'Dispatching...' : 'Self-Arranged Transport'}
                     </Button>
@@ -286,12 +285,12 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                 {selectedOrder.status === 'in_transit' && (
                   <Button
                     variant="accent"
-                    size="sm"
+                    size="md"
                     disabled={isUpdating}
                     onClick={() => handleAdvanceStatus('delivered')}
                     icon={CheckCircle2}
                     iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-4 shadow-xs cursor-pointer text-xs"
+                    className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer text-xs"
                   >
                     {isUpdating ? 'Updating...' : 'Mark as Delivered at Destination'}
                   </Button>
@@ -306,6 +305,12 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                 {selectedOrder.status === 'completed' && (
                   <Badge variant="accent" size="md">
                     ✓ Completed & Escrow Settled
+                  </Badge>
+                )}
+
+                {selectedOrder.status === 'cancelled' && (
+                  <Badge variant="dark" size="md">
+                    ✕ Order Cancelled
                   </Badge>
                 )}
               </div>

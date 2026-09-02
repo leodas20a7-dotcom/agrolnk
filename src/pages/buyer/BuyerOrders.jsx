@@ -223,13 +223,13 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
       {/* Order Inspection Modal for Buyer */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs p-3 sm:p-6 flex items-center justify-center">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col border border-[#E5EDE8] shadow-2xl text-left animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
             
             {/* Modal Header */}
-            <div className="p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] flex items-center justify-between shrink-0 bg-white">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
               <div className="flex items-center gap-2">
-                <span className="text-lg sm:text-xl font-extrabold text-[#0B3326] font-heading">
+                <span className="text-lg font-bold text-[#0B3326] font-heading">
                   Order Tracking: {selectedOrder.orderNumber}
                 </span>
               </div>
@@ -241,73 +241,70 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
               </button>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-              {/* Order Summary Spec with In-Order Financing & Delivery */}
-              <OrderSummary
-                order={selectedOrder}
-                viewerRole="buyer"
-                onRequestFinancing={(ord) => setOrderForFinancing(ord)}
-                onViewFinancing={(req) => setRequestForReview(req)}
-                onViewDelivery={(dlv) => setDeliveryForDetail(dlv)}
-                onConfirmReceipt={(dlv) => handleConfirmOrderReceipt(dlv)}
-              />
+            {/* Order Summary Spec with In-Order Financing & Delivery */}
+            <OrderSummary
+              order={selectedOrder}
+              viewerRole="buyer"
+              onRequestFinancing={(ord) => setOrderForFinancing(ord)}
+              onViewFinancing={(req) => setRequestForReview(req)}
+              onViewDelivery={(dlv) => setDeliveryForDetail(dlv)}
+              onConfirmReceipt={(dlv) => handleConfirmOrderReceipt(dlv)}
+            />
 
-              {/* Status Progression Timeline */}
-              <div className="p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
-                <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
-                  Real-Time Fulfillment Timeline
-                </h4>
-                <OrderTimeline currentStatus={selectedOrder.status} />
+            {/* 5-Step Status Progression Timeline */}
+            <div className="p-6 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-4">
+              <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
+                Real-Time Fulfillment Timeline
+              </h4>
+              <OrderTimeline currentStatus={selectedOrder.status} />
+            </div>
+
+            {/* Action Bar when Delivered */}
+            {selectedOrder.status === 'delivered' ? (
+              <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="space-y-0.5 text-xs">
+                  <span className="font-bold text-[#34D399] uppercase tracking-wider block">
+                    Consignment Arrived at Destination
+                  </span>
+                  <span className="text-white/80">
+                    Verify quality and confirm receipt to complete order and release escrow.
+                  </span>
+                </div>
+
+                <Button
+                  variant="accent"
+                  size="md"
+                  onClick={() => handleConfirmOrderReceipt(selectedOrder)}
+                  icon={CheckCircle2}
+                  iconPosition="left"
+                  className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
+                >
+                  Confirm Receipt
+                </Button>
               </div>
-            </div>
-
-            {/* Sticky Action Footer */}
-            <div className="p-4 sm:p-5 bg-[#0B3326] text-white border-t border-[#14624A] shrink-0">
-              {selectedOrder.status === 'delivered' ? (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-                  <div className="space-y-0.5 text-xs text-center sm:text-left">
-                    <span className="font-bold text-[#34D399] uppercase tracking-wider block">
-                      Consignment Arrived at Destination
-                    </span>
-                    <span className="text-white/80">
-                      Verify quality and confirm receipt to release escrow payment to farmer.
-                    </span>
-                  </div>
-
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => handleConfirmOrderReceipt(selectedOrder)}
-                    icon={CheckCircle2}
-                    iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer text-xs shrink-0"
-                  >
-                    Confirm Receipt & Release Payment
-                  </Button>
+            ) : (
+              <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
+                    Fulfillment Status & Next Step
+                  </span>
+                  <span className="text-xs text-white/80">
+                    {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
+                      'Your escrow payment is safely locked. Awaiting Farmer to click "Confirm Order".'}
+                    {selectedOrder.status === 'confirmed' &&
+                      'Farmer has confirmed the trade agreement. Carrier logistics dispatch is being arranged.'}
+                    {selectedOrder.status === 'ready_for_delivery' &&
+                      'Consignment is with carrier and in transit to your destination facility.'}
+                    {selectedOrder.status === 'completed' &&
+                      'Order is 100% completed and settled.'}
+                  </span>
                 </div>
-              ) : (
-                <div className="flex items-center justify-between text-xs">
-                  <div className="space-y-0.5">
-                    <span className="font-bold text-[#34D399] uppercase tracking-wider block">
-                      Fulfillment Status
-                    </span>
-                    <span className="text-white/80">
-                      {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
-                        'Escrow payment locked. Awaiting Farmer to dispatch produce.'}
-                      {selectedOrder.status === 'in_transit' &&
-                        'Consignment is in transit to your destination facility.'}
-                      {selectedOrder.status === 'completed' &&
-                        'Order is 100% completed and settled.'}
-                    </span>
-                  </div>
 
-                  <Badge variant="accent" size="sm">
-                    100% Escrow Secured
-                  </Badge>
-                </div>
-              )}
-            </div>
+                <Badge variant="accent" size="sm">
+                  100% Escrow Secured
+                </Badge>
+              </div>
+            )}
 
           </div>
         </div>
