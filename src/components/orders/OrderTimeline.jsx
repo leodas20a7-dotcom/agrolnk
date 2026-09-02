@@ -4,39 +4,33 @@ import { Check, Clock, Truck, ShieldCheck, PackageCheck, AlertCircle } from 'luc
 export default function OrderTimeline({ currentStatus = 'pending', className = '' }) {
   const steps = [
     {
-      id: 'pending',
+      id: 'order_placed',
       title: 'Order Placed',
-      desc: 'Buyer created order & escrow funds locked',
+      desc: 'Buyer created order & escrow payment is locked',
       icon: Clock,
     },
     {
-      id: 'confirmed',
-      title: 'Seller Confirmation',
-      desc: 'Farmer accepted lot agreement',
-      icon: Check,
-    },
-    {
-      id: 'ready_for_delivery',
-      title: 'Ready for Delivery',
-      desc: 'Produce packaged & pickup scheduled',
+      id: 'in_transit',
+      title: 'Confirmed & In Transit',
+      desc: 'Farmer accepted agreement & produce is dispatched',
       icon: Truck,
     },
     {
       id: 'delivered',
       title: 'Delivered',
-      desc: 'Weight verified & buyer confirmed receipt',
+      desc: 'Consignment arrived at buyer destination facility',
       icon: PackageCheck,
     },
     {
       id: 'completed',
-      title: 'Completed',
-      desc: 'Escrow payment released to farmer',
+      title: 'Completed & Settled',
+      desc: 'Buyer verified receipt & escrow funds released to farmer',
       icon: ShieldCheck,
     },
   ];
 
-  const statusOrder = ['pending', 'confirmed', 'ready_for_delivery', 'delivered', 'completed'];
-  const normalizedStatus = currentStatus === 'order_placed' ? 'pending' : currentStatus;
+  const statusOrder = ['order_placed', 'in_transit', 'delivered', 'completed'];
+  const normalizedStatus = currentStatus === 'pending' ? 'order_placed' : currentStatus;
   const currentIndex = Math.max(0, statusOrder.indexOf(normalizedStatus));
 
   return (

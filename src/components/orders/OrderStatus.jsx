@@ -3,29 +3,34 @@ import Badge from '../ui/Badge';
 
 export default function OrderStatus({ status = 'pending', size = 'sm' }) {
   const statusConfigs = {
+    order_placed: {
+      label: 'Pending Confirmation',
+      variant: 'amber',
+      dot: true,
+    },
     pending: {
       label: 'Pending Confirmation',
       variant: 'amber',
       dot: true,
     },
-    confirmed: {
-      label: 'Order Confirmed',
+    in_transit: {
+      label: 'In Transit / Dispatched',
       variant: 'blue',
       dot: true,
     },
-    ready_for_delivery: {
-      label: 'Ready for Dispatch',
-      variant: 'emerald',
-      dot: true,
-    },
     delivered: {
-      label: 'Delivered',
+      label: 'Delivered (Verifying)',
       variant: 'accent',
-      dot: false,
+      dot: true,
     },
     completed: {
       label: 'Completed & Settled',
       variant: 'emerald',
+      dot: false,
+    },
+    cancelled: {
+      label: 'Cancelled',
+      variant: 'dark',
       dot: false,
     },
   };

@@ -238,17 +238,15 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
-                  Seller Action Required: Step 1 (Farmer Confirmation)
+                  Seller Actions
                 </span>
                 <span className="text-xs text-white/80">
                   {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
-                    'Buyer escrow payment is secured. Confirm this lot agreement to begin order fulfillment.'}
-                  {selectedOrder.status === 'confirmed' &&
-                    'You have confirmed this order. Now arrange freight pickup or mark produce as ready for dispatch.'}
-                  {selectedOrder.status === 'ready_for_delivery' &&
-                    'Produce load has been prepared for dispatch. Carrier pickup in progress.'}
+                    'Buyer escrow payment is secured. Confirm this lot agreement & dispatch produce to proceed.'}
+                  {selectedOrder.status === 'in_transit' &&
+                    'Produce consignment is dispatched / in transit. Click below once delivered at buyer destination.'}
                   {selectedOrder.status === 'delivered' &&
-                    'Consignment dropped off at destination. Awaiting buyer quality check & receipt confirmation.'}
+                    'Consignment dropped off at destination. Awaiting buyer verification & receipt confirmation.'}
                   {selectedOrder.status === 'completed' &&
                     'Order is 100% completed and escrow payout is released to your account.'}
                 </span>
@@ -260,29 +258,16 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     variant="accent"
                     size="md"
                     disabled={isUpdating}
-                    onClick={() => handleAdvanceStatus('confirmed')}
+                    onClick={() => handleAdvanceStatus('in_transit')}
                     icon={Check}
                     iconPosition="left"
                     className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer text-sm"
                   >
-                    {isUpdating ? 'Confirming...' : 'Confirm Order & Accept Agreement'}
+                    {isUpdating ? 'Confirming...' : 'Confirm Order & Dispatch Freight'}
                   </Button>
                 )}
 
-                {selectedOrder.status === 'confirmed' && (
-                  <Button
-                    variant="accent"
-                    size="md"
-                    onClick={() => setOrderForDelivery(selectedOrder)}
-                    icon={Truck}
-                    iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
-                  >
-                    Arrange Delivery
-                  </Button>
-                )}
-
-                {selectedOrder.status === 'ready_for_delivery' && (
+                {selectedOrder.status === 'in_transit' && (
                   <Button
                     variant="accent"
                     size="md"
@@ -292,7 +277,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     iconPosition="left"
                     className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
                   >
-                    Mark as Delivered
+                    {isUpdating ? 'Updating...' : 'Mark as Delivered at Destination'}
                   </Button>
                 )}
 
