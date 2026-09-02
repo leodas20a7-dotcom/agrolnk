@@ -49,13 +49,27 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
     loadData();
   }, [user.id]);
 
-  const warehouse = stats?.warehouse || getWarehouseById('wh_salem_01');
+  const safeInventory = Array.isArray(inventory) ? inventory : [];
+  const activeReceipts = safeInventory.filter((r) => r.status === 'stored' || r.status === 'partially_listed');
+  const totalStoredTonnes = Number((activeReceipts.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
+  const totalCapacityTonnes = 5000;
+  const occupancyPercent = totalCapacityTonnes > 0 ? Number(((totalStoredTonnes / totalCapacityTonnes) * 100).toFixed(1)) : 0;
+
+  const warehouse = {
+    name: 'Salem Agri Cold Storage Hub',
+    wdraCode: 'WDRA/2024/TN/0892',
+    facilityType: 'WDRA Certified Cold Storage',
+    address: 'Omalur Main Road, NH-44 Agri Corridor, Salem - 636004',
+    totalCapacityTonnes,
+    occupiedTonnes: totalStoredTonnes,
+    occupancyPercent,
+  };
 
   const chambersList = [
-    { name: 'Chamber A1 (Dry Storage)', temp: 'Ambient (24°C)', capacity: '1,200 T', occupied: '950 T', pct: 79, commodities: 'Turmeric, Grains' },
-    { name: 'Chamber B2 (Cold Cell)', temp: '4°C - 8°C', capacity: '1,500 T', occupied: '1,100 T', pct: 73, commodities: 'Potatoes, Carrots' },
-    { name: 'Chamber B4 (Ultra Cold)', temp: '2°C - 4°C', capacity: '1,300 T', occupied: '1,050 T', pct: 81, commodities: 'Hybrid Tomatoes, Fruits' },
-    { name: 'Chamber C1 (CA Controlled)', temp: '0°C - 2°C (CA)', capacity: '1,000 T', occupied: '600 T', pct: 60, commodities: 'Export Apples, Grapes' },
+    { name: 'Chamber A1 (Dry Storage)', temp: 'Ambient (24°C)', capacity: '1,200 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('A1')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Turmeric, Grains' },
+    { name: 'Chamber B2 (Cold Cell)', temp: '4°C - 8°C', capacity: '1,500 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('B2')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Potatoes, Carrots' },
+    { name: 'Chamber B4 (Ultra Cold)', temp: '2°C - 4°C', capacity: '1,300 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('B4')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Hybrid Tomatoes, Fruits' },
+    { name: 'Chamber C1 (CA Controlled)', temp: '0°C - 2°C (CA)', capacity: '1,000 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('C1')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Export Apples, Grapes' },
   ];
 
   return (
@@ -113,7 +127,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {stats?.activeReceipts ?? 0}
+              {activeReceipts.length}
             </div>
             <div className="text-[11px] text-[#566861]">
               Legally certified warehouse receipts
