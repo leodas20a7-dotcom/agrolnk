@@ -43,6 +43,7 @@ import TransporterDashboard from './pages/transporter/TransporterDashboard';
 import WarehouseDashboard from './pages/warehouse/WarehouseDashboard';
 
 import ProtectedRoute from './components/ProtectedRoute';
+import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
 import { getCurrentUser } from './utils/auth';
 
 const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
@@ -72,10 +73,45 @@ function getInitialPage() {
   return 'landing';
 }
 
+const PAGE_MESSAGES = {
+  'buyer-marketplace': 'Loading Agricultural Marketplace...',
+  'live-auctions': 'Connecting to Real-time Auction Floor...',
+  'auction-room': 'Entering Live Auction Arena...',
+  'farmer-orders': 'Retrieving Escrow Contracts & Orders...',
+  'buyer-orders': 'Retrieving Procurement Orders...',
+  'farmer-dashboard': 'Syncing Farmer Desk...',
+  'buyer-dashboard': 'Syncing Buyer Terminal...',
+  'financier-dashboard': 'Loading Capital & Liquidity Vault...',
+  'warehouse-dashboard': 'Accessing e-NWR Warehousing Network...',
+  'transporter-dashboard': 'Syncing Logistics & Corridor Dispatch...',
+  'create-listing': 'Initializing Lot Assay Form...',
+  'farmer-financing': 'Loading Working Capital Facilities...',
+  'farmer-deliveries': 'Loading Active Dispatch Schedules...',
+};
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState(() => getInitialPage());
   const [navState, setNavState] = useState({});
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+  const [isFlashLoading, setIsFlashLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Synchronizing Agrolnk...');
+
+  // Initial app load flash curtain to hide blank flashes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsFlashLoading(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const triggerFlashTransition = (targetPage) => {
+    const msg = PAGE_MESSAGES[targetPage] || 'Loading Agrolnk...';
+    setLoadingMessage(msg);
+    setIsFlashLoading(true);
+    setTimeout(() => {
+      setIsFlashLoading(false);
+    }, 280);
+  };
 
   const handleNavigate = (page, state = {}, replace = false) => {
     let resolvedPage = page;
@@ -85,6 +121,7 @@ export default function App() {
       resolvedPage = user?.role ? `${user.role}-dashboard` : 'login';
     }
 
+    triggerFlashTransition(resolvedPage);
     setCurrentPage(resolvedPage);
     setNavState(state || {});
     if (state?.user) {
@@ -113,17 +150,20 @@ export default function App() {
 
       if (!hashPage) {
         const defaultTarget = user?.role ? `${user.role}-dashboard` : 'landing';
+        triggerFlashTransition(defaultTarget);
         setCurrentPage(defaultTarget);
         window.location.replace(`#/${defaultTarget}`);
         return;
       }
 
       if (!PUBLIC_PAGES.has(hashPage) && !user) {
+        triggerFlashTransition('login');
         setCurrentPage('login');
         window.location.replace('#/login');
         return;
       }
 
+      triggerFlashTransition(hashPage);
       setCurrentPage(hashPage);
     };
 
@@ -141,6 +181,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
+      {/* Global Flash Loading Screen to cover all data delays */}
+      {isFlashLoading && <FlashLoadingScreen message={loadingMessage} />}
       {/* 1. Public Landing Page */}
       {currentPage === 'landing' && (
         <Landing
