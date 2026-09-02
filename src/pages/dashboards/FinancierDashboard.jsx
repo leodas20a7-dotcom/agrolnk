@@ -72,7 +72,15 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const pendingRequests = safeRequests.filter(
     (r) => r.status === 'pending' || r.status === 'under_review'
   );
-  const activeLoans = safeRequests.filter((r) => r.status === 'approved');
+  const activeLoans = safeRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed');
+
+  const totalPool = pool?.totalCommitted || 10000000;
+  const totalDeployed = activeLoans.reduce(
+    (sum, l) => sum + (Number(l.approvedAmount) || Number(l.requestedAmount) || 0),
+    0
+  );
+  const availablePool = Math.max(0, totalPool - totalDeployed);
+  const liquidPct = totalPool > 0 ? ((availablePool / totalPool) * 100).toFixed(1) : 100;
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
@@ -135,11 +143,11 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
-              ₹{(pool?.availableLiquidity || 7544000).toLocaleString('en-IN')}
+              ₹{availablePool.toLocaleString('en-IN')}
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="truncate hidden sm:inline">Total: ₹{(pool?.totalCommitted || 10000000).toLocaleString('en-IN')}</span>
-              <span className="text-[#10B981] font-bold">75.4% Liquid</span>
+              <span className="truncate hidden sm:inline">Total: ₹{totalPool.toLocaleString('en-IN')}</span>
+              <span className="text-[#10B981] font-bold">{liquidPct}% Liquid</span>
             </div>
           </Card>
 
@@ -155,10 +163,10 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
-              ₹{(pool?.allocatedDeployed || 2456000).toLocaleString('en-IN')}
+              ₹{totalDeployed.toLocaleString('en-IN')}
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="truncate hidden sm:inline">{activeLoans.length + 2} Live Facilities</span>
+              <span className="truncate hidden sm:inline">{activeLoans.length} Live Facilities</span>
               <span className="text-[#D97706] font-bold">100% Escrow</span>
             </div>
           </Card>
@@ -175,11 +183,11 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#10B981] font-heading">
-              {stats?.avgActiveYield || 11.4}% <span className="text-[10px] sm:text-xs text-[#566861] font-normal">p.a.</span>
+              {activeLoans.length > 0 ? (stats?.averageInterestRate || 9.5) : 0}% <span className="text-[10px] sm:text-xs text-[#566861] font-normal">p.a.</span>
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
               <span className="hidden sm:inline">Net fee</span>
-              <span className="text-[#10B981] font-bold">+1.8% vs MIBOR</span>
+              <span className="text-[#10B981] font-bold">{activeLoans.length > 0 ? '+1.8% vs MIBOR' : 'No Active Loans'}</span>
             </div>
           </Card>
 
@@ -198,7 +206,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               0.00%
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="hidden sm:inline">34 Settlements</span>
+              <span className="hidden sm:inline">{disbursements.length} Settlements</span>
               <span className="text-[#10B981] font-bold">100% On-Time</span>
             </div>
           </Card>
@@ -375,41 +383,54 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                 Capital Deployment Breakdown
               </h3>
 
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-xs font-semibold mb-1">
-                    <span className="text-[#14211D]">Farmer Working Capital</span>
-                    <span className="text-[#10B981]">55% (₹13.5 Lakhs)</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
-                    <div className="h-full bg-[#10B981] rounded-full" style={{ width: '55%' }} />
-                  </div>
+              {activeLoans.length === 0 ? (
+                <div className="p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-center space-y-1.5">
+                  <p className="text-xs font-bold text-[#0B3326]">No Active Loan Deployments</p>
+                  <p className="text-[11px] text-[#566861]">
+                    When trade applications are underwritten and approved, facility allocations will update here automatically.
+                  </p>
                 </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-xs font-semibold mb-1">
+                      <span className="text-[#14211D]">Farmer Working Capital</span>
+                      <span className="text-[#10B981]">
+                        ₹{activeLoans.filter((l) => l.applicantRole === 'farmer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
+                      <div
+                        className="h-full bg-[#10B981] rounded-full"
+                        style={{
+                          width: `${totalDeployed > 0 ? ((activeLoans.filter((l) => l.applicantRole === 'farmer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0) / totalDeployed) * 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                  <div className="flex justify-between text-xs font-semibold mb-1">
-                    <span className="text-[#14211D]">Buyer Invoice Discounting</span>
-                    <span className="text-[#0B3326]">30% (₹7.3 Lakhs)</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
-                    <div className="h-full bg-[#0B3326] rounded-full" style={{ width: '30%' }} />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs font-semibold mb-1">
-                    <span className="text-[#14211D]">WDRA e-NWR Vault Loans</span>
-                    <span className="text-[#D97706]">15% (₹3.7 Lakhs)</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
-                    <div className="h-full bg-[#D97706] rounded-full" style={{ width: '15%' }} />
+                  <div>
+                    <div className="flex justify-between text-xs font-semibold mb-1">
+                      <span className="text-[#14211D]">Buyer Invoice Discounting</span>
+                      <span className="text-[#0B3326]">
+                        ₹{activeLoans.filter((l) => l.applicantRole === 'buyer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
+                      <div
+                        className="h-full bg-[#0B3326] rounded-full"
+                        style={{
+                          width: `${totalDeployed > 0 ? ((activeLoans.filter((l) => l.applicantRole === 'buyer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0) / totalDeployed) * 100) : 0}%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between text-xs text-[#566861]">
                 <span>Risk Distribution:</span>
-                <span className="font-bold text-[#10B981]">100% Tier 1 / Low Risk</span>
+                <span className="font-bold text-[#10B981]">100% Escrow Lien Protected</span>
               </div>
             </Card>
 
@@ -420,36 +441,45 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                   Upcoming Maturities (30 Days)
                 </h3>
                 <span className="text-[11px] font-semibold text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-full">
-                  Auto-Deduct Active
+                  Auto-Settlement
                 </span>
               </div>
 
-              <div className="space-y-3">
-                {disbursements.slice(0, 3).map((disb) => (
-                  <div
-                    key={disb.id}
-                    className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs"
-                  >
-                    <div className="space-y-0.5">
-                      <span className="font-bold text-[#14211D] block">
-                        {disb.applicantName}
-                      </span>
-                      <span className="text-[11px] text-[#566861]">
-                        Maturity: {new Date(disb.maturityDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                      </span>
-                    </div>
+              {disbursements.length === 0 ? (
+                <div className="p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-center space-y-1">
+                  <p className="text-xs font-bold text-[#0B3326]">No Pending Maturities</p>
+                  <p className="text-[11px] text-[#566861]">
+                    All active facility settlements will appear in real-time as loans are disbursed.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {disbursements.slice(0, 3).map((disb) => (
+                    <div
+                      key={disb.id}
+                      className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-[#14211D] block">
+                          {disb.applicantName}
+                        </span>
+                        <span className="text-[11px] text-[#566861]">
+                          Maturity: {disb.maturityDate ? new Date(disb.maturityDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '30 Days'}
+                        </span>
+                      </div>
 
-                    <div className="text-right">
-                      <span className="font-bold text-[#0B3326] block">
-                        ₹{disb.expectedReturn.toLocaleString('en-IN')}
-                      </span>
-                      <span className="text-[10px] text-[#10B981] font-semibold">
-                        {disb.interestRate}% APR
-                      </span>
+                      <div className="text-right">
+                        <span className="font-bold text-[#0B3326] block">
+                          ₹{Number(disb.expectedReturn || disb.amount || 0).toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-[10px] text-[#10B981] font-semibold">
+                          {disb.interestRate || 9.5}% APR
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Card>
 
           </div>
