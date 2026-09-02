@@ -35,8 +35,13 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const [selectedCommodity, setSelectedCommodity] = useState('all');
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
 
-  const loadRequests = () => {
-    setRequests(getFinancingRequests());
+  const loadRequests = async () => {
+    try {
+      const data = await getFinancingRequests();
+      setRequests(data || []);
+    } catch (err) {
+      console.error('Error loading requests:', err);
+    }
   };
 
   useEffect(() => {

@@ -30,9 +30,25 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
   const [disbursements, setDisbursements] = useState([]);
 
   useEffect(() => {
-    const all = getFinancingRequests();
-    setActiveLoans(all.filter((r) => r.status === 'approved'));
-    setDisbursements(getDisbursements().filter((d) => d.status === 'active'));
+    let isMounted = true;
+    const loadAll = async () => {
+      try {
+        const [all, allDisb] = await Promise.all([
+          getFinancingRequests(),
+          getDisbursements(),
+        ]);
+        if (isMounted) {
+          setActiveLoans((all || []).filter((r) => r.status === 'approved'));
+          setDisbursements((allDisb || []).filter((d) => d.status === 'active'));
+        }
+      } catch (err) {
+        console.error('Error loading financier portfolio:', err);
+      }
+    };
+    loadAll();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const totalPrincipal = activeLoans.reduce(

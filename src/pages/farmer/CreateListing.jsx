@@ -22,28 +22,30 @@ import {
 import { createListing, COMMODITY_IMAGES } from '../../utils/listings';
 import { createAuction } from '../../utils/auctions';
 
-export default function CreateListing({ currentUser, onNavigate }) {
+export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+
+  const initialSource = navState?.editListing || navState?.initialData;
 
   // 5 Progressive Compact Steps
   const [currentStep, setCurrentStep] = useState(1);
-  const [saleType, setSaleType] = useState('direct'); // 'direct' | 'auction'
+  const [saleType, setSaleType] = useState(initialSource?.saleType || 'direct'); // 'direct' | 'auction'
 
   const [formData, setFormData] = useState({
-    commodity: 'Tomato',
-    variety: 'Hybrid Shivam',
-    grade: 'A',
-    quantity: '500',
-    unit: 'kg',
-    price: '42',
-    startingBid: '38',
-    reservePrice: '45',
-    state: 'Tamil Nadu',
-    district: 'Salem',
-    village: 'Attur Farmgate Hub',
-    harvestDate: new Date().toISOString().split('T')[0],
-    images: [COMMODITY_IMAGES.Tomato],
-    isDefaultImage: true,
+    commodity: initialSource?.commodity || 'Tomato',
+    variety: initialSource?.variety || 'Hybrid Shivam',
+    grade: initialSource?.grade || 'A',
+    quantity: initialSource?.quantity ? String(initialSource.quantity) : '500',
+    unit: initialSource?.unit || 'kg',
+    price: initialSource?.price ? String(initialSource.price) : (initialSource?.pricePerUnit ? String(initialSource.pricePerUnit) : '42'),
+    startingBid: initialSource?.startingBid ? String(initialSource.startingBid) : '38',
+    reservePrice: initialSource?.reservePrice ? String(initialSource.reservePrice) : '45',
+    state: initialSource?.state || 'Tamil Nadu',
+    district: initialSource?.district || 'Salem',
+    village: initialSource?.village || 'Attur Farmgate Hub',
+    harvestDate: initialSource?.harvestDate || new Date().toISOString().split('T')[0],
+    images: initialSource?.images || [COMMODITY_IMAGES.Tomato],
+    isDefaultImage: !initialSource?.images,
   });
 
   const [error, setError] = useState('');
@@ -135,32 +137,37 @@ export default function CreateListing({ currentUser, onNavigate }) {
     }
   };
 
-  const handlePublishListing = () => {
+  const handlePublishListing = async () => {
     setIsSubmitting(true);
     setError('');
 
     try {
       if (saleType === 'auction') {
-        createAuction({
+        await createAuction({
+          farmerId: user.id || 'usr_farmer_01',
+          farmerName: user.name || 'Sakthi Vel',
           commodity: formData.commodity,
           variety: formData.variety || 'Standard Lot',
           grade: formData.grade,
           quantity: Number(formData.quantity),
           unit: formData.unit,
-          startingPrice: Number(formData.startingBid || formData.price),
+          startingBid: Number(formData.startingBid || formData.price),
           reservePrice: Number(formData.reservePrice || Number(formData.startingBid || formData.price) * 1.1),
           state: formData.state,
           district: formData.district,
           images: formData.images,
         });
-        setTimeout(() => onNavigate('farmer-my-auctions'), 300);
+        onNavigate('farmer-my-auctions');
       } else {
-        createListing({
+        await createListing({
+          farmerId: user.id || 'usr_farmer_01',
+          farmerName: user.name || 'Sakthi Vel',
           commodity: formData.commodity,
           variety: formData.variety || 'Standard Lot',
           grade: formData.grade,
           quantity: Number(formData.quantity),
           unit: formData.unit,
+          price: Number(formData.price),
           pricePerUnit: Number(formData.price),
           totalAmount: Number(formData.quantity) * Number(formData.price),
           state: formData.state,
@@ -169,7 +176,7 @@ export default function CreateListing({ currentUser, onNavigate }) {
           images: formData.images,
           saleType: 'direct',
         });
-        setTimeout(() => onNavigate('farmer-my-listings'), 300);
+        onNavigate('farmer-my-listings');
       }
     } catch (err) {
       console.error('Failed to publish listing:', err);

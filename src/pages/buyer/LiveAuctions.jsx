@@ -23,8 +23,19 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const data = getLiveAuctions();
-    setAuctions(data);
+    let isMounted = true;
+    const fetchAuctions = async () => {
+      try {
+        const data = await getLiveAuctions();
+        if (isMounted) setAuctions(data || []);
+      } catch (err) {
+        console.error('Error fetching live auctions:', err);
+      }
+    };
+    fetchAuctions();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const filteredAuctions = auctions.filter((a) => {

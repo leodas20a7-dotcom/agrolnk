@@ -1,450 +1,379 @@
-// Agrolnk Prototype Deliveries & Logistics Engine (LocalStorage)
-// Lifecycle:
-// TRANSPORT_REQUESTED -> ASSIGNED -> PICKED_UP -> IN_TRANSIT -> DELIVERED -> COMPLETED
+// Agrolnk Supabase Deliveries & Logistics Engine
+import { supabase } from '../lib/supabase';
 
-import { updateOrderDeliveryStatus, updateOrderStatus, confirmOrderReceipt } from './orders';
-
-const DELIVERIES_STORAGE_KEY = 'agrolnkDeliveries';
-
-// Default pre-seeded demo deliveries
-const DEFAULT_DEMO_DELIVERIES = [
-  {
-    id: 'dlv_demo_1024',
-    deliveryNumber: '#DLV-1024',
-    orderId: 'ord_demo_1024',
-    orderNumber: '#AGM-1024',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Ananya Agro Foods',
-    commodity: 'Tomato',
-    variety: 'Hybrid Shivam',
-    grade: 'A',
-    quantity: 500,
-    unit: 'kg',
-    pickupLocation: {
-      state: 'Tamil Nadu',
-      district: 'Salem',
-      address: 'Salem Farmgate Hub, Omalur Main Road',
-    },
-    deliveryLocation: {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Koyambedu Wholesale Terminal, Bay 12',
-    },
-    preferredPickupDate: '28 Aug 2026',
-    notes: 'Fragile ripe tomatoes, requires plastic crate stacking.',
-    status: 'transport_requested', // 'transport_requested' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'completed'
-    transporterId: null,
-    transporterName: null,
-    vehicleType: null,
-    vehicleNumber: null,
-    driverContact: null,
-    assignedAt: null,
-    pickedUpAt: null,
-    inTransitAt: null,
-    deliveredAt: null,
-    confirmedAt: null,
-    createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-  },
-  {
-    id: 'dlv_demo_1022',
-    deliveryNumber: '#DLV-1022',
-    orderId: 'ord_demo_1022',
-    orderNumber: '#AGM-1022',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Ananya Agro Foods',
-    commodity: 'Onion',
-    variety: 'Nasik Red',
-    grade: 'B',
-    quantity: 500,
-    unit: 'kg',
-    pickupLocation: {
-      state: 'Maharashtra',
-      district: 'Nashik',
-      address: 'Lasalgaon APMC Yard, Gate 3, Nashik',
-    },
-    deliveryLocation: {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Koyambedu Cold Chain Facility, Chennai',
-    },
-    preferredPickupDate: '26 Aug 2026',
-    notes: 'Moisture sensitive onion sacks.',
-    status: 'in_transit',
-    transporterId: 'usr_transporter_04',
-    transporterName: 'Vetri Logistics & Transport',
-    vehicleType: '14ft Eicher Truck (4 Tonne)',
-    vehicleNumber: 'TN 28 AB 4092',
-    driverContact: '+91 94433 77889 (Driver: Selvam)',
-    assignedAt: new Date(Date.now() - 3600000 * 18).toISOString(),
-    pickedUpAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-    inTransitAt: new Date(Date.now() - 3600000 * 10).toISOString(),
-    deliveredAt: null,
-    confirmedAt: null,
-    createdAt: new Date(Date.now() - 3600000 * 20).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000 * 10).toISOString(),
-  },
-  {
-    id: 'dlv_demo_1023',
-    deliveryNumber: '#DLV-1023',
-    orderId: 'ord_demo_1023',
-    orderNumber: '#AGM-1023',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Ananya Agro Foods',
-    commodity: 'Potato',
-    variety: 'Kufri Jyoti',
-    grade: 'A',
-    quantity: 250,
-    unit: 'kg',
-    pickupLocation: {
-      state: 'Tamil Nadu',
-      district: 'Dindigul',
-      address: 'Dindigul Central Market Depot',
-    },
-    deliveryLocation: {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Ananya Agro Processing Unit, Guindy',
-    },
-    preferredPickupDate: '24 Aug 2026',
-    notes: 'Jute bagged seed grade potatoes.',
-    status: 'completed',
-    transporterId: 'usr_transporter_04',
-    transporterName: 'Vetri Logistics & Transport',
-    vehicleType: 'Tata 407 (2.5 Tonne)',
-    vehicleNumber: 'TN 57 C 8812',
-    driverContact: '+91 98421 66543 (Driver: Kumar)',
-    assignedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
-    pickedUpAt: new Date(Date.now() - 3600000 * 40).toISOString(),
-    inTransitAt: new Date(Date.now() - 3600000 * 36).toISOString(),
-    deliveredAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    confirmedAt: new Date(Date.now() - 3600000 * 22).toISOString(),
-    createdAt: new Date(Date.now() - 3600000 * 50).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000 * 22).toISOString(),
-  },
-  {
-    id: 'dlv_demo_2088',
-    deliveryNumber: '#DLV-2088',
-    orderId: 'ord_demo_2088',
-    orderNumber: '#AGM-2088',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Salem Farmers Collective',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Ananya Agro Foods',
-    commodity: 'Auction Lot: Hybrid Shivam Tomato',
-    variety: 'Grade A Export',
-    grade: 'A',
-    quantity: 12000,
-    unit: 'kg',
-    pickupLocation: {
-      state: 'Tamil Nadu',
-      district: 'Salem',
-      address: 'Salem APMC Yard & Cold Storage Block B',
-    },
-    deliveryLocation: {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Ananya Agro Cold Terminal, Madhavaram',
-    },
-    preferredPickupDate: '29 Aug 2026',
-    notes: 'Wholesale auction consignment. Requires ventilated multi-axle truck.',
-    status: 'transport_requested',
-    transporterId: null,
-    transporterName: null,
-    vehicleType: null,
-    vehicleNumber: null,
-    driverContact: null,
-    assignedAt: null,
-    pickedUpAt: null,
-    inTransitAt: null,
-    deliveredAt: null,
-    confirmedAt: null,
-    createdAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-  }
-];
-
-/**
- * Get all deliveries from localStorage
- */
-export function getDeliveries() {
-  try {
-    const raw = localStorage.getItem(DELIVERIES_STORAGE_KEY) || localStorage.getItem('agramazDeliveries');
-    if (!raw) {
-      localStorage.setItem(DELIVERIES_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_DELIVERIES));
-      return DEFAULT_DEMO_DELIVERIES;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_DEMO_DELIVERIES;
-  } catch {
-    return DEFAULT_DEMO_DELIVERIES;
-  }
+function mapDeliveryFromDb(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    deliveryNumber: row.delivery_number,
+    orderId: row.order_id,
+    orderNumber: row.order_number,
+    farmerId: row.farmer_id,
+    farmerName: row.farmer_name,
+    buyerId: row.buyer_id,
+    buyerName: row.buyer_name,
+    transporterId: row.transporter_id,
+    transporterName: row.transporter_name,
+    vehicleNumber: row.vehicle_number,
+    driverName: row.driver_name,
+    driverPhone: row.driver_phone,
+    commodity: row.commodity,
+    grade: row.grade,
+    variety: row.variety,
+    quantity: Number(row.quantity),
+    unit: row.unit,
+    pickupLocation: row.pickup_location || {},
+    deliveryLocation: row.delivery_location || {},
+    status: row.status,
+    pickupOtp: row.pickup_otp,
+    deliveryOtp: row.delivery_otp,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 /**
- * Save deliveries to localStorage
+ * Get all deliveries from Supabase
  */
-function saveDeliveries(deliveries) {
+export async function getDeliveries() {
   try {
-    localStorage.setItem(DELIVERIES_STORAGE_KEY, JSON.stringify(deliveries));
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch deliveries from Supabase:', error);
+      return [];
+    }
+
+    return (data || []).map(mapDeliveryFromDb);
   } catch (err) {
-    console.error('Failed to save deliveries to localStorage:', err);
+    console.error('Error in getDeliveries:', err);
+    return [];
   }
 }
 
 /**
  * Get deliveries for a farmer
  */
-export function getFarmerDeliveries(farmerId) {
-  const all = getDeliveries();
-  if (!farmerId) return all;
-  return all.filter((d) => d.farmerId === farmerId || !d.farmerId);
+export async function getFarmerDeliveries(farmerId) {
+  try {
+    if (!farmerId) return await getDeliveries();
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('*')
+      .eq('farmer_id', farmerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch farmer deliveries:', error);
+      return [];
+    }
+
+    return (data || []).map(mapDeliveryFromDb);
+  } catch (err) {
+    console.error('Error in getFarmerDeliveries:', err);
+    return [];
+  }
 }
 
 /**
  * Get deliveries for a buyer
  */
-export function getBuyerDeliveries(buyerId) {
-  const all = getDeliveries();
-  if (!buyerId) return all;
-  return all.filter((d) => d.buyerId === buyerId || !d.buyerId);
+export async function getBuyerDeliveries(buyerId) {
+  try {
+    if (!buyerId) return await getDeliveries();
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('*')
+      .eq('buyer_id', buyerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch buyer deliveries:', error);
+      return [];
+    }
+
+    return (data || []).map(mapDeliveryFromDb);
+  } catch (err) {
+    console.error('Error in getBuyerDeliveries:', err);
+    return [];
+  }
 }
 
 /**
  * Get all open jobs available for transporters
  */
-export function getAvailableTransportJobs() {
-  const all = getDeliveries();
-  return all.filter((d) => d.status === 'transport_requested');
+export async function getAvailableTransportJobs() {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('*')
+      .eq('status', 'transport_requested')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch transport jobs:', error);
+      return [];
+    }
+
+    return (data || []).map(mapDeliveryFromDb);
+  } catch (err) {
+    console.error('Error in getAvailableTransportJobs:', err);
+    return [];
+  }
 }
 
 /**
  * Get deliveries accepted by a transporter
  */
-export function getTransporterDeliveries(transporterId) {
-  const all = getDeliveries();
-  if (!transporterId) return all.filter((d) => d.transporterId);
-  return all.filter((d) => d.transporterId === transporterId || (d.status !== 'transport_requested' && !d.transporterId));
+export async function getTransporterDeliveries(transporterId) {
+  try {
+    if (!transporterId) return await getDeliveries();
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('*')
+      .eq('transporter_id', transporterId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch transporter deliveries:', error);
+      return [];
+    }
+
+    return (data || []).map(mapDeliveryFromDb);
+  } catch (err) {
+    console.error('Error in getTransporterDeliveries:', err);
+    return [];
+  }
+}
+
+/**
+ * Create a new delivery record in Supabase
+ */
+export async function createDelivery(deliveryData) {
+  try {
+    const generateId = () => {
+      try {
+        return crypto.randomUUID();
+      } catch {
+        return `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+    };
+
+    const generateDeliveryNum = () => {
+      const num = Math.floor(1000 + Math.random() * 9000);
+      return `DEL-${num}`;
+    };
+
+    const dbRow = {
+      id: generateId(),
+      delivery_number: generateDeliveryNum(),
+      order_id: deliveryData.orderId || null,
+      order_number: deliveryData.orderNumber || '#AGM-1000',
+      farmer_id: deliveryData.farmerId || null,
+      farmer_name: deliveryData.farmerName || 'Sakthi Vel',
+      buyer_id: deliveryData.buyerId || null,
+      buyer_name: deliveryData.buyerName || 'Ananya Agro Foods',
+      transporter_id: deliveryData.transporterId || null,
+      transporter_name: deliveryData.transporterName || null,
+      commodity: deliveryData.commodity || 'Tomato',
+      grade: deliveryData.grade || 'A',
+      variety: deliveryData.variety || 'Standard',
+      quantity: Number(deliveryData.quantity),
+      unit: deliveryData.unit || 'kg',
+      pickup_location: deliveryData.pickupLocation || {},
+      delivery_location: deliveryData.deliveryLocation || {},
+      status: deliveryData.status || 'transport_requested',
+      pickup_otp: String(Math.floor(1000 + Math.random() * 9000)),
+      delivery_otp: String(Math.floor(1000 + Math.random() * 9000)),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .insert([dbRow])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase delivery creation error:', error);
+      throw error;
+    }
+
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error creating delivery:', err);
+    throw err;
+  }
+}
+
+/**
+ * Transporter accepts a transport delivery job
+ */
+export async function acceptDelivery(deliveryId, transporterInfo) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({
+        transporter_id: transporterInfo.id || null,
+        transporter_name: transporterInfo.name || 'Vetri Logistics',
+        vehicle_number: transporterInfo.vehicleNumber || 'TN 28 AB 4092',
+        driver_name: transporterInfo.driverName || 'M. Murugan',
+        driver_phone: transporterInfo.driverPhone || '+91 94433 77889',
+        status: 'assigned',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error accepting delivery:', err);
+    throw err;
+  }
+}
+
+/**
+ * Confirm pickup with OTP
+ */
+export async function confirmPickup(deliveryId) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({
+        status: 'in_transit',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error confirming pickup:', err);
+    throw err;
+  }
+}
+
+/**
+ * Confirm buyer delivery completion with OTP
+ */
+export async function confirmBuyerReceipt(deliveryId) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({
+        status: 'delivered',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error confirming delivery:', err);
+    throw err;
+  }
+}
+
+/**
+ * Get aggregated transporter stats
+ */
+export async function getTransporterStats(transporterId) {
+  try {
+    const all = await getDeliveries();
+    const availableJobs = all.filter((d) => d.status === 'transport_requested');
+    const myDeliveries = all.filter((d) => d.transporterId === transporterId || (d.status !== 'transport_requested' && !d.transporterId));
+    const activeDeliveries = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'in_transit');
+    const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed');
+    const totalTonnes = completedTrips.reduce((sum, d) => sum + (Number(d.quantity) || 0) / 1000, 0);
+
+    return {
+      availableJobs: availableJobs.length,
+      activeDeliveries: activeDeliveries.length,
+      completedTrips: completedTrips.length,
+      totalTonnes: Number(totalTonnes.toFixed(1)),
+    };
+  } catch (err) {
+    console.error('Error in getTransporterStats:', err);
+    return {
+      availableJobs: 0,
+      activeDeliveries: 0,
+      completedTrips: 0,
+      totalTonnes: 0,
+    };
+  }
 }
 
 /**
  * Get delivery linked to an order
  */
-export function getDeliveryForOrder(orderNumberOrId) {
-  if (!orderNumberOrId) return null;
-  const all = getDeliveries();
-  return all.find(
-    (d) =>
-      d.orderId === orderNumberOrId ||
-      d.orderNumber === orderNumberOrId ||
-      (orderNumberOrId.includes('#') && d.orderNumber.toLowerCase() === orderNumberOrId.toLowerCase())
-  ) || null;
+export async function getDeliveryForOrder(orderNumberOrId) {
+  try {
+    if (!orderNumberOrId) return null;
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('*')
+      .or(`order_id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return mapDeliveryFromDb(data);
+  } catch {
+    return null;
+  }
+}
+
+export const acceptDeliveryJob = acceptDelivery;
+
+/**
+ * Update delivery status
+ */
+export async function updateDeliveryStatus(deliveryId, newStatus) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error updating delivery status:', err);
+    throw err;
+  }
 }
 
 /**
  * Get delivery by ID
  */
-export function getDeliveryById(id) {
-  const all = getDeliveries();
-  return all.find((d) => d.id === id || d.deliveryNumber === id) || null;
-}
+export async function getDeliveryById(deliveryId) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('*')
+      .eq('id', deliveryId)
+      .maybeSingle();
 
-/**
- * Create a new delivery request (Farmer arranges delivery for confirmed order)
- */
-export function createDelivery(deliveryData) {
-  const currentDeliveries = getDeliveries();
-
-  const generateDlvNum = () => {
-    const num = Math.floor(1000 + Math.random() * 9000);
-    return `#DLV-${num}`;
-  };
-
-  const newDelivery = {
-    id: `dlv_${Date.now()}`,
-    deliveryNumber: generateDlvNum(),
-    orderId: deliveryData.orderId || '',
-    orderNumber: deliveryData.orderNumber || '#AGM-1000',
-    farmerId: deliveryData.farmerId || 'usr_farmer_01',
-    farmerName: deliveryData.farmerName || 'Sakthi Vel',
-    buyerId: deliveryData.buyerId || 'usr_buyer_02',
-    buyerName: deliveryData.buyerName || 'Ananya Agro Foods',
-    commodity: deliveryData.commodity || 'Agricultural Produce',
-    variety: deliveryData.variety || 'Standard Lot',
-    grade: deliveryData.grade || 'A',
-    quantity: Number(deliveryData.quantity) || 100,
-    unit: deliveryData.unit || 'kg',
-    pickupLocation: deliveryData.pickupLocation || {
-      state: 'Tamil Nadu',
-      district: 'Salem',
-      address: 'Salem Farmgate Hub',
-    },
-    deliveryLocation: deliveryData.deliveryLocation || {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Koyambedu Wholesale Terminal',
-    },
-    preferredPickupDate: deliveryData.preferredPickupDate || new Date(Date.now() + 86400000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-    notes: deliveryData.notes || '',
-    status: 'transport_requested',
-    transporterId: null,
-    transporterName: null,
-    vehicleType: null,
-    vehicleNumber: null,
-    driverContact: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const updated = [newDelivery, ...currentDeliveries];
-  saveDeliveries(updated);
-
-  // Synchronize order delivery status
-  if (deliveryData.orderId || deliveryData.orderNumber) {
-    updateOrderDeliveryStatus(deliveryData.orderId || deliveryData.orderNumber, 'transport_requested');
+    if (error || !data) return null;
+    return mapDeliveryFromDb(data);
+  } catch {
+    return null;
   }
-
-  return newDelivery;
-}
-
-/**
- * Transporter accepts an available delivery job
- */
-export function acceptDeliveryJob(deliveryId, transporterUser) {
-  const deliveries = getDeliveries();
-  const index = deliveries.findIndex((d) => d.id === deliveryId || d.deliveryNumber === deliveryId);
-  if (index === -1) return null;
-
-  const current = deliveries[index];
-  const transporter = transporterUser || {
-    id: 'usr_transporter_04',
-    name: 'Vetri Logistics & Transport',
-    vehicleType: '14ft Eicher Truck (4 Tonne)',
-    vehicleNumber: 'TN 28 AB 4092',
-    phone: '+91 94433 77889',
-  };
-
-  deliveries[index] = {
-    ...current,
-    status: 'assigned',
-    transporterId: transporter.id,
-    transporterName: transporter.name,
-    vehicleType: transporter.vehicleType || 'Commercial Freight Truck',
-    vehicleNumber: transporter.vehicleNumber || 'TN 28 AB 4092',
-    driverContact: `${transporter.phone || '+91 94433 77889'} (${transporter.name})`,
-    assignedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  saveDeliveries(deliveries);
-
-  // Sync order delivery status
-  updateOrderDeliveryStatus(current.orderNumber || current.orderId, 'assigned');
-
-  return deliveries[index];
-}
-
-/**
- * Update delivery status along the physical transport lifecycle
- * assigned -> picked_up -> in_transit -> delivered -> completed
- */
-export function updateDeliveryStatus(deliveryId, nextStatus, metadata = {}) {
-  const deliveries = getDeliveries();
-  const index = deliveries.findIndex((d) => d.id === deliveryId || d.deliveryNumber === deliveryId);
-  if (index === -1) return null;
-
-  const current = deliveries[index];
-  const now = new Date().toISOString();
-
-  const timestampUpdates = {};
-  if (nextStatus === 'picked_up') timestampUpdates.pickedUpAt = now;
-  if (nextStatus === 'in_transit') timestampUpdates.inTransitAt = now;
-  if (nextStatus === 'delivered') timestampUpdates.deliveredAt = now;
-  if (nextStatus === 'completed') timestampUpdates.confirmedAt = now;
-
-  deliveries[index] = {
-    ...current,
-    ...metadata,
-    ...timestampUpdates,
-    status: nextStatus,
-    updatedAt: now,
-  };
-
-  saveDeliveries(deliveries);
-
-  // Synchronize order
-  const orderKey = current.orderNumber || current.orderId;
-  if (nextStatus === 'delivered') {
-    updateOrderStatus(orderKey, 'delivered');
-    updateOrderDeliveryStatus(orderKey, 'delivered');
-  } else if (nextStatus === 'completed') {
-    confirmOrderReceipt(orderKey);
-  } else {
-    updateOrderDeliveryStatus(orderKey, nextStatus);
-  }
-
-  return deliveries[index];
-}
-
-/**
- * Buyer confirms receipt of delivery
- */
-export function confirmBuyerReceipt(deliveryIdOrOrderNumber) {
-  const deliveries = getDeliveries();
-  const index = deliveries.findIndex(
-    (d) =>
-      d.id === deliveryIdOrOrderNumber ||
-      d.deliveryNumber === deliveryIdOrOrderNumber ||
-      d.orderNumber === deliveryIdOrOrderNumber ||
-      d.orderId === deliveryIdOrOrderNumber
-  );
-
-  if (index === -1) return null;
-
-  const current = deliveries[index];
-  const now = new Date().toISOString();
-
-  deliveries[index] = {
-    ...current,
-    status: 'completed',
-    confirmedAt: now,
-    updatedAt: now,
-  };
-
-  saveDeliveries(deliveries);
-
-  // Settle order
-  confirmOrderReceipt(current.orderNumber || current.orderId);
-
-  return deliveries[index];
-}
-
-/**
- * Compute aggregate statistics for the Transporter Dashboard
- */
-export function getTransporterStats(transporterId) {
-  const all = getDeliveries();
-  
-  const availableJobs = all.filter((d) => d.status === 'transport_requested').length;
-  const myDeliveries = all.filter((d) => d.transporterId === transporterId || (d.status !== 'transport_requested' && !d.transporterId));
-  
-  const activeDeliveries = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'picked_up' || d.status === 'in_transit').length;
-  const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed').length + 18; // plus baseline
-  
-  const totalKg = all
-    .filter((d) => d.status === 'delivered' || d.status === 'completed')
-    .reduce((sum, d) => sum + (Number(d.quantity) || 0), 24500);
-
-  return {
-    availableJobs,
-    activeDeliveries,
-    completedTrips,
-    totalTonnes: (totalKg / 1000).toFixed(1),
-  };
 }

@@ -24,8 +24,19 @@ export default function MyBids({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    const data = getUserBids(user.id);
-    setBids(data);
+    let isMounted = true;
+    const fetchBids = async () => {
+      try {
+        const data = await getUserBids(user.id);
+        if (isMounted) setBids(data || []);
+      } catch (err) {
+        console.error('Error fetching user bids:', err);
+      }
+    };
+    fetchBids();
+    return () => {
+      isMounted = false;
+    };
   }, [user.id]);
 
   const tabs = [

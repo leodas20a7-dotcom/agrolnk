@@ -132,7 +132,7 @@ export default function Register({ onNavigate, navState }) {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -172,8 +172,8 @@ export default function Register({ onNavigate, navState }) {
     setIsSubmitting(true);
 
     try {
-      // Register user and store in localStorage
-      const user = registerUser({
+      // Register user and store in Supabase & session cache
+      const user = await registerUser({
         name: formData.name,
         phone: formData.phone,
         email: formData.email,

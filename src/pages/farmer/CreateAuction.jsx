@@ -87,7 +87,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
   const startingLotValue =
     Number(formData.quantity || 0) * Number(formData.startingBid || 0);
 
-  const handlePublishAuction = (e) => {
+  const handlePublishAuction = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -114,15 +114,13 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     setIsPublishing(true);
 
     try {
-      createAuction({
+      await createAuction({
         ...formData,
         farmerId: user.id || 'usr_farmer_01',
         farmerName: user.name || 'Sakthi Vel',
       });
 
-      setTimeout(() => {
-        onNavigate('farmer-my-auctions');
-      }, 300);
+      onNavigate('farmer-my-auctions');
     } catch (err) {
       console.error('Failed to create auction:', err);
       setError('Failed to publish auction. Please try again.');

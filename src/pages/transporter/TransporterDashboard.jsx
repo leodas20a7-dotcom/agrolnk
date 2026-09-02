@@ -46,11 +46,17 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   });
   const [selectedDelivery, setSelectedDelivery] = useState(null);
 
-  const loadData = () => {
-    const all = getDeliveries();
-    setDeliveries(all);
-    const computedStats = getTransporterStats(user.id);
-    setStats(computedStats);
+  const loadData = async () => {
+    try {
+      const [all, computedStats] = await Promise.all([
+        getDeliveries(),
+        getTransporterStats(user.id),
+      ]);
+      setDeliveries(all || []);
+      setStats(computedStats);
+    } catch (err) {
+      console.error('Error loading transporter data:', err);
+    }
   };
 
   useEffect(() => {

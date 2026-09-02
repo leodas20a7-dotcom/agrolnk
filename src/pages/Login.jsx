@@ -58,7 +58,7 @@ export default function Login({ onNavigate, navState }) {
   ];
 
   // Handle Sign In Submit
-  const handleSignInSubmit = (e) => {
+  const handleSignInSubmit = async (e) => {
     e.preventDefault();
     setSignInError('');
 
@@ -70,27 +70,27 @@ export default function Login({ onNavigate, navState }) {
     setIsSigningIn(true);
 
     try {
-      const user = loginUser({ email: signInEmail, password: signInPassword });
+      const user = await loginUser({ email: signInEmail, password: signInPassword });
       onNavigate(`${user.role}-dashboard`, { user });
     } catch (err) {
-      setSignInError("We couldn't sign you in. Please check your email and try again.");
+      setSignInError(err.message || "We couldn't sign you in. Please check your email and try again.");
       setIsSigningIn(false);
     }
   };
 
   // Handle Quick Demo Login
-  const handleQuickDemoLogin = (demoEmail) => {
+  const handleQuickDemoLogin = async (demoEmail) => {
     setSignInError('');
     try {
-      const user = loginUser({ email: demoEmail, password: 'password' });
+      const user = await loginUser({ email: demoEmail, password: 'password' });
       onNavigate(`${user.role}-dashboard`, { user });
     } catch (err) {
-      setSignInError("We couldn't sign you in. Please check your email and try again.");
+      setSignInError(err.message || "We couldn't sign you in. Please check your email and try again.");
     }
   };
 
   // Handle Register Submit
-  const handleRegisterSubmit = (e) => {
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setRegisterError('');
 
@@ -122,7 +122,7 @@ export default function Login({ onNavigate, navState }) {
     setIsRegistering(true);
 
     try {
-      const user = registerUser({
+      const user = await registerUser({
         name: registerData.name,
         phone: registerData.phone,
         email: registerData.email,

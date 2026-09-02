@@ -30,11 +30,17 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
   const [deliveries, setDeliveries] = useState([]);
   const [selectedDeliveryForDetail, setSelectedDeliveryForDetail] = useState(null);
 
-  const loadData = () => {
-    const buyerOrders = getBuyerOrders(user.id);
-    setOrders(buyerOrders);
-    const buyerDeliveries = getBuyerDeliveries(user.id);
-    setDeliveries(buyerDeliveries);
+  const loadData = async () => {
+    try {
+      const [buyerOrders, buyerDeliveries] = await Promise.all([
+        getBuyerOrders(user.id),
+        getBuyerDeliveries(user.id),
+      ]);
+      setOrders(buyerOrders || []);
+      setDeliveries(buyerDeliveries || []);
+    } catch (err) {
+      console.error('Error loading buyer deliveries:', err);
+    }
   };
 
   useEffect(() => {

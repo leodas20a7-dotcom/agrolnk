@@ -37,38 +37,16 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   // In-order delivery modals
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
 
-  const fetchOrders = () => {
-    const data = getBuyerOrders(user.id);
-    
-    // Add default auction order demo if not present
-    const hasAuctionOrder = data.some((o) => o.orderNumber === '#AGM-2088');
-    const enrichedOrders = hasAuctionOrder
-      ? data
-      : [
-          {
-            id: 'ord_demo_2088',
-            orderNumber: '#AGM-2088',
-            commodity: 'Auction Lot: Hybrid Shivam Tomato',
-            variety: 'Grade A Export',
-            grade: 'A',
-            quantity: 12000,
-            unit: 'kg',
-            totalAmount: 500000,
-            pricePerUnit: 41.6,
-            farmerName: 'Salem Farmers Collective',
-            status: 'pending',
-            deliveryStatus: 'pending',
-            pickupLocation: { state: 'Tamil Nadu', district: 'Salem', address: 'Salem APMC Yard' },
-            deliveryLocation: { state: 'Tamil Nadu', district: 'Chennai', address: 'Madhavaram Cold Facility' },
-            createdAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-          },
-          ...data,
-        ];
-
-    setOrders(enrichedOrders);
-    if (selectedOrder) {
-      const updated = enrichedOrders.find((o) => o.id === selectedOrder.id || o.orderNumber === selectedOrder.orderNumber);
-      if (updated) setSelectedOrder(updated);
+  const fetchOrders = async () => {
+    try {
+      const data = await getBuyerOrders(user.id);
+      setOrders(data || []);
+      if (selectedOrder) {
+        const updated = (data || []).find((o) => o.id === selectedOrder.id || o.orderNumber === selectedOrder.orderNumber);
+        if (updated) setSelectedOrder(updated);
+      }
+    } catch (err) {
+      console.error('Error fetching buyer orders:', err);
     }
   };
 

@@ -41,16 +41,16 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const estimatedTotal = Number(listing.quantity || 0) * Number(listing.price || 0);
 
-  const handleOrderConfirmed = (orderPayload) => {
+  const handleOrderConfirmed = async (orderPayload) => {
     try {
-      const order = createOrder({
+      const order = await createOrder({
         ...orderPayload,
         buyerId: user.id || 'usr_buyer_02',
         buyerName: user.name || 'Ananya Agro Foods',
       });
 
       // Deduct quantity from live listing
-      deductListingQuantity(listing.id, orderPayload.quantity);
+      await deductListingQuantity(listing.id, orderPayload.quantity);
 
       setIsModalOpen(false);
       onNavigate('buyer-orders', { newOrder: order });

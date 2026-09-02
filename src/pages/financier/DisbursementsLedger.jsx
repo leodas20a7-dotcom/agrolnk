@@ -29,7 +29,19 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   useEffect(() => {
-    setDisbursements(getDisbursements());
+    let isMounted = true;
+    const loadDisb = async () => {
+      try {
+        const data = await getDisbursements();
+        if (isMounted) setDisbursements(data || []);
+      } catch (err) {
+        console.error('Error loading disbursements:', err);
+      }
+    };
+    loadDisb();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const filteredDisbursements = disbursements.filter(

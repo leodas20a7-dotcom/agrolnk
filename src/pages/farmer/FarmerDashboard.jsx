@@ -38,18 +38,35 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const [inventory, setInventory] = useState([]);
 
   useEffect(() => {
-    const listingData = getFarmerListings(user.id);
-    setListings(listingData);
-    const orderData = getFarmerOrders(user.id);
-    setOrders(orderData);
-    const auctionData = getFarmerAuctions(user.id);
-    setAuctions(auctionData);
-    const financingData = getFarmerFinancingRequests(user.id);
-    setFinancingRequests(financingData);
-    const deliveryData = getFarmerDeliveries(user.id);
-    setDeliveries(deliveryData);
-    const invData = getFarmerInventory(user.id);
-    setInventory(invData);
+    let isMounted = true;
+    const loadAll = async () => {
+      try {
+        const [listingData, orderData, auctionData, financingData, deliveryData, invData] = await Promise.all([
+          getFarmerListings(user.id),
+          getFarmerOrders(user.id),
+          getFarmerAuctions(user.id),
+          getFarmerFinancingRequests(user.id),
+          getFarmerDeliveries(user.id),
+          getFarmerInventory(user.id),
+        ]);
+
+        if (isMounted) {
+          setListings(listingData || []);
+          setOrders(orderData || []);
+          setAuctions(auctionData || []);
+          setFinancingRequests(financingData || []);
+          setDeliveries(deliveryData || []);
+          setInventory(invData || []);
+        }
+      } catch (err) {
+        console.error('Failed to load farmer dashboard data:', err);
+      }
+    };
+
+    loadAll();
+    return () => {
+      isMounted = false;
+    };
   }, [user.id]);
 
   const directCount = listings.filter((l) => l.saleType === 'direct').length;
@@ -118,7 +135,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           >
             <StatCard
               label="Active Listings"
-              value={directCount || 3}
+              value={directCount}
               subtext="Fixed-price direct lots"
               icon={Package}
               iconColor="#10B981"
@@ -146,7 +163,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           >
             <StatCard
               label="Orders"
-              value={orders.length || 5}
+              value={orders.length}
               subtext={
                 pendingOrdersCount > 0
                   ? `${pendingOrdersCount} pending confirmation`

@@ -33,11 +33,17 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
   );
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
 
-  const loadData = () => {
-    const orderData = getFarmerOrders(user.id);
-    setOrders(orderData);
-    const requestData = getFarmerFinancingRequests(user.id);
-    setFinancingRequests(requestData);
+  const loadData = async () => {
+    try {
+      const [orderData, requestData] = await Promise.all([
+        getFarmerOrders(user.id),
+        getFarmerFinancingRequests(user.id),
+      ]);
+      setOrders(orderData || []);
+      setFinancingRequests(requestData || []);
+    } catch (err) {
+      console.error('Error loading farmer financing:', err);
+    }
   };
 
   useEffect(() => {

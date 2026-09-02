@@ -32,34 +32,17 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
   );
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
 
-  const loadData = () => {
-    const orderData = getBuyerOrders(user.id);
-    
-    // Add default auction order demo if not present
-    const hasAuctionOrder = orderData.some((o) => o.orderNumber === '#AGM-2088');
-    const enrichedOrders = hasAuctionOrder
-      ? orderData
-      : [
-          {
-            id: 'ord_demo_2088',
-            orderNumber: '#AGM-2088',
-            commodity: 'Auction Lot: Hybrid Shivam Tomato',
-            variety: 'Grade A Export',
-            grade: 'A',
-            quantity: 12000,
-            unit: 'kg',
-            totalAmount: 500000,
-            pricePerUnit: 41.6,
-            farmerName: 'Salem Farmers Collective',
-            status: 'pending',
-            createdAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-          },
-          ...orderData,
-        ];
-
-    setOrders(enrichedOrders);
-    const requestData = getBuyerFinancingRequests(user.id);
-    setFinancingRequests(requestData);
+  const loadData = async () => {
+    try {
+      const [orderData, requestData] = await Promise.all([
+        getBuyerOrders(user.id),
+        getBuyerFinancingRequests(user.id),
+      ]);
+      setOrders(orderData || []);
+      setFinancingRequests(requestData || []);
+    } catch (err) {
+      console.error('Error loading buyer financing:', err);
+    }
   };
 
   useEffect(() => {

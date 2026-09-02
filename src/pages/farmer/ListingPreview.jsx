@@ -39,7 +39,11 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
   const handlePublish = () => {
     setIsPublishing(true);
     try {
-      createListing(listingData);
+      createListing({
+        ...listingData,
+        farmerId: user.id || 'usr_farmer_01',
+        farmerName: user.name || 'Sakthi Vel',
+      });
       setTimeout(() => {
         onNavigate('farmer-my-listings');
       }, 300);

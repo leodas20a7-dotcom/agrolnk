@@ -39,12 +39,16 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   const [orderForDelivery, setOrderForDelivery] = useState(null);
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
 
-  const fetchOrders = () => {
-    const data = getFarmerOrders(user.id);
-    setOrders(data);
-    if (selectedOrder) {
-      const updated = data.find((o) => o.id === selectedOrder.id || o.orderNumber === selectedOrder.orderNumber);
-      if (updated) setSelectedOrder(updated);
+  const fetchOrders = async () => {
+    try {
+      const data = await getFarmerOrders(user.id);
+      setOrders(data || []);
+      if (selectedOrder) {
+        const updated = (data || []).find((o) => o.id === selectedOrder.id || o.orderNumber === selectedOrder.orderNumber);
+        if (updated) setSelectedOrder(updated);
+      }
+    } catch (err) {
+      console.error('Error fetching farmer orders:', err);
     }
   };
 

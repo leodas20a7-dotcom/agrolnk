@@ -38,11 +38,13 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
   const [selectedInventoryForList, setSelectedInventoryForList] = useState(null);
   const [inventoryForFinancing, setInventoryForFinancing] = useState(null);
 
-  const loadData = () => {
-    const inv = getFarmerInventory(user.id);
-    setInventoryList(inv);
-    const wh = getWarehouses();
-    setWarehousesList(wh);
+  const loadData = async () => {
+    try {
+      const inv = await getFarmerInventory(user.id);
+      setInventoryList(inv || []);
+    } catch (err) {
+      console.error('Error loading inventory:', err);
+    }
   };
 
   useEffect(() => {

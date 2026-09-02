@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { getActiveMarketplaceListings } from '../../utils/listings';
 import { getLiveAuctions } from '../../utils/auctions';
+import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests } from '../../utils/financing';
 import { getBuyerDeliveries } from '../../utils/deliveries';
 import { getTimeGreeting } from '../../utils/greeting';
@@ -30,6 +31,7 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Ananya Agro', id: 'usr_buyer_02', role: 'buyer' };
   const [listings, setListings] = useState([]);
   const [liveAuctions, setLiveAuctions] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,14 +51,33 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
   };
 
   useEffect(() => {
-    const activeLots = getActiveMarketplaceListings();
-    setListings(activeLots);
-    const auctions = getLiveAuctions();
-    setLiveAuctions(auctions);
-    const financingData = getBuyerFinancingRequests(user.id);
-    setFinancingRequests(financingData);
-    const deliveryData = getBuyerDeliveries(user.id);
-    setDeliveries(deliveryData);
+    let isMounted = true;
+    const loadAll = async () => {
+      try {
+        const [activeLots, auctions, orderData, financingData, deliveryData] = await Promise.all([
+          getActiveMarketplaceListings(),
+          getLiveAuctions(),
+          getBuyerOrders(user.id),
+          getBuyerFinancingRequests(user.id),
+          getBuyerDeliveries(user.id),
+        ]);
+
+        if (isMounted) {
+          setListings(activeLots || []);
+          setLiveAuctions(auctions || []);
+          setOrders(orderData || []);
+          setFinancingRequests(financingData || []);
+          setDeliveries(deliveryData || []);
+        }
+      } catch (err) {
+        console.error('Error loading buyer dashboard:', err);
+      }
+    };
+
+    loadAll();
+    return () => {
+      isMounted = false;
+    };
   }, [user.id]);
 
   const totalKg = listings.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
@@ -135,7 +156,7 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
                 iconPosition="left"
                 className="font-bold shadow-xs text-xs cursor-pointer"
               >
-                My Orders
+                My Orders ({orders.length})
               </Button>
             </div>
           </div>
@@ -246,7 +267,7 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-extrabold text-[#0B3326] font-heading">
-                  {totalKg ? totalKg.toLocaleString('en-IN') : '12,450'} kg
+                  {totalKg.toLocaleString('en-IN')} kg
                 </span>
                 <span className="text-xs font-semibold text-[#10B981]">
                   • {listings.length} Fixed-Price Lots

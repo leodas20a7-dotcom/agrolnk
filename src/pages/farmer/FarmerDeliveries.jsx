@@ -33,11 +33,17 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
   );
   const [selectedDeliveryForDetail, setSelectedDeliveryForDetail] = useState(null);
 
-  const loadData = () => {
-    const farmerOrders = getFarmerOrders(user.id);
-    setOrders(farmerOrders);
-    const farmerDeliveries = getFarmerDeliveries(user.id);
-    setDeliveries(farmerDeliveries);
+  const loadData = async () => {
+    try {
+      const [farmerOrders, farmerDeliveries] = await Promise.all([
+        getFarmerOrders(user.id),
+        getFarmerDeliveries(user.id),
+      ]);
+      setOrders(farmerOrders || []);
+      setDeliveries(farmerDeliveries || []);
+    } catch (err) {
+      console.error('Error loading farmer deliveries:', err);
+    }
   };
 
   useEffect(() => {

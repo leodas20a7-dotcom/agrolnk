@@ -28,14 +28,25 @@ export default function MyAuctions({ currentUser, onNavigate }) {
   const [timeNow, setTimeNow] = useState(Date.now());
 
   useEffect(() => {
-    const data = getFarmerAuctions(user.id);
-    setAuctions(data);
+    let isMounted = true;
+    const fetchAuctions = async () => {
+      try {
+        const data = await getFarmerAuctions(user.id);
+        if (isMounted) setAuctions(data || []);
+      } catch (err) {
+        console.error('Error fetching farmer auctions:', err);
+      }
+    };
+    fetchAuctions();
 
     const interval = setInterval(() => {
       setTimeNow(Date.now());
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [user.id]);
 
   const formatRemainingTime = (endsAtStr) => {

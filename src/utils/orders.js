@@ -1,249 +1,259 @@
-// Agrolnk Prototype Orders Engine (LocalStorage)
-// Enhanced lifecycle:
-// PENDING -> CONFIRMED -> (TRANSPORT_REQUESTED -> ASSIGNED -> PICKED_UP -> IN_TRANSIT -> DELIVERED) -> BUYER_CONFIRMS -> COMPLETED
+// Agrolnk Supabase Orders & Settlements Engine
+import { supabase } from '../lib/supabase';
+import { createDelivery } from './deliveries';
 
-const ORDERS_STORAGE_KEY = 'agrolnkOrders';
-
-// Default multi-stage demo orders
-const DEFAULT_DEMO_ORDERS = [
-  {
-    id: 'ord_demo_1024',
-    orderNumber: '#AGM-1024',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Ananya Agro Foods',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    commodity: 'Tomato',
-    variety: 'Hybrid Shivam',
-    grade: 'A',
-    quantity: 500,
-    unit: 'kg',
-    pricePerUnit: 42,
-    totalAmount: 21000,
-    status: 'confirmed',
-    deliveryStatus: 'pending', // 'pending' | 'transport_requested' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'completed'
-    pickupLocation: {
-      state: 'Tamil Nadu',
-      district: 'Salem',
-      address: 'Salem Farmgate Hub, Omalur Main Road',
-    },
-    deliveryLocation: {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Koyambedu Wholesale Terminal, Bay 12',
-    },
-    state: 'Tamil Nadu',
-    district: 'Salem',
-    createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-  },
-  {
-    id: 'ord_demo_1023',
-    orderNumber: '#AGM-1023',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Ananya Agro Foods',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    commodity: 'Potato',
-    variety: 'Kufri Jyoti',
-    grade: 'A',
-    quantity: 250,
-    unit: 'kg',
-    pricePerUnit: 35,
-    totalAmount: 8750,
-    status: 'completed',
-    deliveryStatus: 'completed',
-    pickupLocation: {
-      state: 'Tamil Nadu',
-      district: 'Dindigul',
-      address: 'Dindigul Central Market Depot',
-    },
-    deliveryLocation: {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Ananya Agro Processing Unit, Guindy',
-    },
-    state: 'Tamil Nadu',
-    district: 'Dindigul',
-    createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
-  },
-  {
-    id: 'ord_demo_1022',
-    orderNumber: '#AGM-1022',
-    buyerId: 'usr_buyer_02',
-    buyerName: 'Ananya Agro Foods',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    commodity: 'Onion',
-    variety: 'Nasik Red',
-    grade: 'B',
-    quantity: 500,
-    unit: 'kg',
-    pricePerUnit: 28,
-    totalAmount: 14000,
-    status: 'ready_for_delivery',
-    deliveryStatus: 'in_transit',
-    pickupLocation: {
-      state: 'Maharashtra',
-      district: 'Nashik',
-      address: 'Lasalgaon APMC Yard, Nashik',
-    },
-    deliveryLocation: {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Koyambedu Cold Chain Facility, Chennai',
-    },
-    state: 'Maharashtra',
-    district: 'Nashik',
-    createdAt: new Date(Date.now() - 3600000 * 18).toISOString(),
-  },
-];
-
-/**
- * Get all orders from localStorage
- */
-export function getOrders() {
-  try {
-    const raw = localStorage.getItem(ORDERS_STORAGE_KEY) || localStorage.getItem('agramazOrders');
-    if (!raw) {
-      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_ORDERS));
-      return DEFAULT_DEMO_ORDERS;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_DEMO_ORDERS;
-  } catch {
-    return DEFAULT_DEMO_ORDERS;
-  }
+function mapOrderFromDb(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    listingId: row.listing_id,
+    auctionId: row.auction_id,
+    buyerId: row.buyer_id,
+    buyerName: row.buyer_name,
+    farmerId: row.farmer_id,
+    farmerName: row.farmer_name,
+    commodity: row.commodity,
+    variety: row.variety,
+    grade: row.grade,
+    quantity: Number(row.quantity),
+    unit: row.unit,
+    pricePerUnit: Number(row.price_per_unit),
+    totalAmount: Number(row.total_amount),
+    state: row.state,
+    district: row.district,
+    escrowStatus: row.escrow_status,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 /**
- * Save orders to localStorage
+ * Get all orders from Supabase
  */
-function saveOrders(orders) {
+export async function getOrders() {
   try {
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch orders from Supabase:', error);
+      return [];
+    }
+
+    return (data || []).map(mapOrderFromDb);
   } catch (err) {
-    console.error('Failed to save orders to localStorage:', err);
+    console.error('Error in getOrders:', err);
+    return [];
   }
 }
 
 /**
  * Get orders for a specific buyer
  */
-export function getBuyerOrders(buyerId) {
-  const all = getOrders();
-  if (!buyerId) return all;
-  return all.filter((o) => o.buyerId === buyerId || !o.buyerId);
+export async function getBuyerOrders(buyerId) {
+  try {
+    if (!buyerId) return await getOrders();
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('buyer_id', buyerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch buyer orders:', error);
+      return [];
+    }
+
+    return (data || []).map(mapOrderFromDb);
+  } catch (err) {
+    console.error('Error in getBuyerOrders:', err);
+    return [];
+  }
 }
 
 /**
  * Get orders for a specific farmer
  */
-export function getFarmerOrders(farmerId) {
-  const all = getOrders();
-  if (!farmerId) return all;
-  return all.filter((o) => o.farmerId === farmerId || !o.farmerId);
+export async function getFarmerOrders(farmerId) {
+  try {
+    if (!farmerId) return await getOrders();
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('farmer_id', farmerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch farmer orders:', error);
+      return [];
+    }
+
+    return (data || []).map(mapOrderFromDb);
+  } catch (err) {
+    console.error('Error in getFarmerOrders:', err);
+    return [];
+  }
 }
 
 /**
- * Create a new order
+ * Create a new order in Supabase
  */
-export function createOrder(orderData) {
-  const currentOrders = getOrders();
+export async function createOrder(orderData) {
+  try {
+    const generateId = () => {
+      try {
+        return crypto.randomUUID();
+      } catch {
+        return `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+    };
 
-  const generateOrderNum = () => {
-    const num = Math.floor(1000 + Math.random() * 9000);
-    return `#AGM-${num}`;
-  };
+    const generateOrderNum = () => {
+      const num = Math.floor(1000 + Math.random() * 9000);
+      return `#AGM-${num}`;
+    };
 
-  const newOrder = {
-    id: `ord_${Date.now()}`,
-    orderNumber: generateOrderNum(),
-    buyerId: orderData.buyerId || 'usr_buyer_02',
-    buyerName: orderData.buyerName || 'Ananya Agro Foods',
-    listingId: orderData.listingId,
-    farmerId: orderData.farmerId || 'usr_farmer_01',
-    farmerName: orderData.farmerName || 'Sakthi Vel',
-    commodity: orderData.commodity,
-    variety: orderData.variety || 'Standard',
-    grade: orderData.grade || 'A',
-    quantity: Number(orderData.quantity),
-    unit: orderData.unit || 'kg',
-    pricePerUnit: Number(orderData.pricePerUnit),
-    totalAmount: Number(orderData.totalAmount),
-    status: 'pending',
-    deliveryStatus: 'pending',
-    pickupLocation: orderData.pickupLocation || {
+    const orderId = generateId();
+    const orderNumber = generateOrderNum();
+
+    const dbRow = {
+      id: orderId,
+      order_number: orderNumber,
+      listing_id: orderData.listingId || null,
+      auction_id: orderData.auctionId || null,
+      buyer_id: orderData.buyerId || null,
+      buyer_name: orderData.buyerName || 'Ananya Agro Foods',
+      farmer_id: orderData.farmerId || null,
+      farmer_name: orderData.farmerName || 'Sakthi Vel',
+      commodity: orderData.commodity || 'Tomato',
+      variety: orderData.variety || 'Standard',
+      grade: orderData.grade || 'A',
+      quantity: Number(orderData.quantity),
+      unit: orderData.unit || 'kg',
+      price_per_unit: Number(orderData.pricePerUnit),
+      total_amount: Number(orderData.totalAmount),
       state: orderData.state || 'Tamil Nadu',
       district: orderData.district || 'Salem',
-      address: `${orderData.district || 'Salem'} Producer Farmgate`,
-    },
-    deliveryLocation: orderData.deliveryLocation || {
-      state: 'Tamil Nadu',
-      district: 'Chennai',
-      address: 'Wholesale Hub, Chennai',
-    },
-    state: orderData.state || '',
-    district: orderData.district || '',
-    createdAt: new Date().toISOString(),
-  };
+      escrow_status: 'funded',
+      status: 'order_placed',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-  const updated = [newOrder, ...currentOrders];
-  saveOrders(updated);
-  return newOrder;
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([dbRow])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase order creation error:', error);
+      throw error;
+    }
+
+    // Automatically create a transport delivery record for logistics
+    try {
+      await createDelivery({
+        orderId: data.id,
+        orderNumber: data.order_number,
+        farmerId: data.farmer_id,
+        farmerName: data.farmer_name,
+        buyerId: data.buyer_id,
+        buyerName: data.buyer_name,
+        commodity: data.commodity,
+        grade: data.grade,
+        variety: data.variety,
+        quantity: data.quantity,
+        unit: data.unit,
+        pickupLocation: orderData.pickupLocation || {
+          state: data.state,
+          district: data.district,
+          address: `${data.district} Farmgate Aggregation Depot`,
+        },
+        deliveryLocation: orderData.deliveryLocation || {
+          state: 'Tamil Nadu',
+          district: 'Chennai',
+          address: 'Buyer Central Receiving Terminal',
+        },
+      });
+    } catch (deliveryErr) {
+      console.warn('Auto delivery creation notice:', deliveryErr);
+    }
+
+    return mapOrderFromDb(data);
+  } catch (err) {
+    console.error('Error creating order:', err);
+    throw err;
+  }
 }
 
 /**
- * Update order status along the lifecycle
+ * Confirm order receipt by buyer
  */
-export function updateOrderStatus(orderId, nextStatus) {
-  const orders = getOrders();
-  const index = orders.findIndex((o) => o.id === orderId || o.orderNumber === orderId);
-  if (index === -1) return null;
+export async function confirmOrderReceipt(orderId) {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .update({
+        status: 'completed',
+        escrow_status: 'released',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+      .select()
+      .single();
 
-  orders[index] = {
-    ...orders[index],
-    status: nextStatus,
-    updatedAt: new Date().toISOString(),
-  };
-
-  saveOrders(orders);
-  return orders[index];
+    if (error) throw error;
+    return mapOrderFromDb(data);
+  } catch (err) {
+    console.error('Error confirming order receipt:', err);
+    throw err;
+  }
 }
 
 /**
- * Update delivery status on an order
+ * Update order status
  */
-export function updateOrderDeliveryStatus(orderId, deliveryStatus) {
-  const orders = getOrders();
-  const index = orders.findIndex((o) => o.id === orderId || o.orderNumber === orderId);
-  if (index === -1) return null;
+export async function updateOrderStatus(orderId, newStatus) {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+      .select()
+      .single();
 
-  orders[index] = {
-    ...orders[index],
-    deliveryStatus,
-    updatedAt: new Date().toISOString(),
-  };
-
-  saveOrders(orders);
-  return orders[index];
+    if (error) throw error;
+    return mapOrderFromDb(data);
+  } catch (err) {
+    console.error('Error updating order status:', err);
+    throw err;
+  }
 }
 
 /**
- * Buyer confirms receipt of delivery -> moves order to completed
+ * Get order by ID
  */
-export function confirmOrderReceipt(orderId) {
-  const orders = getOrders();
-  const index = orders.findIndex((o) => o.id === orderId || o.orderNumber === orderId);
-  if (index === -1) return null;
+export async function getOrderById(orderId) {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+      .maybeSingle();
 
-  orders[index] = {
-    ...orders[index],
-    status: 'completed',
-    deliveryStatus: 'completed',
-    completedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  saveOrders(orders);
-  return orders[index];
+    if (error || !data) return null;
+    return mapOrderFromDb(data);
+  } catch {
+    return null;
+  }
 }

@@ -1,19 +1,19 @@
-// Agrolnk Prototype Authentication Layer (LocalStorage)
-// Clean abstraction layer prepared for seamless future Supabase Auth migration.
+// Agrolnk Supabase Authentication & Profile Management Layer
+import { supabase } from '../lib/supabase';
 
-const USERS_STORAGE_KEY = 'agrolnk_demo_users';
 const AGROLNK_USER_KEY = 'agrolnkUser';
 const IS_AUTH_KEY = 'isAuthenticated';
 
-// Pre-seeded demo accounts for quick testing
-const DEFAULT_DEMO_USERS = [
+// Seed demo users in case DB needs initial population
+export const DEFAULT_DEMO_USERS = [
   {
     id: 'usr_farmer_01',
     name: 'Sakthi Vel',
     email: 'farmer@agrolnk.com',
     phone: '+91 98765 43210',
     role: 'farmer',
-    createdAt: new Date().toISOString(),
+    state: 'Tamil Nadu',
+    district: 'Salem',
   },
   {
     id: 'usr_buyer_02',
@@ -21,7 +21,8 @@ const DEFAULT_DEMO_USERS = [
     email: 'buyer@agrolnk.com',
     phone: '+91 98450 12345',
     role: 'buyer',
-    createdAt: new Date().toISOString(),
+    state: 'Tamil Nadu',
+    district: 'Chennai',
   },
   {
     id: 'usr_financier_03',
@@ -29,7 +30,8 @@ const DEFAULT_DEMO_USERS = [
     email: 'financier@agrolnk.com',
     phone: '+91 97110 56789',
     role: 'financier',
-    createdAt: new Date().toISOString(),
+    state: 'Maharashtra',
+    district: 'Mumbai',
   },
   {
     id: 'usr_transporter_04',
@@ -37,9 +39,8 @@ const DEFAULT_DEMO_USERS = [
     email: 'transporter@agrolnk.com',
     phone: '+91 94433 77889',
     role: 'transporter',
-    vehicleType: '14ft Eicher Truck (4 Tonne)',
-    vehicleNumber: 'TN 28 AB 4092',
-    createdAt: new Date().toISOString(),
+    state: 'Tamil Nadu',
+    district: 'Namakkal',
   },
   {
     id: 'usr_warehouse_05',
@@ -47,127 +48,129 @@ const DEFAULT_DEMO_USERS = [
     email: 'warehouse@agrolnk.com',
     phone: '+91 98940 33221',
     role: 'warehouse',
-    facilityType: 'WDRA Certified Cold Storage',
-    facilityCode: 'WH-TN-SLM-008',
-    createdAt: new Date().toISOString(),
+    state: 'Tamil Nadu',
+    district: 'Salem',
   },
 ];
 
-function getStoredUsers() {
+/**
+ * Register a new user in Supabase Profiles
+ */
+export async function registerUser({ name, phone, email, role, state, district, companyName }) {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+
   try {
-    const raw = localStorage.getItem(USERS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_USERS));
-      return DEFAULT_DEMO_USERS;
+    // 1. Check if user already exists in Supabase
+    const { data: existing, error: checkError } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (existing) {
+      throw new Error('An account with this email already exists. Please sign in instead.');
     }
-    const parsed = JSON.parse(raw);
-    const existingList = Array.isArray(parsed) ? parsed : [];
-    
-    // Ensure all default demo users exist in the stored list
-    let updated = false;
-    DEFAULT_DEMO_USERS.forEach((demoUser) => {
-      const found = existingList.some(
-        (u) => u.email.toLowerCase() === demoUser.email.toLowerCase() || u.id === demoUser.id
-      );
-      if (!found) {
-        existingList.push(demoUser);
-        updated = true;
+
+    const generateId = () => {
+      try {
+        return crypto.randomUUID();
+      } catch {
+        return `usr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       }
-    });
+    };
 
-    if (updated) {
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(existingList));
+    const newProfile = {
+      id: generateId(),
+      name: (name || '').trim(),
+      phone: phone ? phone.trim() : '',
+      email: normalizedEmail,
+      role: role || 'farmer',
+      state: state || 'Tamil Nadu',
+      district: district || 'Salem',
+      company_name: companyName || '',
+      kyc_status: 'verified',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // 2. Insert into Supabase
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert([newProfile])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase profile insertion error:', error);
+      throw new Error(error.message || 'Failed to create profile in database.');
     }
 
-    return existingList;
-  } catch {
-    return DEFAULT_DEMO_USERS;
-  }
-}
+    const userObj = {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      role: data.role,
+      state: data.state,
+      district: data.district,
+      companyName: data.company_name,
+      kycStatus: data.kyc_status,
+      createdAt: data.created_at,
+    };
 
-function saveUsers(users) {
-  try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    setCurrentUser(userObj);
+    return userObj;
   } catch (err) {
-    console.error('Failed to save users in localStorage:', err);
+    console.error('Registration failed:', err);
+    throw err;
   }
 }
 
 /**
- * Register a new user in LocalStorage
+ * Login user by email from Supabase Profiles
  */
-export function registerUser({ name, phone, email, role }) {
-  const users = getStoredUsers();
+export async function loginUser({ email, password }) {
   const normalizedEmail = (email || '').trim().toLowerCase();
 
-  // Check if user already exists
-  const existing = users.find((u) => u.email.toLowerCase() === normalizedEmail);
-  if (existing) {
-    throw new Error('An account with this email already exists. Please sign in instead.');
-  }
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
 
-  const generateId = () => {
-    try {
-      return crypto.randomUUID();
-    } catch {
-      return `usr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (error) {
+      console.error('Supabase profile query error:', error);
+      throw new Error('Database connection failed. Please try again.');
     }
-  };
 
-  const newUser = {
-    id: generateId(),
-    name: (name || '').trim(),
-    phone: phone ? phone.trim() : '',
-    email: normalizedEmail,
-    role: role || 'farmer',
-    createdAt: new Date().toISOString(),
-  };
+    if (!profile) {
+      throw new Error("We couldn't find an account with this email. Please check your credentials or create an account.");
+    }
 
-  users.push(newUser);
-  saveUsers(users);
+    const userObj = {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      role: profile.role,
+      state: profile.state,
+      district: profile.district,
+      companyName: profile.company_name,
+      kycStatus: profile.kyc_status,
+      createdAt: profile.created_at,
+    };
 
-  // Set active session
-  setCurrentUser(newUser);
-  return newUser;
+    setCurrentUser(userObj);
+    return userObj;
+  } catch (err) {
+    console.error('Login failed:', err);
+    throw err;
+  }
 }
 
 /**
- * Login user by email
- */
-export function loginUser({ email, password }) {
-  const users = getStoredUsers();
-  const normalizedEmail = (email || '').trim().toLowerCase();
-
-  // 1. Check in stored users
-  let user = users.find((u) => u.email.toLowerCase() === normalizedEmail);
-  
-  // 2. Check in DEFAULT_DEMO_USERS
-  if (!user) {
-    user = DEFAULT_DEMO_USERS.find((u) => u.email.toLowerCase() === normalizedEmail);
-    if (user) {
-      users.push(user);
-      saveUsers(users);
-    }
-  }
-
-  // 3. Check in active session
-  if (!user) {
-    const currentStored = getCurrentUser();
-    if (currentStored && currentStored.email?.toLowerCase() === normalizedEmail) {
-      user = currentStored;
-    }
-  }
-
-  if (!user) {
-    throw new Error("We couldn't sign you in. Please check your email and try again.");
-  }
-
-  setCurrentUser(user);
-  return user;
-}
-
-/**
- * Set active user session
+ * Set active user session (localStorage session cache)
  */
 export function setCurrentUser(user) {
   try {
@@ -182,14 +185,50 @@ export function setCurrentUser(user) {
 }
 
 /**
- * Get current authenticated user
+ * Get current cached authenticated user
  */
 export function getCurrentUser() {
   try {
-    const session = localStorage.getItem(AGROLNK_USER_KEY) || localStorage.getItem('agramazUser');
+    const session = localStorage.getItem(AGROLNK_USER_KEY);
     return session ? JSON.parse(session) : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Fetch latest profile for current user from Supabase
+ */
+export async function fetchCurrentProfile() {
+  const current = getCurrentUser();
+  if (!current?.id) return null;
+
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', current.id)
+      .maybeSingle();
+
+    if (profile && !error) {
+      const userObj = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        role: profile.role,
+        state: profile.state,
+        district: profile.district,
+        companyName: profile.company_name,
+        kycStatus: profile.kyc_status,
+        createdAt: profile.created_at,
+      };
+      setCurrentUser(userObj);
+      return userObj;
+    }
+    return current;
+  } catch {
+    return current;
   }
 }
 
@@ -207,7 +246,6 @@ export function getUserRole() {
 export function logoutUser() {
   try {
     localStorage.removeItem(AGROLNK_USER_KEY);
-    localStorage.removeItem('agramazUser');
     localStorage.removeItem(IS_AUTH_KEY);
   } catch (err) {
     console.error('Failed to logout:', err);

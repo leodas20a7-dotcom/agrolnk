@@ -23,8 +23,19 @@ export default function MyListings({ currentUser, onNavigate }) {
   const [selectedListing, setSelectedListing] = useState(null);
 
   useEffect(() => {
-    const data = getFarmerListings(user.id);
-    setListings(data);
+    let isMounted = true;
+    const fetchListings = async () => {
+      try {
+        const data = await getFarmerListings(user.id);
+        if (isMounted) setListings(data || []);
+      } catch (err) {
+        console.error('Error fetching farmer listings:', err);
+      }
+    };
+    fetchListings();
+    return () => {
+      isMounted = false;
+    };
   }, [user.id]);
 
   const tabs = [

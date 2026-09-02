@@ -26,8 +26,19 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const [sortBy, setSortBy] = useState('latest');
 
   useEffect(() => {
-    const activeLots = getActiveMarketplaceListings();
-    setAllListings(activeLots);
+    let isMounted = true;
+    const fetchListings = async () => {
+      try {
+        const activeLots = await getActiveMarketplaceListings();
+        if (isMounted) setAllListings(activeLots || []);
+      } catch (err) {
+        console.error('Error fetching marketplace listings:', err);
+      }
+    };
+    fetchListings();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const commodities = ['All', 'Tomato', 'Potato', 'Onion', 'Apple', 'Wheat', 'Maize'];

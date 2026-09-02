@@ -32,11 +32,17 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [inventory, setInventory] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
-  const loadData = () => {
-    const computedStats = getWarehouseOperatorStats('wh_salem_01');
-    setStats(computedStats);
-    const inv = getWarehouseInventory('wh_salem_01');
-    setInventory(inv);
+  const loadData = async () => {
+    try {
+      const [computedStats, inv] = await Promise.all([
+        getWarehouseOperatorStats('wh_salem_01'),
+        getWarehouseReceipts(),
+      ]);
+      setStats(computedStats);
+      setInventory(inv || []);
+    } catch (err) {
+      console.error('Error loading warehouse data:', err);
+    }
   };
 
   useEffect(() => {
@@ -107,7 +113,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {stats?.activeReceipts || 45}
+              {stats?.activeReceipts ?? 0}
             </div>
             <div className="text-[11px] text-[#566861]">
               Legally certified warehouse receipts
@@ -122,7 +128,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {stats?.totalValuation || '₹14.50 Cr'}
+              {stats?.totalValuation ?? '₹0'}
             </div>
             <div className="text-[11px] text-[#10B981] font-semibold">
               100% Comprehensive Transit Insured
@@ -137,7 +143,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {stats?.releaseOrders || 14}
+              {stats?.releaseOrders ?? 0}
             </div>
             <div className="text-[11px] text-[#566861]">
               Awaiting transporter bay loading
