@@ -36,7 +36,8 @@ export default function OrderTimeline({ currentStatus = 'pending', className = '
   ];
 
   const statusOrder = ['pending', 'confirmed', 'ready_for_delivery', 'delivered', 'completed'];
-  const currentIndex = statusOrder.indexOf(currentStatus);
+  const normalizedStatus = currentStatus === 'order_placed' ? 'pending' : currentStatus;
+  const currentIndex = Math.max(0, statusOrder.indexOf(normalizedStatus));
 
   return (
     <div className={`space-y-6 ${className}`}>

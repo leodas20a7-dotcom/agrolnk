@@ -32,11 +32,35 @@ export default function OrderSummary({
   onViewDelivery,
   onConfirmReceipt,
 }) {
+  const [existingFinancing, setExistingFinancing] = React.useState(null);
+  const [existingDelivery, setExistingDelivery] = React.useState(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const loadLinkedData = async () => {
+      if (!order?.orderNumber && !order?.id) return;
+      try {
+        const [fin, dlv] = await Promise.all([
+          getFinancingRequestForOrder(order.orderNumber || order.id),
+          getDeliveryForOrder(order.orderNumber || order.id),
+        ]);
+        if (isMounted) {
+          setExistingFinancing(fin);
+          setExistingDelivery(dlv);
+        }
+      } catch (err) {
+        console.warn('Error fetching linked order data:', err);
+      }
+    };
+    loadLinkedData();
+    return () => {
+      isMounted = false;
+    };
+  }, [order?.id, order?.orderNumber]);
+
   if (!order) return null;
 
   const isBuyer = viewerRole === 'buyer';
-  const existingFinancing = getFinancingRequestForOrder(order.orderNumber);
-  const existingDelivery = getDeliveryForOrder(order.orderNumber);
 
   const pickupStr = typeof order.pickupLocation === 'object'
     ? `${order.pickupLocation?.district || order.district || 'Salem'}, ${order.pickupLocation?.state || order.state || 'Tamil Nadu'}`

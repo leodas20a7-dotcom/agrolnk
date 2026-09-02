@@ -8,7 +8,21 @@ import FinancingStatusBadge from '../financing/FinancingStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
 
 export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
-  const financingReq = getFinancingRequestForOrder(order?.orderNumber);
+  const [financingReq, setFinancingReq] = React.useState(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (order?.orderNumber || order?.id) {
+      getFinancingRequestForOrder(order.orderNumber || order.id)
+        .then((res) => {
+          if (isMounted) setFinancingReq(res);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [order?.orderNumber, order?.id]);
 
   return (
     <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 text-left">
