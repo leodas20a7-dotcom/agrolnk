@@ -4,54 +4,7 @@ import { supabase } from '../lib/supabase';
 const AGROLNK_USER_KEY = 'agrolnkUser';
 const IS_AUTH_KEY = 'isAuthenticated';
 
-// Seed demo users in case DB needs initial population
-export const DEFAULT_DEMO_USERS = [
-  {
-    id: 'usr_farmer_01',
-    name: 'Sakthi Vel',
-    email: 'farmer@agrolnk.com',
-    phone: '+91 98765 43210',
-    role: 'farmer',
-    state: 'Tamil Nadu',
-    district: 'Salem',
-  },
-  {
-    id: 'usr_buyer_02',
-    name: 'Ananya Agro Foods',
-    email: 'buyer@agrolnk.com',
-    phone: '+91 98450 12345',
-    role: 'buyer',
-    state: 'Tamil Nadu',
-    district: 'Chennai',
-  },
-  {
-    id: 'usr_financier_03',
-    name: 'Kisan Capital Partners',
-    email: 'financier@agrolnk.com',
-    phone: '+91 97110 56789',
-    role: 'financier',
-    state: 'Maharashtra',
-    district: 'Mumbai',
-  },
-  {
-    id: 'usr_transporter_04',
-    name: 'Vetri Logistics & Transport',
-    email: 'transporter@agrolnk.com',
-    phone: '+91 94433 77889',
-    role: 'transporter',
-    state: 'Tamil Nadu',
-    district: 'Namakkal',
-  },
-  {
-    id: 'usr_warehouse_05',
-    name: 'Salem Agri Cold Storage Hub',
-    email: 'warehouse@agrolnk.com',
-    phone: '+91 98940 33221',
-    role: 'warehouse',
-    state: 'Tamil Nadu',
-    district: 'Salem',
-  },
-];
+export const DEFAULT_DEMO_USERS = [];
 
 /**
  * Register a new user in Supabase Profiles
