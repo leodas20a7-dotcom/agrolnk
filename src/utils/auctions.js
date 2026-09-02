@@ -354,6 +354,99 @@ export async function finalizeAuction(auctionId) {
       .single();
 
     if (error) throw error;
+
+    // If there was a winning bidder, automatically spawn an order if one doesn't exist yet
+    if (data && data.highest_bidder_id) {
+      try {
+        const { data: existingOrders } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('auction_id', auctionId);
+
+        if (!existingOrders || existingOrders.length === 0) {
+          const orderNum = `#AGM-${Math.floor(1000 + Math.random() * 9000)}`;
+          const totalAmt = Number(data.quantity) * Number(data.current_bid);
+          const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+          const { data: createdOrder } = await supabase
+            .from('orders')
+            .insert([
+              {
+                id: orderId,
+                order_number: orderNum,
+                auction_id: data.id,
+                listing_id: null,
+                buyer_id: data.highest_bidder_id,
+                buyer_name: data.highest_bidder_name || 'Buyer Partner',
+                farmer_id: data.farmer_id,
+                farmer_name: data.farmer_name || 'Farmer Partner',
+                commodity: data.commodity,
+                variety: data.variety,
+                grade: data.grade,
+                quantity: Number(data.quantity),
+                unit: data.unit,
+                price_per_unit: Number(data.current_bid),
+                total_amount: totalAmt,
+                state: data.state,
+                district: data.district,
+                escrow_status: 'funded',
+                status: 'order_placed',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ])
+            .select()
+            .single();
+
+          if (createdOrder) {
+            try {
+              const deliveryId = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              await supabase.from('deliveries').insert([
+                {
+                  id: deliveryId,
+                  order_id: createdOrder.id,
+                  order_number: createdOrder.order_number,
+                  farmer_id: createdOrder.farmer_id,
+                  farmer_name: createdOrder.farmer_name,
+                  buyer_id: createdOrder.buyer_id,
+                  buyer_name: createdOrder.buyer_name,
+                  commodity: createdOrder.commodity,
+                  quantity: createdOrder.quantity,
+                  unit: createdOrder.unit,
+                  pickup_location: {
+                    state: data.state,
+                    district: data.district,
+                    address: `${data.district} Farmgate Aggregation Depot`,
+                  },
+                  delivery_location: {
+                    state: 'Tamil Nadu',
+                    district: 'Chennai',
+                    address: 'Buyer Central Receiving Hub',
+                  },
+                  distance_km: 180,
+                  fare_amount: 4500,
+                  status: 'transport_requested',
+                  tracking_steps: [
+                    { step: 'Order Confirmed', completed: true, timestamp: new Date().toISOString() },
+                    { step: 'Transporter Assigned', completed: false },
+                    { step: 'Pickup Completed', completed: false },
+                    { step: 'In Transit', completed: false },
+                    { step: 'Delivered', completed: false },
+                  ],
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                },
+              ]);
+            } catch (delErr) {
+              console.warn('Auto delivery creation notice:', delErr);
+            }
+          }
+        }
+      } catch (orderErr) {
+        console.warn('Auto auction order creation notice:', orderErr);
+      }
+    }
+
     return mapAuctionFromDb(data);
   } catch (err) {
     console.error('Error finalizing auction:', err);

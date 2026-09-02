@@ -63,12 +63,12 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
     {
       id: 'pending',
       label: 'Pending',
-      count: safeOrders.filter((o) => o.status === 'pending').length,
+      count: safeOrders.filter((o) => o.status === 'pending' || o.status === 'order_placed').length,
     },
     {
       id: 'confirmed',
       label: 'Confirmed',
-      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery').length,
+      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit').length,
     },
     {
       id: 'completed',
@@ -79,9 +79,9 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   const filteredOrders = safeOrders.filter((o) => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'pending') return o.status === 'pending';
+    if (activeTab === 'pending') return o.status === 'pending' || o.status === 'order_placed';
     if (activeTab === 'confirmed')
-      return o.status === 'confirmed' || o.status === 'ready_for_delivery';
+      return o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit';
     if (activeTab === 'completed')
       return o.status === 'completed' || o.status === 'delivered';
     return true;

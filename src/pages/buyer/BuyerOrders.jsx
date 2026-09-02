@@ -61,12 +61,12 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
     {
       id: 'pending',
       label: 'Pending',
-      count: safeOrders.filter((o) => o.status === 'pending').length,
+      count: safeOrders.filter((o) => o.status === 'pending' || o.status === 'order_placed').length,
     },
     {
       id: 'confirmed',
       label: 'In Progress',
-      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'delivered').length,
+      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered').length,
     },
     {
       id: 'completed',
@@ -77,9 +77,9 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
   const filteredOrders = safeOrders.filter((o) => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'pending') return o.status === 'pending';
+    if (activeTab === 'pending') return o.status === 'pending' || o.status === 'order_placed';
     if (activeTab === 'confirmed')
-      return o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'delivered';
+      return o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered';
     if (activeTab === 'completed')
       return o.status === 'completed';
     return true;
