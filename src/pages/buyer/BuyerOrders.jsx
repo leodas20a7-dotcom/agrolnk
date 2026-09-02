@@ -85,11 +85,18 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
     return true;
   });
 
-  const handleConfirmOrderReceipt = (orderOrDelivery) => {
-    const orderKey = orderOrDelivery?.orderNumber || orderOrDelivery?.id;
-    confirmOrderReceipt(orderKey);
-    confirmBuyerReceipt(orderKey);
-    fetchOrders();
+  const handleConfirmOrderReceipt = async (orderOrDelivery) => {
+    const orderKey = orderOrDelivery?.id || orderOrDelivery?.orderNumber;
+    try {
+      await confirmOrderReceipt(orderKey);
+      try {
+        await confirmBuyerReceipt(orderKey);
+      } catch {}
+      await fetchOrders();
+      setSelectedOrder((prev) => (prev ? { ...prev, status: 'completed' } : null));
+    } catch (err) {
+      console.error('Error confirming order receipt:', err);
+    }
   };
 
   return (
@@ -279,18 +286,22 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
               <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex items-center justify-between">
                 <div className="space-y-0.5">
                   <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
-                    Fulfillment Status
+                    Fulfillment Status & Next Step
                   </span>
                   <span className="text-xs text-white/80">
-                    {selectedOrder.status === 'pending' && 'Awaiting farmer lot agreement confirmation.'}
-                    {selectedOrder.status === 'confirmed' && 'Farmer has confirmed order. Producer arranging freight pickup.'}
-                    {selectedOrder.status === 'ready_for_delivery' && 'Produce is in transit with assigned carrier.'}
-                    {selectedOrder.status === 'completed' && 'Order fully fulfilled and escrow payment settled.'}
+                    {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
+                      'Your escrow payment is safely locked. Awaiting Farmer to click "Confirm Order".'}
+                    {selectedOrder.status === 'confirmed' &&
+                      'Farmer has confirmed the trade agreement. Carrier logistics dispatch is being arranged.'}
+                    {selectedOrder.status === 'ready_for_delivery' &&
+                      'Consignment is with carrier and in transit to your destination facility.'}
+                    {selectedOrder.status === 'completed' &&
+                      'Order is 100% completed and settled.'}
                   </span>
                 </div>
 
                 <Badge variant="accent" size="sm">
-                  Escrow Protected
+                  100% Escrow Secured
                 </Badge>
               </div>
             )}

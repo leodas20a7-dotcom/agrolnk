@@ -87,12 +87,13 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
     return true;
   });
 
-  const handleAdvanceStatus = (nextStatus) => {
+  const handleAdvanceStatus = async (nextStatus) => {
     if (!selectedOrder) return;
     setIsUpdating(true);
     try {
-      updateOrderStatus(selectedOrder.id, nextStatus);
-      fetchOrders();
+      await updateOrderStatus(selectedOrder.id, nextStatus);
+      await fetchOrders();
+      setSelectedOrder((prev) => (prev ? { ...prev, status: nextStatus } : null));
       setIsUpdating(false);
     } catch (err) {
       console.error('Failed to update order status:', err);
@@ -237,19 +238,24 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
-                  Seller Actions
+                  Seller Action Required: Step 1 (Farmer Confirmation)
                 </span>
                 <span className="text-xs text-white/80">
-                  {selectedOrder.status === 'pending' && 'Accept lot agreement to proceed with order.'}
-                  {selectedOrder.status === 'confirmed' && 'Prepare produce batch and arrange transporter pickup.'}
-                  {selectedOrder.status === 'ready_for_delivery' && 'Confirm load handover to logistics transport.'}
-                  {selectedOrder.status === 'delivered' && 'Consignment dropped off at destination. Awaiting buyer verification.'}
-                  {selectedOrder.status === 'completed' && 'Order is fully fulfilled and escrow payout settled.'}
+                  {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
+                    'Buyer escrow payment is secured. Confirm this lot agreement to begin order fulfillment.'}
+                  {selectedOrder.status === 'confirmed' &&
+                    'You have confirmed this order. Now arrange freight pickup or mark produce as ready for dispatch.'}
+                  {selectedOrder.status === 'ready_for_delivery' &&
+                    'Produce load has been prepared for dispatch. Carrier pickup in progress.'}
+                  {selectedOrder.status === 'delivered' &&
+                    'Consignment dropped off at destination. Awaiting buyer quality check & receipt confirmation.'}
+                  {selectedOrder.status === 'completed' &&
+                    'Order is 100% completed and escrow payout is released to your account.'}
                 </span>
               </div>
 
               <div className="shrink-0 w-full sm:w-auto flex items-center gap-2">
-                {selectedOrder.status === 'pending' && (
+                {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
                   <Button
                     variant="accent"
                     size="md"
@@ -257,9 +263,9 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     onClick={() => handleAdvanceStatus('confirmed')}
                     icon={Check}
                     iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
+                    className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer text-sm"
                   >
-                    Confirm Order
+                    {isUpdating ? 'Confirming...' : 'Confirm Order & Accept Agreement'}
                   </Button>
                 )}
 
@@ -298,7 +304,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
                 {selectedOrder.status === 'completed' && (
                   <Badge variant="accent" size="md">
-                    ✓ Completed & Settled
+                    ✓ Completed & Escrow Settled
                   </Badge>
                 )}
               </div>
