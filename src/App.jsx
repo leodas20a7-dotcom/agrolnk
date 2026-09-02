@@ -45,34 +45,99 @@ import WarehouseDashboard from './pages/warehouse/WarehouseDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getCurrentUser } from './utils/auth';
 
+const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
+
+function getInitialPage() {
+  const hash = window.location.hash.replace(/^#\/?/, '').trim();
+  const user = getCurrentUser();
+
+  if (hash) {
+    if (PUBLIC_PAGES.has(hash)) {
+      if (user?.role && hash === 'landing') {
+        return `${user.role}-dashboard`;
+      }
+      return hash;
+    }
+    // Protected page
+    if (user) {
+      return hash;
+    }
+    return 'login';
+  }
+
+  // No hash in URL
+  if (user?.role) {
+    return `${user.role}-dashboard`;
+  }
+  return 'landing';
+}
+
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('landing');
+  const [currentPage, setCurrentPage] = useState(() => getInitialPage());
   const [navState, setNavState] = useState({});
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
 
-  useEffect(() => {
-    // Keep local session in sync
+  const handleNavigate = (page, state = {}, replace = false) => {
+    let resolvedPage = page;
     const user = getCurrentUser();
-    setCurrentUser(user);
-  }, [currentPage]);
 
-  const handleNavigate = (page, state = {}) => {
     if (page === 'dashboard') {
-      const user = getCurrentUser();
-      if (user?.role) {
-        setCurrentPage(`${user.role}-dashboard`);
-      } else {
-        setCurrentPage('login');
-      }
-    } else {
-      setCurrentPage(page);
+      resolvedPage = user?.role ? `${user.role}-dashboard` : 'login';
     }
-    setNavState(state);
+
+    setCurrentPage(resolvedPage);
+    setNavState(state || {});
     if (state?.user) {
       setCurrentUser(state.user);
+    } else if (user) {
+      setCurrentUser(user);
     }
+
+    const newHash = `#/${resolvedPage}`;
+    if (window.location.hash !== newHash) {
+      if (replace) {
+        window.location.replace(newHash);
+      } else {
+        window.location.hash = newHash;
+      }
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hashPage = window.location.hash.replace(/^#\/?/, '').trim();
+      const user = getCurrentUser();
+      setCurrentUser(user);
+
+      if (!hashPage) {
+        const defaultTarget = user?.role ? `${user.role}-dashboard` : 'landing';
+        setCurrentPage(defaultTarget);
+        window.location.replace(`#/${defaultTarget}`);
+        return;
+      }
+
+      if (!PUBLIC_PAGES.has(hashPage) && !user) {
+        setCurrentPage('login');
+        window.location.replace('#/login');
+        return;
+      }
+
+      setCurrentPage(hashPage);
+    };
+
+    // Ensure hash is set on initial mount
+    if (!window.location.hash) {
+      const initial = getInitialPage();
+      window.location.replace(`#/${initial}`);
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
