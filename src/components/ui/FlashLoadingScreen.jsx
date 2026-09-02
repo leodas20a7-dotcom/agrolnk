@@ -1,6 +1,5 @@
 import React from 'react';
 import logoImg from '../../assets/Logo.jpeg';
-import { ShieldCheck, Sparkles } from 'lucide-react';
 
 export default function FlashLoadingScreen({ message = 'Loading Agrolnk...' }) {
   return (
@@ -25,10 +24,7 @@ export default function FlashLoadingScreen({ message = 'Loading Agrolnk...' }) {
 
         {/* Brand & Loading Indicator */}
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0B3326] border border-[#14624A] text-[11px] font-bold text-[#34D399] tracking-wider uppercase">
-            <Sparkles className="w-3 h-3 animate-spin text-[#10B981]" />
-            <span>Direct Agricultural Network</span>
-          </div>
+
 
           <h3 className="text-base sm:text-lg font-extrabold text-white font-heading tracking-tight">
             {message}
@@ -40,11 +36,6 @@ export default function FlashLoadingScreen({ message = 'Loading Agrolnk...' }) {
           <div className="h-full bg-gradient-to-r from-[#10B981] via-[#34D399] to-[#10B981] rounded-full animate-pulse w-full" />
         </div>
 
-        {/* Footer Trust Indicator */}
-        <div className="flex items-center gap-1.5 text-[11px] text-[#A7F3D0]/70 font-medium pt-2">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-          <span>100% Escrow & Bank-Grade Security</span>
-        </div>
       </div>
     </div>
   );
