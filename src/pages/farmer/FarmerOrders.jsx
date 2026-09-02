@@ -20,7 +20,8 @@ import {
   X,
   Package,
   AlertCircle,
-  Landmark
+  Landmark,
+  Info
 } from 'lucide-react';
 import { getFarmerOrders, updateOrderStatus } from '../../utils/orders';
 
@@ -234,27 +235,43 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
               <OrderTimeline currentStatus={selectedOrder.status} />
             </div>
 
-            {/* Farmer Lifecycle Action Buttons */}
-            <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
-                  Seller Fulfillment Options
-                </span>
-                <span className="text-xs text-white/80">
-                  {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
-                    'Buyer escrow is secured. Choose to request a platform freight carrier or deliver using your own vehicle.'}
-                  {selectedOrder.status === 'in_transit' &&
-                    'Consignment is in transit. Click below once dropped off at the buyer terminal.'}
-                  {selectedOrder.status === 'delivered' &&
-                    'Consignment reached destination. Awaiting buyer quality check & receipt release.'}
-                  {selectedOrder.status === 'completed' &&
-                    'Order is 100% completed and escrow payout has been released.'}
-                  {selectedOrder.status === 'cancelled' &&
-                    'This order agreement has been cancelled.'}
-                </span>
+            {/* Farmer Lifecycle Action Card */}
+            <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] shadow-md space-y-3.5">
+              {/* Top Row: Title with Hover Tooltip */}
+              <div className="flex items-center justify-between">
+                <div className="relative group inline-flex items-center gap-1.5 cursor-help">
+                  <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider">
+                    Seller Fulfillment Options
+                  </span>
+                  <Info className="w-3.5 h-3.5 text-[#34D399]/80 group-hover:text-[#34D399] transition-colors" />
+
+                  {/* Floating Tooltip Bubble */}
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:flex flex-col w-72 sm:w-80 p-3 rounded-2xl bg-[#061B14] text-[#DCFCE7] text-[11px] leading-relaxed shadow-2xl border border-[#14624A] z-50 pointer-events-none animate-in fade-in zoom-in-95">
+                    <span className="font-medium">
+                      {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
+                        'Buyer escrow is secured. Choose to request a platform freight carrier or deliver using your own vehicle.'}
+                      {selectedOrder.status === 'in_transit' &&
+                        'Consignment is in transit. Click below once dropped off at the buyer terminal.'}
+                      {selectedOrder.status === 'delivered' &&
+                        'Consignment reached destination. Awaiting buyer quality check & receipt release.'}
+                      {selectedOrder.status === 'completed' &&
+                        'Order is 100% completed and escrow payout has been released.'}
+                      {selectedOrder.status === 'cancelled' &&
+                        'This order agreement has been cancelled.'}
+                    </span>
+                    <div className="absolute left-6 -bottom-1 w-2.5 h-2.5 bg-[#061B14] border-r border-b border-[#14624A] transform rotate-45" />
+                  </div>
+                </div>
+
+                {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
+                  <span className="text-[11px] text-[#34D399] font-medium bg-[#0F4A37] px-2.5 py-0.5 rounded-full border border-[#14624A]">
+                    Escrow Locked
+                  </span>
+                )}
               </div>
 
-              <div className="shrink-0 w-full sm:w-auto flex flex-wrap items-center gap-2.5">
+              {/* Action Buttons Row Below */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
                 {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
                   <>
                     <Button
@@ -263,7 +280,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                       onClick={() => setOrderForDelivery(selectedOrder)}
                       icon={Truck}
                       iconPosition="left"
-                      className="w-full sm:w-auto font-bold py-2.5 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer text-xs"
+                      className="w-full font-bold py-3 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer text-xs justify-center shadow-xs"
                     >
                       Request Platform Carrier
                     </Button>
@@ -275,7 +292,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                       onClick={() => handleAdvanceStatus('in_transit')}
                       icon={Check}
                       iconPosition="left"
-                      className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer text-xs"
+                      className="w-full font-bold py-3 px-4 shadow-md cursor-pointer text-xs justify-center"
                     >
                       {isUpdating ? 'Dispatching...' : 'Self-Arranged Transport'}
                     </Button>
@@ -290,28 +307,34 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     onClick={() => handleAdvanceStatus('delivered')}
                     icon={CheckCircle2}
                     iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer text-xs"
+                    className="w-full sm:col-span-2 font-bold py-3 px-5 shadow-md cursor-pointer text-xs justify-center"
                   >
                     {isUpdating ? 'Updating...' : 'Mark as Delivered at Destination'}
                   </Button>
                 )}
 
                 {selectedOrder.status === 'delivered' && (
-                  <Badge variant="teal" size="md">
-                    ✓ Delivered (Buyer Verifying)
-                  </Badge>
+                  <div className="sm:col-span-2 text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
+                    <Badge variant="teal" size="md">
+                      ✓ Delivered (Buyer Verifying Quality)
+                    </Badge>
+                  </div>
                 )}
 
                 {selectedOrder.status === 'completed' && (
-                  <Badge variant="accent" size="md">
-                    ✓ Completed & Escrow Settled
-                  </Badge>
+                  <div className="sm:col-span-2 text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
+                    <Badge variant="accent" size="md">
+                      ✓ Completed & Escrow Settled
+                    </Badge>
+                  </div>
                 )}
 
                 {selectedOrder.status === 'cancelled' && (
-                  <Badge variant="dark" size="md">
-                    ✕ Order Cancelled
-                  </Badge>
+                  <div className="sm:col-span-2 text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
+                    <Badge variant="dark" size="md">
+                      ✕ Order Cancelled
+                    </Badge>
+                  </div>
                 )}
               </div>
             </div>
