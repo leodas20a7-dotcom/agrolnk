@@ -97,7 +97,7 @@ export default function WarehouseCard({ warehouse, onDeposit }) {
             Chambers & Storage Cells
           </span>
           <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {warehouse.chambers.map((chamber, i) => (
+            {(warehouse.chambers || ['Dry Storage', 'Cold Cell']).map((chamber, i) => (
               <span
                 key={i}
                 className="px-2.5 py-1 rounded-lg bg-[#EBF5F0] text-[#0B3326] text-[11px] font-semibold border border-[#10B981]/20"

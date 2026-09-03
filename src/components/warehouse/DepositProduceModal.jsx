@@ -29,13 +29,16 @@ export default function DepositProduceModal({
   const [quantity, setQuantity] = useState('1000');
   const [unit, setUnit] = useState('kg');
   const [priceEstimate, setPriceEstimate] = useState('42');
-  const [chamber, setChamber] = useState(currentWarehouse.chambers[0] || 'Cold Chamber B4');
+  const [chamber, setChamber] = useState(
+    currentWarehouse?.chambers?.[0] || 'Chamber A1 (Dry Storage)'
+  );
   const [storageDays, setStorageDays] = useState('60');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const estimatedTotalValue = (Number(quantity) || 0) * (Number(priceEstimate) || 0);
-  const monthlyRentalEst = Math.round(((Number(quantity) || 0) / 1000) * currentWarehouse.monthlyRatePerTonne);
+  const ratePerTonne = Number(currentWarehouse?.monthlyRatePerTonne || 350);
+  const monthlyRentalEst = Math.round(((Number(quantity) || 0) / 1000) * ratePerTonne);
 
   const handleSubmit = (e) => {
     e.preventDefault();
