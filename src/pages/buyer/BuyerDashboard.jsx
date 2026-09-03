@@ -128,36 +128,39 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar max-w-full pb-1 sm:pb-0">
               <Button
                 variant="secondary"
-                size="md"
+                size="sm"
                 onClick={() => onNavigate('buyer-deliveries')}
                 icon={Truck}
                 iconPosition="left"
-                className="font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+                className="font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-2.5 sm:px-3.5 py-1.5 sm:py-2 shrink-0 whitespace-nowrap"
               >
-                Inbound Deliveries ({deliveries.length})
+                <span className="sm:hidden">Deliveries</span>
+                <span className="hidden sm:inline">Inbound Deliveries</span> ({deliveries.length})
               </Button>
               <Button
                 variant="secondary"
-                size="md"
+                size="sm"
                 onClick={() => onNavigate('buyer-financing')}
                 icon={CreditCard}
                 iconPosition="left"
-                className="font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+                className="font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-2.5 sm:px-3.5 py-1.5 sm:py-2 shrink-0 whitespace-nowrap"
               >
-                Trade Credit ({financingRequests.length})
+                <span className="sm:hidden">Credit</span>
+                <span className="hidden sm:inline">Trade Credit</span> ({financingRequests.length})
               </Button>
               <Button
                 variant="accent"
-                size="md"
+                size="sm"
                 onClick={() => onNavigate('buyer-orders')}
                 icon={ShoppingBag}
                 iconPosition="left"
-                className="font-bold shadow-xs text-xs cursor-pointer"
+                className="font-bold shadow-xs text-xs cursor-pointer px-2.5 sm:px-3.5 py-1.5 sm:py-2 shrink-0 whitespace-nowrap"
               >
-                My Orders ({orders.length})
+                <span className="sm:hidden">Orders</span>
+                <span className="hidden sm:inline">My Orders</span> ({orders.length})
               </Button>
             </div>
           </div>
