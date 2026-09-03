@@ -118,10 +118,10 @@ export default function Login({ onNavigate, navState }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAF8] flex items-center justify-center p-4 sm:p-6 lg:p-8 xl:p-10">
+    <div className="min-h-screen bg-[#F8FAF8] flex flex-col items-center justify-center py-6 px-4 sm:p-6 lg:p-8 xl:p-10">
 
       {/* 3D Perspective Container (Expands dynamically on desktop) */}
-      <div className="perspective-1000 w-full max-w-5xl xl:max-w-6xl">
+      <div className="perspective-1000 w-full max-w-5xl xl:max-w-6xl my-auto">
 
         {/* Flippable Card Wrapper */}
         <div
@@ -132,7 +132,7 @@ export default function Login({ onNavigate, navState }) {
 
           {/* ================= FRONT SIDE: SIGN IN ================= */}
           <div
-            className={`w-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden ${isFlipped ? 'pointer-events-none' : ''
+            className={`w-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden ${isFlipped ? 'absolute inset-0 pointer-events-none' : 'relative'
               }`}
             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
           >
@@ -302,7 +302,7 @@ export default function Login({ onNavigate, navState }) {
 
           {/* ================= BACK SIDE: JOIN AGROLNK (REGISTER) ================= */}
           <div
-            className={`absolute inset-0 w-full h-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden rotate-y-180 ${!isFlipped ? 'pointer-events-none' : ''
+            className={`w-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden rotate-y-180 ${!isFlipped ? 'absolute inset-0 pointer-events-none' : 'relative'
               }`}
             style={{
               backfaceVisibility: 'hidden',
