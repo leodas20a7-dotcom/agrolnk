@@ -40,8 +40,12 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
 
   const loadData = async () => {
     try {
-      const inv = await getFarmerInventory(user.id);
+      const [inv, whs] = await Promise.all([
+        getFarmerInventory(user.id),
+        getWarehouses(),
+      ]);
       setInventoryList(inv || []);
+      setWarehousesList(whs || []);
     } catch (err) {
       console.error('Error loading inventory:', err);
     }

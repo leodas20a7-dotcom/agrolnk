@@ -44,33 +44,115 @@ import WarehouseDashboard from './pages/warehouse/WarehouseDashboard';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import { getCurrentUser } from './utils/auth';
 
 const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
 
-function getInitialPage() {
-  const hash = window.location.hash.replace(/^#\/?/, '').trim();
-  const user = getCurrentUser();
+const VALID_ROUTES = new Set([
+  'landing',
+  'role-selection',
+  'register',
+  'login',
+  // Farmer
+  'farmer-dashboard',
+  'farmer-create-listing',
+  'farmer-preview-listing',
+  'farmer-my-listings',
+  'farmer-orders',
+  'farmer-create-auction',
+  'farmer-my-auctions',
+  'farmer-financing',
+  'farmer-deliveries',
+  'farmer-inventory',
+  // Buyer
+  'buyer-dashboard',
+  'buyer-marketplace',
+  'buyer-listing-detail',
+  'buyer-orders',
+  'buyer-live-auctions',
+  'buyer-my-bids',
+  'buyer-financing',
+  'buyer-deliveries',
+  // Shared
+  'auction-room',
+  // Financier
+  'financier-dashboard',
+  'financier-underwriting',
+  'financier-portfolio',
+  'financier-collateral-vault',
+  'financier-disbursements',
+  // Transporter
+  'transporter-dashboard',
+  // Warehouse
+  'warehouse-dashboard',
+]);
 
-  if (hash) {
-    if (PUBLIC_PAGES.has(hash)) {
-      if (user?.role && hash === 'landing') {
+/**
+ * Strips #, queries, and trailing slashes from raw hash
+ */
+export function sanitizeRoute(rawHash) {
+  if (!rawHash) return '';
+  let clean = rawHash.replace(/^#+\/?/, '').trim();
+  clean = clean.split('?')[0].split('#')[0].replace(/\/+$/, '').trim();
+  return clean;
+}
+
+/**
+ * Resolves a route or shortcut/alias to a known valid route
+ */
+export function resolveRoute(rawRoute, user) {
+  const clean = sanitizeRoute(rawRoute);
+  const currentRole = user?.role || 'farmer';
+
+  if (!clean) {
+    return user ? `${currentRole}-dashboard` : 'landing';
+  }
+
+  // Handle common aliases and shortcuts
+  if (clean === 'dashboard') {
+    return user ? `${currentRole}-dashboard` : 'login';
+  }
+  if (clean === 'orders') {
+    return user ? `${currentRole}-orders` : 'login';
+  }
+  if (clean === 'financing') {
+    return user ? `${currentRole}-financing` : 'login';
+  }
+  if (clean === 'deliveries') {
+    return user ? `${currentRole}-deliveries` : 'login';
+  }
+  if (clean === 'inventory') {
+    return 'farmer-inventory';
+  }
+  if (clean === 'marketplace') {
+    return 'buyer-marketplace';
+  }
+  if (clean === 'auctions') {
+    return user?.role === 'farmer' ? 'farmer-my-auctions' : 'buyer-live-auctions';
+  }
+
+  if (VALID_ROUTES.has(clean)) {
+    if (PUBLIC_PAGES.has(clean)) {
+      if (user?.role && clean === 'landing') {
         return `${user.role}-dashboard`;
       }
-      return hash;
+      return clean;
     }
     // Protected page
     if (user) {
-      return hash;
+      return clean;
     }
     return 'login';
   }
 
-  // No hash in URL
-  if (user?.role) {
-    return `${user.role}-dashboard`;
-  }
-  return 'landing';
+  // Fallback for unknown routes
+  return user ? `${currentRole}-dashboard` : 'landing';
+}
+
+function getInitialPage() {
+  const user = getCurrentUser();
+  return resolveRoute(window.location.hash, user);
 }
 
 const PAGE_MESSAGES = {
@@ -87,12 +169,13 @@ const PAGE_MESSAGES = {
   'create-listing': 'Initializing Lot Assay Form...',
   'farmer-financing': 'Loading Working Capital Facilities...',
   'farmer-deliveries': 'Loading Active Dispatch Schedules...',
+  'farmer-inventory': 'Connecting to WDRA e-NWR Vault...',
 };
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [currentPage, setCurrentPage] = useState(() => getInitialPage());
   const [navState, setNavState] = useState({});
-  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [isFlashLoading, setIsFlashLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState('Synchronizing Agrolnk...');
 
@@ -114,12 +197,8 @@ export default function App() {
   };
 
   const handleNavigate = (page, state = {}, replace = false) => {
-    let resolvedPage = page;
-    const user = getCurrentUser();
-
-    if (page === 'dashboard') {
-      resolvedPage = user?.role ? `${user.role}-dashboard` : 'login';
-    }
+    const user = getCurrentUser() || currentUser;
+    const resolvedPage = resolveRoute(page, user);
 
     triggerFlashTransition(resolvedPage);
     setCurrentPage(resolvedPage);
@@ -144,33 +223,24 @@ export default function App() {
 
   useEffect(() => {
     const handleHashChange = () => {
-      const hashPage = window.location.hash.replace(/^#\/?/, '').trim();
       const user = getCurrentUser();
       setCurrentUser(user);
 
-      if (!hashPage) {
-        const defaultTarget = user?.role ? `${user.role}-dashboard` : 'landing';
-        triggerFlashTransition(defaultTarget);
-        setCurrentPage(defaultTarget);
-        window.location.replace(`#/${defaultTarget}`);
-        return;
-      }
+      const resolved = resolveRoute(window.location.hash, user);
+      triggerFlashTransition(resolved);
+      setCurrentPage(resolved);
 
-      if (!PUBLIC_PAGES.has(hashPage) && !user) {
-        triggerFlashTransition('login');
-        setCurrentPage('login');
-        window.location.replace('#/login');
-        return;
+      const targetHash = `#/${resolved}`;
+      if (window.location.hash !== targetHash) {
+        window.location.replace(targetHash);
       }
-
-      triggerFlashTransition(hashPage);
-      setCurrentPage(hashPage);
     };
 
-    // Ensure hash is set on initial mount
-    if (!window.location.hash) {
-      const initial = getInitialPage();
-      window.location.replace(`#/${initial}`);
+    // Ensure clean valid hash on initial mount
+    const initial = getInitialPage();
+    const expectedHash = `#/${initial}`;
+    if (window.location.hash !== expectedHash) {
+      window.location.replace(expectedHash);
     }
 
     window.addEventListener('hashchange', handleHashChange);
@@ -180,9 +250,10 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
-      {/* Global Flash Loading Screen to cover all data delays */}
-      {isFlashLoading && <FlashLoadingScreen message={loadingMessage} />}
+    <ErrorBoundary>
+      <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
+        {/* Global Flash Loading Screen to cover all data delays */}
+        {isFlashLoading && <FlashLoadingScreen message={loadingMessage} />}
       {/* 1. Public Landing Page */}
       {currentPage === 'landing' && (
         <Landing
@@ -461,6 +532,7 @@ export default function App() {
           />
         </ProtectedRoute>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
