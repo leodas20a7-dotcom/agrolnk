@@ -128,17 +128,17 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
               </p>
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar max-w-full pb-1 sm:pb-0">
+            <div className="grid grid-cols-2 lg:flex lg:items-center gap-2 sm:gap-2.5 w-full lg:w-auto shrink-0">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => onNavigate('buyer-deliveries')}
                 icon={Truck}
                 iconPosition="left"
-                className="font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-2.5 sm:px-3.5 py-1.5 sm:py-2 shrink-0 whitespace-nowrap"
+                className="w-full font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-3 py-2.5 justify-center"
               >
-                <span className="sm:hidden">Deliveries</span>
-                <span className="hidden sm:inline">Inbound Deliveries</span> ({deliveries.length})
+                <span className="lg:hidden">Deliveries</span>
+                <span className="hidden lg:inline">Inbound Deliveries</span> ({deliveries.length})
               </Button>
               <Button
                 variant="secondary"
@@ -146,10 +146,10 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
                 onClick={() => onNavigate('buyer-financing')}
                 icon={CreditCard}
                 iconPosition="left"
-                className="font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-2.5 sm:px-3.5 py-1.5 sm:py-2 shrink-0 whitespace-nowrap"
+                className="w-full font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-3 py-2.5 justify-center"
               >
-                <span className="sm:hidden">Credit</span>
-                <span className="hidden sm:inline">Trade Credit</span> ({financingRequests.length})
+                <span className="lg:hidden">Credit</span>
+                <span className="hidden lg:inline">Trade Credit</span> ({financingRequests.length})
               </Button>
               <Button
                 variant="accent"
@@ -157,10 +157,9 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
                 onClick={() => onNavigate('buyer-orders')}
                 icon={ShoppingBag}
                 iconPosition="left"
-                className="font-bold shadow-xs text-xs cursor-pointer px-2.5 sm:px-3.5 py-1.5 sm:py-2 shrink-0 whitespace-nowrap"
+                className="col-span-2 lg:col-span-1 w-full lg:w-auto font-bold shadow-xs text-xs cursor-pointer px-4 py-2.5 justify-center"
               >
-                <span className="sm:hidden">Orders</span>
-                <span className="hidden sm:inline">My Orders</span> ({orders.length})
+                My Orders ({orders.length})
               </Button>
             </div>
           </div>
