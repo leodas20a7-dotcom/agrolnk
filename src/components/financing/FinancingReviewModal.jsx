@@ -70,12 +70,14 @@ export default function FinancingReviewModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
-                  Funding Application {request.requestNumber}
+                  Funding Application {request.requestNumber || ''}
                 </h3>
                 <FinancingStatusBadge status={request.status} />
               </div>
               <span className="text-xs text-[#566861]">
-                Applied on {new Date(request.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                Applied on {request.createdAt && !isNaN(new Date(request.createdAt).getTime())
+                  ? new Date(request.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+                  : 'Pending Review'}
               </span>
             </div>
           </div>
@@ -98,9 +100,9 @@ export default function FinancingReviewModal({
             </span>
             <div className="flex items-center gap-2 font-bold text-[#14211D] text-sm">
               <User className="w-4 h-4 text-[#10B981]" />
-              <span>{request.applicantName}</span>
+              <span>{request.applicantName || 'Verified Participant'}</span>
               <Badge variant="emerald" size="sm">
-                <span className="capitalize">{request.applicantRole}</span>
+                <span className="capitalize">{request.applicantRole || 'Member'}</span>
               </Badge>
             </div>
             <span className="text-xs text-[#566861] block">
@@ -115,7 +117,7 @@ export default function FinancingReviewModal({
             </span>
             <div className="flex items-center gap-2 font-bold text-[#14211D] text-sm">
               <FileText className="w-4 h-4 text-[#10B981]" />
-              <span>Order {request.orderNumber}</span>
+              <span>{request.orderNumber ? `Order ${request.orderNumber}` : (request.orderId ? `Order #${request.orderId}` : 'Trade Collateral')}</span>
             </div>
             <span className="text-xs text-[#10B981] font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" /> 100% Escrow Collateralized
@@ -130,14 +132,14 @@ export default function FinancingReviewModal({
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-base font-bold text-[#0B3326] font-heading">
-                  {request.commodity}
+                  {request.commodity || 'Produce Lot'}
                 </h4>
                 <Badge variant="dark" size="sm">
-                  Grade {request.grade}
+                  Grade {request.grade || 'A'}
                 </Badge>
               </div>
               <span className="text-xs text-[#566861]">
-                Lot Volume: {request.quantity} {request.unit} • Variety: {request.variety || 'Standard'}
+                Lot Volume: {Number(request.quantity || 0).toLocaleString('en-IN')} {request.unit || 'kg'} • Variety: {request.variety || 'Standard'}
               </span>
             </div>
 
@@ -146,7 +148,7 @@ export default function FinancingReviewModal({
                 Total Transaction Value
               </span>
               <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-                ₹{request.transactionValue?.toLocaleString('en-IN')}
+                ₹{Number(request.transactionValue || 0).toLocaleString('en-IN')}
               </span>
             </div>
           </div>
@@ -156,13 +158,15 @@ export default function FinancingReviewModal({
             <div>
               <span className="text-[10px] text-[#566861] block font-medium">Requested Funding</span>
               <span className="text-sm font-extrabold text-[#0B3326]">
-                ₹{request.requestedAmount?.toLocaleString('en-IN')}
+                ₹{Number(request.requestedAmount || 0).toLocaleString('en-IN')}
               </span>
             </div>
             <div>
               <span className="text-[10px] text-[#566861] block font-medium">Loan-to-Value (LTV)</span>
               <span className="text-sm font-bold text-[#10B981]">
-                {request.transactionValue ? Math.round((request.requestedAmount / request.transactionValue) * 100) : 70}%
+                {Number(request.transactionValue) > 0 && Number(request.requestedAmount) > 0
+                  ? Math.round((Number(request.requestedAmount) / Number(request.transactionValue)) * 100)
+                  : 0}%
               </span>
             </div>
             <div className="col-span-2 sm:col-span-1">
@@ -178,7 +182,7 @@ export default function FinancingReviewModal({
             <div className="flex items-center gap-2 text-[#566861]">
               <Tag className="w-3.5 h-3.5 text-[#10B981]" />
               <span>
-                Financing Purpose: <strong className="text-[#14211D]">{request.purposeLabel}</strong>
+                Financing Purpose: <strong className="text-[#14211D]">{request.purposeLabel || request.purpose || 'Working Capital Advance'}</strong>
               </span>
             </div>
 
@@ -215,7 +219,7 @@ export default function FinancingReviewModal({
                   type="number"
                   value={approvedAmount}
                   onChange={(e) => setApprovedAmount(Number(e.target.value))}
-                  max={request.transactionValue}
+                  max={Number(request.transactionValue || 0)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#34D399]"
                 />
               </div>
@@ -285,7 +289,7 @@ export default function FinancingReviewModal({
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#10B981]" />
               <span className="text-[#566861]">
-                {request.status === 'approved' && `Funding of ₹${request.approvedAmount?.toLocaleString('en-IN')} is approved and earmarked.`}
+                {request.status === 'approved' && `Funding of ₹${Number(request.approvedAmount || request.requestedAmount || 0).toLocaleString('en-IN')} is approved and earmarked.`}
                 {request.status === 'under_review' && 'Institutional financier is evaluating your order collateral.'}
                 {request.status === 'pending' && 'Application submitted to verified Agrolnk trade finance network.'}
                 {request.status === 'rejected' && 'Application declined. You may adjust requested amount and reapply.'}

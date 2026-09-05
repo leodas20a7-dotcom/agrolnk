@@ -186,7 +186,7 @@ export default function CollateralVault({ currentUser, onNavigate }) {
                   <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
                     <span className="text-[#566861]">Assayed Valuation:</span>
                     <span className="font-extrabold text-[#0B3326]">
-                      ₹{item.estimatedValue?.toLocaleString('en-IN')}
+                      ₹{Number(item.estimatedValue || 0).toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>

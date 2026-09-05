@@ -11,7 +11,8 @@ export default function FinancingCard({
   onView,
 }) {
   const isApproved = request.status === 'approved';
-  const displayAmount = isApproved && request.approvedAmount ? request.approvedAmount : request.requestedAmount;
+  const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
+  const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
 
   return (
     <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 text-left">
@@ -23,10 +24,10 @@ export default function FinancingCard({
           </div>
           <div>
             <span className="text-base font-extrabold text-[#0B3326] font-heading">
-              {request.requestNumber}
+              {request.requestNumber || '#FIN-PENDING'}
             </span>
             <span className="text-xs text-[#566861] ml-2">
-              • {new Date(request.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+              • {isValidDate ? new Date(request.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : 'Pending'}
             </span>
           </div>
         </div>
@@ -43,14 +44,14 @@ export default function FinancingCard({
                 Linked Transaction:
               </span>
               <Badge variant="dark" size="sm">
-                {request.orderNumber}
+                {request.orderNumber || (request.orderId ? `#${request.orderId}` : 'Escrow')}
               </Badge>
             </div>
             <h4 className="text-base font-bold text-[#14211D] mt-1">
-              {request.commodity}
+              {request.commodity || 'Produce Lot'}
             </h4>
             <span className="text-xs text-[#566861]">
-              {request.quantity} {request.unit} • Grade {request.grade}
+              {Number(request.quantity || 0).toLocaleString('en-IN')} {request.unit || 'kg'} • Grade {request.grade || 'A'}
             </span>
           </div>
 
@@ -59,10 +60,10 @@ export default function FinancingCard({
               {isApproved ? 'Approved Funding' : 'Requested Funding'}
             </span>
             <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-              ₹{displayAmount?.toLocaleString('en-IN')}
+              ₹{Number(displayAmount || 0).toLocaleString('en-IN')}
             </span>
             <span className="text-[10px] text-[#566861] block mt-0.5">
-              Txn Value: ₹{request.transactionValue?.toLocaleString('en-IN')}
+              Txn Value: ₹{Number(request.transactionValue || 0).toLocaleString('en-IN')}
             </span>
           </div>
         </div>

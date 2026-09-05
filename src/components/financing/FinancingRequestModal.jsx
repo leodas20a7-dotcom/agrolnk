@@ -56,7 +56,7 @@ export default function FinancingRequestModal({
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!requestedAmount || Number(requestedAmount) <= 0) {
       setError('Please enter a valid financing amount.');
@@ -93,7 +93,7 @@ export default function FinancingRequestModal({
         notes: notes.trim(),
       };
 
-      const created = createFinancingRequest(requestPayload);
+      const created = await createFinancingRequest(requestPayload);
       setIsSubmitting(false);
       onSuccess?.(created);
       onClose();

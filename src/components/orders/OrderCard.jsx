@@ -30,10 +30,12 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-base font-extrabold text-[#0B3326] font-heading">
-            {order.orderNumber}
+            {order.orderNumber || 'Order'}
           </span>
           <span className="text-xs text-[#566861]">
-            • {new Date(order.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+            • {order.createdAt && !isNaN(new Date(order.createdAt).getTime())
+              ? new Date(order.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+              : 'Recent'}
           </span>
         </div>
 
@@ -50,10 +52,10 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
         <div>
           <div className="flex items-center gap-2">
             <h4 className="text-base font-bold text-[#14211D]">
-              {order.commodity}
+              {order.commodity || 'Produce Lot'}
             </h4>
             <Badge variant="dark" size="sm">
-              Grade {order.grade}
+              Grade {order.grade || 'A'}
             </Badge>
           </div>
           <p className="text-xs text-[#566861] mt-1 flex items-center gap-1">
@@ -71,10 +73,10 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
             {viewerRole === 'farmer' ? 'Receivable Payout' : 'Order Total'}
           </span>
           <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-            ₹{order.totalAmount?.toLocaleString('en-IN')}
+            ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
           </span>
           <span className="text-[11px] text-[#566861] block mt-0.5">
-            {order.quantity} {order.unit} @ ₹{order.pricePerUnit}/{order.unit}
+            {Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'} @ ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}
           </span>
         </div>
       </div>

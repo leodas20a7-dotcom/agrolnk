@@ -205,11 +205,25 @@ export async function confirmOrderReceipt(orderId) {
         escrow_status: 'released',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', orderId)
+      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
       .select()
       .single();
 
     if (error) throw error;
+
+    // Automatically sync linked delivery to completed
+    try {
+      await supabase
+        .from('deliveries')
+        .update({
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+        })
+        .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
+    } catch (delSyncErr) {
+      console.warn('Delivery sync notice:', delSyncErr);
+    }
+
     return mapOrderFromDb(data);
   } catch (err) {
     console.error('Error confirming order receipt:', err);
@@ -222,17 +236,43 @@ export async function confirmOrderReceipt(orderId) {
  */
 export async function updateOrderStatus(orderId, newStatus) {
   try {
+    const updatePayload = {
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (newStatus === 'completed') {
+      updatePayload.escrow_status = 'released';
+    }
+
     const { data, error } = await supabase
       .from('orders')
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId)
+      .update(updatePayload)
+      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
       .select()
       .single();
 
     if (error) throw error;
+
+    // Automatically sync linked delivery when order progresses
+    try {
+      let linkedDeliveryStatus = null;
+      if (newStatus === 'completed') linkedDeliveryStatus = 'completed';
+      else if (newStatus === 'delivered') linkedDeliveryStatus = 'delivered';
+      else if (newStatus === 'in_transit' || newStatus === 'ready_for_delivery') linkedDeliveryStatus = 'in_transit';
+
+      if (linkedDeliveryStatus) {
+        await supabase
+          .from('deliveries')
+          .update({
+            status: linkedDeliveryStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
+      }
+    } catch (delErr) {
+      console.warn('Delivery status auto-sync notice:', delErr);
+    }
+
     return mapOrderFromDb(data);
   } catch (err) {
     console.error('Error updating order status:', err);

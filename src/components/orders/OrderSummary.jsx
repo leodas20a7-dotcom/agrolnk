@@ -94,10 +94,10 @@ export default function OrderSummary({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-bold text-[#0B3326] font-heading">
-                {order.commodity}
+                {order.commodity || 'Produce Lot'}
               </h3>
               <Badge variant="dark" size="sm">
-                Grade {order.grade}
+                Grade {order.grade || 'A'}
               </Badge>
             </div>
             <span className="text-xs text-[#566861]">
@@ -108,7 +108,7 @@ export default function OrderSummary({
           <div className="text-right">
             <span className="text-xs text-[#566861] block font-medium">Order Total</span>
             <span className="text-2xl font-extrabold text-[#0B3326] font-heading">
-              ₹{order.totalAmount?.toLocaleString('en-IN')}
+              ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
             </span>
           </div>
         </div>
@@ -118,13 +118,13 @@ export default function OrderSummary({
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">Quantity</span>
             <span className="font-bold text-[#14211D]">
-              {order.quantity} {order.unit}
+              {Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'}
             </span>
           </div>
           <div>
-            <span className="text-[10px] text-[#566861] block font-medium">Price / {order.unit}</span>
+            <span className="text-[10px] text-[#566861] block font-medium">Price / {order.unit || 'kg'}</span>
             <span className="font-bold text-[#0B3326]">
-              ₹{order.pricePerUnit}
+              ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}
             </span>
           </div>
           <div>
@@ -171,56 +171,65 @@ export default function OrderSummary({
         </div>
 
         {/* Section: In-Order Logistics & Delivery Status */}
-        {existingDelivery ? (
-          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-[#10B981]" />
-                <span className="text-xs font-bold text-[#0B3326]">
-                  Linked Delivery {existingDelivery.deliveryNumber}
-                </span>
-                <DeliveryStatusBadge status={existingDelivery.status} size="sm" />
+        {existingDelivery ? (() => {
+          const effectiveDeliveryStatus =
+            order.status === 'completed'
+              ? 'completed'
+              : order.status === 'delivered' && existingDelivery.status !== 'completed'
+              ? 'delivered'
+              : existingDelivery.status;
+
+          return (
+            <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#10B981]" />
+                  <span className="text-xs font-bold text-[#0B3326]">
+                    Linked Delivery {existingDelivery.deliveryNumber}
+                  </span>
+                  <DeliveryStatusBadge status={effectiveDeliveryStatus} size="sm" />
+                </div>
+
+                {onViewDelivery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewDelivery({ ...existingDelivery, status: effectiveDeliveryStatus })}
+                    icon={ArrowRight}
+                    iconPosition="right"
+                    className="text-xs font-bold text-[#0B3326] cursor-pointer"
+                  >
+                    Track Dispatch
+                  </Button>
+                )}
               </div>
 
-              {onViewDelivery && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onViewDelivery(existingDelivery)}
-                  icon={ArrowRight}
-                  iconPosition="right"
-                  className="text-xs font-bold text-[#0B3326] cursor-pointer"
-                >
-                  Track Dispatch
-                </Button>
+              {/* Embed Mini Delivery Timeline */}
+              <div className="pt-2 border-t border-[#E5EDE8]">
+                <DeliveryTimeline currentStatus={effectiveDeliveryStatus} delivery={existingDelivery} />
+              </div>
+
+              {/* Buyer Confirm Receipt Button if Delivered */}
+              {isBuyer && effectiveDeliveryStatus === 'delivered' && onConfirmReceipt && (
+                <div className="pt-2 flex items-center justify-between">
+                  <span className="text-xs text-[#0B3326] font-semibold">
+                    Produce delivered at your facility. Please confirm receipt.
+                  </span>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => onConfirmReceipt(existingDelivery)}
+                    icon={CheckCircle2}
+                    iconPosition="left"
+                    className="text-xs font-bold py-2 shadow-xs cursor-pointer"
+                  >
+                    Confirm Receipt
+                  </Button>
+                </div>
               )}
             </div>
-
-            {/* Embed Mini Delivery Timeline */}
-            <div className="pt-2 border-t border-[#E5EDE8]">
-              <DeliveryTimeline currentStatus={existingDelivery.status} delivery={existingDelivery} />
-            </div>
-
-            {/* Buyer Confirm Receipt Button if Delivered */}
-            {isBuyer && existingDelivery.status === 'delivered' && onConfirmReceipt && (
-              <div className="pt-2 flex items-center justify-between">
-                <span className="text-xs text-[#0B3326] font-semibold">
-                  Produce delivered at your facility. Please confirm receipt.
-                </span>
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => onConfirmReceipt(existingDelivery)}
-                  icon={CheckCircle2}
-                  iconPosition="left"
-                  className="text-xs font-bold py-2 shadow-xs cursor-pointer"
-                >
-                  Confirm Receipt
-                </Button>
-              </div>
-            )}
-          </div>
-        ) : (
+          );
+        })() : (
           (order.status === 'confirmed' || order.status === 'ready_for_delivery') && (
             <div className="p-4 rounded-2xl bg-gradient-to-r from-[#EFF6FF] via-[#F2FBF6] to-white border border-[#93C5FD]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="space-y-0.5 text-xs">
@@ -258,14 +267,14 @@ export default function OrderSummary({
               <div className="flex items-center gap-2">
                 <Landmark className="w-4 h-4 text-[#10B981]" />
                 <span className="text-xs font-bold text-[#0B3326]">
-                  Linked Financing Application {existingFinancing.requestNumber}
+                  Linked Financing Application {existingFinancing.requestNumber || ''}
                 </span>
                 <FinancingStatusBadge status={existingFinancing.status} size="sm" />
               </div>
               <span className="text-xs text-[#566861] block">
                 {existingFinancing.status === 'approved'
-                  ? `Approved Facility: ₹${(existingFinancing.approvedAmount || existingFinancing.requestedAmount).toLocaleString('en-IN')}`
-                  : `Requested: ₹${existingFinancing.requestedAmount.toLocaleString('en-IN')} (${existingFinancing.purposeLabel})`}
+                  ? `Approved Facility: ₹${Number(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0).toLocaleString('en-IN')}`
+                  : `Requested: ₹${Number(existingFinancing.requestedAmount || 0).toLocaleString('en-IN')} (${existingFinancing.purposeLabel || existingFinancing.purpose || 'Trade Credit'})`}
               </span>
             </div>
 
