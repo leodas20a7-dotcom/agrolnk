@@ -292,32 +292,34 @@ export default function OrderSummary({
             )}
           </div>
         ) : (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FEF3C7]/60 to-[#F2FBF6] border border-[#FDE68A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
-                {isBuyer ? <CreditCard className="w-4 h-4 text-[#D97706]" /> : <Landmark className="w-4 h-4 text-[#10B981]" />}
-                {isBuyer ? 'Need credit support?' : 'Need immediate liquidity?'}
-              </span>
-              <span className="text-xs text-[#566861] block">
-                {isBuyer
-                  ? 'Obtain 30-day settlement trade credit for this order.'
-                  : 'Get working capital advance up to 85% for this confirmed produce transaction.'}
-              </span>
-            </div>
+          order.status !== 'completed' && order.status !== 'cancelled' && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FEF3C7]/60 to-[#F2FBF6] border border-[#FDE68A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                  {isBuyer ? <CreditCard className="w-4 h-4 text-[#D97706]" /> : <Landmark className="w-4 h-4 text-[#10B981]" />}
+                  {isBuyer ? 'Need credit support?' : 'Need immediate liquidity?'}
+                </span>
+                <span className="text-xs text-[#566861] block">
+                  {isBuyer
+                    ? 'Obtain 30-day settlement trade credit for this order.'
+                    : 'Get working capital advance up to 85% for this confirmed produce transaction.'}
+                </span>
+              </div>
 
-            {onRequestFinancing && (
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={() => onRequestFinancing(order)}
-                icon={ArrowRight}
-                iconPosition="right"
-                className="font-bold text-xs py-2 px-4 shadow-xs shrink-0 cursor-pointer"
-              >
-                {isBuyer ? 'Request Credit' : 'Explore Financing'}
-              </Button>
-            )}
-          </div>
+              {onRequestFinancing && (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => onRequestFinancing(order)}
+                  icon={ArrowRight}
+                  iconPosition="right"
+                  className="font-bold text-xs py-2 px-4 shadow-xs shrink-0 cursor-pointer"
+                >
+                  {isBuyer ? 'Request Credit' : 'Explore Financing'}
+                </Button>
+              )}
+            </div>
+          )
         )}
 
         {/* Escrow Guarantee Pill */}

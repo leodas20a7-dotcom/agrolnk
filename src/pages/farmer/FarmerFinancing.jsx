@@ -62,7 +62,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
     .filter((r) => r.status === 'approved')
     .reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
 
-  const eligibleOrders = safeOrders.filter((o) => o.status !== 'cancelled');
+  const eligibleOrders = safeOrders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
 
   const totalEligibleValue = eligibleOrders.reduce(
     (sum, o) => sum + (Number(o.totalAmount) || 0), 0
