@@ -128,36 +128,34 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 lg:flex lg:items-center gap-2 sm:gap-2.5 w-full lg:w-auto shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto shrink-0">
               <Button
                 variant="secondary"
-                size="sm"
+                size="md"
                 onClick={() => onNavigate('buyer-deliveries')}
                 icon={Truck}
                 iconPosition="left"
-                className="w-full font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-3 py-2.5 justify-center"
+                className="py-2.5 px-3.5 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center shrink-0"
               >
-                <span className="lg:hidden">Deliveries</span>
-                <span className="hidden lg:inline">Inbound Deliveries</span> ({deliveries.length})
+                Inbound Deliveries ({deliveries.length})
               </Button>
               <Button
                 variant="secondary"
-                size="sm"
+                size="md"
                 onClick={() => onNavigate('buyer-financing')}
                 icon={CreditCard}
                 iconPosition="left"
-                className="w-full font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer px-3 py-2.5 justify-center"
+                className="py-2.5 px-3.5 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center shrink-0"
               >
-                <span className="lg:hidden">Credit</span>
-                <span className="hidden lg:inline">Trade Credit</span> ({financingRequests.length})
+                Trade Credit ({financingRequests.length})
               </Button>
               <Button
                 variant="accent"
-                size="sm"
+                size="md"
                 onClick={() => onNavigate('buyer-orders')}
                 icon={ShoppingBag}
                 iconPosition="left"
-                className="col-span-2 lg:col-span-1 w-full lg:w-auto font-bold shadow-xs text-xs cursor-pointer px-4 py-2.5 justify-center"
+                className="py-2.5 px-4 font-bold shadow-xs text-xs cursor-pointer justify-center shrink-0"
               >
                 My Orders ({orders.length})
               </Button>

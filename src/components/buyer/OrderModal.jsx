@@ -86,86 +86,86 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
         {/* Modal Body */}
         <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 overscroll-contain">
 
-        {/* Error Alert */}
-        {error && (
-          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* Produce Overview Snapshot */}
-        <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="text-base font-bold text-[#0B3326] font-heading">
-                {listing.commodity}
-              </h4>
-              <Badge variant="emerald" size="sm">
-                Grade {listing.grade}
-              </Badge>
+          {/* Error Alert */}
+          {error && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span>{error}</span>
             </div>
-            <p className="text-xs text-[#566861] mt-0.5">
-              Available lot: <strong className="text-[#14211D]">{listing.quantity} {listing.unit}</strong>
-            </p>
+          )}
+
+          {/* Produce Overview Snapshot */}
+          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-bold text-[#0B3326] font-heading">
+                  {listing.commodity}
+                </h4>
+                <Badge variant="emerald" size="sm">
+                  Grade {listing.grade}
+                </Badge>
+              </div>
+              <p className="text-xs text-[#566861] mt-0.5">
+                Available lot: <strong className="text-[#14211D]">{listing.quantity} {listing.unit}</strong>
+              </p>
+            </div>
+
+            <div className="text-right">
+              <span className="text-xs text-[#566861] block">Price</span>
+              <span className="text-base font-bold text-[#0B3326]">
+                ₹{listing.price} / {listing.unit}
+              </span>
+            </div>
           </div>
 
-          <div className="text-right">
-            <span className="text-xs text-[#566861] block">Price</span>
-            <span className="text-base font-bold text-[#0B3326]">
-              ₹{listing.price} / {listing.unit}
+          {/* Quantity Selection */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-[#14211D]">
+              Quantity to Purchase ({listing.unit})
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min="1"
+                max={listing.quantity}
+                value={purchaseQty}
+                onChange={(e) => setPurchaseQty(e.target.value)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setPurchaseQty(listing.quantity)}
+                className="px-3 py-2.5 rounded-xl text-xs font-bold bg-[#EBF5F0] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors cursor-pointer"
+              >
+                Buy Entire Lot
+              </button>
+            </div>
+            <span className="text-[11px] text-[#566861] block">
+              Max available: {listing.quantity} {listing.unit}
             </span>
           </div>
-        </div>
 
-        {/* Quantity Selection */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold text-[#14211D]">
-            Quantity to Purchase ({listing.unit})
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min="1"
-              max={listing.quantity}
-              value={purchaseQty}
-              onChange={(e) => setPurchaseQty(e.target.value)}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
-            />
-            <button
-              type="button"
-              onClick={() => setPurchaseQty(listing.quantity)}
-              className="px-3 py-2.5 rounded-xl text-xs font-bold bg-[#EBF5F0] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors cursor-pointer"
-            >
-              Buy Entire Lot
-            </button>
+          {/* Subtotal Calculation Box */}
+          <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#DCFCE7]/80">
+              <span>Calculation</span>
+              <span>
+                {purchaseQty || 0} {listing.unit} × ₹{listing.price}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between pt-1 border-t border-[#14624A]">
+              <span className="text-sm font-semibold text-white">Subtotal</span>
+              <span className="text-2xl font-extrabold font-heading text-white">
+                ₹{subtotal.toLocaleString('en-IN')}
+              </span>
+            </div>
           </div>
-          <span className="text-[11px] text-[#566861] block">
-            Max available: {listing.quantity} {listing.unit}
-          </span>
-        </div>
 
-        {/* Subtotal Calculation Box */}
-        <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
-          <div className="flex items-center justify-between text-xs text-[#DCFCE7]/80">
-            <span>Calculation</span>
-            <span>
-              {purchaseQty || 0} {listing.unit} × ₹{listing.price}
-            </span>
+          {/* Escrow Notice */}
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
+            <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
+            <span>Payment is held safely in escrow until produce delivery is verified.</span>
           </div>
-          <div className="flex items-baseline justify-between pt-1 border-t border-[#14624A]">
-            <span className="text-sm font-semibold text-white">Subtotal</span>
-            <span className="text-2xl font-extrabold font-heading text-white">
-              ₹{subtotal.toLocaleString('en-IN')}
-            </span>
-          </div>
-        </div>
-
-        {/* Escrow Notice */}
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
-          <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-          <span>Payment is held safely in escrow until produce delivery is verified.</span>
-        </div>
 
         </div>
 
