@@ -70,11 +70,12 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   }, [user.id]);
 
   const safeListings = Array.isArray(listings) ? listings : [];
+  const activeListings = safeListings.filter((l) => l.status !== 'sold' && Number(l.quantity) > 0);
   const safeAuctions = Array.isArray(auctions) ? auctions : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeInventory = Array.isArray(inventory) ? inventory : [];
 
-  const directCount = safeListings.filter((l) => (l.saleType === 'direct' || !l.saleType) && l.status !== 'sold' && Number(l.quantity) > 0).length;
+  const directCount = activeListings.filter((l) => l.saleType === 'direct' || !l.saleType).length;
   const liveAuctionsCount = safeAuctions.filter((a) => a.status === 'live').length;
   const pendingOrdersCount = safeOrders.filter((o) => o.status === 'pending').length;
   const totalStoredKg = safeInventory.reduce((sum, i) => sum + (Number(i.totalQuantity) || 0), 0);
@@ -233,7 +234,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                Your Listings
+                Your Active Listings
               </h2>
               <p className="text-xs text-[#566861] mt-0.5">
                 Manage your active commodity lots on the live exchange
@@ -249,15 +250,15 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                 iconPosition="right"
                 className="text-xs font-semibold"
               >
-                View All Listings ({listings.length})
+                View All Listings ({activeListings.length})
               </Button>
             </div>
           </div>
 
           {/* Listings Grid */}
-          {listings.length > 0 ? (
+          {activeListings.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {listings.slice(0, 6).map((item) => (
+              {activeListings.slice(0, 6).map((item) => (
                 <ListingCard
                   key={item.id}
                   listing={item}
@@ -272,10 +273,10 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                 <Package className="w-6 h-6 text-[#10B981]" />
               </div>
               <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                No produce listed yet
+                No active produce listed
               </h3>
               <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                Start by creating your first produce listing with target price and location.
+                All previous lots are sold out or you have not created an active produce listing yet.
               </p>
               <div className="pt-2">
                 <Button
@@ -284,7 +285,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                   onClick={() => onNavigate('farmer-create-listing')}
                   icon={Plus}
                 >
-                  List Produce Now
+                  List New Produce
                 </Button>
               </div>
             </Card>
