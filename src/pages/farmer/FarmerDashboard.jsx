@@ -74,7 +74,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeInventory = Array.isArray(inventory) ? inventory : [];
 
-  const directCount = safeListings.filter((l) => l.saleType === 'direct').length;
+  const directCount = safeListings.filter((l) => (l.saleType === 'direct' || !l.saleType) && l.status !== 'sold' && Number(l.quantity) > 0).length;
   const liveAuctionsCount = safeAuctions.filter((a) => a.status === 'live').length;
   const pendingOrdersCount = safeOrders.filter((o) => o.status === 'pending').length;
   const totalStoredKg = safeInventory.reduce((sum, i) => sum + (Number(i.totalQuantity) || 0), 0);

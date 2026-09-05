@@ -7,10 +7,11 @@ import { COMMODITY_IMAGES } from '../../utils/listings';
 
 export default function ListingCard({ listing, onView, onEdit }) {
   const isAuction = listing.saleType === 'auction';
+  const isSoldOut = listing.status === 'sold' || Number(listing.quantity || 0) <= 0;
   const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
   return (
-    <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] shadow-xs flex flex-col justify-between space-y-4">
+    <Card hoverEffect className={`p-5 bg-white border border-[#E5EDE8] shadow-xs flex flex-col justify-between space-y-4 ${isSoldOut ? 'opacity-90' : ''}`}>
       {/* Top Media & Header */}
       <div className="space-y-3.5">
         <div className="relative h-44 rounded-2xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8]">
@@ -21,7 +22,7 @@ export default function ListingCard({ listing, onView, onEdit }) {
               e.currentTarget.onerror = null;
               e.currentTarget.src = fallbackImg;
             }}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${isSoldOut ? 'grayscale-25' : ''}`}
           />
 
           {/* Top Badges */}
@@ -39,13 +40,19 @@ export default function ListingCard({ listing, onView, onEdit }) {
           </div>
 
           <div className="absolute top-3 right-3">
-            <Badge variant="emerald" size="sm" dot={true}>
-              Active
-            </Badge>
+            {isSoldOut ? (
+              <Badge variant="dark" size="sm" dot={false}>
+                Sold Out
+              </Badge>
+            ) : (
+              <Badge variant="emerald" size="sm" dot={true}>
+                Active
+              </Badge>
+            )}
           </div>
 
           {/* Auction Countdown pill if auction */}
-          {isAuction && listing.auctionEndsIn && (
+          {isAuction && listing.auctionEndsIn && !isSoldOut && (
             <div className="absolute bottom-2 left-2 right-2 p-1.5 rounded-xl bg-[#0B3326]/90 text-white text-xs text-center font-bold flex items-center justify-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-[#D97706]" />
               <span>Ends in {listing.auctionEndsIn}</span>
@@ -77,8 +84,8 @@ export default function ListingCard({ listing, onView, onEdit }) {
         <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">Quantity</span>
-            <span className="font-bold text-[#14211D]">
-              {listing.quantity} {listing.unit}
+            <span className={`font-bold ${isSoldOut ? 'text-amber-700' : 'text-[#14211D]'}`}>
+              {isSoldOut ? `0 ${listing.unit || 'kg'} (Sold)` : `${listing.quantity} ${listing.unit || 'kg'}`}
             </span>
           </div>
           <div>
@@ -86,7 +93,7 @@ export default function ListingCard({ listing, onView, onEdit }) {
               {isAuction ? 'Current Bid' : 'Direct Price'}
             </span>
             <span className="font-bold text-[#0B3326]">
-              ₹{listing.price} / {listing.unit}
+              ₹{listing.price} / {listing.unit || 'kg'}
             </span>
           </div>
         </div>

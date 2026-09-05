@@ -32,6 +32,7 @@ export default function ProduceDetailModal({
   if (!listing) return null;
 
   const isAuction = listing.saleType === 'auction';
+  const isSoldOut = listing.status === 'sold' || Number(listing.quantity || 0) <= 0;
   const totalValue =
     Number(listing.quantity || 0) * Number(listing.price || 0);
   const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
@@ -48,7 +49,7 @@ export default function ProduceDetailModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Produce Lot Details"
-      subtitle={`Lot Reference #${listing.id} • Live on National Marketplace`}
+      subtitle={`Lot Reference #${listing.id} • ${isSoldOut ? 'Sold Out Produce Lot' : 'Live on National Marketplace'}`}
       icon={Package}
       iconColor="text-[#10B981]"
       iconBg="bg-[#EBF5F0]"
@@ -108,7 +109,7 @@ export default function ProduceDetailModal({
               e.currentTarget.onerror = null;
               e.currentTarget.src = fallbackImg;
             }}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${isSoldOut ? 'grayscale-25' : ''}`}
           />
 
           {/* Floating Badges */}
@@ -126,9 +127,15 @@ export default function ProduceDetailModal({
           </div>
 
           <div className="absolute top-3 right-3">
-            <Badge variant="emerald" size="sm" dot={true}>
-              Active & Visible
-            </Badge>
+            {isSoldOut ? (
+              <Badge variant="dark" size="sm" dot={false}>
+                Sold Out
+              </Badge>
+            ) : (
+              <Badge variant="emerald" size="sm" dot={true}>
+                Active & Visible
+              </Badge>
+            )}
           </div>
 
           {/* Bottom Banner */}
@@ -186,7 +193,17 @@ export default function ProduceDetailModal({
               Market Status
             </span>
             <span className="text-base font-extrabold text-[#0B3326] flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4 text-[#10B981]" /> Active
+              {isSoldOut ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                  <span className="text-amber-700">Sold Out</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                  <span>Active</span>
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -246,7 +263,11 @@ export default function ProduceDetailModal({
             <CheckCircle2 className="w-4 h-4" />
           </div>
           <p className="text-xs text-[#0F4A37] leading-relaxed">
-            This produce lot is currently <strong>Active</strong> in the national exchange. Verified institutional buyers, processors, and aggregators can discover and purchase it directly through instant escrow contracts.
+            {isSoldOut ? (
+              <span>This produce lot has been <strong>100% procured and sold</strong>. It is no longer listed in the buyer marketplace.</span>
+            ) : (
+              <span>This produce lot is currently <strong>Active</strong> in the national exchange. Verified institutional buyers, processors, and aggregators can discover and purchase it directly through instant escrow contracts.</span>
+            )}
           </p>
         </div>
       </div>
