@@ -41,38 +41,84 @@ export async function registerUser({ name, phone, email, role, state, district, 
       state: state || 'Tamil Nadu',
       district: district || 'Salem',
       company_name: companyName || '',
-      kyc_status: 'verified',
+      kyc_status: 'pending',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // 2. Insert into Supabase
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert([newProfile])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Supabase profile insertion error:', error);
-      throw new Error(error.message || 'Failed to create profile in database.');
+    // Sync into local Admin KYC Registry
+    try {
+      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+      const registry = storedRaw ? JSON.parse(storedRaw) : [];
+      if (!registry.find(u => u.email === normalizedEmail || u.id === newProfile.id)) {
+        registry.unshift({
+          id: newProfile.id,
+          name: newProfile.name,
+          role: newProfile.role,
+          email: newProfile.email,
+          phone: newProfile.phone,
+          state: newProfile.state,
+          district: newProfile.district,
+          orgName: newProfile.company_name || `${newProfile.name} Enterprise`,
+          verificationStatus: 'pending',
+          submittedAt: new Date().toISOString(),
+          verifiedAt: null,
+          verifiedBy: null,
+          documents: [
+            { type: 'Identity / Aadhaar / PAN', number: 'Pending Submission', status: 'pending', fileUrl: '' },
+            { type: 'Trade / Business License', number: 'Pending Submission', status: 'pending', fileUrl: '' }
+          ],
+          auditNotes: 'Newly registered participant. Awaiting document submission & admin verification.',
+        });
+        localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
+      }
+    } catch (regErr) {
+      console.warn('Could not sync to admin registry:', regErr);
     }
 
-    const userObj = {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      role: data.role,
-      state: data.state,
-      district: data.district,
-      companyName: data.company_name,
-      kycStatus: data.kyc_status,
-      createdAt: data.created_at,
+    // 2. Insert into Supabase (with fallback if offline)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([newProfile])
+        .select()
+        .single();
+
+      if (!error && data) {
+        const userObj = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          role: data.role,
+          state: data.state,
+          district: data.district,
+          companyName: data.company_name,
+          kycStatus: data.kyc_status || 'pending',
+          createdAt: data.created_at,
+        };
+        setCurrentUser(userObj);
+        return userObj;
+      }
+    } catch (sbErr) {
+      console.warn('Supabase insert failed, continuing with local session:', sbErr);
+    }
+
+    const fallbackUserObj = {
+      id: newProfile.id,
+      name: newProfile.name,
+      email: newProfile.email,
+      phone: newProfile.phone,
+      role: newProfile.role,
+      state: newProfile.state,
+      district: newProfile.district,
+      companyName: newProfile.company_name,
+      kycStatus: 'pending',
+      createdAt: newProfile.created_at,
     };
 
-    setCurrentUser(userObj);
-    return userObj;
+    setCurrentUser(fallbackUserObj);
+    return fallbackUserObj;
   } catch (err) {
     console.error('Registration failed:', err);
     throw err;

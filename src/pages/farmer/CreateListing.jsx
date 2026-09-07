@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { createListing, COMMODITY_IMAGES } from '../../utils/listings';
 import { createAuction } from '../../utils/auctions';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import { isUserVerified } from '../../utils/admin';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -50,6 +52,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   const commodities = [
     'Tomato',
@@ -138,8 +141,16 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   };
 
   const handlePublishListing = async () => {
-    setIsSubmitting(true);
     setError('');
+
+    // Check verification status before publishing
+    const verified = await isUserVerified(user.id);
+    if (!verified && user.kycStatus !== 'verified') {
+      setIsVerificationModalOpen(true);
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       if (saleType === 'auction') {
@@ -679,6 +690,17 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
         )}
 
       </div>
+
+      {/* Verification Required Modal */}
+      <VerificationRequiredModal
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+        currentUser={user}
+        actionName="publish farmgate lots or auctions"
+        onSuccess={() => {
+          setIsVerificationModalOpen(false);
+        }}
+      />
     </DashboardLayout>
   );
 }

@@ -417,12 +417,28 @@ export default function DashboardLayout({
               })}
             </nav>
 
-            {/* 3. Right: Role Pill, User Avatar & Sign Out */}
-            <div className="flex items-center gap-3 shrink-0">
+            {/* 3. Right: Role Pill, Verification Status, User Avatar & Sign Out */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {/* Role Badge */}
               <Badge variant={currentRoleConfig.badge} size="sm" dot={true}>
                 <span className="capitalize font-bold">{user.role}</span>
               </Badge>
+
+              {/* KYC Verification Badge Pill (for non-admin users) */}
+              {user.role !== 'admin' && (
+                (() => {
+                  const isVerified = user.kycStatus === 'verified' || user.verificationStatus === 'verified';
+                  return isVerified ? (
+                    <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      ✓ Verified
+                    </span>
+                  ) : (
+                    <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      Pending KYC
+                    </span>
+                  );
+                })()
+              )}
 
               {/* User Avatar & Name */}
               <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-[#E5EDE8]">
