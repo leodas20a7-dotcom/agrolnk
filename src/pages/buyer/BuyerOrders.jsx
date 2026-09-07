@@ -247,7 +247,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
               </button>
             </div>
 
-            {/* Order Summary Spec with In-Order Financing & Delivery */}
+            {/* Order Summary Spec with In-Order Delivery and Quality Inspection */}
             <OrderSummary
               order={selectedOrder}
               viewerRole="buyer"
@@ -257,14 +257,6 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
               onConfirmReceipt={(dlv) => handleConfirmOrderReceipt(dlv)}
               onInspectQuality={(ord) => setOrderForInspection(ord)}
             />
-
-            {/* 5-Step Status Progression Timeline */}
-            <div className="p-6 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-4">
-              <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
-                Real-Time Fulfillment Timeline
-              </h4>
-              <OrderTimeline currentStatus={selectedOrder.status} />
-            </div>
 
             {/* Action Bar when Delivered */}
             {selectedOrder.status === 'delivered' ? (

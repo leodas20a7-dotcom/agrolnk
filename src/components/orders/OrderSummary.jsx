@@ -81,18 +81,32 @@ export default function OrderSummary({
   return (
     <div className="space-y-5 text-left">
       {/* Top Header */}
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] gap-3">
         <div>
           <span className="text-xs text-[#566861] block">Order Identifier</span>
           <span className="text-xl font-extrabold text-[#0B3326] font-heading">
             {order.orderNumber}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          {existingDelivery && (
-            <DeliveryStatusBadge status={existingDelivery.status} size="sm" />
+        
+        <div className="flex items-center gap-2.5">
+          {/* Subtle Credit Link in Header if not yet financed */}
+          {!existingFinancing && order.status !== 'completed' && order.status !== 'cancelled' && onRequestFinancing && (
+            <button
+              onClick={() => onRequestFinancing(order)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-amber-700" />
+              <span>{isBuyer ? 'Need Credit?' : 'Get Advance'}</span>
+            </button>
           )}
-          <OrderStatus status={order.status} size="md" />
+
+          {/* Consolidated Single Unified Badge */}
+          {existingDelivery ? (
+            <DeliveryStatusBadge status={existingDelivery.status} size="md" />
+          ) : (
+            <OrderStatus status={order.status} size="md" />
+          )}
         </div>
       </div>
 
@@ -240,7 +254,7 @@ export default function OrderSummary({
           </div>
         </div>
 
-        {/* Section: In-Order Logistics & Delivery Status */}
+        {/* Section: In-Order Logistics & Delivery Status (Single Unified Timeline) */}
         {existingDelivery ? (() => {
           const effectiveDeliveryStatus =
             order.status === 'completed'
@@ -255,7 +269,7 @@ export default function OrderSummary({
                 <div className="flex items-center gap-2">
                   <Truck className="w-4 h-4 text-[#10B981]" />
                   <span className="text-xs font-bold text-[#0B3326]">
-                    Linked Delivery {existingDelivery.deliveryNumber}
+                    Delivery {existingDelivery.deliveryNumber}
                   </span>
                   <DeliveryStatusBadge status={effectiveDeliveryStatus} size="sm" />
                 </div>
@@ -274,7 +288,7 @@ export default function OrderSummary({
                 )}
               </div>
 
-              {/* Embed Mini Delivery Timeline */}
+              {/* Mini Delivery Timeline */}
               <div className="pt-2 border-t border-[#E5EDE8]">
                 <DeliveryTimeline currentStatus={effectiveDeliveryStatus} delivery={existingDelivery} />
               </div>
@@ -330,8 +344,8 @@ export default function OrderSummary({
           )
         )}
 
-        {/* Transaction-Linked Financing Callout Inside the Order */}
-        {existingFinancing ? (
+        {/* Transaction-Linked Financing Callout (Only when active financing exists) */}
+        {existingFinancing && (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-[#EBF5F0] to-[#F2FBF6] border border-[#10B981]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -361,35 +375,6 @@ export default function OrderSummary({
               </Button>
             )}
           </div>
-        ) : (
-          order.status !== 'completed' && order.status !== 'cancelled' && (
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FEF3C7]/60 to-[#F2FBF6] border border-[#FDE68A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
-                  {isBuyer ? <CreditCard className="w-4 h-4 text-[#D97706]" /> : <Landmark className="w-4 h-4 text-[#10B981]" />}
-                  {isBuyer ? 'Need credit support?' : 'Need immediate liquidity?'}
-                </span>
-                <span className="text-xs text-[#566861] block">
-                  {isBuyer
-                    ? 'Obtain 30-day settlement trade credit for this order.'
-                    : 'Get working capital advance up to 85% for this confirmed produce transaction.'}
-                </span>
-              </div>
-
-              {onRequestFinancing && (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => onRequestFinancing(order)}
-                  icon={ArrowRight}
-                  iconPosition="right"
-                  className="font-bold text-xs py-2 px-4 shadow-xs shrink-0 cursor-pointer"
-                >
-                  {isBuyer ? 'Request Credit' : 'Explore Financing'}
-                </Button>
-              )}
-            </div>
-          )
         )}
 
         {/* Escrow Guarantee Pill */}
