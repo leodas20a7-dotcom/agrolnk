@@ -225,8 +225,51 @@ CREATE TABLE IF NOT EXISTS public.financing_requests (
 );
 
 -- ============================================================================
--- 8. ROW LEVEL SECURITY (RLS) POLICIES
--- Permissive policies for prototype testing; can be restricted with Supabase Auth
+-- 8. QUALITY INSPECTION & ASSAY REPORTS
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.inspections (
+    id TEXT PRIMARY KEY,
+    report_number TEXT UNIQUE NOT NULL,
+    order_id TEXT REFERENCES public.orders(id) ON DELETE CASCADE,
+    order_number TEXT NOT NULL,
+    buyer_id TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
+    buyer_name TEXT NOT NULL,
+    seller_name TEXT NOT NULL,
+    commodity TEXT NOT NULL,
+    crop_name TEXT,
+    quantity NUMERIC NOT NULL CHECK (quantity > 0),
+    verified_weight NUMERIC,
+    ordered_grade TEXT DEFAULT 'A',
+    grade TEXT,
+    moisture NUMERIC,
+    foreign_matter NUMERIC,
+    status TEXT NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'assigned', 'passed', 'disputed', 'resolved')),
+    order_amount NUMERIC NOT NULL DEFAULT 0,
+    inspector_name TEXT,
+    inspector_notes TEXT,
+    dispute_reason TEXT,
+    arbitration JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ============================================================================
+-- 9. PRIVACY CHAT MESSAGES & REAL-TIME THREADS
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+    id TEXT PRIMARY KEY,
+    thread_key TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
+    sender_name TEXT NOT NULL,
+    sender_role TEXT NOT NULL,
+    raw_text TEXT,
+    text TEXT NOT NULL,
+    is_system BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ============================================================================
+-- 10. ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
@@ -237,37 +280,67 @@ ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.warehouses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.warehouse_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.financing_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inspections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
--- Allow public read and write access for development and testing
+-- Allow public read and write access for development, testing & API sync
+DROP POLICY IF EXISTS "Allow public read profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public insert/update profiles" ON public.profiles;
 CREATE POLICY "Allow public read profiles" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update profiles" ON public.profiles FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read listings" ON public.listings;
+DROP POLICY IF EXISTS "Allow public insert/update listings" ON public.listings;
 CREATE POLICY "Allow public read listings" ON public.listings FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update listings" ON public.listings FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read auctions" ON public.auctions;
+DROP POLICY IF EXISTS "Allow public insert/update auctions" ON public.auctions;
 CREATE POLICY "Allow public read auctions" ON public.auctions FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update auctions" ON public.auctions FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read auction_bids" ON public.auction_bids;
+DROP POLICY IF EXISTS "Allow public insert/update auction_bids" ON public.auction_bids;
 CREATE POLICY "Allow public read auction_bids" ON public.auction_bids FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update auction_bids" ON public.auction_bids FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow public insert/update orders" ON public.orders;
 CREATE POLICY "Allow public read orders" ON public.orders FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update orders" ON public.orders FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read deliveries" ON public.deliveries;
+DROP POLICY IF EXISTS "Allow public insert/update deliveries" ON public.deliveries;
 CREATE POLICY "Allow public read deliveries" ON public.deliveries FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update deliveries" ON public.deliveries FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read warehouses" ON public.warehouses;
+DROP POLICY IF EXISTS "Allow public insert/update warehouses" ON public.warehouses;
 CREATE POLICY "Allow public read warehouses" ON public.warehouses FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update warehouses" ON public.warehouses FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read warehouse_receipts" ON public.warehouse_receipts;
+DROP POLICY IF EXISTS "Allow public insert/update warehouse_receipts" ON public.warehouse_receipts;
 CREATE POLICY "Allow public read warehouse_receipts" ON public.warehouse_receipts FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update warehouse_receipts" ON public.warehouse_receipts FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read financing_requests" ON public.financing_requests;
+DROP POLICY IF EXISTS "Allow public insert/update financing_requests" ON public.financing_requests;
 CREATE POLICY "Allow public read financing_requests" ON public.financing_requests FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update financing_requests" ON public.financing_requests FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read inspections" ON public.inspections;
+DROP POLICY IF EXISTS "Allow public insert/update inspections" ON public.inspections;
+CREATE POLICY "Allow public read inspections" ON public.inspections FOR SELECT USING (true);
+CREATE POLICY "Allow public insert/update inspections" ON public.inspections FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow public read chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Allow public insert/update chat_messages" ON public.chat_messages;
+CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
+CREATE POLICY "Allow public insert/update chat_messages" ON public.chat_messages FOR ALL USING (true);
+
 -- ============================================================================
--- 9. INITIAL SEED DATA (Ready for Immediate Testing)
+-- 11. INITIAL SEED DATA (Ready for Immediate Testing)
 -- ============================================================================
 
 -- Insert Demo Profiles
@@ -317,3 +390,11 @@ VALUES
     ('fin_demo_1024', '#FIN-1024', 'usr_farmer_01', 'Sakthi Vel', 'farmer', '#AGM-1024', '#eNWR-1024', 'Tomato', 500, 'kg', 21000, 15000, NULL, 'working_capital', 'Working Capital & Liquidity', 'auto_escrow_deduction', 'Auto-deduction on escrow release', 'Advance liquidity required for immediate transport packing and seed procurement for next cycle.', 'pending'),
     ('fin_demo_1025', '#FIN-1025', 'usr_buyer_02', 'Ananya Agro Foods', 'buyer', '#AGM-1025', NULL, 'Turmeric', 1500, 'kg', 207000, 150000, NULL, 'trade_credit', 'Auction / Purchase Trade Settlement Credit', '30_day_settlement', '30-day post-delivery settlement', 'Wholesale procurement working capital credit.', 'under_review')
 ON CONFLICT (id) DO NOTHING;
+
+-- Insert Inspections Seed
+INSERT INTO public.inspections (id, report_number, order_id, order_number, buyer_id, buyer_name, seller_name, commodity, crop_name, quantity, verified_weight, ordered_grade, grade, moisture, foreign_matter, status, order_amount, inspector_name, inspector_notes)
+VALUES
+    ('insp_101', 'INSP-2026-8821', NULL, 'AGM-6801', 'usr_buyer_02', 'Ananya Agro Foods', 'veerappan (Salem Producer)', 'Onion', 'Nashik Red Onion', 50, 50.0, 'A', 'A', 11.2, 0.5, 'requested', 1000, NULL, NULL),
+    ('insp_102', 'INSP-2026-4419', NULL, 'AGM-9266', 'usr_buyer_02', 'Ananya Agro Foods', 'veerappan (Salem Producer)', 'Tomato', 'Hybrid Shivam Tomato', 100, 98.5, 'A', 'A', 9.4, 0.2, 'passed', 3000, 'AgroLnk Certified Assayer (Govind)', 'Physical inspection & moisture meter testing completed at farmgate hub.')
+ON CONFLICT (id) DO NOTHING;
+
