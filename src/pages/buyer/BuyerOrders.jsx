@@ -255,6 +255,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
               onViewFinancing={(req) => setRequestForReview(req)}
               onViewDelivery={(dlv) => setDeliveryForDetail(dlv)}
               onConfirmReceipt={(dlv) => handleConfirmOrderReceipt(dlv)}
+              onInspectQuality={(ord) => setOrderForInspection(ord)}
             />
 
             {/* 5-Step Status Progression Timeline */}

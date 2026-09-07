@@ -25,6 +25,7 @@ import InspectionStatusBadge from '../inspection/InspectionStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
 import { getDeliveryForOrder } from '../../utils/deliveries';
 import { getInspectionForOrder } from '../../utils/inspection';
+import { ClipboardCheck } from 'lucide-react';
 
 export default function OrderSummary({
   order,
@@ -34,6 +35,7 @@ export default function OrderSummary({
   onArrangeDelivery,
   onViewDelivery,
   onConfirmReceipt,
+  onInspectQuality,
 }) {
   const [existingFinancing, setExistingFinancing] = React.useState(null);
   const [existingDelivery, setExistingDelivery] = React.useState(null);
@@ -182,20 +184,44 @@ export default function OrderSummary({
           role={viewerRole} 
         />
 
-        {/* Quality Inspection Status Pill if available */}
-        {existingInspection && (
-          <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-amber-900">Buyer Quality Assay:</span>
-              <InspectionStatusBadge status={existingInspection.status} size="sm" />
+        {/* Dedicated Quality Assay & Inspection Card */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/70 via-[#F8FAF8] to-white border border-amber-200/80 space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-amber-700" />
+                <span className="text-xs font-bold text-[#0B3326]">
+                  Buyer Quality Assay & Inspection
+                </span>
+                {existingInspection ? (
+                  <InspectionStatusBadge status={existingInspection.status} size="sm" />
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                    Assay Pending
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-[#566861]">
+                {existingInspection
+                  ? `Grade: ${existingInspection.grade || 'A'} • Moisture: ${existingInspection.moisture || '11.5'}% • Verified: ${existingInspection.verifiedWeight || order.quantity} ${order.unit || 'kg'}`
+                  : 'Mandatory buyer-side physical assay (moisture %, grade & weighment) before escrow release.'}
+              </p>
             </div>
-            {existingInspection.grade && (
-              <span className="text-amber-800 font-medium">
-                Grade {existingInspection.grade} &bull; {existingInspection.moisture}% Moisture
-              </span>
+
+            {isBuyer && onInspectQuality && (
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => onInspectQuality(order)}
+                icon={ClipboardCheck}
+                iconPosition="left"
+                className="text-xs font-bold py-2 px-4 shadow-xs shrink-0 cursor-pointer"
+              >
+                {existingInspection ? 'Update Inspection' : 'Inspect Quality'}
+              </Button>
             )}
           </div>
-        )}
+        </div>
 
         {/* Section: In-Order Logistics & Delivery Status */}
         {existingDelivery ? (() => {
