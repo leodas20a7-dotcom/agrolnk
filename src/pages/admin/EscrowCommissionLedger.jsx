@@ -118,45 +118,69 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
         {/* 4 Revenue Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
-          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] space-y-2">
-            <span className="text-xs font-semibold text-[#566861] block">Total Settled Volume (GMV)</span>
-            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+          {/* Total GMV */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Total Settled Volume</span>
+              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-[#0B3326]">
               {formatINR(totalGMV)}
             </div>
-            <div className="text-[11px] text-[#566861]">
+            <div className="text-[11px] text-[#566861] mt-1">
               Across {ledgerItems.length} transactions
             </div>
-          </Card>
+          </div>
 
-          <Card hoverEffect className="p-5 bg-[#0B3326] text-white border border-[#14624A] space-y-2">
-            <span className="text-xs font-semibold text-[#34D399] block">AgroLnk Total Revenue (0.50%)</span>
-            <div className="text-2xl font-extrabold text-white font-heading">
+          {/* Platform Revenue */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Platform Revenue (0.50%)</span>
+              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
+                <DollarSign className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-[#10B981]">
               {formatINR(totalAgroLnkRevenue)}
             </div>
-            <div className="text-[11px] text-[#DCFCE7]/80">
+            <div className="text-[11px] text-[#566861] mt-1">
               0.25% Buyer + 0.25% Seller fee
             </div>
-          </Card>
+          </div>
 
-          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] space-y-2">
-            <span className="text-xs font-semibold text-[#566861] block">Active Escrow Locked</span>
-            <div className="text-2xl font-extrabold text-[#1E40AF] font-heading">
+          {/* Active Escrow */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-blue-400 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Active Escrow Locked</span>
+              <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                <Lock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-blue-700">
               {formatINR(totalEscrowLocked)}
             </div>
-            <div className="text-[11px] text-[#566861]">
+            <div className="text-[11px] text-[#566861] mt-1">
               Protected in trust account
             </div>
-          </Card>
+          </div>
 
-          <Card hoverEffect className="p-5 bg-white border border-[#E5EDE8] space-y-2">
-            <span className="text-xs font-semibold text-[#566861] block">Net Seller Disbursements</span>
-            <div className="text-2xl font-extrabold text-[#10B981] font-heading">
+          {/* Net Disbursements */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-emerald-400 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Net Seller Payouts</span>
+              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-emerald-700">
               {formatINR(totalSettledToSellers)}
             </div>
-            <div className="text-[11px] text-[#10B981] font-semibold">
+            <div className="text-[11px] text-[#566861] mt-1">
               Released post-inspection
             </div>
-          </Card>
+          </div>
 
         </div>
 
