@@ -121,6 +121,18 @@ export function inspectSlidingWindowForEvasion(historyMessages, currentSenderId,
   return { evasionDetected, evasionType };
 }
 
+/**
+ * Create a deterministic shared bidirectional thread key between two participants
+ * e.g. Maran + Veerappan -> 'direct_maran_veerappan' regardless of who opens the chat
+ */
+export function getSharedThreadKey(userA, userB) {
+  if (!userB) return userA;
+  const cleanA = String(userA).toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const cleanB = String(userB).toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const sorted = [cleanA, cleanB].sort();
+  return `direct_${sorted[0]}_${sorted[1]}`;
+}
+
 function getStoredThreads() {
   try {
     const raw = localStorage.getItem(CHAT_STORAGE_KEY);
@@ -139,26 +151,42 @@ function saveStoredThreads(threads) {
 }
 
 /**
- * Get messages for a specific order or context thread
+ * Get messages for a specific order or context thread (with bidirectional fallback)
  */
 export function getThreadMessages(threadKey) {
   const threads = getStoredThreads();
-  if (!threads[threadKey]) {
-    // Seed initial welcome message
-    const defaultMessages = [
-      {
-        id: 'msg_init',
-        senderId: 'system_bot',
-        senderName: 'AgroLnk Trust & Privacy Bot',
-        senderRole: 'system',
-        text: '🛡️ AgroLnk Smart Privacy Shield Active: Personal phone numbers, emails, and direct accounts are protected from off-platform exposure. Please coordinate consignment pickup, delivery timing, and lot specifications securely here.',
-        timestamp: new Date().toISOString(),
-        isSystem: true,
-      },
-    ];
-    return defaultMessages;
+
+  // Check direct key or legacy unilateral keys
+  if (threads[threadKey]) {
+    return threads[threadKey];
   }
-  return threads[threadKey];
+
+  // Check if there are legacy messages stored under old unilateral keys (e.g. trader_maran or trader_veerappan)
+  if (threadKey.startsWith('direct_')) {
+    const parts = threadKey.replace('direct_', '').split('_');
+    for (const part of parts) {
+      if (threads[`trader_${part}`] && threads[`trader_${part}`].length > 1) {
+        // Merge and migrate to the shared key
+        threads[threadKey] = threads[`trader_${part}`];
+        saveStoredThreads(threads);
+        return threads[threadKey];
+      }
+    }
+  }
+
+  // Seed initial welcome message
+  const defaultMessages = [
+    {
+      id: 'msg_init',
+      senderId: 'system_bot',
+      senderName: 'AgroLnk Trust & Privacy Bot',
+      senderRole: 'system',
+      text: '🛡️ AgroLnk Smart Privacy Shield Active: Personal phone numbers, emails, and direct accounts are protected from off-platform exposure. Please coordinate consignment pickup, delivery timing, and lot specifications securely here.',
+      timestamp: new Date().toISOString(),
+      isSystem: true,
+    },
+  ];
+  return defaultMessages;
 }
 
 /**

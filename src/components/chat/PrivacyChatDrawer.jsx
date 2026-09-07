@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { getThreadMessages, sendPrivacyMessage, maskSensitivePII } from '../../utils/chat';
+import { getThreadMessages, sendPrivacyMessage, maskSensitivePII, getSharedThreadKey } from '../../utils/chat';
 import { getBuyerOrders, getFarmerOrders } from '../../utils/orders';
 
 export default function PrivacyChatDrawer({
@@ -71,11 +71,14 @@ export default function PrivacyChatDrawer({
               ? (ord.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'))
               : (ord.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
 
+            const myIdentifier = user.name ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_') : (user.role === 'buyer' ? 'maran' : 'veerappan');
+            const sharedKey = getSharedThreadKey(myIdentifier, partnerId);
+
             const partnerRole = isUserBuyer ? 'Farmer' : 'Buyer';
 
             if (!partnerMap.has(partnerId)) {
               partnerMap.set(partnerId, {
-                key: `trader_${partnerId}`,
+                key: sharedKey,
                 partnerId,
                 partnerName,
                 partnerRole,
@@ -129,7 +132,8 @@ export default function PrivacyChatDrawer({
           ? (orderContext.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'))
           : (orderContext.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
         
-        const matchedKey = `trader_${partnerId}`;
+        const myIdentifier = user.name ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_') : (user.role === 'buyer' ? 'maran' : 'veerappan');
+        const matchedKey = getSharedThreadKey(myIdentifier, partnerId);
         setSelectedChannelKey(matchedKey);
       } else if (!selectedChannelKey) {
         setSelectedChannelKey(defaultChannels[0].key);
@@ -139,14 +143,31 @@ export default function PrivacyChatDrawer({
     if (isOpen) {
       loadChannels();
     }
-  }, [isOpen, user.id, user.role, orderContext]);
+  }, [isOpen, user.id, user.name, user.role, orderContext]);
 
-  // Load messages for the selected channel
-  useEffect(() => {
-    if (isOpen && selectedChannelKey) {
+  // Load messages for the selected channel with live storage sync
+  const refreshMessages = () => {
+    if (selectedChannelKey) {
       setMessages(getThreadMessages(selectedChannelKey));
     }
+  };
+
+  useEffect(() => {
+    if (isOpen && selectedChannelKey) {
+      refreshMessages();
+    }
   }, [isOpen, selectedChannelKey]);
+
+  // Live cross-tab / cross-role storage listener
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'agrolnk_privacy_chat_threads') {
+        refreshMessages();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [selectedChannelKey]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
