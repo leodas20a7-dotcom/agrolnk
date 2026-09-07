@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { 
   AlertTriangle, ShieldCheck, CheckCircle2, 
-  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter
+  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck
 } from 'lucide-react';
-import { getInspectionRecords, arbitrateDispute } from '../../utils/inspection';
+import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer } from '../../utils/inspection';
 import { formatINR } from '../../utils/commission';
 import InspectionStatusBadge from '../../components/inspection/InspectionStatusBadge';
+import Button from '../../components/ui/Button';
 
 export default function InspectionDisputes({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -17,10 +18,18 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
 
   const [inspections, setInspections] = useState([]);
   const [selectedDispute, setSelectedDispute] = useState(null);
+  const [selectedRequestToInspect, setSelectedRequestToInspect] = useState(null);
   const [resolutionAction, setResolutionAction] = useState('partial_refund');
   const [refundAmount, setRefundAmount] = useState('');
   const [arbitrationNotes, setArbitrationNotes] = useState('');
-  const [filter, setFilter] = useState('all'); // all, disputed, resolved
+  const [filter, setFilter] = useState('all'); // all, requested, disputed, passed
+
+  // Inspector form states
+  const [inspectorName, setInspectorName] = useState('AgroLnk Certified Assayer (Govind)');
+  const [assayGrade, setAssayGrade] = useState('A');
+  const [assayMoisture, setAssayMoisture] = useState('11.0');
+  const [assayForeign, setAssayForeign] = useState('0.4');
+  const [assayNotes, setAssayNotes] = useState('Physical assay and moisture testing conducted at farmgate hub. Produce verified matching Grade A contract specifications.');
 
   const loadInspections = () => {
     const list = getInspectionRecords();
@@ -31,9 +40,10 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     loadInspections();
   }, []);
 
-  const disputedList = inspections.filter(i => {
+  const filteredList = inspections.filter(i => {
+    if (filter === 'requested') return i.status === 'requested';
     if (filter === 'disputed') return i.status === 'disputed';
-    if (filter === 'resolved') return i.status === 'resolved' || i.arbitration;
+    if (filter === 'passed') return i.status === 'passed' || i.status === 'resolved';
     return true;
   });
 
@@ -59,6 +69,23 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     loadInspections();
   };
 
+  const handleSendReport = (e) => {
+    e.preventDefault();
+    if (!selectedRequestToInspect) return;
+
+    sendInspectionReportToBuyer(selectedRequestToInspect.id, {
+      inspectorName,
+      grade: assayGrade,
+      moisture: Number(assayMoisture),
+      foreignMatter: Number(assayForeign),
+      inspectorNotes: assayNotes,
+      verdict: 'approved',
+    });
+
+    setSelectedRequestToInspect(null);
+    loadInspections();
+  };
+
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-6 text-left max-w-7xl mx-auto">
@@ -74,14 +101,14 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
             </button>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl sm:text-3xl font-bold text-[#0B3326] font-heading">
-                Inspection Disputes
+                Quality Inspection & Assay Desk
               </h1>
               <span className="bg-amber-100 text-amber-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <Scale className="w-3.5 h-3.5" /> Ombudsman Arbitration
+                <Scale className="w-3.5 h-3.5" /> Ombudsman & Quality Assays
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[#566861]">
-              Review buyer quality assays, moisture discrepancies, and arbitrate escrow settlements.
+              Review buyer inspection requests, dispatch certified assayer reports, and arbitrate escrow releases.
             </p>
           </div>
 
@@ -96,20 +123,28 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
               All ({inspections.length})
             </button>
             <button
+              onClick={() => setFilter('requested')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filter === 'requested' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
+              }`}
+            >
+              Requested ({inspections.filter(i => i.status === 'requested').length})
+            </button>
+            <button
+              onClick={() => setFilter('passed')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filter === 'passed' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
+              }`}
+            >
+              Certified ({inspections.filter(i => i.status === 'passed' || i.status === 'resolved').length})
+            </button>
+            <button
               onClick={() => setFilter('disputed')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filter === 'disputed' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
+                filter === 'disputed' ? 'bg-red-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
               }`}
             >
               Disputed ({inspections.filter(i => i.status === 'disputed').length})
-            </button>
-            <button
-              onClick={() => setFilter('resolved')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filter === 'resolved' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
-            >
-              Resolved ({inspections.filter(i => i.status === 'resolved' || i.status === 'passed').length})
             </button>
           </div>
         </div>
@@ -120,19 +155,19 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div className="text-xs text-amber-950">
-            <span className="font-bold block">Escrow Quality Lock:</span>
-            Escrow funds remain securely frozen until both physical delivery and buyer quality sign-off are verified.
-            In case of discrepancy, AgroLnk arbitrates net settlement or returns.
+            <span className="font-bold block">Pre-Purchase Quality Verification Workflow:</span>
+            When a buyer requests inspection before buying, Admin dispatches an official assayer.
+            Once the report is sent to the buyer, they verify grade and continue with delivery.
           </div>
         </div>
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-[#E5EDE8] shadow-xs overflow-hidden">
-          {disputedList.length === 0 ? (
+          {filteredList.length === 0 ? (
             <div className="text-center py-12 px-4">
               <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
-              <p className="text-sm font-bold text-[#0B3326]">No inspection disputes pending</p>
-              <p className="text-xs text-[#566861] mt-0.5">All quality inspections are either passed or no active disputes match this filter.</p>
+              <p className="text-sm font-bold text-[#0B3326]">No inspections pending</p>
+              <p className="text-xs text-[#566861] mt-0.5">All quality inspections matching this filter have been processed.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -144,12 +179,12 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                     <th className="py-3.5 px-4">Buyer & Seller</th>
                     <th className="py-3.5 px-4">Quality Assay</th>
                     <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4">Escrow Locked</th>
-                    <th className="py-3.5 px-4 text-right">Action</th>
+                    <th className="py-3.5 px-4">Escrow Value</th>
+                    <th className="py-3.5 px-4 text-right">Admin Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5EDE8]">
-                  {disputedList.map((item) => (
+                  {filteredList.map((item) => (
                     <tr key={item.id} className="hover:bg-[#F8FAF8]/60 transition-colors">
                       <td className="py-3.5 px-4 font-mono text-xs">
                         <span className="font-bold text-[#0B3326]">#{item.id}</span>
@@ -157,18 +192,22 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="font-bold text-[#0B3326]">{item.cropName}</span>
-                        <div className="text-[11px] text-[#566861]">{item.quantity} MT ({item.verifiedWeight ? `${item.verifiedWeight} MT verified` : 'Pending weighment'})</div>
+                        <div className="text-[11px] text-[#566861]">{item.quantity} MT</div>
                       </td>
                       <td className="py-3.5 px-4 text-xs">
                         <div className="text-[#0B3326] font-semibold">B: {item.buyerName}</div>
                         <div className="text-[#566861]">S: {item.sellerName}</div>
                       </td>
                       <td className="py-3.5 px-4 text-xs">
-                        {item.grade ? (
+                        {item.status === 'requested' ? (
+                          <span className="text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Awaiting Inspector
+                          </span>
+                        ) : item.grade ? (
                           <div>
                             <span className="font-semibold text-[#0B3326]">Grade {item.grade}</span>
                             <div className="text-[#566861] text-[11px]">
-                              Moisture: {item.moisture || 'N/A'}% | Foreign: {item.foreignMatter || 'N/A'}%
+                              Moisture: {item.moisture || '11.0'}% | Foreign: {item.foreignMatter || '0.4'}%
                             </div>
                           </div>
                         ) : (
@@ -182,19 +221,25 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                         {formatINR(item.orderAmount || 0)}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {item.status === 'disputed' ? (
+                        {item.status === 'requested' ? (
+                          <button
+                            onClick={() => setSelectedRequestToInspect(item)}
+                            className="px-3.5 py-1.5 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+                          >
+                            <Send className="w-3.5 h-3.5 text-[#34D399]" />
+                            Send Inspector & Report
+                          </button>
+                        ) : item.status === 'disputed' ? (
                           <button
                             onClick={() => handleOpenArbitration(item)}
-                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                            className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer ml-auto"
                           >
                             Arbitrate
                           </button>
-                        ) : item.arbitration ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md font-semibold border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Settled
-                          </span>
                         ) : (
-                          <span className="text-xs text-[#566861]">Normal Flow</span>
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md font-semibold border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Certified
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -205,10 +250,127 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
           )}
         </div>
 
+        {/* Modal: Admin Dispatches Inspector & Sends Assay Report to Buyer */}
+        {selectedRequestToInspect && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[90vh] overflow-y-auto text-left space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-[#EBF5F0] text-[#0B3326] rounded-xl">
+                    <FileCheck className="w-5 h-5 text-[#10B981]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#0B3326] text-base">Send Certified Assay Report to Buyer</h3>
+                    <p className="text-[11px] text-[#566861]">Order #{selectedRequestToInspect.orderId} &bull; {selectedRequestToInspect.cropName}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedRequestToInspect(null)}
+                  className="text-gray-400 hover:text-gray-600 text-xl font-bold p-1 cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleSendReport} className="space-y-3.5 text-xs">
+                <div>
+                  <label className="font-bold text-[#0B3326] block mb-1">
+                    Assigned Inspector / Assayer Name
+                  </label>
+                  <input
+                    type="text"
+                    value={inspectorName}
+                    onChange={(e) => setInspectorName(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="font-bold text-[#0B3326] block mb-1">
+                      Assayed Grade
+                    </label>
+                    <select
+                      value={assayGrade}
+                      onChange={(e) => setAssayGrade(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold focus:ring-2 focus:ring-[#10B981]"
+                    >
+                      <option value="A">Grade A (Premium)</option>
+                      <option value="B">Grade B (Standard)</option>
+                      <option value="C">Grade C (Commercial)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#0B3326] block mb-1">
+                      Moisture %
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={assayMoisture}
+                      onChange={(e) => setAssayMoisture(e.target.value)}
+                      required
+                      placeholder="e.g. 11.2"
+                      className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#0B3326] block mb-1">
+                      Foreign Matter %
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={assayForeign}
+                      onChange={(e) => setAssayForeign(e.target.value)}
+                      required
+                      placeholder="e.g. 0.4"
+                      className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-[#0B3326] block mb-1">
+                    Inspector Lab Notes / Certification
+                  </label>
+                  <textarea
+                    value={assayNotes}
+                    onChange={(e) => setAssayNotes(e.target.value)}
+                    rows="2"
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRequestToInspect(null)}
+                    className="px-4 py-2 border border-[#E5EDE8] text-[#566861] rounded-xl text-xs font-semibold hover:bg-[#F8FAF8] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5 text-[#34D399]" />
+                    Send Report to Buyer & Unlock Delivery
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Arbitration Modal */}
         {selectedDispute && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[90vh] overflow-y-auto text-left">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[90vh] overflow-y-auto text-left space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">

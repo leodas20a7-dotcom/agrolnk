@@ -191,33 +191,50 @@ export default function OrderSummary({
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="w-4 h-4 text-amber-700" />
                 <span className="text-xs font-bold text-[#0B3326]">
-                  Buyer Quality Assay & Inspection
+                  Quality Verification & Assay Desk
                 </span>
                 {existingInspection ? (
                   <InspectionStatusBadge status={existingInspection.status} size="sm" />
                 ) : (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                    Assay Pending
+                    Not Requested
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-[#566861]">
-                {existingInspection
-                  ? `Grade: ${existingInspection.grade || 'A'} • Moisture: ${existingInspection.moisture || '11.5'}% • Verified: ${existingInspection.verifiedWeight || order.quantity} ${order.unit || 'kg'}`
-                  : 'Mandatory buyer-side physical assay (moisture %, grade & weighment) before escrow release.'}
+                {existingInspection?.status === 'requested' && (
+                  'Inspection requested! Admin will dispatch a certified assayer to test moisture % and grade before dispatch.'
+                )}
+                {existingInspection?.status === 'passed' && (
+                  `Assay Certified by ${existingInspection.inspectorName || 'Inspector'} • Grade: ${existingInspection.grade || 'A'} • Moisture: ${existingInspection.moisture || '10.5'}% • Ready to continue delivery.`
+                )}
+                {existingInspection?.status === 'disputed' && (
+                  `Quality discrepancy reported. Moisture: ${existingInspection.moisture}% • In Admin arbitration.`
+                )}
+                {!existingInspection && (
+                  'Buyer can request pre-dispatch quality verification. Admin will send an inspector and provide the certified assay report before delivery.'
+                )}
               </p>
             </div>
 
-            {isBuyer && onInspectQuality && (
+            {isBuyer && (
               <Button
                 variant="accent"
                 size="sm"
-                onClick={() => onInspectQuality(order)}
+                onClick={() => {
+                  if (onInspectQuality) {
+                    onInspectQuality(order);
+                  }
+                }}
                 icon={ClipboardCheck}
                 iconPosition="left"
                 className="text-xs font-bold py-2 px-4 shadow-xs shrink-0 cursor-pointer"
               >
-                {existingInspection ? 'Update Inspection' : 'Inspect Quality'}
+                {!existingInspection
+                  ? 'Request Quality Check'
+                  : existingInspection.status === 'requested'
+                  ? 'View Request Status'
+                  : 'View Assay Report'}
               </Button>
             )}
           </div>

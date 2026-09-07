@@ -1,45 +1,43 @@
 import React from 'react';
-import Badge from '../ui/Badge';
 import { ShieldCheck, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 
-export default function InspectionStatusBadge({ status = 'pending', size = 'sm' }) {
-  switch (status) {
-    case 'passed':
-    case 'approved':
-      return (
-        <Badge variant="emerald" size={size} dot={false}>
-          <span className="flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Assay Verified (Passed)
-          </span>
-        </Badge>
-      );
-    case 'disputed':
-    case 'rejected_dispute':
-      return (
-        <Badge variant="amber" size={size} dot={true}>
-          <span className="flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" /> Inspection Disputed
-          </span>
-        </Badge>
-      );
-    case 'settled_refund':
-    case 'resolved_released':
-      return (
-        <Badge variant="dark" size={size}>
-          <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" /> Arbitrated by Admin
-          </span>
-        </Badge>
-      );
-    case 'pending':
-    case 'pending_inspection':
-    default:
-      return (
-        <Badge variant="amber" size={size} dot={true}>
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Awaiting Buyer Inspection
-          </span>
-        </Badge>
-      );
-  }
+export default function InspectionStatusBadge({ status = 'requested', size = 'md' }) {
+  const configs = {
+    requested: {
+      label: 'Inspection Requested',
+      sublabel: 'Awaiting Inspector Dispatch',
+      bg: 'bg-amber-50 text-amber-800 border-amber-200',
+      icon: Clock,
+    },
+    passed: {
+      label: 'Assay Certified (Passed)',
+      sublabel: 'Verified by Inspector',
+      bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      icon: CheckCircle2,
+    },
+    disputed: {
+      label: 'Quality Discrepancy',
+      sublabel: 'Assay Dispute',
+      bg: 'bg-red-50 text-red-800 border-red-200',
+      icon: AlertTriangle,
+    },
+    resolved: {
+      label: 'Arbitrated & Settled',
+      sublabel: 'Ombudsman Settled',
+      bg: 'bg-blue-50 text-blue-800 border-blue-200',
+      icon: ShieldCheck,
+    },
+  };
+
+  const config = configs[status] || configs.requested;
+  const Icon = config.icon;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${config.bg}`}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span>{config.label}</span>
+    </span>
+  );
 }

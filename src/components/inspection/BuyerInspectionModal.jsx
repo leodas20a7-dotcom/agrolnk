@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   ShieldCheck,
@@ -8,277 +8,239 @@ import {
   Package,
   Award,
   Scale,
-  Thermometer,
-  AlertCircle
+  Clock,
+  UserCheck
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { submitInspectionReport } from '../../utils/inspection';
+import { getInspectionForOrder, requestQualityInspection, sendInspectionReportToBuyer } from '../../utils/inspection';
 
 export default function BuyerInspectionModal({
   order,
-  isOpen,
+  isOpen = true,
   onClose,
-  onInspectionCompleted,
+  onSuccess,
+  onProceedToBuy,
 }) {
-  const [inspectedGrade, setInspectedGrade] = useState(order?.grade || 'A');
-  const [receivedQty, setReceivedQty] = useState(order?.quantity || 100);
-  const [moisture, setMoisture] = useState(11.2);
-  const [foreignMatter, setForeignMatter] = useState(0.4);
-  const [inspectorNotes, setInspectorNotes] = useState('');
-  const [verdict, setVerdict] = useState('approved'); // 'approved' | 'rejected_dispute'
-  const [disputeReason, setDisputeReason] = useState('');
+  const [inspection, setInspection] = useState(null);
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  React.useEffect(() => {
-    if (order) {
-      setInspectedGrade(order.grade || 'A');
-      setReceivedQty(order.quantity || 100);
+  const orderKey = order?.orderNumber || order?.id || order?.listingId;
+  const isPreBuy = !order?.orderNumber;
+
+  useEffect(() => {
+    if (orderKey) {
+      getInspectionForOrder(orderKey).then((insp) => {
+        setInspection(insp);
+      });
     }
-  }, [order]);
+  }, [orderKey]);
 
   if (!isOpen || !order) return null;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleRequestInspection = () => {
     setIsSubmitting(true);
+    const estAmount = order.totalAmount || (Number(order.quantity || 100) * Number(order.price || 0));
+    const created = requestQualityInspection({
+      orderId: orderKey,
+      orderNumber: orderKey,
+      buyerId: order.buyerId || 'usr_buyer_02',
+      buyerName: order.buyerName || 'Procurement Buyer',
+      sellerName: order.farmerName || 'Verified Producer',
+      commodity: order.commodity,
+      grade: order.grade || 'A',
+      quantity: order.quantity,
+      orderAmount: estAmount,
+    });
+    setInspection(created);
+    setIsSubmitting(false);
+    if (onSuccess) onSuccess(created);
+  };
 
-    try {
-      const payload = {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        buyerId: order.buyerId || 'usr_buyer_02',
-        buyerName: order.buyerName || 'Procurement Buyer',
-        farmerName: order.farmerName || 'Producer Partner',
-        commodity: order.commodity,
-        orderedGrade: order.grade,
-        inspectedGrade,
-        orderedQuantity: order.quantity,
-        receivedQuantity: Number(receivedQty),
-        unit: order.unit || 'kg',
-        moisturePercentage: Number(moisture),
-        foreignMatterPercentage: Number(foreignMatter),
-        verdict,
-        disputeReason: verdict === 'rejected_dispute' ? disputeReason : null,
-        inspectorNotes: inspectorNotes || (verdict === 'approved' ? 'Quality parameters match trade agreement.' : disputeReason),
-      };
-
-      const report = await submitInspectionReport(payload);
-      setIsSubmitting(false);
-      onInspectionCompleted?.(report, verdict === 'approved');
-      onClose();
-    } catch (err) {
-      console.error('Inspection submission error:', err);
-      setIsSubmitting(false);
+  const handleAcceptReport = () => {
+    if (onSuccess) onSuccess(inspection);
+    if (onProceedToBuy) {
+      onProceedToBuy();
     }
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-[#E5EDE8] shadow-2xl space-y-5 text-left animate-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center">
-              <FileCheck className="w-5 h-5 text-[#34D399]" />
+            <div className="p-2 rounded-xl bg-[#EBF5F0] text-[#0B3326]">
+              <FileCheck className="w-5 h-5 text-[#10B981]" />
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
-                Produce Quality Inspection
+              <h3 className="text-base font-bold text-[#0B3326]">
+                Quality Inspection & Assay Desk
               </h3>
-              <span className="text-xs text-[#566861]">
-                Order {order.orderNumber} • Buyer Physical Sign-Off Gate
-              </span>
+              <p className="text-[11px] text-[#566861]">
+                {isPreBuy ? `Lot #${orderKey} • Pre-Buy Quality Assay` : `Order #${orderKey} • Pre-Delivery Verification`}
+              </p>
             </div>
           </div>
-
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+            className="p-1 rounded-xl text-[#566861] hover:text-[#0B3326] cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Trade Agreement Collateral Specs */}
-        <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-[#14211D]">
-                {order.commodity} ({order.variety || 'Standard'})
-              </span>
-              <span className="text-[11px] text-[#566861] block">
-                Agreed Contract: {order.quantity} {order.unit} • Grade {order.grade}
-              </span>
-            </div>
-            <Badge variant="emerald" size="sm">
-              Escrow Secured
-            </Badge>
-          </div>
-        </div>
-
-        {/* Inspection Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* Decision Selector */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-              Inspection Verdict
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setVerdict('approved')}
-                className={`p-3.5 rounded-2xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  verdict === 'approved'
-                    ? 'bg-[#EBF5F0] border-[#10B981] text-[#0B3326] ring-2 ring-[#10B981]/20'
-                    : 'bg-white border-[#E5EDE8] text-[#566861] hover:bg-[#F8FAF8]'
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                <span>Passed / Verified</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setVerdict('rejected_dispute')}
-                className={`p-3.5 rounded-2xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  verdict === 'rejected_dispute'
-                    ? 'bg-red-50 border-red-400 text-red-700 ring-2 ring-red-400/20'
-                    : 'bg-white border-[#E5EDE8] text-[#566861] hover:bg-[#F8FAF8]'
-                }`}
-              >
-                <AlertTriangle className="w-4 h-4 text-red-500" />
-                <span>Quality Discrepancy</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Parameters Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-[#14211D] flex items-center gap-1">
-                <Scale className="w-3.5 h-3.5 text-[#10B981]" /> Received Weight ({order.unit || 'kg'})
-              </label>
-              <input
-                type="number"
-                value={receivedQty}
-                onChange={(e) => setReceivedQty(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:ring-2 focus:ring-[#10B981] focus:outline-none"
-                required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-[#14211D] flex items-center gap-1">
-                <Award className="w-3.5 h-3.5 text-[#10B981]" /> Confirmed Quality Grade
-              </label>
-              <select
-                value={inspectedGrade}
-                onChange={(e) => setInspectedGrade(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:ring-2 focus:ring-[#10B981] focus:outline-none"
-              >
-                <option value="A">Grade A (Premium)</option>
-                <option value="B">Grade B (Standard)</option>
-                <option value="C">Grade C (Commercial)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-[#14211D] flex items-center gap-1">
-                <Thermometer className="w-3.5 h-3.5 text-[#10B981]" /> Moisture Content (%)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                value={moisture}
-                onChange={(e) => setMoisture(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:ring-2 focus:ring-[#10B981] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-[#14211D]">
-                Foreign Matter / Dust (%)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                value={foreignMatter}
-                onChange={(e) => setForeignMatter(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:ring-2 focus:ring-[#10B981] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Dispute Reason if Rejected */}
-          {verdict === 'rejected_dispute' ? (
-            <div className="space-y-1.5 p-3.5 rounded-2xl bg-red-50 border border-red-200">
-              <label className="text-xs font-bold text-red-800 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4 text-red-600" /> Dispute Reason / Defect Summary
-              </label>
-              <textarea
-                rows={2}
-                value={disputeReason}
-                onChange={(e) => setDisputeReason(e.target.value)}
-                placeholder="e.g. Excessive rotting observed in 20% of crates, moisture above 16% threshold..."
-                className="w-full p-2.5 rounded-xl bg-white border border-red-300 text-xs text-[#14211D] placeholder:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500"
-                required
-              />
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-[#566861]">
-                Quality Inspection Remarks (Optional)
-              </label>
-              <input
-                type="text"
-                value={inspectorNotes}
-                onChange={(e) => setInspectorNotes(e.target.value)}
-                placeholder="e.g. Size uniformity verified, batch accepted into cold warehouse."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs text-[#14211D] placeholder:text-[#566861]/60 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-              />
-            </div>
-          )}
-
-          {/* Trust Banner */}
-          <div className="p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326] flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>
-              {verdict === 'approved'
-                ? 'Approving releases the escrow payout to the seller and financier.'
-                : 'Filing a dispute pauses the escrow payout and escalates to AgroLnk Admin arbitration.'}
+        {/* Commodity Summary */}
+        <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs">
+          <div>
+            <span className="font-bold text-[#0B3326] block text-sm">
+              {order.commodity} (Grade {order.grade || 'A'})
+            </span>
+            <span className="text-[#566861]">
+              Quantity: {order.quantity} {order.unit || 'kg'} &bull; Seller: {order.farmerName || 'Verified Producer'}
             </span>
           </div>
+          <Badge variant="emerald" size="sm">
+            100% Escrow Secured
+          </Badge>
+        </div>
 
-          {/* Actions */}
-          <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-end gap-2.5">
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant={verdict === 'approved' ? 'accent' : 'danger'}
-              size="md"
-              disabled={isSubmitting}
-              className="font-bold shadow-md cursor-pointer"
-            >
-              {isSubmitting
-                ? 'Processing...'
-                : verdict === 'approved'
-                ? 'Verify & Release Escrow'
-                : 'Submit Dispute to Admin'}
-            </Button>
+        {/* Stage 1: If Inspection has NOT been requested yet */}
+        {!inspection && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs text-amber-950 space-y-2">
+              <span className="font-bold block flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-700" />
+                How Quality Inspection Works:
+              </span>
+              <p className="text-[11px] text-amber-900 leading-relaxed">
+                1. Click <strong>"Request Quality Inspection"</strong> below.<br />
+                2. Admin receives your request and dispatches a certified assayer to inspect the lot.<br />
+                3. The inspector tests moisture %, purity, and grade, and uploads the certified assay report.<br />
+                4. You review the official report and continue to delivery with 100% peace of mind.
+              </p>
+            </div>
+
+            <div className="space-y-1 text-xs">
+              <label className="font-bold text-[#0B3326] block">
+                Additional Assay Instructions / Lab Notes (Optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows="2"
+                placeholder="e.g. Please verify maximum moisture threshold under 12% and check for uniform grain size..."
+                className="w-full p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+              />
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <Button variant="ghost" size="sm" onClick={onClose} className="text-xs cursor-pointer">
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                size="md"
+                disabled={isSubmitting}
+                onClick={handleRequestInspection}
+                className="text-xs font-bold cursor-pointer"
+              >
+                {isSubmitting ? 'Sending Request...' : 'Request Quality Check from Admin'}
+              </Button>
+            </div>
           </div>
+        )}
 
-        </form>
+        {/* Stage 2: Inspection Requested - Awaiting Admin Inspector Dispatch */}
+        {inspection && inspection.status === 'requested' && (
+          <div className="space-y-4 text-center py-4">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto">
+              <Clock className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-base font-bold text-[#0B3326]">
+                Quality Inspection Requested!
+              </h4>
+              <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                Admin has received your request and is dispatching a certified quality inspector to the farmgate lot. Once the assay report is uploaded, you can review the results here.
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-left text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-[#566861]">Request Identifier:</span>
+                <span className="font-mono font-bold text-[#0B3326]">{inspection.reportNumber || inspection.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#566861]">Assay Status:</span>
+                <span className="font-bold text-amber-700">Admin Inspector Dispatched</span>
+              </div>
+            </div>
+            <div className="pt-2">
+              <Button variant="primary" size="md" onClick={onClose} className="w-full text-xs cursor-pointer">
+                Done &bull; Awaiting Report
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Stage 3: Inspector Report Available & Passed */}
+        {inspection && inspection.status === 'passed' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-950 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold flex items-center gap-1 text-emerald-900">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Official Certified Assay Report
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-900">
+                  Verified by Inspector
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-emerald-200">
+                <div>
+                  <span className="text-emerald-800 text-[11px] block">Assayer Name</span>
+                  <span className="font-bold text-[#0B3326]">{inspection.inspectorName || 'Govind (Certified Assayer)'}</span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 text-[11px] block">Certified Grade</span>
+                  <span className="font-bold text-[#0B3326]">Grade {inspection.grade || 'A'} (Commercial)</span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 text-[11px] block">Moisture Content</span>
+                  <span className="font-bold text-[#0B3326]">{inspection.moisture || '10.5'}% (Within Limit &lt;12%)</span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 text-[11px] block">Foreign Matter</span>
+                  <span className="font-bold text-[#0B3326]">{inspection.foreignMatter || '0.4'}%</span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-emerald-800 italic pt-1">
+                "{inspection.inspectorNotes || 'Physical quality and assay parameters confirmed matching agreement at farmgate hub.'}"
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <Button variant="ghost" size="sm" onClick={onClose} className="text-xs cursor-pointer">
+                Close
+              </Button>
+              <Button
+                variant="accent"
+                size="md"
+                onClick={handleAcceptReport}
+                icon={CheckCircle2}
+                iconPosition="left"
+                className="text-xs font-bold cursor-pointer"
+              >
+                {isPreBuy ? 'Accept Quality & Proceed to Buy Now' : 'Accept Quality & Proceed with Delivery'}
+              </Button>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

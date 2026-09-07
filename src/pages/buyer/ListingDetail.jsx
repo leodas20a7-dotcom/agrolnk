@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import OrderModal from '../../components/buyer/OrderModal';
+import BuyerInspectionModal from '../../components/inspection/BuyerInspectionModal';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
@@ -13,10 +14,13 @@ import {
   CheckCircle2,
   Calendar,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  ClipboardCheck,
+  Clock
 } from 'lucide-react';
 import { createOrder } from '../../utils/orders';
 import { deductListingQuantity, COMMODITY_IMAGES } from '../../utils/listings';
+import { getInspectionForOrder } from '../../utils/inspection';
 
 export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Ananya Agro', id: 'usr_buyer_02', role: 'buyer' };
@@ -39,7 +43,20 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInspectionOpen, setIsInspectionOpen] = useState(false);
+  const [existingInspection, setExistingInspection] = useState(null);
   const estimatedTotal = Number(listing.quantity || 0) * Number(listing.price || 0);
+
+  const loadInspection = async () => {
+    if (listing?.id) {
+      const insp = await getInspectionForOrder(listing.id);
+      setExistingInspection(insp);
+    }
+  };
+
+  useEffect(() => {
+    loadInspection();
+  }, [listing?.id]);
 
   const handleOrderConfirmed = async (orderPayload) => {
     try {
@@ -111,24 +128,37 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
 
             {/* Quality & Assay Specifications */}
             <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
-              <h3 className="text-sm font-bold text-[#0B3326] font-heading uppercase tracking-wider">
-                Quality & Assay Report
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[#0B3326] font-heading uppercase tracking-wider">
+                  Quality & Assay Report
+                </h3>
+                {existingInspection?.status === 'passed' && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Assayed & Certified
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
                   <span className="text-[#566861] block text-[11px]">Quality Rating</span>
-                  <span className="font-bold text-[#0B3326] text-sm">Grade {listing.grade} (Commercial)</span>
+                  <span className="font-bold text-[#0B3326] text-sm">
+                    {existingInspection?.grade ? `Grade ${existingInspection.grade} (Assayed)` : `Grade ${listing.grade} (Standard)`}
+                  </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                  <span className="text-[#566861] block text-[11px]">Lab Certification</span>
-                  <span className="font-bold text-[#10B981] text-sm">NABL Assayed ✓</span>
+                  <span className="text-[#566861] block text-[11px]">Lab / Assayer Status</span>
+                  <span className="font-bold text-[#10B981] text-sm">
+                    {existingInspection?.inspectorName ? 'Assayer Certified ✓' : 'NABL Assayed ✓'}
+                  </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                  <span className="text-[#566861] block text-[11px]">Packaging Type</span>
-                  <span className="font-bold text-[#14211D] text-sm">Standard Jute Bags</span>
+                  <span className="text-[#566861] block text-[11px]">Moisture Content</span>
+                  <span className="font-bold text-[#14211D] text-sm">
+                    {existingInspection?.moisture ? `${existingInspection.moisture}% (Lab Tested)` : '< 12% (Standard)'}
+                  </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
@@ -203,6 +233,50 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </p>
               </div>
 
+              {/* Quality Verification / Pre-Buy Inspection Desk */}
+              <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#0B3326] flex items-center gap-1.5">
+                    <ClipboardCheck className="w-4 h-4 text-amber-700" />
+                    Pre-Buy Quality Check
+                  </span>
+                  {existingInspection ? (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      existingInspection.status === 'passed'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {existingInspection.status === 'passed' ? 'Assayed ✓' : 'Inspector Dispatched'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-amber-800 font-semibold">
+                      Optional
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#566861]">
+                  {existingInspection?.status === 'passed'
+                    ? `Assayed by ${existingInspection.inspectorName || 'AgroLnk Assayer'}: Grade ${existingInspection.grade || 'A'}, Moisture ${existingInspection.moisture || '10.5'}%.`
+                    : existingInspection?.status === 'requested'
+                    ? 'Admin has dispatched an official assayer to test this lot before you purchase.'
+                    : 'Want quality verification? Request an official assayer check before buying.'}
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsInspectionOpen(true)}
+                  icon={ClipboardCheck}
+                  iconPosition="left"
+                  className="w-full justify-center py-2 text-xs font-bold border-amber-200 text-amber-950 hover:bg-amber-100/60 cursor-pointer"
+                >
+                  {!existingInspection
+                    ? 'Request Quality Check Before Buy'
+                    : existingInspection.status === 'requested'
+                    ? 'View Inspector Status'
+                    : 'View Certified Assay Report'}
+                </Button>
+              </div>
+
               {/* Buy Now CTA */}
               <div>
                 <Button
@@ -213,7 +287,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   iconPosition="left"
                   className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
                 >
-                  Buy Now
+                  Buy Now &bull; Escrow Secured
                 </Button>
               </div>
 
@@ -236,6 +310,20 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         </div>
 
       </div>
+
+      {/* Pre-Buy Quality Inspection Modal */}
+      <BuyerInspectionModal
+        order={listing}
+        isOpen={isInspectionOpen}
+        onClose={() => setIsInspectionOpen(false)}
+        onSuccess={(insp) => {
+          setExistingInspection(insp);
+          loadInspection();
+        }}
+        onProceedToBuy={() => {
+          setIsModalOpen(true);
+        }}
+      />
 
       {/* Buy Now Confirmation Modal */}
       <OrderModal
