@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, X, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, X, FileText, CheckCircle2, AlertCircle, Upload, FileCode } from 'lucide-react';
 import Button from '../ui/Button';
 
 export default function VerificationRequiredModal({
@@ -12,10 +12,26 @@ export default function VerificationRequiredModal({
   const [docType, setDocType] = useState('Aadhaar / Identity Document');
   const [docNumber, setDocNumber] = useState('');
   const [businessName, setBusinessName] = useState(currentUser?.companyName || '');
+  const [fileName, setFileName] = useState('');
+  const [fileFormat, setFileFormat] = useState('PDF');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFileName(file.name);
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        setFileFormat('PDF');
+      } else if (file.name.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/)) {
+        setFileFormat('IMAGE');
+      } else {
+        setFileFormat('DOC');
+      }
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,6 +45,8 @@ export default function VerificationRequiredModal({
       const userIndex = registry.findIndex(
         (u) => u.id === currentUser?.id || u.email === currentUser?.email
       );
+
+      const uploadedDocName = fileName || `${docType.toLowerCase().replace(/[^a-z0-9]/g, '_')}_document.pdf`;
 
       const submission = {
         id: currentUser?.id || `usr_${Date.now()}`,
@@ -47,11 +65,14 @@ export default function VerificationRequiredModal({
           {
             type: docType,
             number: docNumber.trim(),
+            fileName: uploadedDocName,
+            format: fileFormat,
+            fileSize: '1.8 MB',
             status: 'pending',
             fileUrl: '',
           },
         ],
-        auditNotes: `Submitted ${docType} (${docNumber.trim()}) for trading authorization.`,
+        auditNotes: `Submitted ${docType} (${docNumber.trim()}) in ${fileFormat} format for verification.`,
       };
 
       if (userIndex >= 0) {
@@ -117,10 +138,10 @@ export default function VerificationRequiredModal({
               <CheckCircle2 className="w-7 h-7" />
             </div>
             <h4 className="text-base font-bold text-[#0B3326]">
-              Documents Submitted for Review!
+              Document Submitted for Review!
             </h4>
             <p className="text-xs text-[#566861] max-w-xs mx-auto">
-              Your details have been sent to the Admin verification queue. Once approved, you will receive the Verified Badge and full posting access.
+              Your {fileFormat} file and credential details have been sent to Admin. You will receive the Verified Badge once approved.
             </p>
             <div className="pt-2">
               <Button variant="primary" size="md" onClick={onClose} className="w-full">
@@ -166,6 +187,32 @@ export default function VerificationRequiredModal({
                 required
                 className="w-full px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
               />
+            </div>
+
+            {/* Document File Upload (PDF, JPG, PNG) */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#14211D] block">
+                Upload Document File (PDF, PNG, JPG)
+              </label>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-[#F8FAF8] border border-dashed border-[#E5EDE8] hover:border-[#10B981] cursor-pointer transition-colors">
+                <div className="flex items-center gap-2 text-xs">
+                  <Upload className="w-4 h-4 text-[#10B981]" />
+                  <span className="text-[#566861] font-medium truncate max-w-[200px]">
+                    {fileName ? fileName : 'Choose PDF or Image file...'}
+                  </span>
+                </div>
+                {fileName && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                    {fileFormat}
+                  </span>
+                )}
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
             </div>
 
             <div className="space-y-1">

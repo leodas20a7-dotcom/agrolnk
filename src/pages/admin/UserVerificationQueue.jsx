@@ -403,28 +403,59 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               {/* Submitted Credentials & Certificate Previews */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
-                  Submitted Credentials & Documents
+                  Submitted Credentials & Document Files (PDF / Image)
                 </h4>
 
                 {selectedUserForDocs.documents && selectedUserForDocs.documents.length > 0 ? (
-                  <div className="space-y-2.5">
-                    {selectedUserForDocs.documents.map((doc, idx) => (
-                      <div key={idx} className="p-3.5 rounded-2xl border border-[#E5EDE8] bg-white space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
-                            <FileText className="w-4 h-4 text-[#10B981]" />
-                            {doc.type}
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Submitted
-                          </span>
+                  <div className="space-y-3">
+                    {selectedUserForDocs.documents.map((doc, idx) => {
+                      const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.format === 'PDF' || !doc.format;
+                      const displayFileName = doc.fileName || `${doc.type.toLowerCase().replace(/[^a-z0-9]/g, '_')}_verified.pdf`;
+
+                      return (
+                        <div key={idx} className="p-4 rounded-2xl border border-[#E5EDE8] bg-white space-y-3 shadow-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-[#0B3326] flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg text-white font-bold text-[10px] ${isPdf ? 'bg-red-600' : 'bg-blue-600'}`}>
+                                {isPdf ? 'PDF' : 'IMG'}
+                              </div>
+                              <span>{doc.type}</span>
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {doc.fileSize || '1.8 MB'}
+                            </span>
+                          </div>
+
+                          {/* PDF Document Preview Banner */}
+                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between gap-2">
+                            <div className="space-y-0.5 text-xs">
+                              <span className="font-bold text-[#0B3326] block truncate max-w-[220px]">
+                                📄 {displayFileName}
+                              </span>
+                              <span className="text-[11px] text-[#566861] font-mono">
+                                ID No: <strong>{doc.number}</strong>
+                              </span>
+                            </div>
+
+                            <a
+                              href={doc.fileUrl || '#'}
+                              onClick={(e) => {
+                                if (!doc.fileUrl) {
+                                  e.preventDefault();
+                                  alert(`Opening document file "${displayFileName}" (Credential No: ${doc.number})`);
+                                }
+                              }}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F2FBF6] hover:text-[#0B3326] text-xs font-semibold text-[#566861] flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 text-[#10B981]" />
+                              <span>Open {isPdf ? 'PDF' : 'File'}</span>
+                            </a>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-xs bg-[#F8FAF8] p-2.5 rounded-xl border border-[#E5EDE8]">
-                          <span className="text-[#566861] text-[11px]">Credential Number / ID:</span>
-                          <span className="font-mono font-bold text-[#0B3326]">{doc.number}</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="p-4 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs text-[#566861]">
