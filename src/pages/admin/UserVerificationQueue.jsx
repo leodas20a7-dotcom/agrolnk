@@ -14,7 +14,11 @@ import {
   Building2,
   Truck,
   Landmark,
-  FileText
+  FileText,
+  Eye,
+  X,
+  ExternalLink,
+  Download
 } from 'lucide-react';
 import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
 
@@ -30,6 +34,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const [roleFilter, setRoleFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [selectedUserForDocs, setSelectedUserForDocs] = useState(null);
 
   const loadKYC = async () => {
     try {
@@ -49,6 +54,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
       await updateKYCStatus(userId, 'verified', 'Approved by Admin. All credentials verified.', 'Admin');
       setFeedbackMessage(`✓ Approved ${userName}. Verified badge awarded!`);
       setTimeout(() => setFeedbackMessage(''), 3500);
+      setSelectedUserForDocs(null);
       await loadKYC();
     } catch (err) {
       console.error('Error approving user:', err);
@@ -60,6 +66,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
       await updateKYCStatus(userId, 'rejected', 'Documents incomplete or mismatched.', 'Admin');
       setFeedbackMessage(`Rejected ${userName}.`);
       setTimeout(() => setFeedbackMessage(''), 3500);
+      setSelectedUserForDocs(null);
       await loadKYC();
     } catch (err) {
       console.error('Error rejecting user:', err);
@@ -122,7 +129,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               )}
             </div>
             <p className="text-xs sm:text-sm text-[#566861]">
-              Review newly registered participants and approve trading verification badges.
+              Review newly registered participants, inspect credentials, and approve verified badges.
             </p>
           </div>
 
@@ -241,27 +248,47 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     </div>
                   </div>
 
-                  {/* Submitted Documents Box */}
-                  <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs space-y-1.5">
-                    <span className="font-bold text-[#0B3326] block text-[11px] uppercase tracking-wider">
-                      Submitted Documents & Credentials
-                    </span>
+                  {/* Submitted Documents Box with Direct "View Document" button */}
+                  <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#0B3326] text-[11px] uppercase tracking-wider">
+                        Submitted Documents
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserForDocs(item)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981] hover:text-[#0B3326] hover:underline cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View Details
+                      </button>
+                    </div>
+
                     {item.documents && item.documents.length > 0 ? (
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {item.documents.map((doc, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-[11px]">
-                            <span className="text-[#566861] flex items-center gap-1">
+                          <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-[#E5EDE8]">
+                            <span className="text-[#566861] flex items-center gap-1.5 font-medium">
                               <FileText className="w-3.5 h-3.5 text-[#10B981]" />
                               {doc.type}
                             </span>
-                            <span className="font-mono font-semibold text-[#0B3326]">
-                              {doc.number || 'Submitted'}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-semibold text-[#0B3326]">
+                                {doc.number || 'Submitted'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedUserForDocs(item)}
+                                className="p-1 text-[#566861] hover:text-[#10B981] hover:bg-[#EBF5F0] rounded cursor-pointer"
+                                title="View Document"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[#566861] text-[11px] italic">
+                      <span className="text-[#566861] text-[11px] italic block">
                         Initial profile created. Awaiting first document submission.
                       </span>
                     )}
@@ -274,11 +301,15 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     )}
                   </div>
 
-                  {/* Action Buttons: Simple Approve / Reject */}
+                  {/* Action Buttons: View Docs / Approve / Reject */}
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-[#566861]">
-                      Status: <strong className="capitalize text-[#0B3326]">{item.verificationStatus}</strong>
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedUserForDocs(item)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-[#10B981]" /> View Documents
+                    </button>
 
                     <div className="flex items-center gap-2">
                       {isPending ? (
@@ -296,7 +327,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                             className="px-4 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
-                            Approve & Verify
+                            Approve
                           </button>
                         </>
                       ) : (
@@ -314,6 +345,126 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Document Inspection & Verification Preview Modal */}
+        {selectedUserForDocs && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[90vh] overflow-y-auto text-left space-y-5">
+              
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold">
+                    {selectedUserForDocs.name ? selectedUserForDocs.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#0B3326]">
+                      {selectedUserForDocs.name}
+                    </h3>
+                    <p className="text-xs text-[#566861] capitalize">
+                      {selectedUserForDocs.role} &bull; {selectedUserForDocs.orgName || selectedUserForDocs.email}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedUserForDocs(null)}
+                  className="p-1 rounded-xl text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* User Details */}
+              <div className="grid grid-cols-2 gap-3 text-xs p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                <div>
+                  <span className="text-[#566861] block text-[11px]">Contact Phone</span>
+                  <span className="font-semibold text-[#0B3326]">{selectedUserForDocs.phone || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-[#566861] block text-[11px]">Email</span>
+                  <span className="font-semibold text-[#0B3326]">{selectedUserForDocs.email}</span>
+                </div>
+                <div>
+                  <span className="text-[#566861] block text-[11px]">Location</span>
+                  <span className="font-semibold text-[#0B3326]">
+                    {selectedUserForDocs.district ? `${selectedUserForDocs.district}, ${selectedUserForDocs.state || 'India'}` : 'Tamil Nadu'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#566861] block text-[11px]">Verification Status</span>
+                  <span className="font-bold capitalize text-[#0B3326]">
+                    {selectedUserForDocs.verificationStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Submitted Credentials & Certificate Previews */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
+                  Submitted Credentials & Documents
+                </h4>
+
+                {selectedUserForDocs.documents && selectedUserForDocs.documents.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {selectedUserForDocs.documents.map((doc, idx) => (
+                      <div key={idx} className="p-3.5 rounded-2xl border border-[#E5EDE8] bg-white space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
+                            <FileText className="w-4 h-4 text-[#10B981]" />
+                            {doc.type}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Submitted
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs bg-[#F8FAF8] p-2.5 rounded-xl border border-[#E5EDE8]">
+                          <span className="text-[#566861] text-[11px]">Credential Number / ID:</span>
+                          <span className="font-mono font-bold text-[#0B3326]">{doc.number}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs text-[#566861]">
+                    No documents uploaded yet.
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons inside Modal */}
+              <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedUserForDocs(null)}
+                  className="text-xs"
+                >
+                  Close
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleReject(selectedUserForDocs.id, selectedUserForDocs.name)}
+                    className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApprove(selectedUserForDocs.id, selectedUserForDocs.name)}
+                    className="px-5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-[#34D399]" />
+                    Approve & Issue Badge
+                  </button>
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
 
