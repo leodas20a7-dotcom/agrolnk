@@ -36,7 +36,7 @@ export default function PrivacyChatDrawer({
 
   const user = currentUser || { id: 'usr_guest', name: 'Trading Participant', role: 'buyer' };
 
-  // Load available channels (Support Desk + Active Orders)
+  // Load available channels (Support Desk + Deduplicated Trading Partners)
   useEffect(() => {
     const loadChannels = async () => {
       const defaultChannels = [
@@ -59,19 +59,58 @@ export default function PrivacyChatDrawer({
         }
 
         if (userOrders && userOrders.length > 0) {
-          userOrders.slice(0, 5).forEach((ord) => {
-            const counterpartyName = user.role === 'buyer' 
-              ? (ord.farmerName || 'Verified Farmer') 
+          const partnerMap = new Map();
+
+          userOrders.forEach((ord) => {
+            const isUserBuyer = user.role === 'buyer';
+            const partnerName = isUserBuyer
+              ? (ord.farmerName || 'Verified Producer')
               : (ord.buyerName || 'Wholesale Buyer');
             
+            const partnerId = isUserBuyer
+              ? (ord.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'))
+              : (ord.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+
+            const partnerRole = isUserBuyer ? 'Farmer' : 'Buyer';
+
+            if (!partnerMap.has(partnerId)) {
+              partnerMap.set(partnerId, {
+                key: `trader_${partnerId}`,
+                partnerId,
+                partnerName,
+                partnerRole,
+                orders: [ord],
+                commodities: [ord.commodity].filter(Boolean),
+              });
+            } else {
+              const existing = partnerMap.get(partnerId);
+              existing.orders.push(ord);
+              if (ord.commodity && !existing.commodities.includes(ord.commodity)) {
+                existing.commodities.push(ord.commodity);
+              }
+            }
+          });
+
+          // Convert grouped partners into deduplicated channels
+          partnerMap.forEach((entry) => {
+            const count = entry.orders.length;
+            const commodityList = entry.commodities.slice(0, 3).join(', ');
+            const singleOrderNum = entry.orders[0]?.orderNumber 
+              ? (entry.orders[0].orderNumber.startsWith('#') ? entry.orders[0].orderNumber : `#${entry.orders[0].orderNumber}`)
+              : '';
+
+            const subtitle = count === 1
+              ? `Order ${singleOrderNum} • ${entry.orders[0]?.commodity || 'Produce'} (${entry.orders[0]?.quantity} ${entry.orders[0]?.unit || 'kg'})`
+              : `${count} Active Orders (${commodityList}) • Escrow Protected`;
+
             defaultChannels.push({
-              key: ord.orderNumber || ord.id,
-              title: `${counterpartyName} (${user.role === 'buyer' ? 'Farmer' : 'Buyer'})`,
-              subtitle: `Order #${ord.orderNumber} • ${ord.commodity} (${ord.quantity} ${ord.unit || 'kg'})`,
-              role: user.role === 'buyer' ? 'Seller / Farmer' : 'Buyer',
+              key: entry.key,
+              title: `${entry.partnerName} (${entry.partnerRole})`,
+              subtitle,
+              role: entry.partnerRole,
               icon: Package,
               badgeColor: 'blue',
-              order: ord,
+              orders: entry.orders,
             });
           });
         }
@@ -81,9 +120,17 @@ export default function PrivacyChatDrawer({
 
       setChannels(defaultChannels);
 
-      // Default to orderContext if provided, else keep active or default support
-      if (orderContext?.orderNumber) {
-        setSelectedChannelKey(orderContext.orderNumber);
+      // Default to orderContext if provided, else support or active channel
+      if (orderContext) {
+        const partnerName = user.role === 'buyer' 
+          ? (orderContext.farmerName || 'Verified Producer') 
+          : (orderContext.buyerName || 'Wholesale Buyer');
+        const partnerId = user.role === 'buyer'
+          ? (orderContext.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'))
+          : (orderContext.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+        
+        const matchedKey = `trader_${partnerId}`;
+        setSelectedChannelKey(matchedKey);
       } else if (!selectedChannelKey) {
         setSelectedChannelKey(defaultChannels[0].key);
       }
