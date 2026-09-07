@@ -20,8 +20,11 @@ import OrderStatus from './OrderStatus';
 import FinancingStatusBadge from '../financing/FinancingStatusBadge';
 import DeliveryStatusBadge from '../delivery/DeliveryStatusBadge';
 import DeliveryTimeline from '../delivery/DeliveryTimeline';
+import CommissionBreakdownPill from '../admin/CommissionBreakdownPill';
+import InspectionStatusBadge from '../inspection/InspectionStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
 import { getDeliveryForOrder } from '../../utils/deliveries';
+import { getInspectionForOrder } from '../../utils/inspection';
 
 export default function OrderSummary({
   order,
@@ -34,19 +37,22 @@ export default function OrderSummary({
 }) {
   const [existingFinancing, setExistingFinancing] = React.useState(null);
   const [existingDelivery, setExistingDelivery] = React.useState(null);
+  const [existingInspection, setExistingInspection] = React.useState(null);
 
   React.useEffect(() => {
     let isMounted = true;
     const loadLinkedData = async () => {
       if (!order?.orderNumber && !order?.id) return;
       try {
-        const [fin, dlv] = await Promise.all([
+        const [fin, dlv, insp] = await Promise.all([
           getFinancingRequestForOrder(order.orderNumber || order.id),
           getDeliveryForOrder(order.orderNumber || order.id),
+          getInspectionForOrder(order.orderNumber || order.id),
         ]);
         if (isMounted) {
           setExistingFinancing(fin);
           setExistingDelivery(dlv);
+          setExistingInspection(insp);
         }
       } catch (err) {
         console.warn('Error fetching linked order data:', err);
@@ -169,6 +175,27 @@ export default function OrderSummary({
             </span>
           </div>
         </div>
+
+        {/* 0.50% Platform Take-Rate Breakdown (0.25% Buyer + 0.25% Seller) */}
+        <CommissionBreakdownPill 
+          orderAmount={Number(order.totalAmount || 0)} 
+          role={viewerRole} 
+        />
+
+        {/* Quality Inspection Status Pill if available */}
+        {existingInspection && (
+          <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-amber-900">Buyer Quality Assay:</span>
+              <InspectionStatusBadge status={existingInspection.status} size="sm" />
+            </div>
+            {existingInspection.grade && (
+              <span className="text-amber-800 font-medium">
+                Grade {existingInspection.grade} &bull; {existingInspection.moisture}% Moisture
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Section: In-Order Logistics & Delivery Status */}
         {existingDelivery ? (() => {

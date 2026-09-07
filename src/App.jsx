@@ -42,6 +42,12 @@ import TransporterDashboard from './pages/transporter/TransporterDashboard';
 // Warehouse Dashboard
 import WarehouseDashboard from './pages/warehouse/WarehouseDashboard';
 
+// Admin Command Center Module Pages
+import AdminDashboard from './pages/admin/AdminDashboard';
+import UserVerificationQueue from './pages/admin/UserVerificationQueue';
+import EscrowCommissionLedger from './pages/admin/EscrowCommissionLedger';
+import InspectionDisputes from './pages/admin/InspectionDisputes';
+
 import ProtectedRoute from './components/ProtectedRoute';
 import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
 import ErrorBoundary from './components/ui/ErrorBoundary';
@@ -54,6 +60,11 @@ const VALID_ROUTES = new Set([
   'role-selection',
   'register',
   'login',
+  // Admin
+  'admin-dashboard',
+  'admin-verification',
+  'admin-escrow',
+  'admin-disputes',
   // Farmer
   'farmer-dashboard',
   'farmer-create-listing',
@@ -170,6 +181,10 @@ const PAGE_MESSAGES = {
   'farmer-financing': 'Loading Working Capital Facilities...',
   'farmer-deliveries': 'Loading Active Dispatch Schedules...',
   'farmer-inventory': 'Connecting to WDRA e-NWR Vault...',
+  'admin-dashboard': 'Opening Executive Command Center...',
+  'admin-verification': 'Loading KYC Verification Queue...',
+  'admin-escrow': 'Auditing Escrow & Take-Rate Ledgers...',
+  'admin-disputes': 'Accessing Quality Dispute Desk...',
 };
 
 export default function App() {
@@ -527,6 +542,43 @@ export default function App() {
       {currentPage === 'warehouse-dashboard' && (
         <ProtectedRoute requiredRole="warehouse" onNavigate={handleNavigate}>
           <WarehouseDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {/* 11. Admin Command Center Routes */}
+      {currentPage === 'admin-dashboard' && (
+        <ProtectedRoute requiredRole="admin" onNavigate={handleNavigate}>
+          <AdminDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'admin-verification' && (
+        <ProtectedRoute requiredRole="admin" onNavigate={handleNavigate}>
+          <UserVerificationQueue
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'admin-escrow' && (
+        <ProtectedRoute requiredRole="admin" onNavigate={handleNavigate}>
+          <EscrowCommissionLedger
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'admin-disputes' && (
+        <ProtectedRoute requiredRole="admin" onNavigate={handleNavigate}>
+          <InspectionDisputes
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
           />

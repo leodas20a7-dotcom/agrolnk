@@ -22,12 +22,14 @@ import {
   PieChart,
   Receipt,
   Menu,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { logoutUser } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
+import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
 
 export default function DashboardLayout({
   children,
@@ -82,9 +84,40 @@ export default function DashboardLayout({
       badge: 'emerald',
       title: 'Warehouse Desk',
     },
+    admin: {
+      badge: 'rose',
+      title: 'Admin Command Center',
+    },
   };
 
   const currentRoleConfig = roleColors[user.role] || roleColors.farmer;
+
+  const adminNavGroups = [
+    {
+      type: 'single',
+      label: 'Overview',
+      page: 'admin-dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+      type: 'single',
+      label: 'KYC & Verification',
+      page: 'admin-verification',
+      icon: Shield,
+    },
+    {
+      type: 'single',
+      label: 'Escrow & 0.50% Ledger',
+      page: 'admin-escrow',
+      icon: Receipt,
+    },
+    {
+      type: 'single',
+      label: 'Inspection Disputes',
+      page: 'admin-disputes',
+      icon: Award,
+    },
+  ];
 
   // Grouped 4-pillar clean navigation
   const farmerNavGroups = [
@@ -266,7 +299,10 @@ export default function DashboardLayout({
     },
   ];
 
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
   const getNavGroups = () => {
+    if (user.role === 'admin') return adminNavGroups;
     if (user.role === 'buyer') return buyerNavGroups;
     if (user.role === 'farmer') return farmerNavGroups;
     if (user.role === 'financier') return financierNavGroups;
@@ -500,6 +536,31 @@ export default function DashboardLayout({
           </div>
         </div>
       </footer>
+
+      {/* Floating Privacy Chatbot Trigger */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="flex items-center gap-2 bg-[#0B3326] hover:bg-[#07241A] text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group"
+          title="Open Privacy Chatbot"
+        >
+          <div className="relative">
+            <MessageSquare className="w-5 h-5 text-[#34D399]" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#0B3326] animate-pulse"></span>
+          </div>
+          <span className="text-xs font-bold tracking-wide hidden md:inline">
+            Secure Chat
+          </span>
+        </button>
+      </div>
+
+      {/* Privacy-Preserving Chatbot Drawer */}
+      <PrivacyChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        currentUser={user}
+        threadKey={`${user.role}_support`}
+      />
     </div>
   );
 }

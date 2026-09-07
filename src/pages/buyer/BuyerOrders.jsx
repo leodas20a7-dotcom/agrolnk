@@ -9,6 +9,7 @@ import Card from '../../components/ui/Card';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
+import BuyerInspectionModal from '../../components/inspection/BuyerInspectionModal';
 import {
   ShoppingBag,
   ArrowLeft,
@@ -19,7 +20,9 @@ import {
   ArrowRight,
   X,
   CreditCard,
-  Truck
+  Truck,
+  ClipboardCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { getBuyerOrders, confirmOrderReceipt } from '../../utils/orders';
 import { confirmBuyerReceipt } from '../../utils/deliveries';
@@ -36,6 +39,9 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
   // In-order delivery modals
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
+
+  // In-order inspection modal
+  const [orderForInspection, setOrderForInspection] = useState(null);
 
   const fetchOrders = async () => {
     try {
@@ -267,20 +273,32 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                     Consignment Arrived at Destination
                   </span>
                   <span className="text-white/80">
-                    Verify quality and confirm receipt to complete order and release escrow.
+                    Verify quality assay & weight or confirm receipt to complete order and release escrow.
                   </span>
                 </div>
 
-                <Button
-                  variant="accent"
-                  size="md"
-                  onClick={() => handleConfirmOrderReceipt(selectedOrder)}
-                  icon={CheckCircle2}
-                  iconPosition="left"
-                  className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
-                >
-                  Confirm Receipt
-                </Button>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={() => setOrderForInspection(selectedOrder)}
+                    icon={ClipboardCheck}
+                    iconPosition="left"
+                    className="w-full sm:w-auto font-bold py-2.5 px-4 bg-white/10 text-white hover:bg-white/20 border-white/20 shadow-xs cursor-pointer"
+                  >
+                    Inspect Quality
+                  </Button>
+                  <Button
+                    variant="accent"
+                    size="md"
+                    onClick={() => handleConfirmOrderReceipt(selectedOrder)}
+                    icon={CheckCircle2}
+                    iconPosition="left"
+                    className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
+                  >
+                    Confirm & Release Escrow
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex items-center justify-between">
@@ -308,6 +326,21 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
           </div>
         </div>
+      )}
+
+      {/* Buyer Quality Assay Inspection Modal */}
+      {orderForInspection && (
+        <BuyerInspectionModal
+          order={orderForInspection}
+          currentUser={user}
+          onClose={() => setOrderForInspection(null)}
+          onSuccess={(record) => {
+            fetchOrders();
+            if (record.status === 'passed') {
+              handleConfirmOrderReceipt(orderForInspection);
+            }
+          }}
+        />
       )}
 
       {/* In-order Credit Request Modal */}
