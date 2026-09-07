@@ -199,60 +199,74 @@ export default function OrderSummary({
         />
 
         {/* Dedicated Quality Assay & Inspection Card */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/70 via-[#F8FAF8] to-white border border-amber-200/80 space-y-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="w-4 h-4 text-amber-700" />
-                <span className="text-xs font-bold text-[#0B3326]">
-                  Quality Verification & Assay Desk
-                </span>
-                {existingInspection ? (
-                  <InspectionStatusBadge status={existingInspection.status} size="sm" />
-                ) : (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                    Not Requested
-                  </span>
+        {(() => {
+          const isPostDispatchOrDelivered =
+            order.status === 'completed' ||
+            order.status === 'delivered' ||
+            (existingDelivery && ['picked_up', 'in_transit', 'delivered', 'completed'].includes(existingDelivery.status));
+
+          // If not requested and the truck has already departed/delivered, don't show the pre-dispatch request card
+          if (!existingInspection && isPostDispatchOrDelivered) {
+            return null;
+          }
+
+          return (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/70 via-[#F8FAF8] to-white border border-amber-200/80 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck className="w-4 h-4 text-amber-700" />
+                    <span className="text-xs font-bold text-[#0B3326]">
+                      Quality Verification & Assay Desk
+                    </span>
+                    {existingInspection ? (
+                      <InspectionStatusBadge status={existingInspection.status} size="sm" />
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        Pre-Dispatch Optional
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#566861]">
+                    {existingInspection?.status === 'requested' && (
+                      'Inspection requested! Admin will dispatch a certified assayer to test moisture % and grade before dispatch.'
+                    )}
+                    {existingInspection?.status === 'passed' && (
+                      `Assay Certified by ${existingInspection.inspectorName || 'Inspector'} • Grade: ${existingInspection.grade || 'A'} • Moisture: ${existingInspection.moisture || '10.5'}% • Ready to continue delivery.`
+                    )}
+                    {existingInspection?.status === 'disputed' && (
+                      `Quality discrepancy reported. Moisture: ${existingInspection.moisture}% • In Admin arbitration.`
+                    )}
+                    {!existingInspection && (
+                      'Buyer can request pre-dispatch quality verification. Admin will send an inspector and provide the certified assay report before delivery.'
+                    )}
+                  </p>
+                </div>
+
+                {isBuyer && (existingInspection || !isPostDispatchOrDelivered) && (
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => {
+                      if (onInspectQuality) {
+                        onInspectQuality(order);
+                      }
+                    }}
+                    icon={ClipboardCheck}
+                    iconPosition="left"
+                    className="text-xs font-bold py-2 px-4 shadow-xs shrink-0 cursor-pointer"
+                  >
+                    {!existingInspection
+                      ? 'Request Quality Check'
+                      : existingInspection.status === 'requested'
+                      ? 'View Request Status'
+                      : 'View Assay Report'}
+                  </Button>
                 )}
               </div>
-              <p className="text-[11px] text-[#566861]">
-                {existingInspection?.status === 'requested' && (
-                  'Inspection requested! Admin will dispatch a certified assayer to test moisture % and grade before dispatch.'
-                )}
-                {existingInspection?.status === 'passed' && (
-                  `Assay Certified by ${existingInspection.inspectorName || 'Inspector'} • Grade: ${existingInspection.grade || 'A'} • Moisture: ${existingInspection.moisture || '10.5'}% • Ready to continue delivery.`
-                )}
-                {existingInspection?.status === 'disputed' && (
-                  `Quality discrepancy reported. Moisture: ${existingInspection.moisture}% • In Admin arbitration.`
-                )}
-                {!existingInspection && (
-                  'Buyer can request pre-dispatch quality verification. Admin will send an inspector and provide the certified assay report before delivery.'
-                )}
-              </p>
             </div>
-
-            {isBuyer && (
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={() => {
-                  if (onInspectQuality) {
-                    onInspectQuality(order);
-                  }
-                }}
-                icon={ClipboardCheck}
-                iconPosition="left"
-                className="text-xs font-bold py-2 px-4 shadow-xs shrink-0 cursor-pointer"
-              >
-                {!existingInspection
-                  ? 'Request Quality Check'
-                  : existingInspection.status === 'requested'
-                  ? 'View Request Status'
-                  : 'View Assay Report'}
-              </Button>
-            )}
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Section: In-Order Logistics & Delivery Status (Single Unified Timeline) */}
         {existingDelivery ? (() => {
