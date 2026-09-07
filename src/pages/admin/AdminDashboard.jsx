@@ -8,24 +8,22 @@ import {
   Landmark,
   TrendingUp,
   UserCheck,
-  AlertTriangle,
   Users,
   Building2,
   Truck,
-  FileText,
-  Lock,
   ArrowRight,
-  CreditCard,
-  Scale,
   DollarSign,
-  PackageCheck
+  Scale,
+  Lock,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { getAdminMetrics } from '../../utils/admin';
 import { formatINR } from '../../utils/commission';
 
 export default function AdminDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
-    name: 'AgroLnk Operations Board',
+    name: 'Platform Admin',
     role: 'admin',
     email: 'admin@agrolnk.com',
   };
@@ -59,247 +57,219 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
-      <div className="space-y-8 text-left">
+      <div className="space-y-6 text-left max-w-7xl mx-auto">
         
-        {/* Admin Command Header */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <ShieldCheck className="w-3.5 h-3.5" /> AgroLnk Platform Operations & Governance
+        {/* Simple & Clean Header Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-2xl bg-[#0B3326] text-white shadow-sm">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30">
+                Platform Admin
+              </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
-              Executive Command Center
+            <h1 className="text-2xl sm:text-3xl font-bold font-heading">
+              Admin Overview
             </h1>
-            <p className="text-sm sm:text-base text-[#DCFCE7]/90 leading-relaxed font-normal">
-              Oversee multi-stakeholder KYC verification, monitor live 0.50% platform commission revenue, arbitrate inspections, and manage secure escrow releases.
+            <p className="text-xs sm:text-sm text-[#DCFCE7]/80 mt-1">
+              Monitor user verifications, escrow deposits, and 0.50% platform revenue.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               icon={UserCheck}
               iconPosition="left"
               onClick={() => onNavigate('admin-verification')}
-              className="py-2.5 px-4 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer"
             >
               KYC Queue ({metrics.pendingKYCCount})
             </Button>
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               icon={Landmark}
               iconPosition="left"
               onClick={() => onNavigate('admin-escrow')}
-              className="py-2.5 px-4 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer"
             >
               Escrow Ledger
             </Button>
           </div>
         </div>
 
-        {/* 4 Core Financial & Operational Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* 4 Clean Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
-          {/* Total Platform GMV */}
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Total Platform GMV</span>
-              <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-[#10B981]" />
+          {/* Total GMV */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Total Trade Value</span>
+              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
+                <TrendingUp className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-2xl font-bold text-[#0B3326]">
               {formatINR(metrics.totalGMV)}
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Across {metrics.totalOrdersCount} exchange transactions
+            <div className="text-[11px] text-[#566861] mt-1">
+              {metrics.totalOrdersCount} orders processed
             </div>
-          </Card>
+          </div>
 
-          {/* Platform Revenue (0.50% Commission) */}
-          <Card hoverEffect className="p-6 bg-[#0B3326] text-white border border-[#14624A] space-y-3 shadow-md">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#34D399]">AgroLnk Fee Revenue (0.50%)</span>
-              <div className="w-8 h-8 rounded-lg bg-white/10 text-white flex items-center justify-center">
-                <DollarSign className="w-4 h-4 text-[#34D399]" />
+          {/* Platform Revenue */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Platform Revenue (0.50%)</span>
+              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
+                <DollarSign className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-white font-heading">
+            <div className="text-2xl font-bold text-[#10B981]">
               {formatINR(metrics.totalCommissionsEarned)}
             </div>
-            <div className="text-[11px] text-[#DCFCE7]/80">
-              Buyer 0.25% ({formatINR(metrics.buyerCommissions)}) + Seller 0.25% ({formatINR(metrics.sellerCommissions)})
+            <div className="text-[11px] text-[#566861] mt-1">
+              0.25% Buyer + 0.25% Seller fee
             </div>
-          </Card>
+          </div>
 
-          {/* Escrow in Vault */}
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Escrow Locked in Vault</span>
-              <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
-                <Lock className="w-4 h-4 text-[#3B82F6]" />
+          {/* Escrow Locked */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#3B82F6]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Active Escrow</span>
+              <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                <Lock className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#1E40AF] font-heading">
+            <div className="text-2xl font-bold text-blue-700">
               {formatINR(metrics.totalEscrowLocked)}
             </div>
-            <div className="text-[11px] text-[#566861]">
-              {metrics.activeEscrowOrdersCount} orders awaiting delivery & inspection
+            <div className="text-[11px] text-[#566861] mt-1">
+              {metrics.activeEscrowOrdersCount} orders in transit/inspection
             </div>
-          </Card>
+          </div>
 
-          {/* Pending KYC Approvals */}
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Pending KYC Verification</span>
-              <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
+          {/* Pending KYC */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-amber-400 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
+              <span className="font-medium">Pending KYC</span>
+              <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
                 <UserCheck className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#D97706] font-heading">
+            <div className="text-2xl font-bold text-amber-600">
               {metrics.pendingKYCCount} Users
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Awaiting identity & license approval
+            <div className="text-[11px] text-[#566861] mt-1">
+              Awaiting identity approval
             </div>
-          </Card>
+          </div>
 
         </div>
 
-        {/* 5-Stakeholder Platform Network Matrix */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+        {/* 3 Direct Action Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          
+          <button
+            type="button"
+            onClick={() => onNavigate('admin-verification')}
+            className="p-5 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-sm transition-all text-left group cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <ArrowRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-1 transition-all" />
+            </div>
+            <h3 className="text-sm font-bold text-[#0B3326]">
+              User KYC Verification
+            </h3>
+            <p className="text-xs text-[#566861] mt-1">
+              Approve pending farmers, buyers, transporters, and warehouses.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('admin-escrow')}
+            className="p-5 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-sm transition-all text-left group cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
+                <Landmark className="w-5 h-5" />
+              </div>
+              <ArrowRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-1 transition-all" />
+            </div>
+            <h3 className="text-sm font-bold text-[#0B3326]">
+              Escrow & Fee Split Ledger
+            </h3>
+            <p className="text-xs text-[#566861] mt-1">
+              View live trade escrows and 0.50% platform earnings.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('admin-disputes')}
+            className="p-5 rounded-2xl bg-white border border-[#E5EDE8] hover:border-amber-400 hover:shadow-sm transition-all text-left group cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Scale className="w-5 h-5" />
+              </div>
+              <ArrowRight className="w-4 h-4 text-[#566861] group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
+            </div>
+            <h3 className="text-sm font-bold text-[#0B3326]">
+              Inspection Disputes
+            </h3>
+            <p className="text-xs text-[#566861] mt-1">
+              Arbitrate quality and moisture discrepancies before escrow release.
+            </p>
+          </button>
+
+        </div>
+
+        {/* Ecosystem Overview Table / Clean Matrix */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-white border border-[#E5EDE8]">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                Multi-Stakeholder Ecosystem Status
+              <h2 className="text-base font-bold text-[#0B3326]">
+                Platform Stakeholders
               </h2>
               <p className="text-xs text-[#566861]">
-                Real-time operational network across all 5 independent partner categories
+                Active participants registered on AgroLnk
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            
-            {/* Farmers / Sellers */}
-            <Card hoverEffect className="p-4 bg-white border border-[#E5EDE8] space-y-2 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider">Producers</span>
-                <Badge variant="emerald" size="sm">Active</Badge>
-              </div>
-              <div className="text-lg font-bold text-[#0B3326]">Farmers & FPOs</div>
-              <p className="text-[11px] text-[#566861]">
-                Direct farmgate lots & instant 85% advance payouts.
-              </p>
-            </Card>
-
-            {/* Buyers */}
-            <Card hoverEffect className="p-4 bg-white border border-[#E5EDE8] space-y-2 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider">Buyers</span>
-                <Badge variant="emerald" size="sm">Active</Badge>
-              </div>
-              <div className="text-lg font-bold text-[#0B3326]">Wholesale Buyers</div>
-              <p className="text-[11px] text-[#566861]">
-                Spot Escrow & 30-day BNPL institutional credit.
-              </p>
-            </Card>
-
-            {/* Financial Institutions */}
-            <Card hoverEffect className="p-4 bg-white border border-[#E5EDE8] space-y-2 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider">Financiers</span>
-                <Badge variant="accent" size="sm">₹1.00 Cr Pool</Badge>
-              </div>
-              <div className="text-lg font-bold text-[#0B3326]">Credit Desks</div>
-              <p className="text-[11px] text-[#566861]">
-                Self-managed risk policies, LTV underwriting & APR returns.
-              </p>
-            </Card>
-
-            {/* Transporters */}
-            <Card hoverEffect className="p-4 bg-white border border-[#E5EDE8] space-y-2 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider">Logistics</span>
-                <Badge variant="dark" size="sm">{metrics.activeDeliveriesCount} Active</Badge>
-              </div>
-              <div className="text-lg font-bold text-[#0B3326]">Freight Carriers</div>
-              <p className="text-[11px] text-[#566861]">
-                Self-priced corridor freight & live GPS telemetry.
-              </p>
-            </Card>
-
-            {/* Warehouses */}
-            <Card hoverEffect className="p-4 bg-white border border-[#E5EDE8] space-y-2 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider">Storage</span>
-                <Badge variant="emerald" size="sm">WDRA</Badge>
-              </div>
-              <div className="text-lg font-bold text-[#0B3326]">Cold Storage Hubs</div>
-              <p className="text-[11px] text-[#566861]">
-                e-NWR electronic title issuance & NABL lab assays.
-              </p>
-            </Card>
-
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <div className="text-xs font-semibold text-[#566861]">Farmers</div>
+              <div className="text-lg font-bold text-[#0B3326] mt-0.5">Active</div>
+              <div className="text-[10px] text-[#10B981] font-medium mt-0.5">Direct Sellers</div>
+            </div>
+            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <div className="text-xs font-semibold text-[#566861]">Buyers</div>
+              <div className="text-lg font-bold text-[#0B3326] mt-0.5">Active</div>
+              <div className="text-[10px] text-[#10B981] font-medium mt-0.5">Wholesalers</div>
+            </div>
+            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <div className="text-xs font-semibold text-[#566861]">Financiers</div>
+              <div className="text-lg font-bold text-[#0B3326] mt-0.5">Institutions</div>
+              <div className="text-[10px] text-amber-600 font-medium mt-0.5">Trade Credit</div>
+            </div>
+            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <div className="text-xs font-semibold text-[#566861]">Transporters</div>
+              <div className="text-lg font-bold text-[#0B3326] mt-0.5">Carriers</div>
+              <div className="text-[10px] text-[#566861] font-medium mt-0.5">Fleet Logistics</div>
+            </div>
+            <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] col-span-2 sm:col-span-1">
+              <div className="text-xs font-semibold text-[#566861]">Warehouses</div>
+              <div className="text-lg font-bold text-[#0B3326] mt-0.5">WDRA</div>
+              <div className="text-[10px] text-emerald-600 font-medium mt-0.5">e-NWR Storage</div>
+            </div>
           </div>
-        </div>
-
-        {/* Quick Action Navigation Panels */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          
-          <Card
-            hoverEffect
-            onClick={() => onNavigate('admin-verification')}
-            className="p-6 bg-white border border-[#E5EDE8] space-y-3 cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <UserCheck className="w-5 h-5 text-[#10B981]" />
-            </div>
-            <h3 className="text-base font-bold text-[#0B3326] font-heading flex items-center justify-between">
-              <span>KYC Verification Queue</span>
-              <ArrowRight className="w-4 h-4 text-[#10B981] group-hover:translate-x-1 transition-transform" />
-            </h3>
-            <p className="text-xs text-[#566861]">
-              Review government IDs, GSTIN registrations, and WDRA warehouse certifications.
-            </p>
-          </Card>
-
-          <Card
-            hoverEffect
-            onClick={() => onNavigate('admin-escrow')}
-            className="p-6 bg-white border border-[#E5EDE8] space-y-3 cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Landmark className="w-5 h-5 text-[#10B981]" />
-            </div>
-            <h3 className="text-base font-bold text-[#0B3326] font-heading flex items-center justify-between">
-              <span>Escrow & Commission Ledger</span>
-              <ArrowRight className="w-4 h-4 text-[#10B981] group-hover:translate-x-1 transition-transform" />
-            </h3>
-            <p className="text-xs text-[#566861]">
-              Inspect 0.25% buyer + 0.25% seller platform take-rate ledger and releases.
-            </p>
-          </Card>
-
-          <Card
-            hoverEffect
-            onClick={() => onNavigate('admin-disputes')}
-            className="p-6 bg-white border border-[#E5EDE8] space-y-3 cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-2xl bg-[#FEF3C7] text-[#D97706] flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Scale className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-[#0B3326] font-heading flex items-center justify-between">
-              <span>Inspection Disputes Desk</span>
-              <ArrowRight className="w-4 h-4 text-[#D97706] group-hover:translate-x-1 transition-transform" />
-            </h3>
-            <p className="text-xs text-[#566861]">
-              Arbitrate quality discrepancies, weigh lab assay reports, and execute settlements.
-            </p>
-          </Card>
-
         </div>
 
       </div>

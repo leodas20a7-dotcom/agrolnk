@@ -101,19 +101,19 @@ export default function DashboardLayout({
     },
     {
       type: 'single',
-      label: 'KYC & Verification',
+      label: 'User KYC',
       page: 'admin-verification',
       icon: Shield,
     },
     {
       type: 'single',
-      label: 'Escrow & 0.50% Ledger',
+      label: 'Escrow Ledger',
       page: 'admin-escrow',
       icon: Receipt,
     },
     {
       type: 'single',
-      label: 'Inspection Disputes',
+      label: 'Disputes',
       page: 'admin-disputes',
       icon: Award,
     },
