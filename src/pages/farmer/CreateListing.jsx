@@ -42,6 +42,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     price: initialSource?.price ? String(initialSource.price) : (initialSource?.pricePerUnit ? String(initialSource.pricePerUnit) : '42'),
     startingBid: initialSource?.startingBid ? String(initialSource.startingBid) : '38',
     reservePrice: initialSource?.reservePrice ? String(initialSource.reservePrice) : '45',
+    durationMinutes: initialSource?.durationMinutes ? String(initialSource.durationMinutes) : '1440',
     state: initialSource?.state || 'Tamil Nadu',
     district: initialSource?.district || 'Salem',
     village: initialSource?.village || 'Attur Farmgate Hub',
@@ -164,6 +165,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           unit: formData.unit,
           startingBid: Number(formData.startingBid || formData.price),
           reservePrice: Number(formData.reservePrice || Number(formData.startingBid || formData.price) * 1.1),
+          durationMinutes: Number(formData.durationMinutes || 1440),
           state: formData.state,
           district: formData.district,
           images: formData.images,
@@ -540,19 +542,59 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   />
                 </div>
               ) : (
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#0B3326] block">
-                    Starting Bid (₹/{formData.unit})
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.startingBid}
-                    onChange={(e) => setFormData({ ...formData, startingBid: e.target.value })}
-                    min="1"
-                    step="0.5"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  />
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#0B3326] block">
+                      Starting Bid (₹/{formData.unit})
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.startingBid}
+                      onChange={(e) => setFormData({ ...formData, startingBid: e.target.value })}
+                      min="1"
+                      step="0.5"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#0B3326] block">
+                      Reserve Floor Price (₹/{formData.unit})
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.reservePrice}
+                      onChange={(e) => setFormData({ ...formData, reservePrice: e.target.value })}
+                      min="1"
+                      step="0.5"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-xs font-bold text-[#0B3326] block">
+                      Auction Closing Duration
+                    </label>
+                    <select
+                      value={formData.durationMinutes}
+                      onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] cursor-pointer"
+                    >
+                      <option value="15">⏱ 15 Minutes (Flash Auction)</option>
+                      <option value="30">⏱ 30 Minutes (Quick Sale)</option>
+                      <option value="60">⏱ 1 Hour</option>
+                      <option value="120">⏱ 2 Hours</option>
+                      <option value="360">⏱ 6 Hours</option>
+                      <option value="720">⏱ 12 Hours</option>
+                      <option value="1440">⏱ 24 Hours (1 Day - Recommended)</option>
+                      <option value="2880">⏱ 2 Days (48 Hours)</option>
+                      <option value="4320">⏱ 3 Days (72 Hours)</option>
+                    </select>
+                    <span className="text-[10px] text-[#566861] block pt-0.5">
+                      💡 You can accept any fair offer and close the auction early at any time during the bidding window.
+                    </span>
+                  </div>
+                </>
               )}
 
             </div>

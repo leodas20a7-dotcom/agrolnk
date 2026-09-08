@@ -453,3 +453,147 @@ export async function finalizeAuction(auctionId) {
     return null;
   }
 }
+
+/**
+ * Early Knockdown: Farmer accepts a fair bid immediately and closes the auction before timer expiry
+ */
+export async function acceptAuctionBidEarly(auctionId, options = {}) {
+  try {
+    // 1. Fetch current auction to verify state
+    const { data: currentAuction, error: fetchErr } = await supabase
+      .from('auctions')
+      .select('*')
+      .eq('id', auctionId)
+      .single();
+
+    if (fetchErr || !currentAuction) {
+      throw new Error('Auction lot not found.');
+    }
+
+    const acceptedBid = Number(options.acceptedBid || currentAuction.current_bid);
+    const winnerId = options.bidderId || currentAuction.highest_bidder_id;
+    const winnerName = options.bidderName || currentAuction.highest_bidder_name || 'Buyer Partner';
+
+    if (!winnerId) {
+      throw new Error('No bids have been placed on this auction yet.');
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // 2. Mark auction completed early
+    const { data: updatedAuction, error: updateErr } = await supabase
+      .from('auctions')
+      .update({
+        status: 'completed',
+        winning_bid: acceptedBid,
+        winner_id: winnerId,
+        winner_name: winnerName,
+        end_time: nowIso,
+        updated_at: nowIso,
+      })
+      .eq('id', auctionId)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // 3. Create Escrow Order & Delivery
+    const { data: existingOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('auction_id', auctionId);
+
+    let createdOrder = null;
+    if (!existingOrders || existingOrders.length === 0) {
+      const orderNum = `#AGM-${Math.floor(1000 + Math.random() * 9000)}`;
+      const totalAmt = Number(updatedAuction.quantity) * acceptedBid;
+      const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const { data: newOrder, error: orderErr } = await supabase
+        .from('orders')
+        .insert([
+          {
+            id: orderId,
+            order_number: orderNum,
+            auction_id: updatedAuction.id,
+            listing_id: null,
+            buyer_id: winnerId,
+            buyer_name: winnerName,
+            farmer_id: updatedAuction.farmer_id,
+            farmer_name: updatedAuction.farmer_name || 'Farmer Partner',
+            commodity: updatedAuction.commodity,
+            variety: updatedAuction.variety,
+            grade: updatedAuction.grade,
+            quantity: Number(updatedAuction.quantity),
+            unit: updatedAuction.unit,
+            price_per_unit: acceptedBid,
+            total_amount: totalAmt,
+            state: updatedAuction.state,
+            district: updatedAuction.district,
+            escrow_status: 'funded',
+            status: 'order_placed',
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+        ])
+        .select()
+        .single();
+
+      if (orderErr) {
+        console.warn('Order creation error on early accept:', orderErr);
+      } else {
+        createdOrder = newOrder;
+        try {
+          const deliveryId = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          await supabase.from('deliveries').insert([
+            {
+              id: deliveryId,
+              order_id: createdOrder.id,
+              order_number: createdOrder.order_number,
+              farmer_id: createdOrder.farmer_id,
+              farmer_name: createdOrder.farmer_name,
+              buyer_id: createdOrder.buyer_id,
+              buyer_name: createdOrder.buyer_name,
+              commodity: createdOrder.commodity,
+              quantity: createdOrder.quantity,
+              unit: createdOrder.unit,
+              pickup_location: {
+                state: updatedAuction.state,
+                district: updatedAuction.district,
+                address: `${updatedAuction.district} Farmgate Aggregation Depot`,
+              },
+              delivery_location: {
+                state: 'Tamil Nadu',
+                district: 'Chennai',
+                address: 'Buyer Central Receiving Hub',
+              },
+              distance_km: 180,
+              fare_amount: 4500,
+              status: 'transport_requested',
+              tracking_steps: [
+                { step: 'Order Confirmed', completed: true, timestamp: nowIso },
+                { step: 'Transporter Assigned', completed: false },
+                { step: 'Pickup Completed', completed: false },
+                { step: 'In Transit', completed: false },
+                { step: 'Delivered', completed: false },
+              ],
+              created_at: nowIso,
+              updated_at: nowIso,
+            },
+          ]);
+        } catch (delErr) {
+          console.warn('Auto delivery creation notice:', delErr);
+        }
+      }
+    }
+
+    return {
+      auction: mapAuctionFromDb(updatedAuction),
+      order: createdOrder,
+    };
+  } catch (err) {
+    console.error('Error in acceptAuctionBidEarly:', err);
+    throw err;
+  }
+}
+

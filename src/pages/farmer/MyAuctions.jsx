@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import AcceptBidEarlyModal from '../../components/auction/AcceptBidEarlyModal';
 import {
   Gavel,
   Plus,
@@ -17,7 +18,8 @@ import {
   ArrowRight,
   Eye,
   ShoppingBag,
-  RotateCcw
+  RotateCcw,
+  Zap
 } from 'lucide-react';
 import { getFarmerAuctions } from '../../utils/auctions';
 
@@ -26,17 +28,19 @@ export default function MyAuctions({ currentUser, onNavigate }) {
   const [auctions, setAuctions] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [timeNow, setTimeNow] = useState(Date.now());
+  const [selectedAuctionForEarlyAccept, setSelectedAuctionForEarlyAccept] = useState(null);
+  const [earlyAcceptSuccess, setEarlyAcceptSuccess] = useState(null);
+
+  const fetchAuctions = async () => {
+    try {
+      const data = await getFarmerAuctions(user.id);
+      setAuctions(data || []);
+    } catch (err) {
+      console.error('Error fetching farmer auctions:', err);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchAuctions = async () => {
-      try {
-        const data = await getFarmerAuctions(user.id);
-        if (isMounted) setAuctions(data || []);
-      } catch (err) {
-        console.error('Error fetching farmer auctions:', err);
-      }
-    };
     fetchAuctions();
 
     const interval = setInterval(() => {
@@ -293,30 +297,45 @@ export default function MyAuctions({ currentUser, onNavigate }) {
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-[#E5EDE8] flex flex-wrap items-center justify-between gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => onNavigate('auction-room', { auctionId: auction.id, auction })}
                       icon={Eye}
                       iconPosition="left"
-                      className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981]"
+                      className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
                     >
                       View Live Room
                     </Button>
 
-                    {isCompleted && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => onNavigate('farmer-orders')}
-                        icon={ShoppingBag}
-                        iconPosition="left"
-                        className="text-xs font-bold py-2"
-                      >
-                        View Order
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isLive && (auction.highestBidderId || auction.totalBids > 0) && (
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          onClick={() => setSelectedAuctionForEarlyAccept(auction)}
+                          icon={Zap}
+                          iconPosition="left"
+                          className="text-xs font-bold py-2 shadow-xs cursor-pointer"
+                        >
+                          Accept ₹{auction.winningBid || auction.currentBid}/{auction.unit} & Close
+                        </Button>
+                      )}
+
+                      {isCompleted && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => onNavigate('farmer-orders')}
+                          icon={ShoppingBag}
+                          iconPosition="left"
+                          className="text-xs font-bold py-2 cursor-pointer"
+                        >
+                          View Order
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </Card>
               );
@@ -344,6 +363,62 @@ export default function MyAuctions({ currentUser, onNavigate }) {
               </Button>
             </div>
           </Card>
+        )}
+
+        {/* Early Accept Knockdown Confirmation Modal */}
+        <AcceptBidEarlyModal
+          isOpen={!!selectedAuctionForEarlyAccept}
+          onClose={() => setSelectedAuctionForEarlyAccept(null)}
+          auction={selectedAuctionForEarlyAccept}
+          onSuccess={(updatedAuction, createdOrder) => {
+            fetchAuctions();
+            setEarlyAcceptSuccess({
+              auction: updatedAuction,
+              order: createdOrder,
+            });
+          }}
+        />
+
+        {/* Success Modal / Banner */}
+        {earlyAcceptSuccess && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#E5EDE8] space-y-4 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-[#0B3326] font-heading">
+                  Auction Closed & Order Created!
+                </h3>
+                <p className="text-xs text-[#566861]">
+                  You have accepted the offer of <b>₹{earlyAcceptSuccess.auction?.winningBid || earlyAcceptSuccess.auction?.currentBid}/{earlyAcceptSuccess.auction?.unit}</b>. The order is now Escrow-funded.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center justify-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setEarlyAcceptSuccess(null)}
+                  className="font-bold text-xs"
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setEarlyAcceptSuccess(null);
+                    onNavigate('farmer-orders');
+                  }}
+                  icon={ShoppingBag}
+                  iconPosition="right"
+                  className="font-bold text-xs"
+                >
+                  View Order & Ship
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
       </div>

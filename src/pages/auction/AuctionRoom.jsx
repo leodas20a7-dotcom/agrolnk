@@ -5,6 +5,7 @@ import AuctionTimer from '../../components/auction/AuctionTimer';
 import BidHistory from '../../components/auction/BidHistory';
 import BidForm from '../../components/auction/BidForm';
 import BidConfirmModal from '../../components/auction/BidConfirmModal';
+import AcceptBidEarlyModal from '../../components/auction/AcceptBidEarlyModal';
 import AlertModal from '../../components/ui/AlertModal';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -21,7 +22,8 @@ import {
   ShoppingBag,
   RotateCcw,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Zap
 } from 'lucide-react';
 import {
   getAuctionById,
@@ -37,6 +39,7 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   const [auction, setAuction] = useState(null);
   const [bids, setBids] = useState([]);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [earlyAcceptModalOpen, setEarlyAcceptModalOpen] = useState(false);
   const [pendingBidAmount, setPendingBidAmount] = useState(0);
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
@@ -153,6 +156,35 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
             />
           </div>
         </div>
+
+        {/* Farmer Early Knockdown Action Card */}
+        {isFarmer && !isAuctionEnded && auction.highestBidderId && (
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#D97706] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Zap className="w-5 h-5 fill-white" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <h4 className="font-bold text-sm text-[#92400E]">
+                  Leading Bid: ₹{auction.currentBid}/{auction.unit} (₹{(auction.quantity * auction.currentBid).toLocaleString('en-IN')})
+                </h4>
+                <p className="text-xs text-[#92400E]/90">
+                  Offered by <b>{auction.highestBidderName || 'Verified Buyer'}</b>. Satisfied with this amount? You can immediately accept and start dispatch.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="accent"
+              size="sm"
+              icon={Zap}
+              iconPosition="left"
+              onClick={() => setEarlyAcceptModalOpen(true)}
+              className="font-bold text-xs py-2.5 px-4 shadow-xs shrink-0 cursor-pointer"
+            >
+              Accept Offer & Close Now
+            </Button>
+          </div>
+        )}
 
         {/* Live Leading or Outbid Status Banner */}
         {!isFarmer && isCurrentUserLeading && !isAuctionEnded && (
@@ -370,6 +402,18 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
         onClose={() => setConfirmModalOpen(false)}
         onConfirm={handleConfirmBid}
         isSubmitting={isSubmittingBid}
+      />
+
+      {/* Farmer Early Accept Knockdown Modal */}
+      <AcceptBidEarlyModal
+        isOpen={earlyAcceptModalOpen}
+        onClose={() => setEarlyAcceptModalOpen(false)}
+        auction={auction}
+        onSuccess={async (updatedAuction, createdOrder) => {
+          await fetchAuctionData();
+          setActionSuccessMsg(`Offer of ₹${updatedAuction.winningBid || updatedAuction.currentBid}/${updatedAuction.unit} accepted! Order generated successfully.`);
+          setTimeout(() => setActionSuccessMsg(''), 5000);
+        }}
       />
 
       {/* Modern Alert Overlay Modal */}

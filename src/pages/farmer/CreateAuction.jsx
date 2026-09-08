@@ -60,11 +60,15 @@ export default function CreateAuction({ currentUser, onNavigate }) {
   const units = ['kg', 'Quintal', 'MT'];
 
   const durations = [
-    { label: '15 minutes', value: '15' },
-    { label: '30 minutes', value: '30' },
-    { label: '1 hour', value: '60' },
-    { label: '6 hours', value: '360' },
-    { label: '24 hours', value: '1440' },
+    { label: '15 Minutes (Flash Auction)', value: '15' },
+    { label: '30 Minutes (Quick Sale)', value: '30' },
+    { label: '1 Hour', value: '60' },
+    { label: '2 Hours', value: '120' },
+    { label: '6 Hours', value: '360' },
+    { label: '12 Hours', value: '720' },
+    { label: '24 Hours (1 Day - Recommended)', value: '1440' },
+    { label: '2 Days (48 Hours)', value: '2880' },
+    { label: '3 Days (72 Hours)', value: '4320' },
   ];
 
   const handleChange = (e) => {
@@ -371,36 +375,66 @@ export default function CreateAuction({ currentUser, onNavigate }) {
             </div>
           </div>
 
-          {/* 3. Auction Duration */}
+          {/* 3. Auction Closing Time & Duration */}
           <div className="p-6 sm:p-7 rounded-3xl bg-white border border-[#E5EDE8] shadow-xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-[#E5EDE8]">
               <span className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center text-xs font-bold font-heading">
                 3
               </span>
               <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                Auction Duration
+                Auction Closing Time & Duration
               </h3>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {durations.map((d) => {
-                const isSelected = formData.durationMinutes === d.value;
-                return (
-                  <button
-                    key={d.value}
-                    type="button"
-                    onClick={() => setFormData((p) => ({ ...p, durationMinutes: d.value }))}
-                    className={`py-3 px-3 rounded-2xl border-2 text-xs font-bold text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      isSelected
-                        ? 'border-[#D97706] bg-[#FEF3C7] text-[#92400E] shadow-2xs'
-                        : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#D97706]/50'
-                    }`}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-[#14211D] mb-1.5">
+                  Select Closing Duration <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    name="durationMinutes"
+                    value={formData.durationMinutes}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-3 rounded-xl border border-[#E5EDE8] text-xs sm:text-sm font-bold text-[#0B3326] bg-[#F8FAF8] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
                   >
-                    <Clock className="w-4 h-4 text-[#D97706]" />
-                    <span>{d.label}</span>
-                  </button>
-                );
-              })}
+                    {durations.map((d) => (
+                      <option key={d.value} value={d.value}>
+                        ⏱ {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Quick Select Preset Buttons */}
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                <span className="text-[11px] font-semibold text-[#566861]">Quick Select:</span>
+                {durations.slice(0, 5).map((d) => {
+                  const isSelected = formData.durationMinutes === d.value;
+                  return (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, durationMinutes: d.value }))}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-[#D97706] bg-[#FEF3C7] text-[#92400E] shadow-2xs'
+                          : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#D97706]/50'
+                      }`}
+                    >
+                      {d.label.split('(')[0].trim()}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-[11px] text-[#0B3326] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
+                <span>
+                  💡 <strong>Early Knockdown Guarantee:</strong> If you receive a fair bid before the scheduled time ends, you can click <strong>"Accept Offer & Close Now"</strong> at any time to immediately seal the deal and dispatch your crop!
+                </span>
+              </div>
             </div>
           </div>
 
