@@ -47,6 +47,18 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadKYC();
+
+    const handleUpdate = () => {
+      loadKYC();
+    };
+
+    window.addEventListener('agrolnk_kyc_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const handleApprove = async (userId, userName) => {

@@ -1,4 +1,5 @@
 // AgroLnk Admin & KYC Management Engine
+import { supabase } from '../lib/supabase';
 import { getOrders } from './orders';
 import { getFinancingRequests } from './financing';
 import { getDeliveries } from './deliveries';
@@ -132,17 +133,82 @@ function saveStoredKYC(users) {
 }
 
 /**
- * Get all users with KYC status
+ * Get all users with KYC status (Merged from Supabase profiles + Local Registry)
  */
 export async function getAllKYCUsers() {
-  return getStoredKYC();
+  const localList = getStoredKYC();
+
+  try {
+    const { data: dbProfiles, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !dbProfiles) {
+      return localList;
+    }
+
+    const merged = [...localList];
+
+    dbProfiles.forEach((p) => {
+      const existingIndex = merged.findIndex(
+        (u) => (u.id && u.id === p.id) || (u.email && u.email.toLowerCase() === (p.email || '').toLowerCase())
+      );
+
+      const dbKycStatus = p.kyc_status || 'pending';
+      const meta = p.meta || {};
+
+      if (existingIndex >= 0) {
+        // Enrich existing with DB data
+        merged[existingIndex] = {
+          ...merged[existingIndex],
+          name: p.name || merged[existingIndex].name,
+          role: p.role || merged[existingIndex].role,
+          email: p.email || merged[existingIndex].email,
+          phone: p.phone || merged[existingIndex].phone,
+          state: p.state || merged[existingIndex].state,
+          district: p.district || merged[existingIndex].district,
+          orgName: p.company_name || merged[existingIndex].orgName,
+          verificationStatus: dbKycStatus,
+          documents: (meta.documents && meta.documents.length > 0) ? meta.documents : merged[existingIndex].documents,
+          auditNotes: meta.auditNotes || merged[existingIndex].auditNotes,
+        };
+      } else {
+        // Add new DB profile into KYC queue
+        merged.unshift({
+          id: p.id,
+          name: p.name || 'Registered Partner',
+          role: p.role || 'farmer',
+          email: p.email || '',
+          phone: p.phone || '',
+          state: p.state || 'Tamil Nadu',
+          district: p.district || 'Salem',
+          orgName: p.company_name || `${p.name} Enterprise`,
+          verificationStatus: dbKycStatus,
+          submittedAt: p.created_at || new Date().toISOString(),
+          verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || new Date().toISOString()) : null,
+          verifiedBy: dbKycStatus === 'verified' ? 'Admin' : null,
+          documents: meta.documents || [
+            { type: 'Aadhaar / Identity Document', number: 'Uploaded Document', status: dbKycStatus, fileName: 'Identity_Proof.pdf', format: 'PDF', fileUrl: '' }
+          ],
+          auditNotes: meta.auditNotes || `Registered ${p.role}. Awaiting KYC verification.`,
+        });
+      }
+    });
+
+    saveStoredKYC(merged);
+    return merged;
+  } catch (err) {
+    console.warn('Could not merge DB profiles for KYC queue:', err);
+    return localList;
+  }
 }
 
 /**
  * Get single user KYC record
  */
 export async function getUserKYC(userId) {
-  const all = getStoredKYC();
+  const all = await getAllKYCUsers();
   return all.find((u) => u.id === userId || u.email === userId) || null;
 }
 
@@ -160,8 +226,10 @@ export async function isUserVerified(userId) {
  */
 export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifiedBy = 'AgroLnk Admin') {
   const all = getStoredKYC();
-  const index = all.findIndex((u) => u.id === userId);
+  const index = all.findIndex((u) => u.id === userId || u.email === userId);
   
+  let targetUser = null;
+
   if (index === -1) {
     // Create new entry
     const newUser = {
@@ -175,21 +243,48 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
       auditNotes,
       documents: [],
     };
-    all.push(newUser);
-    saveStoredKYC(all);
-    return newUser;
+    all.unshift(newUser);
+    targetUser = newUser;
+  } else {
+    all[index] = {
+      ...all[index],
+      verificationStatus: newStatus,
+      verifiedAt: newStatus === 'verified' ? new Date().toISOString() : all[index].verifiedAt,
+      verifiedBy: newStatus === 'verified' ? verifiedBy : all[index].verifiedBy,
+      auditNotes: auditNotes || all[index].auditNotes,
+    };
+    targetUser = all[index];
   }
 
-  all[index] = {
-    ...all[index],
-    verificationStatus: newStatus,
-    verifiedAt: newStatus === 'verified' ? new Date().toISOString() : all[index].verifiedAt,
-    verifiedBy: newStatus === 'verified' ? verifiedBy : all[index].verifiedBy,
-    auditNotes: auditNotes || all[index].auditNotes,
-  };
-
   saveStoredKYC(all);
-  return all[index];
+
+  // Sync with Supabase Database
+  try {
+    await supabase
+      .from('profiles')
+      .update({
+        kyc_status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .or(`id.eq.${userId},email.eq.${userId}`);
+  } catch (dbErr) {
+    console.warn('Could not sync KYC status to Supabase DB:', dbErr);
+  }
+
+  // Update current user cached session if matching
+  try {
+    const rawUser = localStorage.getItem('agrolnkUser');
+    if (rawUser) {
+      const parsed = JSON.parse(rawUser);
+      if (parsed.id === userId || parsed.email === userId) {
+        parsed.kycStatus = newStatus;
+        localStorage.setItem('agrolnkUser', JSON.stringify(parsed));
+      }
+    }
+  } catch (_e) {}
+
+  window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+  return targetUser;
 }
 
 /**

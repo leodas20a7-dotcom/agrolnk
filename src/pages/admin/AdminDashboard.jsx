@@ -50,11 +50,20 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
-    getAdminMetrics().then((data) => {
-      if (isMounted && data) setMetrics(data);
-    });
+    const fetchMetrics = () => {
+      getAdminMetrics().then((data) => {
+        if (isMounted && data) setMetrics(data);
+      });
+    };
+
+    fetchMetrics();
+    window.addEventListener('agrolnk_kyc_updated', fetchMetrics);
+    window.addEventListener('storage', fetchMetrics);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('agrolnk_kyc_updated', fetchMetrics);
+      window.removeEventListener('storage', fetchMetrics);
     };
   }, []);
 

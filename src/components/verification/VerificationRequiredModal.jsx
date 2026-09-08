@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, X, FileText, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import Button from '../ui/Button';
+import { supabase } from '../../lib/supabase';
 
 export default function VerificationRequiredModal({
   isOpen,
@@ -174,6 +175,33 @@ export default function VerificationRequiredModal({
 
       localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
 
+      // Sync submission with Supabase Database
+      try {
+        const userId = currentUser?.id;
+        const userEmail = currentUser?.email;
+        if (userId || userEmail) {
+          supabase
+            .from('profiles')
+            .update({
+              kyc_status: 'pending',
+              company_name: businessName.trim(),
+              meta: {
+                documents: submission.documents,
+                orgName: submission.orgName,
+                auditNotes: submission.auditNotes,
+                submittedAt: submission.submittedAt,
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .or(`id.eq.${userId},email.eq.${userEmail}`)
+            .then(({ error: dbErr }) => {
+              if (dbErr) console.warn('Supabase KYC document sync notice:', dbErr);
+            });
+        }
+      } catch (dbEx) {
+        console.warn('Supabase update notice:', dbEx);
+      }
+
       // Update current user cached status
       try {
         const cached = localStorage.getItem('agrolnkUser');
@@ -184,6 +212,7 @@ export default function VerificationRequiredModal({
         }
       } catch {}
 
+      window.dispatchEvent(new Event('agrolnk_kyc_updated'));
       setIsSubmitted(true);
       if (onSuccess) onSuccess();
     } catch (err) {
