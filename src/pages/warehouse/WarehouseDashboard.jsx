@@ -771,7 +771,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           onClose={() => setConfirmDispatchLot(null)}
           title="Confirm Gate Exit & Outbound Dispatch"
           type="dispatch"
-          message={`Generate Outbound Gate Pass & dispatch #${confirmDispatchLot.receiptNumber}?`}
+          message={`Generate Outbound Gate Pass & dispatch ${confirmDispatchLot.receiptNumber?.startsWith('#') ? confirmDispatchLot.receiptNumber : '#' + confirmDispatchLot.receiptNumber}?`}
           description={`Commodity: ${confirmDispatchLot.commodity} (${confirmDispatchLot.totalQuantity} ${confirmDispatchLot.unit}) • Depositor: ${confirmDispatchLot.farmerName}. Once dispatched, this batch will be permanently recorded in your Dispatched History and excluded from active chamber capacity counts.`}
           confirmText="Issue Gate Pass & Dispatch"
           cancelText="Cancel"

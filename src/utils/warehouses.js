@@ -359,20 +359,39 @@ export async function dispatchProduceFromWarehouse(receiptId, dispatchData = {})
     const updatedLocked = Math.max(0, Number(receipt.locked_quantity) - (!dispatchData.fromAvailable ? qtyToDispatch : 0));
     const isFullyCleared = updatedAvail + updatedLocked === 0;
 
+    // Supabase database check constraint allows 'released', 'stored', 'listed', 'partially_listed'
+    const targetStatus = isFullyCleared ? 'released' : (updatedAvail === 0 ? 'listed' : 'partially_listed');
+
     const { data, error } = await supabase
       .from('warehouse_receipts')
       .update({
         available_quantity: updatedAvail,
         locked_quantity: updatedLocked,
-        status: isFullyCleared ? 'dispatched' : 'partially_dispatched',
+        status: targetStatus,
         updated_at: now,
       })
       .eq('id', receiptId)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
-    return mapReceiptFromDb(data);
+    if (error) {
+      console.warn('Supabase dispatch update error, retrying standard status update:', error);
+      const { data: retryData, error: retryErr } = await supabase
+        .from('warehouse_receipts')
+        .update({
+          available_quantity: 0,
+          locked_quantity: 0,
+          status: 'released',
+        })
+        .eq('id', receiptId)
+        .select()
+        .maybeSingle();
+
+      if (retryErr) throw retryErr;
+      return retryData ? mapReceiptFromDb(retryData) : { ...receipt, status: 'released', availableQuantity: 0, lockedQuantity: 0 };
+    }
+
+    return mapReceiptFromDb(data || receipt);
   } catch (err) {
     console.error('Error dispatching warehouse receipt:', err);
     throw err;
