@@ -10,6 +10,7 @@ import FinancingRequestModal from '../../components/financing/FinancingRequestMo
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import CreateDeliveryModal from '../../components/delivery/CreateDeliveryModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
+import SelfTransportModal from '../../components/delivery/SelfTransportModal';
 import {
   ShoppingBag,
   ArrowLeft,
@@ -31,7 +32,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [linkedDelivery, setLinkedDelivery] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // In-order financing modals
@@ -40,21 +41,8 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   // In-order delivery modals
   const [orderForDelivery, setOrderForDelivery] = useState(null);
+  const [orderForSelfTransport, setOrderForSelfTransport] = useState(null);
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
-
-  const fetchDeliveryForSelectedOrder = async (order) => {
-    if (!order) {
-      setSelectedDelivery(null);
-      return;
-    }
-    try {
-      const dlv = await getDeliveryForOrder(order.orderNumber || order.id);
-      setSelectedDelivery(dlv || null);
-    } catch (err) {
-      console.warn('Error loading linked delivery for order:', err);
-      setSelectedDelivery(null);
-    }
-  };
 
   const fetchOrders = async () => {
     try {
@@ -64,7 +52,8 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
         const updated = (data || []).find((o) => o.id === selectedOrder.id || o.orderNumber === selectedOrder.orderNumber);
         if (updated) {
           setSelectedOrder(updated);
-          fetchDeliveryForSelectedOrder(updated);
+          const dlv = await getDeliveryForOrder(updated.orderNumber || updated.id);
+          setLinkedDelivery(dlv);
         }
       }
     } catch (err) {
@@ -78,11 +67,13 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   useEffect(() => {
     if (selectedOrder) {
-      fetchDeliveryForSelectedOrder(selectedOrder);
+      getDeliveryForOrder(selectedOrder.orderNumber || selectedOrder.id).then((dlv) => {
+        setLinkedDelivery(dlv);
+      });
     } else {
-      setSelectedDelivery(null);
+      setLinkedDelivery(null);
     }
-  }, [selectedOrder?.id, selectedOrder?.orderNumber, selectedOrder?.status]);
+  }, [selectedOrder?.id, selectedOrder?.orderNumber]);
 
   const safeOrders = Array.isArray(orders) ? orders : [];
 
@@ -263,191 +254,197 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             </div>
 
             {/* Farmer Lifecycle Action Card */}
-            {(() => {
-              const hasPendingTransport =
-                selectedDelivery &&
-                (selectedDelivery.status === 'transport_requested' || selectedDelivery.status === 'pending');
-              const isTransportAssigned =
-                selectedDelivery &&
-                ['assigned', 'picked_up', 'in_transit'].includes(selectedDelivery.status);
+            <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] shadow-md space-y-3.5">
+              {/* Top Row: Title with Hover Tooltip */}
+              <div className="flex items-center justify-between">
+                <div className="relative group inline-flex items-center gap-1.5 cursor-help">
+                  <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider">
+                    Seller Fulfillment Options
+                  </span>
+                  <Info className="w-3.5 h-3.5 text-[#34D399]/80 group-hover:text-[#34D399] transition-colors" />
 
-              return (
-                <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] shadow-md space-y-3.5">
-                  {/* Top Row: Title with Hover Tooltip */}
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="relative group inline-flex items-center gap-1.5 cursor-help">
-                      <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider">
-                        Seller Fulfillment Options
-                      </span>
-                      <Info className="w-3.5 h-3.5 text-[#34D399]/80 group-hover:text-[#34D399] transition-colors" />
-
-                      {/* Floating Tooltip Bubble */}
-                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:flex flex-col w-72 sm:w-80 p-3 rounded-2xl bg-[#061B14] text-[#DCFCE7] text-[11px] leading-relaxed shadow-2xl border border-[#14624A] z-50 pointer-events-none animate-in fade-in zoom-in-95">
-                        <span className="font-medium">
-                          {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
-                            (hasPendingTransport
-                              ? 'Transport request has been broadcast. Transporter acceptance is pending.'
-                              : isTransportAssigned
-                              ? 'Transporter has confirmed the trip and will arrive for pickup.'
-                              : 'Buyer escrow is secured. Choose to request a platform freight carrier or deliver using your own vehicle.')}
-                          {selectedOrder.status === 'in_transit' &&
-                            'Consignment is in transit. Click below once dropped off at the buyer terminal.'}
-                          {selectedOrder.status === 'delivered' &&
-                            'Consignment reached destination. Awaiting buyer quality check & receipt release.'}
-                          {selectedOrder.status === 'completed' &&
-                            'Order is 100% completed and escrow payout has been released.'}
-                          {selectedOrder.status === 'cancelled' &&
-                            'This order agreement has been cancelled.'}
-                        </span>
-                        <div className="absolute left-6 -bottom-1 w-2.5 h-2.5 bg-[#061B14] border-r border-b border-[#14624A] transform rotate-45" />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {/* Dynamic Pending Tag: Shown after submission, removed after transporter confirmation */}
-                      {hasPendingTransport && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-900/60 px-2.5 py-0.5 rounded-full border border-amber-500/50 animate-pulse">
-                          <Clock className="w-3 h-3 text-amber-400" />
-                          Transport Request Pending
-                        </span>
-                      )}
-                      {isTransportAssigned && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-300 bg-blue-900/60 px-2.5 py-0.5 rounded-full border border-blue-400/50">
-                          <Truck className="w-3 h-3 text-blue-300" />
-                          Transport Confirmed
-                        </span>
-                      )}
-                      {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
-                        <span className="text-[11px] text-[#34D399] font-medium bg-[#0F4A37] px-2.5 py-0.5 rounded-full border border-[#14624A]">
-                          Escrow Locked
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons Row Below */}
-                  <div className="space-y-3 pt-0.5">
-                    {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
-                      <>
-                        {/* 1. If transport request is submitted and pending, do not allow clicking request again */}
-                        {hasPendingTransport ? (
-                          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                                  Transport Request Active ({selectedDelivery.deliveryNumber})
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-amber-100/80">
-                                Request broadcast to carrier network. Waiting for a transporter to accept your load.
-                              </p>
-                            </div>
-
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setDeliveryForDetail(selectedDelivery)}
-                              className="text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border-white/20 py-1.5 shrink-0"
-                            >
-                              View Request
-                            </Button>
-                          </div>
-                        ) : isTransportAssigned ? (
-                          /* 2. After transport is confirmed, show assigned details */
-                          <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-blue-300 flex items-center gap-1.5">
-                                  <Truck className="w-3.5 h-3.5 text-blue-300" />
-                                  Transporter Confirmed: {selectedDelivery.transporterName || 'Assigned Carrier'}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-blue-100/80">
-                                Vehicle: <strong className="text-white font-mono">{selectedDelivery.vehicleNumber || 'Assigned'}</strong> • Driver: {selectedDelivery.driverName || 'Driver'} ({selectedDelivery.driverPhone || 'Contact'})
-                              </p>
-                            </div>
-
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setDeliveryForDetail(selectedDelivery)}
-                              className="text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border-white/20 py-1.5 shrink-0"
-                            >
-                              Trip & Pickup OTP
-                            </Button>
-                          </div>
-                        ) : (
-                          /* 3. When not yet requested, show both initial buttons */
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <Button
-                              variant="secondary"
-                              size="md"
-                              onClick={() => setOrderForDelivery(selectedOrder)}
-                              icon={Truck}
-                              iconPosition="left"
-                              className="w-full font-bold py-3 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer text-xs justify-center shadow-xs"
-                            >
-                              Request Platform Carrier
-                            </Button>
-
-                            <Button
-                              variant="accent"
-                              size="md"
-                              disabled={isUpdating}
-                              onClick={() => handleAdvanceStatus('in_transit')}
-                              icon={Check}
-                              iconPosition="left"
-                              className="w-full font-bold py-3 px-4 shadow-md cursor-pointer text-xs justify-center"
-                            >
-                              {isUpdating ? 'Dispatching...' : 'Self-Arranged Transport'}
-                            </Button>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {selectedOrder.status === 'in_transit' && (
-                      <Button
-                        variant="accent"
-                        size="md"
-                        disabled={isUpdating}
-                        onClick={() => handleAdvanceStatus('delivered')}
-                        icon={CheckCircle2}
-                        iconPosition="left"
-                        className="w-full font-bold py-3 px-5 shadow-md cursor-pointer text-xs justify-center"
-                      >
-                        {isUpdating ? 'Updating...' : 'Mark as Delivered at Destination'}
-                      </Button>
-                    )}
-
-                    {selectedOrder.status === 'delivered' && (
-                      <div className="text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
-                        <Badge variant="teal" size="md">
-                          ✓ Delivered (Buyer Verifying Quality)
-                        </Badge>
-                      </div>
-                    )}
-
-                    {selectedOrder.status === 'completed' && (
-                      <div className="text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
-                        <Badge variant="accent" size="md">
-                          ✓ Completed & Escrow Settled
-                        </Badge>
-                      </div>
-                    )}
-
-                    {selectedOrder.status === 'cancelled' && (
-                      <div className="text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
-                        <Badge variant="dark" size="md">
-                          ✕ Order Cancelled
-                        </Badge>
-                      </div>
-                    )}
+                  {/* Floating Tooltip Bubble */}
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:flex flex-col w-72 sm:w-80 p-3 rounded-2xl bg-[#061B14] text-[#DCFCE7] text-[11px] leading-relaxed shadow-2xl border border-[#14624A] z-50 pointer-events-none animate-in fade-in zoom-in-95">
+                    <span className="font-medium">
+                      {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
+                        'Buyer escrow is secured. Choose to request a platform freight carrier or deliver using your own vehicle.'}
+                      {selectedOrder.status === 'in_transit' &&
+                        'Consignment is in transit. Click below once dropped off at the buyer terminal.'}
+                      {selectedOrder.status === 'delivered' &&
+                        'Consignment reached destination. Awaiting buyer quality check & receipt release.'}
+                      {selectedOrder.status === 'completed' &&
+                        'Order is 100% completed and escrow payout has been released.'}
+                      {selectedOrder.status === 'cancelled' &&
+                        'This order agreement has been cancelled.'}
+                    </span>
+                    <div className="absolute left-6 -bottom-1 w-2.5 h-2.5 bg-[#061B14] border-r border-b border-[#14624A] transform rotate-45" />
                   </div>
                 </div>
-              );
-            })()}
+
+                {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
+                  <span className="text-[11px] text-[#34D399] font-medium bg-[#0F4A37] px-2.5 py-0.5 rounded-full border border-[#14624A]">
+                    Escrow Locked
+                  </span>
+                )}
+              </div>
+
+              {/* Action Buttons Row Below */}
+              <div className="pt-0.5 space-y-3">
+                
+                {/* 1. If Farmer has ALREADY requested Platform Carrier */}
+                {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && linkedDelivery && linkedDelivery.status === 'transport_requested' && (
+                  <div className="p-4 rounded-2xl bg-[#0F4A37] border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        <Truck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white">
+                            Platform Carrier Requested ({linkedDelivery.deliveryNumber})
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            Awaiting Transporter
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#A7F3D0] block mt-0.5">
+                          Load broadcast to regional transport network. Self-transport is locked while request is active.
+                        </span>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setDeliveryForDetail(linkedDelivery)}
+                      className="text-xs font-bold py-2 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 shrink-0 cursor-pointer shadow-xs"
+                    >
+                      Track Request
+                    </Button>
+                  </div>
+                )}
+
+                {/* 2. If Platform Transporter has ASSIGNED */}
+                {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && linkedDelivery && linkedDelivery.status === 'assigned' && (
+                  <div className="p-4 rounded-2xl bg-[#0F4A37] border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white">
+                            Carrier Assigned: {linkedDelivery.transporterName || 'Platform Transporter'}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            Ready for Pickup
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#A7F3D0] block mt-0.5">
+                          Vehicle: <strong className="font-mono text-white">{linkedDelivery.vehicleNumber || 'Assigned'}</strong> • Driver: {linkedDelivery.driverName || 'Carrier'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setDeliveryForDetail(linkedDelivery)}
+                      className="text-xs font-bold py-2 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 shrink-0 cursor-pointer shadow-xs"
+                    >
+                      View Manifest
+                    </Button>
+                  </div>
+                )}
+
+                {/* 3. If NO Transport Option Chosen Yet (Show both mutually exclusive buttons) */}
+                {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (!linkedDelivery || (linkedDelivery.status !== 'transport_requested' && linkedDelivery.status !== 'assigned' && linkedDelivery.status !== 'in_transit')) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setOrderForDelivery(selectedOrder)}
+                      icon={Truck}
+                      iconPosition="left"
+                      className="w-full font-bold py-3 px-4 bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer text-xs justify-center shadow-xs"
+                    >
+                      Request Platform Carrier
+                    </Button>
+
+                    <Button
+                      variant="accent"
+                      size="md"
+                      disabled={isUpdating}
+                      onClick={() => setOrderForSelfTransport(selectedOrder)}
+                      icon={Check}
+                      iconPosition="left"
+                      className="w-full font-bold py-3 px-4 shadow-md cursor-pointer text-xs justify-center"
+                    >
+                      Self-Arranged Transport
+                    </Button>
+                  </div>
+                )}
+
+                {/* 4. If Order is IN TRANSIT */}
+                {selectedOrder.status === 'in_transit' && (
+                  <div className="space-y-2.5">
+                    {linkedDelivery?.vehicleNumber && (
+                      <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-xs text-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <Truck className="w-4 h-4 text-emerald-400" />
+                          <span>
+                            Consignment in transit on Vehicle: <strong className="font-mono font-bold text-white tracking-wider">{linkedDelivery.vehicleNumber}</strong>
+                          </span>
+                        </div>
+                        {linkedDelivery.driverPhone && (
+                          <span className="text-[11px] text-emerald-300">
+                            Driver: {linkedDelivery.driverName || 'Driver'} ({linkedDelivery.driverPhone})
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <Button
+                      variant="accent"
+                      size="md"
+                      disabled={isUpdating}
+                      onClick={() => handleAdvanceStatus('delivered')}
+                      icon={CheckCircle2}
+                      iconPosition="left"
+                      className="w-full font-bold py-3 px-5 shadow-md cursor-pointer text-xs justify-center"
+                    >
+                      {isUpdating ? 'Updating...' : 'Mark as Delivered at Destination'}
+                    </Button>
+                  </div>
+                )}
+
+                {/* 5. Delivered / Completed / Cancelled Badges */}
+                {selectedOrder.status === 'delivered' && (
+                  <div className="text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
+                    <Badge variant="teal" size="md">
+                      ✓ Delivered (Buyer Verifying Quality)
+                    </Badge>
+                  </div>
+                )}
+
+                {selectedOrder.status === 'completed' && (
+                  <div className="text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
+                    <Badge variant="accent" size="md">
+                      ✓ Completed & Escrow Settled
+                    </Badge>
+                  </div>
+                )}
+
+                {selectedOrder.status === 'cancelled' && (
+                  <div className="text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
+                    <Badge variant="dark" size="md">
+                      ✕ Order Cancelled
+                    </Badge>
+                  </div>
+                )}
+
+              </div>
+            </div>
 
           </div>
         </div>
@@ -476,16 +473,29 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
         />
       )}
 
-      {/* In-order Create Delivery Modal */}
+      {/* In-order Create Delivery Modal (Platform Carrier Request) */}
       {orderForDelivery && (
         <CreateDeliveryModal
           order={orderForDelivery}
           currentUser={user}
           onClose={() => setOrderForDelivery(null)}
           onSuccess={(dlv) => {
+            setLinkedDelivery(dlv);
             fetchOrders();
-            setSelectedDelivery(dlv);
-            setOrderForDelivery(null);
+            setDeliveryForDetail(dlv);
+          }}
+        />
+      )}
+
+      {/* In-order Self Transport Vehicle Input Modal */}
+      {orderForSelfTransport && (
+        <SelfTransportModal
+          order={orderForSelfTransport}
+          currentUser={user}
+          onClose={() => setOrderForSelfTransport(null)}
+          onSuccess={(dlv) => {
+            setLinkedDelivery(dlv);
+            fetchOrders();
           }}
         />
       )}
@@ -497,10 +507,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
           viewerRole="farmer"
           currentUser={user}
           onClose={() => setDeliveryForDetail(null)}
-          onStatusUpdated={() => {
-            fetchOrders();
-            if (selectedOrder) fetchDeliveryForSelectedOrder(selectedOrder);
-          }}
+          onStatusUpdated={() => fetchOrders()}
         />
       )}
     </DashboardLayout>

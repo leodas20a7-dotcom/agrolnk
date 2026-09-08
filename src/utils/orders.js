@@ -158,35 +158,6 @@ export async function createOrder(orderData) {
       throw error;
     }
 
-    // Automatically create a transport delivery record for logistics
-    try {
-      await createDelivery({
-        orderId: data.id,
-        orderNumber: data.order_number,
-        farmerId: data.farmer_id,
-        farmerName: data.farmer_name,
-        buyerId: data.buyer_id,
-        buyerName: data.buyer_name,
-        commodity: data.commodity,
-        grade: data.grade,
-        variety: data.variety,
-        quantity: data.quantity,
-        unit: data.unit,
-        pickupLocation: orderData.pickupLocation || {
-          state: data.state,
-          district: data.district,
-          address: `${data.district} Farmgate Aggregation Depot`,
-        },
-        deliveryLocation: orderData.deliveryLocation || {
-          state: 'Tamil Nadu',
-          district: 'Chennai',
-          address: 'Buyer Central Receiving Terminal',
-        },
-      });
-    } catch (deliveryErr) {
-      console.warn('Auto delivery creation notice:', deliveryErr);
-    }
-
     // Register 100% deposit in Live Escrow API Engine
     try {
       await processLiveEscrowDeposit({

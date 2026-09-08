@@ -86,10 +86,14 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
   const filteredDeliveries = getFilteredList();
 
-  const handleAcceptJobDirect = (delivery) => {
-    acceptDeliveryJob(delivery.id, user);
-    loadData();
-    setActiveTab('active');
+  const handleAcceptJobDirect = async (delivery) => {
+    try {
+      await acceptDeliveryJob(delivery.id, user);
+      await loadData();
+      setActiveTab('active');
+    } catch (err) {
+      console.error('Failed to accept delivery job:', err);
+    }
   };
 
   return (

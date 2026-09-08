@@ -303,8 +303,25 @@ export default function OrderSummary({
               </div>
 
               {/* Mini Delivery Timeline */}
-              <div className="pt-2 border-t border-[#E5EDE8]">
+              <div className="pt-2 border-t border-[#E5EDE8] space-y-2.5">
                 <DeliveryTimeline currentStatus={effectiveDeliveryStatus} delivery={existingDelivery} />
+                
+                {existingDelivery.vehicleNumber && (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 text-left">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="text-[#0B3326]">
+                        Carrier / Vehicle: <strong className="font-mono font-bold">{existingDelivery.vehicleNumber}</strong>
+                        {existingDelivery.transporterName ? ` (${existingDelivery.transporterName})` : ''}
+                      </span>
+                    </div>
+                    {existingDelivery.driverPhone && (
+                      <span className="text-[11px] text-[#566861]">
+                        Driver: <strong>{existingDelivery.driverName || 'Driver'}</strong> ({existingDelivery.driverPhone})
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Buyer Confirm Receipt Button if Delivered */}
