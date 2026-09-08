@@ -162,15 +162,15 @@ export default function DemoEscrowLiveModal({ isOpen, onClose }) {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
-                  Live Escrow Account Gateway & Nodal API
+                  Nodal Settlement & Escrow Gateway Simulator
                 </h3>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
-                  Realtime Active
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-pulse"></span>
+                  Sandbox Simulator Mode
                 </span>
               </div>
               <p className="text-xs text-[#566861] mt-0.5">
-                {ESCROW_NODAL_ACCOUNT.bankName} • {ESCROW_NODAL_ACCOUNT.trusteePartner}
+                {ESCROW_NODAL_ACCOUNT.bankName} • Visualizer & Webhook Bus (Isolated from Live Database)
               </p>
             </div>
           </div>

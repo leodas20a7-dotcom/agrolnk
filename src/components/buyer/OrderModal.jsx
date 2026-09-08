@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Check, AlertCircle, ShoppingBag } from 'lucide-react';
+import { X, ShieldCheck, Check, AlertCircle, ShoppingBag, Zap } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import { calculateOrderFinancials, formatINR } from '../../utils/commission';
+import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 
-export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
+export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
   const [purchaseQty, setPurchaseQty] = useState(listing ? Math.min(100, listing.quantity) : 100);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,11 +18,13 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
 
   if (!isOpen || !listing) return null;
 
-  const subtotal = Number(purchaseQty || 0) * Number(listing.price || 0);
+  const qty = Number(purchaseQty || 0);
+  const unitPrice = Number(listing.price || 0);
+  const subtotal = qty * unitPrice;
+  const financials = calculateOrderFinancials(subtotal);
 
   const handleConfirmOrder = () => {
     setError('');
-    const qty = Number(purchaseQty);
 
     if (!qty || qty <= 0) {
       setError('Please enter a valid purchase quantity.');
@@ -32,19 +36,42 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
     }
 
     setIsSubmitting(true);
-    onConfirm({
-      listingId: listing.id,
-      farmerId: listing.farmerId,
-      farmerName: listing.farmerName,
-      commodity: listing.commodity,
-      variety: listing.variety,
-      grade: listing.grade,
+
+    // Launch Razorpay Route Checkout
+    initiateRazorpayRouteCheckout({
+      listing,
       quantity: qty,
-      unit: listing.unit,
-      pricePerUnit: listing.price,
-      totalAmount: subtotal,
-      state: listing.state,
-      district: listing.district,
+      buyerUser: currentUser,
+      onSuccess: (paymentData) => {
+        setIsSubmitting(false);
+        onConfirm({
+          listingId: listing.id,
+          farmerId: listing.farmerId,
+          farmerName: listing.farmerName,
+          commodity: listing.commodity,
+          variety: listing.variety,
+          grade: listing.grade,
+          quantity: qty,
+          unit: listing.unit,
+          pricePerUnit: listing.price,
+          totalAmount: subtotal,
+          buyerFee: financials.buyerFee,
+          sellerFee: financials.sellerFee,
+          platformRevenue: financials.totalPlatformCommission,
+          netFarmerPayout: financials.netSellerReceivable,
+          state: listing.state,
+          district: listing.district,
+          razorpay_payment_id: paymentData?.razorpay_payment_id,
+          razorpay_order_id: paymentData?.razorpay_order_id,
+          razorpay_signature: paymentData?.razorpay_signature,
+        });
+      },
+      onFailure: (err) => {
+        setIsSubmitting(false);
+        if (err.message && !err.message.includes('closed')) {
+          setError(err.message || 'Payment processing failed. Please try again.');
+        }
+      },
     });
   };
 
@@ -145,26 +172,28 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
             </span>
           </div>
 
-          {/* Subtotal Calculation Box */}
+          {/* Subtotal & Fee Calculation Box */}
           <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
             <div className="flex items-center justify-between text-xs text-[#DCFCE7]/80">
-              <span>Calculation</span>
-              <span>
-                {purchaseQty || 0} {listing.unit} × ₹{listing.price}
-              </span>
+              <span>Produce Value ({qty} {listing.unit} × ₹{listing.price})</span>
+              <span className="font-semibold text-white">{formatINR(subtotal)}</span>
             </div>
-            <div className="flex items-baseline justify-between pt-1 border-t border-[#14624A]">
-              <span className="text-sm font-semibold text-white">Subtotal</span>
-              <span className="text-2xl font-extrabold font-heading text-white">
-                ₹{subtotal.toLocaleString('en-IN')}
+            <div className="flex items-center justify-between text-xs text-[#DCFCE7]/80">
+              <span>Buyer Platform Fee (0.25%)</span>
+              <span className="font-semibold text-[#34D399]">+{formatINR(financials.buyerFee)}</span>
+            </div>
+            <div className="flex items-baseline justify-between pt-2 border-t border-[#14624A]">
+              <span className="text-sm font-semibold text-white">Total Payable</span>
+              <span className="text-2xl font-extrabold font-heading text-[#34D399]">
+                {formatINR(financials.totalBuyerPayable)}
               </span>
             </div>
           </div>
 
-          {/* Escrow Notice */}
+          {/* Deferred Settlement / Milestone Notice */}
           <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>Payment is held safely in escrow until produce delivery is verified.</span>
+            <span>Marketplace funds deferred in Razorpay Route on_hold until Delivery OTP confirmation.</span>
           </div>
 
         </div>
@@ -185,11 +214,11 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm }) {
             size="md"
             onClick={handleConfirmOrder}
             disabled={isSubmitting}
-            icon={Check}
-            iconPosition="right"
-            className="flex-1 justify-center font-bold text-xs py-3 shadow-xs cursor-pointer"
+            icon={Zap}
+            iconPosition="left"
+            className="flex-1 justify-center font-bold text-xs py-3 shadow-xs cursor-pointer bg-[#0B3326] text-white hover:bg-[#0A261D]"
           >
-            {isSubmitting ? 'Confirming...' : 'Confirm Order'}
+            {isSubmitting ? 'Opening Gateway...' : `Pay ${formatINR(financials.totalBuyerPayable)}`}
           </Button>
         </div>
 

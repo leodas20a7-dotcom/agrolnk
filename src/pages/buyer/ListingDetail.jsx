@@ -329,6 +329,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
       <OrderModal
         listing={listing}
         isOpen={isModalOpen}
+        currentUser={user}
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleOrderConfirmed}
       />

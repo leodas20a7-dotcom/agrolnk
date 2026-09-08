@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     district TEXT,
     address TEXT,
     kyc_status TEXT DEFAULT 'verified' CHECK (kyc_status IN ('pending', 'verified', 'rejected')),
+    route_account_id TEXT,
+    bank_account_number TEXT,
+    bank_ifsc TEXT,
+    bank_beneficiary_name TEXT,
     meta JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -111,6 +115,17 @@ CREATE TABLE IF NOT EXISTS public.orders (
     district TEXT,
     escrow_status TEXT NOT NULL DEFAULT 'funded' CHECK (escrow_status IN ('pending', 'funded', 'held', 'released', 'refunded')),
     status TEXT NOT NULL DEFAULT 'order_placed' CHECK (status IN ('order_placed', 'transport_assigned', 'in_transit', 'delivered', 'completed', 'cancelled')),
+    razorpay_order_id TEXT,
+    razorpay_payment_id TEXT,
+    razorpay_signature TEXT,
+    razorpay_transfer_id TEXT,
+    buyer_fee_amount NUMERIC DEFAULT 0,
+    seller_fee_amount NUMERIC DEFAULT 0,
+    platform_commission_amount NUMERIC DEFAULT 0,
+    net_seller_amount NUMERIC DEFAULT 0,
+    settlement_mode TEXT DEFAULT 'route_deferred',
+    settlement_status TEXT DEFAULT 'pending_deposit' CHECK (settlement_status IN ('pending_deposit', 'captured_on_hold', 'released_to_seller', 'refunded_to_buyer')),
+    delivery_otp TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
