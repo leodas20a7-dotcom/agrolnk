@@ -21,7 +21,13 @@ import {
   Globe,
   Settings,
   Zap,
-  ExternalLink
+  ExternalLink,
+  Search,
+  Filter,
+  Truck,
+  RotateCcw,
+  CheckCircle,
+  FileSpreadsheet
 } from 'lucide-react';
 import {
   getWarehouseOperatorStats,
@@ -29,6 +35,7 @@ import {
   getWarehouseById,
   getWarehouseReceipts,
   getWarehouseProfile,
+  dispatchProduceFromWarehouse,
 } from '../../utils/warehouses';
 
 export default function WarehouseDashboard({ currentUser, onNavigate }) {
@@ -39,12 +46,18 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
     role: 'warehouse',
   };
 
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'chambers' | 'releases'
+  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'dispatched' | 'chambers'
   const [stats, setStats] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [profile, setProfile] = useState(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'available' | 'listed' | 'all'
+  const [commodityFilter, setCommodityFilter] = useState('all');
+  const [chamberFilter, setChamberFilter] = useState('all');
 
   const loadData = async () => {
     try {
@@ -72,6 +85,12 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   }, [user.id, user.email]);
 
   const safeInventory = Array.isArray(inventory) ? inventory : [];
+  
+  // Segregate Active In-Storage vs Dispatched Lots
+  const activeLots = safeInventory.filter((r) => r.status !== 'dispatched' && r.status !== 'released');
+  const dispatchedLots = safeInventory.filter((r) => r.status === 'dispatched' || r.status === 'released');
+
+  const totalStoredTonnes = Number((activeLots.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
   const isSetupCompleted = Boolean(profile?.setupCompleted && Number(profile?.totalCapacityTonnes) > 0);
   const totalCapacityTonnes = isSetupCompleted ? Number(profile.totalCapacityTonnes) : 0;
   const occupancyPercent = totalCapacityTonnes > 0 ? Number(((totalStoredTonnes / totalCapacityTonnes) * 100).toFixed(1)) : 0;
@@ -91,7 +110,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   // Dynamic chambers list from user's configured storage types
   const chambersList = isSetupCompleted && profile?.storageTypes && profile.storageTypes.length > 0
     ? profile.storageTypes.map((st, i) => {
-        const matchingLots = safeInventory.filter((r) => (r.chamber || '').toLowerCase().includes(st.name.toLowerCase()) || i === 0);
+        const matchingLots = activeLots.filter((r) => (r.chamber || '').toLowerCase().includes(st.name.toLowerCase()) || i === 0);
         const storedInChamberT = Number((matchingLots.reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
         const pct = st.capacity > 0 ? Math.min(100, Math.round((storedInChamberT / st.capacity) * 100)) : 0;
         return {
@@ -104,6 +123,65 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         };
       })
     : [];
+
+  // Unique commodities and chambers for filter dropdowns
+  const availableCommodities = Array.from(new Set(safeInventory.map((r) => r.commodity).filter(Boolean)));
+  const availableChambers = Array.from(new Set(safeInventory.map((r) => r.chamber).filter(Boolean)));
+
+  // Filtered Stored Lots for the Active view
+  const filteredStoredLots = activeLots.filter((item) => {
+    // 1. Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchSearch =
+        item.receiptNumber?.toLowerCase().includes(q) ||
+        item.farmerName?.toLowerCase().includes(q) ||
+        item.commodity?.toLowerCase().includes(q) ||
+        item.chamber?.toLowerCase().includes(q);
+      if (!matchSearch) return false;
+    }
+
+    // 2. Status Filter
+    if (statusFilter === 'available') {
+      if (Number(item.availableQuantity) <= 0) return false;
+    } else if (statusFilter === 'listed') {
+      if (Number(item.lockedQuantity) <= 0 && item.status !== 'listed') return false;
+    }
+
+    // 3. Commodity Filter
+    if (commodityFilter !== 'all' && item.commodity !== commodityFilter) {
+      return false;
+    }
+
+    // 4. Chamber Filter
+    if (chamberFilter !== 'all' && item.chamber !== chamberFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Filtered Dispatched Lots
+  const filteredDispatchedLots = dispatchedLots.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      item.receiptNumber?.toLowerCase().includes(q) ||
+      item.farmerName?.toLowerCase().includes(q) ||
+      item.commodity?.toLowerCase().includes(q)
+    );
+  });
+
+  const handleDispatchLot = async (item) => {
+    if (window.confirm(`Issue Gate Pass & mark #${item.receiptNumber} (${item.commodity} ${item.totalQuantity} ${item.unit}) as dispatched?`)) {
+      try {
+        await dispatchProduceFromWarehouse(item.id);
+        await loadData();
+      } catch (err) {
+        console.error('Failed to dispatch lot:', err);
+      }
+    }
+  };
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
@@ -227,16 +305,16 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
 
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Active e-NWR Titles</span>
+              <span className="text-xs font-semibold text-[#566861]">In-Storage e-NWR Titles</span>
               <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
                 <Award className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {activeReceipts.length}
+              {activeLots.length}
             </div>
             <div className="text-[11px] text-[#566861]">
-              Legally certified warehouse receipts
+              Active batches stored in chambers
             </div>
           </Card>
 
@@ -257,16 +335,16 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
 
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Pending Release Orders</span>
+              <span className="text-xs font-semibold text-[#566861]">Dispatched Outbound Lots</span>
               <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
-                <Clock className="w-4 h-4" />
+                <Truck className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {stats?.releaseOrders ?? 0}
+              {dispatchedLots.length}
             </div>
             <div className="text-[11px] text-[#566861]">
-              Awaiting transporter bay loading
+              Fulfilled & released from gate
             </div>
           </Card>
 
@@ -283,7 +361,8 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                 : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
             }`}
           >
-            <span>Stored e-NWR Inventory Records</span>
+            <Layers className="w-4 h-4" />
+            <span>Active In-Chamber Stock</span>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                 activeTab === 'inventory'
@@ -291,7 +370,29 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                   : 'bg-[#F8FAF8] text-[#566861]'
               }`}
             >
-              {inventory.length}
+              {activeLots.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('dispatched')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+              activeTab === 'dispatched'
+                ? 'bg-[#0B3326] text-white shadow-xs'
+                : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>Dispatched & Gate Passes</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                activeTab === 'dispatched'
+                  ? 'bg-[#10B981] text-white'
+                  : 'bg-[#F8FAF8] text-[#566861]'
+              }`}
+            >
+              {dispatchedLots.length}
             </span>
           </button>
 
@@ -304,6 +405,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                 : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
             }`}
           >
+            <ThermometerSnowflake className="w-4 h-4" />
             <span>Chamber & Storage Cell Telemetry</span>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
@@ -317,76 +419,269 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           </button>
         </div>
 
-        {/* Content Section: Stored e-NWRs */}
+        {/* Content Section 1: Active In-Chamber Stored e-NWRs */}
         {activeTab === 'inventory' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  Inbound Deposited Produce Batches
-                </h2>
-                <p className="text-xs text-[#566861]">
-                  e-NWR electronic receipts issued under this WDRA warehouse license
-                </p>
+          <div className="space-y-5">
+            
+            {/* Header & Filter Controls Bar */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-[#0B3326] font-heading">
+                    Active Deposited Produce Batches
+                  </h2>
+                  <p className="text-xs text-[#566861]">
+                    Batches currently in storage under this WDRA license (Dispatched lots are moved to the Dispatched tab)
+                  </p>
+                </div>
+                <Badge variant="emerald" size="sm">
+                  {filteredStoredLots.length} Batches Showing
+                </Badge>
+              </div>
+
+              {/* Interactive Search & Dropdown Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-[#E5EDE8]">
+                
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search receipt #, depositor, crop..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white transition-all"
+                  />
+                </div>
+
+                {/* Status Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white cursor-pointer font-medium"
+                >
+                  <option value="active">All Active in Storage</option>
+                  <option value="available">Available to Trade ({'>'}0 kg)</option>
+                  <option value="listed">100% Listed on Trade Floor</option>
+                  <option value="all">All Records</option>
+                </select>
+
+                {/* Commodity Filter */}
+                <select
+                  value={commodityFilter}
+                  onChange={(e) => setCommodityFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white cursor-pointer font-medium"
+                >
+                  <option value="all">All Commodities</option>
+                  {availableCommodities.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+
+                {/* Chamber Filter */}
+                <select
+                  value={chamberFilter}
+                  onChange={(e) => setChamberFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white cursor-pointer font-medium"
+                >
+                  <option value="all">All Chambers</option>
+                  {availableChambers.map((ch) => (
+                    <option key={ch} value={ch}>{ch}</option>
+                  ))}
+                </select>
+
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {inventory.map((item) => (
-                <Card key={item.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="emerald" size="sm">
-                        {item.receiptNumber}
-                      </Badge>
-                      <span className="text-xs text-[#566861]">
-                        Depositor: <strong>{item.farmerName}</strong>
-                      </span>
-                    </div>
-
-                    <div>
-                      <h4 className="text-base font-bold text-[#14211D]">
-                        {item.commodity} ({item.totalQuantity} {item.unit})
-                      </h4>
-                      <span className="text-xs text-[#566861]">
-                        {item.chamber} • Grade {item.grade}
-                      </span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
+            {/* Inventory Cards Grid */}
+            {filteredStoredLots.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredStoredLots.map((item) => (
+                  <Card key={item.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between hover:border-[#10B981]/50 transition-all">
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[#566861]">Available to Trade:</span>
-                        <span className="font-bold text-[#10B981]">{item.availableQuantity} {item.unit}</span>
+                        <Badge variant="emerald" size="sm">
+                          {item.receiptNumber}
+                        </Badge>
+                        <span className="text-xs text-[#566861]">
+                          Depositor: <strong>{item.farmerName}</strong>
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#566861]">Locked / Listed:</span>
-                        <span className="font-bold text-[#D97706]">{item.lockedQuantity || 0} {item.unit}</span>
+
+                      <div>
+                        <h4 className="text-base font-bold text-[#14211D]">
+                          {item.commodity} ({item.totalQuantity} {item.unit})
+                        </h4>
+                        <span className="text-xs text-[#566861]">
+                          {item.chamber} • Grade {item.grade}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#566861]">Available to Trade:</span>
+                          <span className={`font-bold ${item.availableQuantity > 0 ? 'text-[#10B981]' : 'text-[#566861]'}`}>
+                            {item.availableQuantity} {item.unit}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#566861]">Locked / Listed:</span>
+                          <span className={`font-bold ${item.lockedQuantity > 0 ? 'text-[#D97706]' : 'text-[#566861]'}`}>
+                            {item.lockedQuantity || 0} {item.unit}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between">
-                    <span className="text-xs text-[#566861]">
-                      Assay: {item.assayedQuality?.moisture || 'Standard'}
-                    </span>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setSelectedReceipt(item)}
-                      icon={ArrowRight}
-                      iconPosition="right"
-                      className="text-xs font-bold py-1.5"
-                    >
-                      Audit e-NWR
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                    <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
+                      <span className="text-xs text-[#566861] truncate">
+                        Assay: {item.assayedQuality?.moisture || 'Standard'}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.availableQuantity === 0 && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleDispatchLot(item)}
+                            className="text-[11px] font-semibold py-1.5 px-2 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40"
+                            title="Issue gate pass & clear lot"
+                          >
+                            Mark Dispatched
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedReceipt(item)}
+                          icon={ArrowRight}
+                          iconPosition="right"
+                          className="text-xs font-bold py-1.5 px-3"
+                        >
+                          Audit e-NWR
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center bg-white rounded-3xl border border-[#E5EDE8] space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#F8FAF8] text-[#566861] flex items-center justify-center mx-auto">
+                  <Filter className="w-6 h-6 text-[#566861]" />
+                </div>
+                <h4 className="font-bold text-base text-[#0B3326]">No Active Batches Found</h4>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  No batches matched your current filter criteria. Try clearing search keywords or choosing "All Active in Storage".
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setStatusFilter('active');
+                    setCommodityFilter('all');
+                    setChamberFilter('all');
+                  }}
+                  icon={RotateCcw}
+                  iconPosition="left"
+                  className="text-xs font-bold"
+                >
+                  Reset Filters
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Content Section: Chambers Telemetry */}
+        {/* Content Section 2: Dispatched & Gate Pass Records Archive */}
+        {activeTab === 'dispatched' && (
+          <div className="space-y-5">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-[#0B3326] font-heading">
+                  Dispatched & Gate Pass Outbound Archive
+                </h2>
+                <p className="text-xs text-[#566861]">
+                  Permanently archived warehouse receipts that have completed dispatch & gate exit
+                </p>
+              </div>
+              <Badge variant="emerald" size="sm">
+                {filteredDispatchedLots.length} Dispatched Lots
+              </Badge>
+            </div>
+
+            {filteredDispatchedLots.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredDispatchedLots.map((item) => (
+                  <Card key={item.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between opacity-95">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] font-extrabold text-[10px] uppercase">
+                          ✓ Gate Exit Verified
+                        </span>
+                        <span className="text-xs text-[#566861]">
+                          {item.receiptNumber}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-bold text-[#14211D]">
+                          {item.commodity} ({item.totalQuantity} {item.unit})
+                        </h4>
+                        <span className="text-xs text-[#566861]">
+                          Depositor: <strong>{item.farmerName}</strong> • {item.chamber}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#566861]">Dispatch Quantity:</span>
+                          <span className="font-bold text-[#0B3326]">{item.totalQuantity} {item.unit}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#566861]">Storage Status:</span>
+                          <span className="font-bold text-[#10B981]">Released / Outbound Completed</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between">
+                      <span className="text-[11px] text-[#566861]">
+                        {new Date(item.updatedAt || item.depositedAt).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedReceipt(item)}
+                        icon={ArrowRight}
+                        iconPosition="right"
+                        className="text-xs font-bold py-1.5"
+                      >
+                        Audit Receipt
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center bg-white rounded-3xl border border-[#E5EDE8] space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#F8FAF8] text-[#566861] flex items-center justify-center mx-auto">
+                  <Truck className="w-6 h-6 text-[#566861]" />
+                </div>
+                <h4 className="font-bold text-base text-[#0B3326]">No Dispatched Batches in Archive</h4>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  When produce batches are completely released and dispatched from the warehouse gate, they will automatically be archived here.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Content Section 3: Chambers Telemetry */}
         {activeTab === 'chambers' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">

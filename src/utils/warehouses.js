@@ -342,6 +342,43 @@ export async function listProduceFromInventory(receiptId, listData) {
   }
 }
 
+export async function dispatchProduceFromWarehouse(receiptId, dispatchData = {}) {
+  try {
+    const { data: receipt, error: fetchErr } = await supabase
+      .from('warehouse_receipts')
+      .select('*')
+      .eq('id', receiptId)
+      .single();
+
+    if (fetchErr || !receipt) throw new Error('Receipt not found');
+
+    const qtyToDispatch = Number(dispatchData.quantity || receipt.locked_quantity || receipt.total_quantity);
+    const now = new Date().toISOString();
+
+    const updatedAvail = Math.max(0, Number(receipt.available_quantity) - (dispatchData.fromAvailable ? qtyToDispatch : 0));
+    const updatedLocked = Math.max(0, Number(receipt.locked_quantity) - (!dispatchData.fromAvailable ? qtyToDispatch : 0));
+    const isFullyCleared = updatedAvail + updatedLocked === 0;
+
+    const { data, error } = await supabase
+      .from('warehouse_receipts')
+      .update({
+        available_quantity: updatedAvail,
+        locked_quantity: updatedLocked,
+        status: isFullyCleared ? 'dispatched' : 'partially_dispatched',
+        updated_at: now,
+      })
+      .eq('id', receiptId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapReceiptFromDb(data);
+  } catch (err) {
+    console.error('Error dispatching warehouse receipt:', err);
+    throw err;
+  }
+}
+
 export async function getWarehouseInventory(warehouseId) {
   try {
     const { data, error } = await supabase
