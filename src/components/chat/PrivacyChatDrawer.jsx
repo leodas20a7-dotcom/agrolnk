@@ -327,18 +327,35 @@ export default function PrivacyChatDrawer({
 
                 <div
                   className={`p-3 rounded-2xl max-w-[85%] text-xs leading-relaxed ${
-                    isMe
-                      ? 'bg-[#0B3326] text-white rounded-tr-none shadow-xs'
-                      : 'bg-white border border-[#E5EDE8] text-[#14211D] rounded-tl-none shadow-2xs'
+                    msg.text.includes('[Protected') || msg.text.includes('[Fragment Redacted')
+                      ? 'bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/30 font-medium'
+                      : isMe
+                        ? 'bg-[#0B3326] text-white rounded-tr-none shadow-xs'
+                        : 'bg-white border border-[#E5EDE8] text-[#14211D] rounded-tl-none shadow-2xs'
                   }`}
                 >
-                  {msg.text}
+                  {msg.text.includes('[Protected') || msg.text.includes('[Fragment Redacted') ? (
+                    <div className="flex items-start gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-[#D97706] shrink-0 mt-0.5" />
+                      <span>{msg.text}</span>
+                    </div>
+                  ) : (
+                    msg.text
+                  )}
                 </div>
               </div>
             );
           })}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Live Typing Privacy Detection Warning */}
+        {inputText.trim() && (maskSensitivePII(inputText) !== inputText || maskSensitivePII(inputText).includes('[Protected')) && (
+          <div className="px-4 py-2 bg-[#FFFBEB] border-t border-[#FCD34D] text-[11px] text-[#B45309] flex items-center gap-1.5 shrink-0 text-left animate-in fade-in duration-150">
+            <Lock className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
+            <span><b>Privacy Shield:</b> Direct contact detail detected. Will be masked on send to preserve escrow warranty.</span>
+          </div>
+        )}
 
         {/* Chat Input Bar */}
         <form
