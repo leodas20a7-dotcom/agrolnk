@@ -157,6 +157,14 @@ export async function getTransporterDeliveries(transporterId) {
  */
 export async function createDelivery(deliveryData) {
   try {
+    const orderIdentifier = deliveryData.orderNumber || deliveryData.orderId;
+    if (orderIdentifier) {
+      const existing = await getDeliveryForOrder(orderIdentifier);
+      if (existing && existing.status !== 'cancelled') {
+        return existing;
+      }
+    }
+
     const generateId = () => {
       try {
         return crypto.randomUUID();
