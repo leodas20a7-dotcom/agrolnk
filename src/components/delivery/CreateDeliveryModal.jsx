@@ -41,7 +41,6 @@ export default function CreateDeliveryModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
 
     if (!pickupAddress.trim() || !deliveryAddress.trim()) {
       setError('Please provide complete pickup and destination addresses.');
