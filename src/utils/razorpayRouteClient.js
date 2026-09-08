@@ -46,7 +46,7 @@ export async function initiateRazorpayRouteCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_YourKeyHere';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
 
   // 1. Calculate order financials server-side or via standard formula
   const qty = Number(quantity) || Number(listing?.quantity) || 100;

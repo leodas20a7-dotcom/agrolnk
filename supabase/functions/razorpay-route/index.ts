@@ -51,8 +51,8 @@ serve(async (req: Request) => {
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "rzp_test_YourKeyHere";
-    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "YourSecretHere";
+    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "rzp_test_TZQxhpX8xDBPH5";
+    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "hZr37TGB9KVqjmZhhm49tTuv";
 
     const body = await req.json();
     const { action } = body;
