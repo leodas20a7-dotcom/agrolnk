@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import AlertModal from '../../components/ui/AlertModal';
 import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
 import WarehouseSetupModal from '../../components/warehouse/WarehouseSetupModal';
 import {
@@ -52,6 +53,9 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [profile, setProfile] = useState(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [confirmDispatchLot, setConfirmDispatchLot] = useState(null);
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [feedbackToast, setFeedbackToast] = useState('');
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,14 +176,23 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
     );
   });
 
-  const handleDispatchLot = async (item) => {
-    if (window.confirm(`Issue Gate Pass & mark #${item.receiptNumber} (${item.commodity} ${item.totalQuantity} ${item.unit}) as dispatched?`)) {
-      try {
-        await dispatchProduceFromWarehouse(item.id);
-        await loadData();
-      } catch (err) {
-        console.error('Failed to dispatch lot:', err);
-      }
+  const handleOpenDispatchConfirm = (item) => {
+    setConfirmDispatchLot(item);
+  };
+
+  const handleExecuteDispatch = async () => {
+    if (!confirmDispatchLot) return;
+    setIsDispatching(true);
+    try {
+      await dispatchProduceFromWarehouse(confirmDispatchLot.id);
+      setFeedbackToast(`✓ Outbound Gate Pass issued. Lot #${confirmDispatchLot.receiptNumber} moved to Dispatched History.`);
+      setTimeout(() => setFeedbackToast(''), 4000);
+      setConfirmDispatchLot(null);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to dispatch lot:', err);
+    } finally {
+      setIsDispatching(false);
     }
   };
 
@@ -542,8 +555,8 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => handleDispatchLot(item)}
-                            className="text-[11px] font-semibold py-1.5 px-2 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40"
+                            onClick={() => handleOpenDispatchConfirm(item)}
+                            className="text-[11px] font-semibold py-1.5 px-2 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 cursor-pointer"
                             title="Issue gate pass & clear lot"
                           >
                             Mark Dispatched
@@ -555,7 +568,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                           onClick={() => setSelectedReceipt(item)}
                           icon={ArrowRight}
                           iconPosition="right"
-                          className="text-xs font-bold py-1.5 px-3"
+                          className="text-xs font-bold py-1.5 px-3 cursor-pointer"
                         >
                           Audit e-NWR
                         </Button>
@@ -742,6 +755,32 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         )}
 
       </div>
+
+      {/* Feedback Toast Notification */}
+      {feedbackToast && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200">
+          <CheckCircle className="w-5 h-5 text-[#34D399] shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold">{feedbackToast}</span>
+        </div>
+      )}
+
+      {/* Dispatch Confirmation Overlay Modal */}
+      {confirmDispatchLot && (
+        <AlertModal
+          isOpen={Boolean(confirmDispatchLot)}
+          onClose={() => setConfirmDispatchLot(null)}
+          title="Confirm Gate Exit & Outbound Dispatch"
+          type="dispatch"
+          message={`Generate Outbound Gate Pass & dispatch #${confirmDispatchLot.receiptNumber}?`}
+          description={`Commodity: ${confirmDispatchLot.commodity} (${confirmDispatchLot.totalQuantity} ${confirmDispatchLot.unit}) • Depositor: ${confirmDispatchLot.farmerName}. Once dispatched, this batch will be permanently recorded in your Dispatched History and excluded from active chamber capacity counts.`}
+          confirmText="Issue Gate Pass & Dispatch"
+          cancelText="Cancel"
+          showCancel={true}
+          isProcessing={isDispatching}
+          onConfirm={handleExecuteDispatch}
+          onCancel={() => setConfirmDispatchLot(null)}
+        />
+      )}
 
       {/* e-NWR Inspection Modal */}
       {selectedReceipt && (

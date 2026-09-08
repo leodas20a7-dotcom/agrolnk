@@ -449,21 +449,29 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                               </span>
                             </div>
 
-                            <a
-                              href={doc.fileUrl || '#'}
-                              onClick={(e) => {
-                                if (!doc.fileUrl) {
-                                  e.preventDefault();
-                                  alert(`Opening document file "${displayFileName}" (Credential No: ${doc.number})`);
-                                }
-                              }}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F2FBF6] hover:text-[#0B3326] text-xs font-semibold text-[#566861] flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5 text-[#10B981]" />
-                              <span>Open {isPdf ? 'PDF' : 'File'}</span>
-                            </a>
+                            {doc.fileUrl ? (
+                              <a
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F2FBF6] hover:text-[#0B3326] text-xs font-semibold text-[#566861] flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 text-[#10B981]" />
+                                <span>Open {isPdf ? 'PDF' : 'File'}</span>
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFeedbackMessage(`Auditing credential: ${displayFileName} (ID: ${doc.number})`);
+                                  setTimeout(() => setFeedbackMessage(''), 3500);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F2FBF6] hover:text-[#0B3326] text-xs font-semibold text-[#566861] flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-[#10B981]" />
+                                <span>Inspect ID</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
