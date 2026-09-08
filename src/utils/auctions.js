@@ -401,9 +401,11 @@ export async function finalizeAuction(auctionId) {
           if (createdOrder) {
             try {
               const deliveryId = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              const deliveryNum = `DEL-${Math.floor(1000 + Math.random() * 9000)}`;
               await supabase.from('deliveries').insert([
                 {
                   id: deliveryId,
+                  delivery_number: deliveryNum,
                   order_id: createdOrder.id,
                   order_number: createdOrder.order_number,
                   farmer_id: createdOrder.farmer_id,
@@ -411,6 +413,8 @@ export async function finalizeAuction(auctionId) {
                   buyer_id: createdOrder.buyer_id,
                   buyer_name: createdOrder.buyer_name,
                   commodity: createdOrder.commodity,
+                  grade: createdOrder.grade || 'A',
+                  variety: createdOrder.variety || 'Standard Lot',
                   quantity: createdOrder.quantity,
                   unit: createdOrder.unit,
                   pickup_location: {
@@ -480,14 +484,14 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
 
     const nowIso = new Date().toISOString();
 
-    // 2. Mark auction completed early
+    // 2. Mark auction completed early with valid schema columns
     const { data: updatedAuction, error: updateErr } = await supabase
       .from('auctions')
       .update({
         status: 'completed',
-        winning_bid: acceptedBid,
-        winner_id: winnerId,
-        winner_name: winnerName,
+        current_bid: acceptedBid,
+        highest_bidder_id: winnerId,
+        highest_bidder_name: winnerName,
         end_time: nowIso,
         updated_at: nowIso,
       })
@@ -495,7 +499,10 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
       .select()
       .single();
 
-    if (updateErr) throw updateErr;
+    if (updateErr) {
+      console.error('Auction status update error:', updateErr);
+      throw updateErr;
+    }
 
     // 3. Create Escrow Order & Delivery
     const { data: existingOrders } = await supabase
@@ -545,9 +552,11 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
         createdOrder = newOrder;
         try {
           const deliveryId = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const deliveryNum = `DEL-${Math.floor(1000 + Math.random() * 9000)}`;
           await supabase.from('deliveries').insert([
             {
               id: deliveryId,
+              delivery_number: deliveryNum,
               order_id: createdOrder.id,
               order_number: createdOrder.order_number,
               farmer_id: createdOrder.farmer_id,
@@ -555,6 +564,8 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
               buyer_id: createdOrder.buyer_id,
               buyer_name: createdOrder.buyer_name,
               commodity: createdOrder.commodity,
+              grade: createdOrder.grade || 'A',
+              variety: createdOrder.variety || 'Standard Lot',
               quantity: createdOrder.quantity,
               unit: createdOrder.unit,
               pickup_location: {
