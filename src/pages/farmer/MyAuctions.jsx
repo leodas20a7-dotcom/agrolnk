@@ -41,7 +41,16 @@ export default function MyAuctions({ currentUser, onNavigate }) {
   };
 
   useEffect(() => {
-    fetchAuctions();
+    let isMounted = true;
+    const loadAuctions = async () => {
+      try {
+        const data = await getFarmerAuctions(user.id);
+        if (isMounted) setAuctions(data || []);
+      } catch (err) {
+        console.error('Error fetching farmer auctions:', err);
+      }
+    };
+    loadAuctions();
 
     const interval = setInterval(() => {
       setTimeNow(Date.now());
