@@ -18,7 +18,7 @@ import {
   FileCheck2,
   AlertCircle
 } from 'lucide-react';
-import { getWarehouseOperatorStats, getWarehouseInventory, getWarehouseById } from '../../utils/warehouses';
+import { getWarehouseOperatorStats, getWarehouseInventory, getWarehouseById, getWarehouseReceipts } from '../../utils/warehouses';
 
 export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
