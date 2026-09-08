@@ -28,7 +28,7 @@ export default function InstitutionalUnderwriteModal({
   const [approvedAmount, setApprovedAmount] = useState(
     request.approvedAmount || request.requestedAmount || 50000
   );
-  const [interestRate, setInterestRate] = useState(request.interestRate || 9.5);
+  const [interestRate, setInterestRate] = useState(request.interestRate || 0.85);
   const [tenorDays, setTenorDays] = useState(request.tenorDays || 30);
   const [riskRating, setRiskRating] = useState(request.riskRating || 'Low (Tier 1)');
   const [reviewNotes, setReviewNotes] = useState(request.notes || '');
@@ -38,7 +38,7 @@ export default function InstitutionalUnderwriteModal({
   const totalValue = request.transactionValue || approvedAmount;
   const ltv = Number(((approvedAmount / totalValue) * 100).toFixed(1));
   const estimatedInterestReturn = Math.round(
-    approvedAmount * (interestRate / 100) * (tenorDays / 365)
+    approvedAmount * (interestRate / 100) * (tenorDays / 30)
   );
   const totalSettlementReturn = approvedAmount + estimatedInterestReturn;
 
@@ -174,19 +174,19 @@ export default function InstitutionalUnderwriteModal({
               />
             </div>
 
-            {/* Interest Rate APR */}
+            {/* Interest Rate Monthly */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#14211D] flex items-center justify-between">
-                <span>Interest Rate (APR %)</span>
-                <span className="text-[10px] text-[#566861]">p.a.</span>
+                <span>Monthly Interest Rate (%)</span>
+                <span className="text-[10px] text-[#10B981] font-semibold">/ month</span>
               </label>
               <input
                 type="number"
-                step="0.1"
+                step="0.05"
                 value={interestRate}
                 onChange={(e) => setInterestRate(Number(e.target.value))}
-                min={5}
-                max={24}
+                min={0.1}
+                max={5.0}
                 className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 required
               />

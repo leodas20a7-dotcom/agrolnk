@@ -96,7 +96,7 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded }) {
         <div className="p-4 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326] space-y-1.5">
           <div className="flex items-center gap-2 font-bold">
             <TrendingUp className="w-4 h-4 text-[#10B981]" />
-            <span>Target Portfolio Yield: 11.4% APR</span>
+            <span>Target Portfolio Yield: 0.95% / month</span>
           </div>
           <p className="text-[11px] text-[#566861]">
             Funds are earmarked exclusively for certified WDRA warehouse inventory loans and verified buyer escrow trade discounting.

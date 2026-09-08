@@ -206,19 +206,24 @@ export async function getDisbursements() {
     const requests = await getFinancingRequests();
     return requests
       .filter((r) => r.status === 'approved' || r.status === 'disbursed')
-      .map((r, i) => ({
-        id: `disb_${r.id}`,
-        refNumber: `DISB-2026-00${i + 1}`,
-        requestId: r.id,
-        requestNumber: r.requestNumber,
-        applicantName: r.applicantName,
-        amount: r.approvedAmount,
-        interestRate: 9.5,
-        tenorDays: 30,
-        expectedReturn: Math.round(r.approvedAmount * 1.025),
-        status: 'active',
-        disbursedAt: r.createdAt,
-      }));
+      .map((r, i) => {
+        const monthlyRate = 0.85; // 0.85% per month
+        const tenorDays = 30;
+        const expectedReturn = Math.round(r.approvedAmount * (1 + (monthlyRate / 100) * (tenorDays / 30)));
+        return {
+          id: `disb_${r.id}`,
+          refNumber: `DISB-2026-00${i + 1}`,
+          requestId: r.id,
+          requestNumber: r.requestNumber,
+          applicantName: r.applicantName,
+          amount: r.approvedAmount,
+          interestRate: monthlyRate,
+          tenorDays,
+          expectedReturn,
+          status: 'active',
+          disbursedAt: r.createdAt,
+        };
+      });
   } catch (err) {
     console.error('Error in getDisbursements:', err);
     return [];
@@ -249,6 +254,7 @@ export async function getFinancingRequestForOrder(orderNumberOrId) {
  */
 export async function getFinancingRequestById(id) {
   try {
+    if (!id) return null;
     const { data, error } = await supabase
       .from('financing_requests')
       .select('*')
@@ -271,7 +277,7 @@ export function getLiquidityPool() {
     availableLiquidity: 7500000,
     deployedLiquidity: 2500000,
     utilizationRate: 25,
-    weightedAvgReturn: 10.5,
+    weightedAvgReturn: 0.95, // 0.95% per month
     nonPerformingRate: 0.0,
     activeTranches: 4,
   };
@@ -304,7 +310,7 @@ export async function getFinancingStats() {
       activeLoansCount: approved.length,
       totalCommittedPool: 10000000,
       availableLiquidity: Math.max(0, 10000000 - totalApproved),
-      averageInterestRate: 9.5,
+      averageInterestRate: 0.85, // 0.85% per month
     };
   } catch (err) {
     console.error('Error in getFinancingStats:', err);
@@ -316,7 +322,7 @@ export async function getFinancingStats() {
       activeLoansCount: 0,
       totalCommittedPool: 10000000,
       availableLiquidity: 10000000,
-      averageInterestRate: 9.5,
+      averageInterestRate: 0.85,
     };
   }
 }

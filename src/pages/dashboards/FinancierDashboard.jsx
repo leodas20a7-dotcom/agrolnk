@@ -175,19 +175,19 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
           <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
             <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
               <span className="font-semibold truncate">
-                <span className="sm:hidden">Avg Yield (IRR)</span>
-                <span className="hidden sm:inline">Weighted Average Yield (IRR)</span>
+                <span className="sm:hidden">Avg Monthly Yield</span>
+                <span className="hidden sm:inline">Weighted Monthly Yield</span>
               </span>
               <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center shrink-0">
                 <PercentIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#10B981] font-heading">
-              {activeLoans.length > 0 ? (stats?.averageInterestRate || 9.5) : 0}% <span className="text-[10px] sm:text-xs text-[#566861] font-normal">p.a.</span>
+              {activeLoans.length > 0 ? (stats?.averageInterestRate || 0.85) : 0}% <span className="text-[10px] sm:text-xs text-[#566861] font-normal">/ month</span>
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="hidden sm:inline">Net fee</span>
-              <span className="text-[#10B981] font-bold">{activeLoans.length > 0 ? '+1.8% vs MIBOR' : 'No Active Loans'}</span>
+              <span className="hidden sm:inline">Interest frequency</span>
+              <span className="text-[#10B981] font-bold">{activeLoans.length > 0 ? 'Per Month (30-day)' : 'No Active Loans'}</span>
             </div>
           </Card>
 
@@ -473,7 +473,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                           ₹{Number(disb.expectedReturn || disb.amount || 0).toLocaleString('en-IN')}
                         </span>
                         <span className="text-[10px] text-[#10B981] font-semibold">
-                          {disb.interestRate || 9.5}% APR
+                          {disb.interestRate || 0.85}% / mo
                         </span>
                       </div>
                     </div>

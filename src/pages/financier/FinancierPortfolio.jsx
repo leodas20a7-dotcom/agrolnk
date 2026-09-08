@@ -133,7 +133,7 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
               +₹{totalYieldEarned.toLocaleString('en-IN')}
             </div>
             <div className="text-[10px] sm:text-[11px] text-[#10B981] font-bold">
-              Avg IRR: 10.8% p.a.
+              Avg Yield: 0.90% / mo
             </div>
           </Card>
         </div>
@@ -154,9 +154,9 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
           <div className="space-y-3.5">
             {activeLoans.map((loan) => {
               const approvedAmt = loan.approvedAmount || loan.requestedAmount;
-              const rate = loan.interestRate || 9.5;
+              const rate = loan.interestRate || 0.85;
               const tenor = loan.tenorDays || 30;
-              const estInterest = Math.round(approvedAmt * (rate / 100) * (tenor / 365));
+              const estInterest = Math.round(approvedAmt * (rate / 100) * (tenor / 30));
 
               return (
                 <Card
@@ -191,9 +191,9 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-[#566861] block">Interest APR</span>
+                        <span className="text-[10px] text-[#566861] block">Interest Rate</span>
                         <span className="font-bold text-[#10B981] text-xs sm:text-sm">
-                          {rate}% p.a.
+                          {rate}% / month
                         </span>
                       </div>
                       <div>

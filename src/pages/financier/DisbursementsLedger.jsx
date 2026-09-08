@@ -201,7 +201,7 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
 
                     <td className="p-4">
                       <span className="font-bold text-[#14211D] block">
-                        {d.interestRate}% APR
+                        {d.interestRate}% / month
                       </span>
                       <span className="text-[10px] text-[#566861]">
                         {d.tenorDays} Days

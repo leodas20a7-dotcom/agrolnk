@@ -300,7 +300,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                   {/* Card Actions */}
                   <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
                     <span className="text-[11px] text-[#566861]">
-                      Proposed Rate: <b>{req.interestRate || 9.5}% APR</b>
+                      Proposed Rate: <b>{req.interestRate || 0.85}% / mo</b>
                     </span>
 
                     <Button
