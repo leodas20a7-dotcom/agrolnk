@@ -294,3 +294,128 @@ export async function getWarehouseInventory(warehouseId) {
     return [];
   }
 }
+
+const WAREHOUSE_PROFILES_KEY = 'agrolnk_warehouse_profiles';
+
+/**
+ * Get warehouse profile for a specific user/operator
+ */
+export function getWarehouseProfile(userId, userEmail) {
+  try {
+    const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+    if (userId && profiles[userId]) {
+      return profiles[userId];
+    }
+    if (userEmail && profiles[userEmail]) {
+      return profiles[userEmail];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save or update warehouse profile & sync with Admin KYC Registry
+ */
+export async function saveWarehouseProfile(userId, profileData) {
+  try {
+    const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+
+    const updated = {
+      ...profiles[userId],
+      ...profileData,
+      userId,
+      setupCompleted: true,
+      updatedAt: new Date().toISOString(),
+    };
+
+    profiles[userId] = updated;
+    if (profileData.email) {
+      profiles[profileData.email] = updated;
+    }
+    localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
+
+    // Also sync to Admin KYC registry
+    try {
+      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+      const registry = storedRaw ? JSON.parse(storedRaw) : [];
+      const userIndex = registry.findIndex(
+        (u) => u.id === userId || (profileData.email && u.email === profileData.email)
+      );
+
+      const docList = [
+        {
+          type: 'WDRA Accreditation Certificate',
+          number: profileData.wdraCode || 'WDRA Submitted',
+          status: 'pending',
+          fileUrl: profileData.documentUrls?.wdraCert || '',
+          fileName: profileData.documentNames?.wdraCert || 'wdra_certificate.pdf',
+        },
+        {
+          type: 'GST / Commercial Storage License',
+          number: profileData.gstin || 'GST Submitted',
+          status: 'pending',
+          fileUrl: profileData.documentUrls?.gstinCert || '',
+          fileName: profileData.documentNames?.gstinCert || 'gst_certificate.pdf',
+        },
+      ];
+
+      if (profileData.documentUrls?.insuranceCert) {
+        docList.push({
+          type: 'Storage Facility Insurance / FSSAI',
+          number: 'Insured Facility',
+          status: 'pending',
+          fileUrl: profileData.documentUrls.insuranceCert,
+          fileName: profileData.documentNames?.insuranceCert || 'insurance_policy.pdf',
+        });
+      }
+
+      const storageTypeSummary = Array.isArray(profileData.storageTypes)
+        ? profileData.storageTypes.map((t) => `${t.name} (${t.capacity}T)`).join(', ')
+        : 'Multi-Chamber';
+
+      const auditNotes = `Facility: ${profileData.companyName || profileData.warehouseName} • Total Capacity: ${profileData.totalCapacityTonnes} Tonnes (${storageTypeSummary}) • WDRA: ${profileData.wdraCode || 'N/A'} • Website: ${profileData.websiteUrl || 'None'}`;
+
+      if (userIndex >= 0) {
+        registry[userIndex] = {
+          ...registry[userIndex],
+          orgName: profileData.companyName || profileData.warehouseName || registry[userIndex].orgName,
+          state: profileData.state || registry[userIndex].state,
+          district: profileData.district || registry[userIndex].district,
+          websiteUrl: profileData.websiteUrl || '',
+          verificationStatus: 'pending',
+          documents: docList,
+          auditNotes,
+        };
+      } else {
+        registry.unshift({
+          id: userId,
+          name: profileData.operatorName || 'Warehouse Operator',
+          role: 'warehouse',
+          email: profileData.email || '',
+          phone: profileData.phone || '',
+          state: profileData.state || 'Tamil Nadu',
+          district: profileData.district || 'Salem',
+          orgName: profileData.companyName || profileData.warehouseName || 'Agri Storage Facility',
+          websiteUrl: profileData.websiteUrl || '',
+          verificationStatus: 'pending',
+          submittedAt: new Date().toISOString(),
+          documents: docList,
+          auditNotes,
+        });
+      }
+      localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
+    } catch (regErr) {
+      console.warn('KYC registry sync warning:', regErr);
+    }
+
+    return updated;
+  } catch (err) {
+    console.error('Error saving warehouse profile:', err);
+    throw err;
+  }
+}
+

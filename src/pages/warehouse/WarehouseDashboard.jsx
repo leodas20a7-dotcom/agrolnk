@@ -4,6 +4,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
+import WarehouseSetupModal from '../../components/warehouse/WarehouseSetupModal';
 import {
   Building2,
   Package,
@@ -16,14 +17,25 @@ import {
   ArrowRight,
   TrendingUp,
   FileCheck2,
-  AlertCircle
+  AlertCircle,
+  Globe,
+  Settings,
+  Zap,
+  ExternalLink
 } from 'lucide-react';
-import { getWarehouseOperatorStats, getWarehouseInventory, getWarehouseById, getWarehouseReceipts } from '../../utils/warehouses';
+import {
+  getWarehouseOperatorStats,
+  getWarehouseInventory,
+  getWarehouseById,
+  getWarehouseReceipts,
+  getWarehouseProfile,
+} from '../../utils/warehouses';
 
 export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
     id: 'usr_warehouse_05',
-    name: 'Salem Agri Cold Storage Hub',
+    name: 'Sundar',
+    email: 'sundar@gmail.com',
     role: 'warehouse',
   };
 
@@ -31,11 +43,21 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
 
   const loadData = async () => {
     try {
+      const storedProfile = getWarehouseProfile(user.id, user.email);
+      setProfile(storedProfile);
+
+      // Auto-open setup if new warehouse user hasn't configured their facility
+      if (!storedProfile || !storedProfile.setupCompleted) {
+        setIsSetupModalOpen(true);
+      }
+
       const [computedStats, inv] = await Promise.all([
-        getWarehouseOperatorStats('wh_salem_01'),
+        getWarehouseOperatorStats(user.id || 'wh_salem_01'),
         getWarehouseReceipts(),
       ]);
       setStats(computedStats);
@@ -47,57 +69,134 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadData();
-  }, [user.id]);
+  }, [user.id, user.email]);
 
   const safeInventory = Array.isArray(inventory) ? inventory : [];
   const activeReceipts = safeInventory.filter((r) => r.status === 'stored' || r.status === 'partially_listed');
   const totalStoredTonnes = Number((activeReceipts.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
-  const totalCapacityTonnes = 5000;
+  
+  const totalCapacityTonnes = profile?.totalCapacityTonnes ? Number(profile.totalCapacityTonnes) : 0;
   const occupancyPercent = totalCapacityTonnes > 0 ? Number(((totalStoredTonnes / totalCapacityTonnes) * 100).toFixed(1)) : 0;
 
-  const warehouse = {
-    name: 'Salem Agri Cold Storage Hub',
-    wdraCode: 'WDRA/2024/TN/0892',
-    facilityType: 'WDRA Certified Cold Storage',
-    address: 'Omalur Main Road, NH-44 Agri Corridor, Salem - 636004',
-    totalCapacityTonnes,
-    occupiedTonnes: totalStoredTonnes,
-    occupancyPercent,
-  };
+  const warehouseName = profile?.warehouseName || profile?.companyName || (user.name ? `${user.name} Agri Storage Terminal` : 'Agri Cold Storage Terminal');
+  const wdraCode = profile?.wdraCode || 'WDRA / License Pending Submission';
+  const facilityAddress = profile?.address 
+    ? `${profile.address}, ${profile.district || 'Salem'} - ${profile.pincode || '636004'}`
+    : `${user.district || 'Salem'}, ${user.state || 'Tamil Nadu'}`;
 
-  const chambersList = [
-    { name: 'Chamber A1 (Dry Storage)', temp: 'Ambient (24°C)', capacity: '1,200 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('A1')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Turmeric, Grains' },
-    { name: 'Chamber B2 (Cold Cell)', temp: '4°C - 8°C', capacity: '1,500 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('B2')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Potatoes, Carrots' },
-    { name: 'Chamber B4 (Ultra Cold)', temp: '2°C - 4°C', capacity: '1,300 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('B4')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Hybrid Tomatoes, Fruits' },
-    { name: 'Chamber C1 (CA Controlled)', temp: '0°C - 2°C (CA)', capacity: '1,000 T', occupied: `${(safeInventory.filter((r) => (r.chamber || '').includes('C1')).reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1)} T`, pct: 0, commodities: 'Export Apples, Grapes' },
-  ];
+  // Dynamic chambers list from user's configured storage types
+  const chambersList = profile?.storageTypes && profile.storageTypes.length > 0
+    ? profile.storageTypes.map((st, i) => {
+        const matchingLots = safeInventory.filter((r) => (r.chamber || '').toLowerCase().includes(st.name.toLowerCase()) || i === 0);
+        const storedInChamberT = Number((matchingLots.reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
+        const pct = st.capacity > 0 ? Math.min(100, Math.round((storedInChamberT / st.capacity) * 100)) : 0;
+        return {
+          name: st.name,
+          temp: st.temp || 'Controlled',
+          capacity: `${Number(st.capacity).toLocaleString('en-IN')} T`,
+          occupied: `${storedInChamberT} T`,
+          pct,
+          commodities: matchingLots.map(r => r.commodity).filter(Boolean).slice(0, 2).join(', ') || 'Available for Inbound Lots',
+        };
+      })
+    : [
+        { name: 'Chamber 1 (Cold Chain)', temp: '2°C - 8°C', capacity: `${totalCapacityTonnes || 1000} T`, occupied: `${totalStoredTonnes} T`, pct: occupancyPercent, commodities: 'Horticulture & Produce' },
+      ];
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
         
-        {/* Top Header Banner */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Building2 className="w-3.5 h-3.5" /> Warehouse Management & e-NWR Terminal
+        {/* Setup Required Prompt Banner if not completed */}
+        {(!profile || !profile.setupCompleted) && (
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#D97706] text-white flex items-center justify-center shrink-0">
+                <Zap className="w-5 h-5 fill-white" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <h4 className="font-bold text-sm text-[#92400E]">
+                  Facility Setup & KYC Required
+                </h4>
+                <p className="text-xs text-[#92400E]/90">
+                  Please configure your actual warehouse capacity in tonnes, chamber types, and submit your WDRA compliance documents.
+                </p>
+              </div>
             </div>
+            <Button
+              variant="accent"
+              size="sm"
+              icon={ShieldCheck}
+              iconPosition="left"
+              onClick={() => setIsSetupModalOpen(true)}
+              className="font-bold text-xs py-2.5 px-4 shadow-xs shrink-0 cursor-pointer"
+            >
+              Complete Facility Setup & KYC
+            </Button>
+          </div>
+        )}
+
+        {/* Top Header Banner */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
+          <div className="space-y-2 max-w-2xl text-left">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
+                <Building2 className="w-3.5 h-3.5" /> Warehouse Management & e-NWR Terminal
+              </div>
+              {profile?.setupCompleted ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
+                  <CheckCircle2 className="w-3 h-3" /> Profile Configured
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
+                  <Clock className="w-3 h-3" /> Setup Incomplete
+                </span>
+              )}
+            </div>
+
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
-              {warehouse.name}
+              {warehouseName}
             </h1>
+
             <p className="text-xs sm:text-sm text-[#DCFCE7]/90 leading-relaxed">
-              WDRA License: <strong>{warehouse.wdraCode}</strong> • {warehouse.facilityType} • {warehouse.address}
+              WDRA License: <strong>{wdraCode}</strong> • {facilityAddress}
             </p>
+
+            {profile?.websiteUrl && (
+              <a
+                href={profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-[#34D399] hover:underline font-semibold"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>{profile.websiteUrl}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-right shrink-0">
-            <span className="text-white/80 block">Accredited Capacity</span>
-            <span className="font-bold text-[#34D399] block text-base font-heading">
-              {warehouse.totalCapacityTonnes} Tonnes
-            </span>
-            <span className="text-[11px] text-white/70 block">
-              Multi-Chamber Cold Chain
-            </span>
+          <div className="flex sm:flex-col items-center sm:items-end justify-between w-full lg:w-auto gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/10">
+            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-left sm:text-right shrink-0">
+              <span className="text-white/80 block text-[11px]">Accredited Capacity</span>
+              <span className="font-bold text-[#34D399] block text-base sm:text-lg font-heading">
+                {totalCapacityTonnes > 0 ? `${totalCapacityTonnes.toLocaleString('en-IN')} Tonnes` : 'Not Set'}
+              </span>
+              <span className="text-[10px] text-white/70 block">
+                {profile?.storageTypes?.length ? `${profile.storageTypes.length} Storage Chamber Types` : 'Multi-Chamber'}
+              </span>
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={FileCheck2}
+              iconPosition="left"
+              onClick={() => setIsSetupModalOpen(true)}
+              className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white text-xs font-bold py-2 px-3.5 cursor-pointer shrink-0"
+            >
+              {profile?.setupCompleted ? 'Edit Facility & KYC' : 'Complete Setup'}
+            </Button>
           </div>
         </div>
 
@@ -112,10 +211,10 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {warehouse.occupancyPercent}%
+              {occupancyPercent}%
             </div>
             <div className="text-[11px] text-[#566861]">
-              {warehouse.occupiedTonnes} T occupied / {warehouse.totalCapacityTonnes} T
+              {totalStoredTonnes} T occupied / {totalCapacityTonnes > 0 ? totalCapacityTonnes : '0'} T
             </div>
           </Card>
 
@@ -350,6 +449,16 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           onClose={() => setSelectedReceipt(null)}
         />
       )}
+
+      {/* Warehouse Facility Setup & KYC Modal */}
+      <WarehouseSetupModal
+        isOpen={isSetupModalOpen}
+        currentUser={user}
+        onClose={() => setIsSetupModalOpen(false)}
+        onProfileSaved={(saved) => {
+          setProfile(saved);
+        }}
+      />
     </DashboardLayout>
   );
 }
