@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { getOrders } from '../../utils/orders';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
+import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
+import { Zap } from 'lucide-react';
 
 export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -31,6 +33,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'locked' | 'released'
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [isEscrowModalOpen, setIsEscrowModalOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -103,16 +106,28 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <Button
-            variant="secondary"
-            size="md"
-            icon={Download}
-            iconPosition="left"
-            onClick={handleExportCSV}
-            className="text-xs font-bold shrink-0 cursor-pointer"
-          >
-            {downloadSuccess ? 'Ledger Exported (CSV) ✓' : 'Export Audit Ledger'}
-          </Button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Button
+              variant="primary"
+              size="md"
+              icon={Zap}
+              iconPosition="left"
+              onClick={() => setIsEscrowModalOpen(true)}
+              className="text-xs font-bold cursor-pointer bg-[#0B3326] text-white hover:bg-[#0A261D]"
+            >
+              ⚡ Live Escrow Gateway & API
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              icon={Download}
+              iconPosition="left"
+              onClick={handleExportCSV}
+              className="text-xs font-bold cursor-pointer"
+            >
+              {downloadSuccess ? 'Ledger Exported (CSV) ✓' : 'Export Audit Ledger'}
+            </Button>
+          </div>
         </div>
 
         {/* 4 Revenue Summary Cards */}
@@ -281,6 +296,12 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             </table>
           </div>
         </div>
+
+        {/* Demo Live Escrow Gateway API & Simulator Modal */}
+        <DemoEscrowLiveModal
+          isOpen={isEscrowModalOpen}
+          onClose={() => setIsEscrowModalOpen(false)}
+        />
 
       </div>
     </DashboardLayout>

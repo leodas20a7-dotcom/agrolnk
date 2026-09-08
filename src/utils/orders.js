@@ -1,6 +1,7 @@
 // Agrolnk Supabase Orders & Settlements Engine
 import { supabase } from '../lib/supabase';
 import { createDelivery } from './deliveries';
+import { processLiveEscrowDeposit, processLiveEscrowRelease } from './escrowApi';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -186,6 +187,20 @@ export async function createOrder(orderData) {
       console.warn('Auto delivery creation notice:', deliveryErr);
     }
 
+    // Register 100% deposit in Live Escrow API Engine
+    try {
+      await processLiveEscrowDeposit({
+        orderNumber: data.order_number,
+        commodity: `${data.commodity} (${data.variety || 'Standard'}, ${data.grade || 'A'})`,
+        tradeAmount: data.total_amount,
+        buyerName: data.buyer_name,
+        farmerName: data.farmer_name,
+        paymentMode: 'Buyer Instant Virtual Nodal UPI',
+      });
+    } catch (escrowErr) {
+      console.warn('Live escrow deposit record notice:', escrowErr);
+    }
+
     return mapOrderFromDb(data);
   } catch (err) {
     console.error('Error creating order:', err);
@@ -222,6 +237,13 @@ export async function confirmOrderReceipt(orderId) {
         .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
     } catch (delSyncErr) {
       console.warn('Delivery sync notice:', delSyncErr);
+    }
+
+    // Trigger Live Escrow Payout Settlement
+    try {
+      await processLiveEscrowRelease(data.order_number || data.id, 'OTP_VERIFIED_CONFIRMED');
+    } catch (escrowReleaseErr) {
+      console.warn('Live escrow payout record notice:', escrowReleaseErr);
     }
 
     return mapOrderFromDb(data);

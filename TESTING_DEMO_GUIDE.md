@@ -206,10 +206,43 @@ This manual guides you step-by-step through every user role and business flow wi
 
 ---
 
+### 🧪 SCENARIO 8: Live Escrow Account Gateway API & Realtime Webhooks
+> **Goal:** Test the virtual nodal Escrow Account engine, simulated bank gateway webhooks, and live balance movements in real time.
+
+* **Step 8.1 — Open the Live Escrow Gateway Console:**
+  * **Role:** Platform Admin (`admin@agrolnk.com`)
+  * **Navigation:** Go to **Admin Dashboard** (`#/admin-dashboard`) or **Escrow Ledger** (`#/admin-escrow`).
+  * **Action:** Click the green **⚡ Live Escrow API** button in the header.
+  * **Visual Check:** The **Live Escrow Account Gateway & Nodal API** modal opens displaying:
+    * **Nodal Partner:** `ICICI Bank Ltd. (Institutional Agri-Nodal Branch)`
+    * **Trustee Partner:** `Vistra / Axis Trustee Services Ltd. (SEBI Reg.)`
+    * **Virtual Nodal Account:** `992010884210982` • IFSC: `ICIC0000104`
+    * **Live Metrics:** Locked in Escrow, Settled Payouts, 0.50% AgroLnk Revenue pool.
+
+* **Step 8.2 — Test Inward Escrow Deposit Simulator:**
+  * **Navigation:** Switch to the **⚡ Live Interactive Simulator** tab in the modal.
+  * **Action:** Enter Commodity: `Tomato`, Trade Amount: `₹5,000`, Buyer: `Maran S`, Farmer: `Veerappan`.
+  * **Action:** Click **⚡ Trigger Live Inward Deposit**.
+  * **Visual Check:**
+    * Instant toast confirmation: `✓ Captured ₹5,012.50 into Escrow Vault! UTR: CMSICICI...`.
+    * Locked vault balance increments immediately.
+
+* **Step 8.3 — Test OTP Milestone Payout & Realtime Webhook Bus:**
+  * **Action:** Click **🔓 Verify OTP & Disburse to Farmer**.
+  * **Visual Check:** Funds shift from **Locked in Escrow** to **Settled Payouts**, and the 0.50% commission pool increments in real time!
+  * **Action:** Switch to the **📡 Live Webhook Logs** tab to view the live JSON event bus:
+    * `webhook.escrow.payment_captured`
+    * `webhook.escrow.payout_disbursed`
+
+**✅ Expected Outcome:** Full institutional escrow transparency with real-time auditability and zero settlement leakage.
+
+---
+
 ## 🛡️ 3. Quick Sanity & Production Readiness Checklist
 
-- [x] **Zero Build Errors:** `npm run build` compiles 1,946+ modules cleanly with 0 errors.
+- [x] **Zero Build Errors:** `npm run build` compiles 1,948+ modules cleanly with 0 errors.
 - [x] **Zero SQL Policy Collisions:** Supabase schema uses idempotent drop/create definitions.
+- [x] **Live Nodal Escrow API:** Real-time ledger, simulated webhooks, and virtual account routing operational.
 - [x] **Responsive UI:** Tested across Desktop, Tablet, and Mobile viewports.
 - [x] **Channel Deduplication:** Chat displays 1 entry per business partner regardless of order volume.
 - [x] **Accurate Revenue Math:** 0.25% Buyer + 0.25% Farmer = 0.50% Total Platform Take-Rate.

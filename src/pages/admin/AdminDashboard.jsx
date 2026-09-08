@@ -16,10 +16,12 @@ import {
   Scale,
   Lock,
   CheckCircle2,
-  Clock
+  Clock,
+  Zap
 } from 'lucide-react';
 import { getAdminMetrics } from '../../utils/admin';
 import { formatINR } from '../../utils/commission';
+import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
 
 export default function AdminDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -44,6 +46,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
     activeDeliveriesCount: 4,
     storedWarehouseTonnes: 12.5,
   });
+  const [isEscrowModalOpen, setIsEscrowModalOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,7 +78,17 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Zap}
+              iconPosition="left"
+              onClick={() => setIsEscrowModalOpen(true)}
+              className="font-semibold text-xs bg-[#10B981] hover:bg-[#059669] text-white cursor-pointer shadow-sm"
+            >
+              ⚡ Live Escrow API
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -271,6 +284,12 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             </div>
           </div>
         </div>
+
+        {/* Live Escrow Gateway & API Console Modal */}
+        <DemoEscrowLiveModal
+          isOpen={isEscrowModalOpen}
+          onClose={() => setIsEscrowModalOpen(false)}
+        />
 
       </div>
     </DashboardLayout>
