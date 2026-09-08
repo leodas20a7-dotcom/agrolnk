@@ -238,12 +238,74 @@ export const DEMO_WAREHOUSES = [
   },
 ];
 
+/**
+ * Get all available active warehouses across the Agrolnk platform.
+ * NOTE: Unconfigured or unsubmitted warehouse accounts are STRICTLY HIDDEN from farmers & buyers.
+ */
 export function getWarehouses() {
-  return DEMO_WAREHOUSES;
+  const activeWarehouses = [...DEMO_WAREHOUSES];
+
+  try {
+    const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+
+    // Only include user warehouse profiles that have explicitly completed setup with valid capacity
+    Object.values(profiles).forEach((p) => {
+      if (p && p.setupCompleted && Number(p.totalCapacityTonnes) > 0) {
+        // Prevent duplicate entries
+        const existingIdx = activeWarehouses.findIndex(
+          (w) => w.id === p.userId || (p.email && w.operatorContact?.includes(p.phone)) || w.name.toLowerCase() === (p.companyName || p.warehouseName || '').toLowerCase()
+        );
+
+        const formattedChambers = Array.isArray(p.storageTypes) && p.storageTypes.length > 0
+          ? p.storageTypes.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
+          : ['Chamber A1 (Multi-Commodity)'];
+
+        const dynamicWh = {
+          id: p.userId || `wh_${Date.now()}`,
+          name: p.companyName || p.warehouseName || 'Agri Storage Hub',
+          code: `WH-${(p.district || 'AG').slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+          wdraCode: p.wdraCode || 'WDRA/2025/APP/PENDING',
+          wdraRegNo: p.wdraCode || 'WDRA/2025/APP/PENDING',
+          location: `${p.district || 'Salem'}, ${p.state || 'Tamil Nadu'}`,
+          district: p.district || 'Salem',
+          state: p.state || 'Tamil Nadu',
+          address: p.address ? `${p.address}, ${p.district} - ${p.pincode || ''}` : `${p.district || 'Salem'}, ${p.state || 'Tamil Nadu'}`,
+          type: 'WDRA Accredited Agri Storage',
+          facilityType: 'WDRA Accredited Agri Storage',
+          capacity: `${Number(p.totalCapacityTonnes).toLocaleString('en-IN')} MT`,
+          totalCapacityTonnes: Number(p.totalCapacityTonnes),
+          occupiedTonnes: 0,
+          occupancyPct: 0,
+          occupancyPercent: 0,
+          temperatureRange: p.storageTypes?.[0]?.temp || '2°C to 12°C',
+          humidityRange: '85% to 95% RH',
+          monthlyRatePerKg: 0.35,
+          monthlyRatePerTonne: 350,
+          operatorContact: p.phone || '+91 98421 88901',
+          websiteUrl: p.websiteUrl || '',
+          commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
+          chambers: formattedChambers,
+          isUserSubmitted: true,
+        };
+
+        if (existingIdx >= 0) {
+          activeWarehouses[existingIdx] = { ...activeWarehouses[existingIdx], ...dynamicWh };
+        } else {
+          activeWarehouses.push(dynamicWh);
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('Error compiling dynamic warehouse list:', err);
+  }
+
+  return activeWarehouses;
 }
 
 export function getWarehouseById(id) {
-  return DEMO_WAREHOUSES.find((w) => w.id === id) || DEMO_WAREHOUSES[0];
+  const all = getWarehouses();
+  return all.find((w) => w.id === id) || all[0];
 }
 
 export const getInventory = getWarehouseReceipts;
@@ -317,7 +379,7 @@ export function getWarehouseProfile(userId, userEmail) {
 }
 
 /**
- * Save or update warehouse profile & sync with Admin KYC Registry
+ * Save or update warehouse profile & persist to Supabase Database (profiles table) and Admin KYC Registry
  */
 export async function saveWarehouseProfile(userId, profileData) {
   try {
@@ -338,7 +400,32 @@ export async function saveWarehouseProfile(userId, profileData) {
     }
     localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
 
-    // Also sync to Admin KYC registry
+    // 1. Persist to Supabase Database 'profiles' table
+    try {
+      const dbPayload = {
+        company_name: profileData.companyName || profileData.warehouseName,
+        state: profileData.state || 'Tamil Nadu',
+        district: profileData.district || 'Salem',
+        kyc_status: 'pending',
+        updated_at: new Date().toISOString(),
+      };
+
+      if (userId) {
+        await supabase
+          .from('profiles')
+          .update(dbPayload)
+          .eq('id', userId);
+      } else if (profileData.email) {
+        await supabase
+          .from('profiles')
+          .update(dbPayload)
+          .eq('email', profileData.email.trim().toLowerCase());
+      }
+    } catch (dbErr) {
+      console.warn('Supabase profile database update notice:', dbErr);
+    }
+
+    // 2. Also sync to Admin KYC registry for administrative compliance approval
     try {
       const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
       const registry = storedRaw ? JSON.parse(storedRaw) : [];

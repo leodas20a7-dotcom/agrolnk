@@ -72,20 +72,24 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   }, [user.id, user.email]);
 
   const safeInventory = Array.isArray(inventory) ? inventory : [];
-  const activeReceipts = safeInventory.filter((r) => r.status === 'stored' || r.status === 'partially_listed');
-  const totalStoredTonnes = Number((activeReceipts.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
-  
-  const totalCapacityTonnes = profile?.totalCapacityTonnes ? Number(profile.totalCapacityTonnes) : 0;
+  const isSetupCompleted = Boolean(profile?.setupCompleted && Number(profile?.totalCapacityTonnes) > 0);
+  const totalCapacityTonnes = isSetupCompleted ? Number(profile.totalCapacityTonnes) : 0;
   const occupancyPercent = totalCapacityTonnes > 0 ? Number(((totalStoredTonnes / totalCapacityTonnes) * 100).toFixed(1)) : 0;
 
-  const warehouseName = profile?.warehouseName || profile?.companyName || (user.name ? `${user.name} Agri Storage Terminal` : 'Agri Cold Storage Terminal');
-  const wdraCode = profile?.wdraCode || 'WDRA / License Pending Submission';
-  const facilityAddress = profile?.address 
+  const warehouseName = isSetupCompleted
+    ? (profile?.companyName || profile?.warehouseName || 'Agri Storage Hub')
+    : (user.companyName || profile?.companyName || profile?.warehouseName || (user.name ? `${user.name} Agri Logistics` : 'Agri Storage Terminal'));
+  
+  const wdraCode = isSetupCompleted && profile?.wdraCode
+    ? profile.wdraCode
+    : 'Pending Facility Setup & KYC Submission';
+
+  const facilityAddress = isSetupCompleted && profile?.address 
     ? `${profile.address}, ${profile.district || 'Salem'} - ${profile.pincode || '636004'}`
-    : `${user.district || 'Salem'}, ${user.state || 'Tamil Nadu'}`;
+    : `${user.district || 'Salem'}, ${user.state || 'Tamil Nadu'} (Address not verified)`;
 
   // Dynamic chambers list from user's configured storage types
-  const chambersList = profile?.storageTypes && profile.storageTypes.length > 0
+  const chambersList = isSetupCompleted && profile?.storageTypes && profile.storageTypes.length > 0
     ? profile.storageTypes.map((st, i) => {
         const matchingLots = safeInventory.filter((r) => (r.chamber || '').toLowerCase().includes(st.name.toLowerCase()) || i === 0);
         const storedInChamberT = Number((matchingLots.reduce((s, r) => s + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
@@ -99,39 +103,42 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           commodities: matchingLots.map(r => r.commodity).filter(Boolean).slice(0, 2).join(', ') || 'Available for Inbound Lots',
         };
       })
-    : [
-        { name: 'Chamber 1 (Cold Chain)', temp: '2°C - 8°C', capacity: `${totalCapacityTonnes || 1000} T`, occupied: `${totalStoredTonnes} T`, pct: occupancyPercent, commodities: 'Horticulture & Produce' },
-      ];
+    : [];
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
         
         {/* Setup Required Prompt Banner if not completed */}
-        {(!profile || !profile.setupCompleted) && (
-          <div className="p-4 sm:p-5 rounded-3xl bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-150">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#D97706] text-white flex items-center justify-center shrink-0">
-                <Zap className="w-5 h-5 fill-white" />
+        {!isSetupCompleted && (
+          <div className="p-4 sm:p-6 rounded-3xl bg-[#FEF3C7] border-2 border-[#F59E0B]/50 text-[#92400E] shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#D97706] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <AlertCircle className="w-6 h-6 text-white" />
               </div>
-              <div className="space-y-0.5 text-left">
-                <h4 className="font-bold text-sm text-[#92400E]">
-                  Facility Setup & KYC Required
-                </h4>
-                <p className="text-xs text-[#92400E]/90">
-                  Please configure your actual warehouse capacity in tonnes, chamber types, and submit your WDRA compliance documents.
+              <div className="space-y-1 text-left">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-extrabold text-sm sm:text-base text-[#92400E]">
+                    Facility Hidden from Farmers — Facility Setup & KYC Required
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold uppercase tracking-wide">
+                    Offline
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-[#78350F] leading-relaxed max-w-3xl">
+                  Without entering your company name, total storage capacity in tonnes, chamber types, and KYC compliance documents, your warehouse is <strong>hidden from all farmers and buyers</strong> across Agrolnk and cannot receive produce deposits or issue e-NWRs.
                 </p>
               </div>
             </div>
             <Button
               variant="accent"
-              size="sm"
+              size="md"
               icon={ShieldCheck}
               iconPosition="left"
               onClick={() => setIsSetupModalOpen(true)}
-              className="font-bold text-xs py-2.5 px-4 shadow-xs shrink-0 cursor-pointer"
+              className="font-extrabold text-xs sm:text-sm py-3 px-5 shadow-md shrink-0 cursor-pointer w-full lg:w-auto"
             >
-              Complete Facility Setup & KYC
+              Complete Facility Setup & KYC Now
             </Button>
           </div>
         )}
@@ -143,13 +150,13 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
                 <Building2 className="w-3.5 h-3.5" /> Warehouse Management & e-NWR Terminal
               </div>
-              {profile?.setupCompleted ? (
+              {isSetupCompleted ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
-                  <CheckCircle2 className="w-3 h-3" /> Profile Configured
+                  <CheckCircle2 className="w-3 h-3" /> Live & Visible to Farmers
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
-                  <Clock className="w-3 h-3" /> Setup Incomplete
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
+                  <AlertCircle className="w-3 h-3" /> Offline & Hidden (Setup Pending)
                 </span>
               )}
             </div>
@@ -162,7 +169,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               WDRA License: <strong>{wdraCode}</strong> • {facilityAddress}
             </p>
 
-            {profile?.websiteUrl && (
+            {profile?.websiteUrl && isSetupCompleted && (
               <a
                 href={profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}`}
                 target="_blank"
@@ -180,10 +187,10 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-left sm:text-right shrink-0">
               <span className="text-white/80 block text-[11px]">Accredited Capacity</span>
               <span className="font-bold text-[#34D399] block text-base sm:text-lg font-heading">
-                {totalCapacityTonnes > 0 ? `${totalCapacityTonnes.toLocaleString('en-IN')} Tonnes` : 'Not Set'}
+                {totalCapacityTonnes > 0 ? `${totalCapacityTonnes.toLocaleString('en-IN')} Tonnes` : '0 Tonnes (Setup Required)'}
               </span>
               <span className="text-[10px] text-white/70 block">
-                {profile?.storageTypes?.length ? `${profile.storageTypes.length} Storage Chamber Types` : 'Multi-Chamber'}
+                {isSetupCompleted && profile?.storageTypes?.length ? `${profile.storageTypes.length} Storage Chamber Types` : 'Setup Pending'}
               </span>
             </div>
 
@@ -195,7 +202,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               onClick={() => setIsSetupModalOpen(true)}
               className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white text-xs font-bold py-2 px-3.5 cursor-pointer shrink-0"
             >
-              {profile?.setupCompleted ? 'Edit Facility & KYC' : 'Complete Setup'}
+              {isSetupCompleted ? 'Edit Facility & KYC' : 'Complete Setup & Go Live'}
             </Button>
           </div>
         </div>
