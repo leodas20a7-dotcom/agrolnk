@@ -14,6 +14,7 @@ export default function VerificationRequiredModal({
   const [docNumber, setDocNumber] = useState('');
   const [businessName, setBusinessName] = useState(currentUser?.companyName || '');
   const [fileName, setFileName] = useState('');
+  const [selectedFileObj, setSelectedFileObj] = useState(null);
   const [fileFormat, setFileFormat] = useState('PDF');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -53,13 +54,14 @@ export default function VerificationRequiredModal({
     setFieldErrors((prev) => ({ ...prev, file: '' }));
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setErrorMessage('File size exceeds 10MB limit. Please upload a smaller file.');
+      // Validate file size (max 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        setErrorMessage('File size exceeds 50MB limit. Please upload a smaller file.');
         return;
       }
 
       setFileName(file.name);
+      setSelectedFileObj(file);
       if (file.name.toLowerCase().endsWith('.pdf')) {
         setFileFormat('PDF');
       } else if (file.name.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/)) {
@@ -67,6 +69,7 @@ export default function VerificationRequiredModal({
       } else {
         setErrorMessage('Invalid file format. Please upload a PDF, PNG, or JPG file.');
         setFileName('');
+        setSelectedFileObj(null);
       }
     }
   };
@@ -117,7 +120,7 @@ export default function VerificationRequiredModal({
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -129,6 +132,40 @@ export default function VerificationRequiredModal({
     setIsSubmitting(true);
 
     try {
+      let publicFileUrl = '';
+      let formattedFileSize = '1.5 MB';
+
+      // 1. Upload file directly to Supabase Storage 'proof' bucket
+      if (selectedFileObj) {
+        const safeUserId = (currentUser?.id || 'usr').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const timestamp = Date.now();
+        const safeDocName = selectedFileObj.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `kyc/${safeUserId}_${timestamp}_${safeDocName}`;
+
+        const sizeInMb = (selectedFileObj.size / (1024 * 1024)).toFixed(1);
+        formattedFileSize = `${sizeInMb} MB`;
+
+        try {
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from('proof')
+            .upload(storagePath, selectedFileObj, {
+              cacheControl: '3600',
+              upsert: true,
+            });
+
+          if (uploadErr) {
+            console.warn('Supabase storage upload notice:', uploadErr);
+          } else {
+            const { data: urlData } = supabase.storage
+              .from('proof')
+              .getPublicUrl(storagePath);
+            publicFileUrl = urlData?.publicUrl || '';
+          }
+        } catch (storageEx) {
+          console.warn('Storage service upload notice:', storageEx);
+        }
+      }
+
       const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
       const registry = storedRaw ? JSON.parse(storedRaw) : [];
       const userIndex = registry.findIndex(
@@ -156,9 +193,9 @@ export default function VerificationRequiredModal({
             number: docNumber.trim().toUpperCase(),
             fileName: uploadedDocName,
             format: fileFormat,
-            fileSize: '1.8 MB',
+            fileSize: formattedFileSize,
             status: 'pending',
-            fileUrl: '',
+            fileUrl: publicFileUrl,
           },
         ],
         auditNotes: `Submitted ${docType} (${docNumber.trim().toUpperCase()}) in ${fileFormat} format for trading verification.`,
@@ -175,12 +212,12 @@ export default function VerificationRequiredModal({
 
       localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
 
-      // Sync submission with Supabase Database
+      // 2. Sync submission with Supabase Database (profiles table)
       try {
         const userId = currentUser?.id;
         const userEmail = currentUser?.email;
         if (userId || userEmail) {
-          supabase
+          const { error: dbErr } = await supabase
             .from('profiles')
             .update({
               kyc_status: 'pending',
@@ -193,16 +230,15 @@ export default function VerificationRequiredModal({
               },
               updated_at: new Date().toISOString(),
             })
-            .or(`id.eq.${userId},email.eq.${userEmail}`)
-            .then(({ error: dbErr }) => {
-              if (dbErr) console.warn('Supabase KYC document sync notice:', dbErr);
-            });
+            .or(`id.eq.${userId},email.eq.${userEmail}`);
+
+          if (dbErr) console.warn('Supabase KYC document sync notice:', dbErr);
         }
       } catch (dbEx) {
         console.warn('Supabase update notice:', dbEx);
       }
 
-      // Update current user cached status
+      // 3. Update current user cached status
       try {
         const cached = localStorage.getItem('agrolnkUser');
         if (cached) {

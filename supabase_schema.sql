@@ -413,3 +413,22 @@ VALUES
     ('insp_102', 'INSP-2026-4419', NULL, 'AGM-9266', 'usr_buyer_02', 'Ananya Agro Foods', 'veerappan (Salem Producer)', 'Tomato', 'Hybrid Shivam Tomato', 100, 98.5, 'A', 'A', 9.4, 0.2, 'passed', 3000, 'AgroLnk Certified Assayer (Govind)', 'Physical inspection & moisture meter testing completed at farmgate hub.')
 ON CONFLICT (id) DO NOTHING;
 
+-- ============================================================================
+-- 10. SUPABASE STORAGE BUCKET CONFIGURATION (proof)
+-- Used for KYC identity documents, certificates, bills of lading, and e-NWRs
+-- ============================================================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('proof', 'proof', true, 52428800, null)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Allow public read access to KYC proof documents
+CREATE POLICY "Public Read KYC Proofs" 
+ON storage.objects FOR SELECT 
+TO public 
+USING (bucket_id = 'proof');
+
+-- Allow authenticated/anon uploads to proof bucket
+CREATE POLICY "Public & Auth Upload KYC Proofs" 
+ON storage.objects FOR INSERT 
+TO public 
+WITH CHECK (bucket_id = 'proof');
