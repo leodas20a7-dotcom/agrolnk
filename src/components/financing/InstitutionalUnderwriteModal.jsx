@@ -177,7 +177,7 @@ export default function InstitutionalUnderwriteModal({
             {/* Interest Rate Monthly */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#14211D] flex items-center justify-between">
-                <span>Monthly Interest Rate (%)</span>
+                <span>Interest Rate (%)</span>
                 <span className="text-[10px] text-[#10B981] font-semibold">/ month</span>
               </label>
               <input
