@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Truck,
@@ -26,48 +26,64 @@ export default function DeliveryDetailModal({
   onClose,
   onStatusUpdated,
 }) {
+  const [currentDelivery, setCurrentDelivery] = useState(delivery);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  if (!delivery) return null;
+  useEffect(() => {
+    setCurrentDelivery(delivery);
+  }, [delivery]);
+
+  if (!currentDelivery) return null;
 
   const isTransporter = viewerRole === 'transporter';
   const isBuyer = viewerRole === 'buyer';
 
-  const pickupStr = typeof delivery.pickupLocation === 'object'
-    ? `${delivery.pickupLocation?.address || ''}, ${delivery.pickupLocation?.district || 'Salem'}, ${delivery.pickupLocation?.state || 'Tamil Nadu'}`
-    : delivery.pickupLocation;
+  const pickupStr = typeof currentDelivery.pickupLocation === 'object'
+    ? `${currentDelivery.pickupLocation?.address || ''}, ${currentDelivery.pickupLocation?.district || 'Salem'}, ${currentDelivery.pickupLocation?.state || 'Tamil Nadu'}`
+    : currentDelivery.pickupLocation;
 
-  const destStr = typeof delivery.deliveryLocation === 'object'
-    ? `${delivery.deliveryLocation?.address || ''}, ${delivery.deliveryLocation?.district || 'Chennai'}, ${delivery.deliveryLocation?.state || 'Tamil Nadu'}`
-    : delivery.deliveryLocation;
+  const destStr = typeof currentDelivery.deliveryLocation === 'object'
+    ? `${currentDelivery.deliveryLocation?.address || ''}, ${currentDelivery.deliveryLocation?.district || 'Chennai'}, ${currentDelivery.deliveryLocation?.state || 'Tamil Nadu'}`
+    : currentDelivery.deliveryLocation;
 
-  const handleTransporterAction = (nextStatus) => {
+  const handleTransporterAction = async (nextStatus) => {
     setIsUpdating(true);
+    setErrorMessage('');
     try {
+      let updated;
       if (nextStatus === 'assigned') {
-        const updated = acceptDeliveryJob(delivery.id, currentUser);
-        onStatusUpdated?.(updated);
+        updated = await acceptDeliveryJob(currentDelivery.id, currentUser);
       } else {
-        const updated = updateDeliveryStatus(delivery.id, nextStatus);
-        onStatusUpdated?.(updated);
+        updated = await updateDeliveryStatus(currentDelivery.id, nextStatus);
+      }
+      if (updated) {
+        setCurrentDelivery(updated);
+        if (onStatusUpdated) await onStatusUpdated(updated);
       }
       setIsUpdating(false);
       onClose();
     } catch (err) {
       console.error('Failed to update delivery action:', err);
+      setErrorMessage('Failed to update status. Please try again.');
       setIsUpdating(false);
     }
   };
 
-  const handleConfirmReceipt = () => {
+  const handleConfirmReceipt = async () => {
     setIsUpdating(true);
+    setErrorMessage('');
     try {
-      const updated = confirmBuyerReceipt(delivery.id);
-      onStatusUpdated?.(updated);
+      const updated = await confirmBuyerReceipt(currentDelivery.id);
+      if (updated) {
+        setCurrentDelivery(updated);
+        if (onStatusUpdated) await onStatusUpdated(updated);
+      }
       setIsUpdating(false);
       onClose();
     } catch (err) {
       console.error('Failed to confirm receipt:', err);
+      setErrorMessage('Failed to confirm delivery receipt.');
       setIsUpdating(false);
     }
   };
@@ -85,12 +101,12 @@ export default function DeliveryDetailModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
-                  Dispatch {delivery.deliveryNumber}
+                  Dispatch {currentDelivery.deliveryNumber}
                 </h3>
-                <DeliveryStatusBadge status={delivery.status} />
+                <DeliveryStatusBadge status={currentDelivery.status} />
               </div>
               <span className="text-xs text-[#566861]">
-                Linked Agreement: <strong>{delivery.orderNumber}</strong>
+                Linked Agreement: <strong>{currentDelivery.orderNumber}</strong>
               </span>
             </div>
           </div>
@@ -103,34 +119,42 @@ export default function DeliveryDetailModal({
           </button>
         </div>
 
+        {/* Error Notice */}
+        {errorMessage && (
+          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
         {/* Consignment Specification Card */}
         <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-base font-bold text-[#14211D]">
-                  {delivery.commodity}
+                  {currentDelivery.commodity}
                 </h4>
                 <Badge variant="dark" size="sm">
-                  Grade {delivery.grade || 'A'}
+                  Grade {currentDelivery.grade || 'A'}
                 </Badge>
               </div>
               <span className="text-xs text-[#566861]">
-                Variety: {delivery.variety || 'Standard Lot'}
+                Variety: {currentDelivery.variety || 'Standard Lot'}
               </span>
             </div>
 
             <div className="text-right">
               <span className="text-[11px] text-[#566861] block font-medium">Consignment Volume</span>
               <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-                {delivery.quantity} {delivery.unit || 'kg'}
+                {currentDelivery.quantity} {currentDelivery.unit || 'kg'}
               </span>
             </div>
           </div>
 
-          {delivery.notes && (
+          {currentDelivery.notes && (
             <div className="p-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs text-[#566861]">
-              <strong className="text-[#14211D]">Dispatch Notes:</strong> {delivery.notes}
+              <strong className="text-[#14211D]">Dispatch Notes:</strong> {currentDelivery.notes}
             </div>
           )}
         </div>
@@ -153,7 +177,7 @@ export default function DeliveryDetailModal({
                   {pickupStr}
                 </span>
                 <span className="text-[#566861] text-[11px] block mt-0.5">
-                  Producer: {delivery.farmerName || 'Sakthi Vel'}
+                  Producer: {currentDelivery.farmerName || 'Sakthi Vel'}
                 </span>
               </div>
 
@@ -165,24 +189,24 @@ export default function DeliveryDetailModal({
                   {destStr}
                 </span>
                 <span className="text-[#566861] text-[11px] block mt-0.5">
-                  Buyer: {delivery.buyerName || 'Ananya Agro Foods'}
+                  Buyer: {currentDelivery.buyerName || 'Ananya Agro Foods'}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Transporter Details if Assigned */}
-          {delivery.transporterName && (
+          {currentDelivery.transporterName && (
             <div className="pt-3 border-t border-[#E5EDE8] grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
                 <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
                   Assigned Transporter
                 </span>
                 <span className="font-bold text-[#14211D] block mt-0.5">
-                  {delivery.transporterName}
+                  {currentDelivery.transporterName}
                 </span>
                 <span className="text-[11px] text-[#10B981] font-semibold">
-                  {delivery.vehicleType || 'Commercial Freight'} • {delivery.vehicleNumber || 'TN 28 AB 4092'}
+                  {currentDelivery.vehicleType || 'Commercial Freight'} • {currentDelivery.vehicleNumber || 'TN 28 AB 4092'}
                 </span>
               </div>
 
@@ -192,7 +216,7 @@ export default function DeliveryDetailModal({
                 </span>
                 <span className="font-bold text-[#14211D] block mt-0.5 flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5 text-[#10B981]" />
-                  {delivery.driverContact || '+91 94433 77889'}
+                  {currentDelivery.driverPhone || currentDelivery.driverContact || '+91 94433 77889'}
                 </span>
                 <span className="text-[11px] text-[#566861]">
                   GPS Geofence Verified
@@ -207,28 +231,28 @@ export default function DeliveryDetailModal({
           <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
             Real-Time Physical Dispatch Timeline
           </h4>
-          <DeliveryTimeline currentStatus={delivery.status} delivery={delivery} />
+          <DeliveryTimeline currentStatus={currentDelivery.status} delivery={currentDelivery} />
         </div>
 
         {/* Transporter Action Bar */}
         {isTransporter && (
           <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-0.5 text-xs">
+            <div className="space-y-0.5 text-xs text-left">
               <span className="font-bold text-[#34D399] uppercase tracking-wider block">
                 Transporter Control Station
               </span>
               <span className="text-white/80">
-                {delivery.status === 'transport_requested' && 'Accept this freight load and assign your vehicle.'}
-                {delivery.status === 'assigned' && 'Confirm arrival and lot loading at the farmgate.'}
-                {delivery.status === 'picked_up' && 'Start active transit along the delivery corridor.'}
-                {delivery.status === 'in_transit' && 'Confirm produce drop-off at buyer destination.'}
-                {delivery.status === 'delivered' && 'Delivered. Awaiting buyer quality check & confirmation.'}
-                {delivery.status === 'completed' && 'Trip fully settled & freight payment released.'}
+                {currentDelivery.status === 'transport_requested' && 'Accept this freight load and assign your vehicle.'}
+                {currentDelivery.status === 'assigned' && 'Confirm arrival and lot loading at the farmgate.'}
+                {currentDelivery.status === 'picked_up' && 'Start active transit along the delivery corridor.'}
+                {currentDelivery.status === 'in_transit' && 'Confirm produce drop-off at buyer destination.'}
+                {currentDelivery.status === 'delivered' && 'Delivered. Awaiting buyer quality check & confirmation.'}
+                {currentDelivery.status === 'completed' && 'Trip fully settled & freight payment released.'}
               </span>
             </div>
 
             <div className="shrink-0 w-full sm:w-auto">
-              {delivery.status === 'transport_requested' && (
+              {currentDelivery.status === 'transport_requested' && (
                 <Button
                   variant="accent"
                   size="md"
@@ -238,11 +262,11 @@ export default function DeliveryDetailModal({
                   iconPosition="left"
                   className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
                 >
-                  Accept Delivery Job
+                  {isUpdating ? 'Accepting...' : 'Accept Delivery Job'}
                 </Button>
               )}
 
-              {delivery.status === 'assigned' && (
+              {currentDelivery.status === 'assigned' && (
                 <Button
                   variant="accent"
                   size="md"
@@ -252,11 +276,11 @@ export default function DeliveryDetailModal({
                   iconPosition="left"
                   className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
                 >
-                  Mark as Picked Up
+                  {isUpdating ? 'Updating Status...' : 'Mark as Picked Up'}
                 </Button>
               )}
 
-              {delivery.status === 'picked_up' && (
+              {currentDelivery.status === 'picked_up' && (
                 <Button
                   variant="accent"
                   size="md"
@@ -266,11 +290,11 @@ export default function DeliveryDetailModal({
                   iconPosition="left"
                   className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
                 >
-                  Start Transit
+                  {isUpdating ? 'Starting...' : 'Start Transit'}
                 </Button>
               )}
 
-              {delivery.status === 'in_transit' && (
+              {currentDelivery.status === 'in_transit' && (
                 <Button
                   variant="accent"
                   size="md"
@@ -280,17 +304,17 @@ export default function DeliveryDetailModal({
                   iconPosition="left"
                   className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
                 >
-                  Mark as Delivered
+                  {isUpdating ? 'Confirming Drop-off...' : 'Mark as Delivered'}
                 </Button>
               )}
 
-              {delivery.status === 'delivered' && (
+              {currentDelivery.status === 'delivered' && (
                 <Badge variant="emerald" size="md">
                   ✓ Drop-Off Completed
                 </Badge>
               )}
 
-              {delivery.status === 'completed' && (
+              {currentDelivery.status === 'completed' && (
                 <Badge variant="accent" size="md">
                   ✓ Trip Settled & Paid
                 </Badge>
@@ -300,14 +324,14 @@ export default function DeliveryDetailModal({
         )}
 
         {/* Buyer Confirmation Action */}
-        {isBuyer && delivery.status === 'delivered' && (
+        {isBuyer && currentDelivery.status === 'delivered' && (
           <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-0.5 text-xs">
+            <div className="space-y-0.5 text-xs text-left">
               <span className="font-bold text-[#34D399] uppercase tracking-wider block">
                 Consignment Arrived at Destination
               </span>
               <span className="text-white/80">
-                Did you inspect and receive the {delivery.quantity} {delivery.unit} {delivery.commodity}?
+                Did you inspect and receive the {currentDelivery.quantity} {currentDelivery.unit} {currentDelivery.commodity}?
               </span>
             </div>
 
@@ -320,7 +344,7 @@ export default function DeliveryDetailModal({
               iconPosition="left"
               className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
             >
-              Confirm Receipt
+              {isUpdating ? 'Confirming...' : 'Confirm Receipt'}
             </Button>
           </div>
         )}

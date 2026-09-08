@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS public.deliveries (
     unit TEXT NOT NULL DEFAULT 'kg',
     pickup_location JSONB NOT NULL DEFAULT '{}'::jsonb,
     delivery_location JSONB NOT NULL DEFAULT '{}'::jsonb,
-    status TEXT NOT NULL DEFAULT 'transport_requested' CHECK (status IN ('transport_requested', 'assigned', 'dispatched', 'in_transit', 'delivered')),
+    status TEXT NOT NULL DEFAULT 'transport_requested' CHECK (status IN ('transport_requested', 'assigned', 'picked_up', 'dispatched', 'in_transit', 'delivered', 'completed')),
     pickup_otp TEXT,
     delivery_otp TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,

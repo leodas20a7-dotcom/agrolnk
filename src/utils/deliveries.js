@@ -527,21 +527,54 @@ export async function getDeliveryForOrder(orderNumberOrId) {
 export const acceptDeliveryJob = acceptDelivery;
 
 /**
- * Update delivery status
+ * Update delivery status and automatically synchronize linked order status
  */
 export async function updateDeliveryStatus(deliveryId, newStatus) {
   try {
+    const updatePayload = {
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from('deliveries')
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', deliveryId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating delivery status in Supabase:', error);
+      throw error;
+    }
+
+    // Auto-sync with linked order
+    try {
+      const orderIdentifier = data.order_id || data.order_number;
+      if (orderIdentifier) {
+        let nextOrderStatus = null;
+        if (newStatus === 'picked_up' || newStatus === 'in_transit' || newStatus === 'dispatched') {
+          nextOrderStatus = 'in_transit';
+        } else if (newStatus === 'delivered') {
+          nextOrderStatus = 'delivered';
+        } else if (newStatus === 'completed') {
+          nextOrderStatus = 'completed';
+        }
+
+        if (nextOrderStatus) {
+          await supabase
+            .from('orders')
+            .update({
+              status: nextOrderStatus,
+              updated_at: new Date().toISOString(),
+            })
+            .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+        }
+      }
+    } catch (orderSyncErr) {
+      console.warn('Linked order auto-sync notice:', orderSyncErr);
+    }
+
     return mapDeliveryFromDb(data);
   } catch (err) {
     console.error('Error updating delivery status:', err);
