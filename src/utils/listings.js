@@ -1,6 +1,68 @@
 // Agrolnk Supabase Listings Management Engine
 import { supabase } from '../lib/supabase';
 
+export const DEFAULT_COMMODITIES = [
+  'Tomato',
+  'Onion',
+  'Potato',
+  'Mango',
+  'Red Chilli',
+  'Turmeric',
+  'Basmati Rice',
+  'Cotton',
+  'Wheat',
+  'Cardamom',
+  'Ginger',
+  'Apple',
+  'Maize',
+  'Soybean',
+  'Banana',
+];
+
+const CUSTOM_COMMODITIES_KEY = 'agrolnk_custom_commodities';
+
+/**
+ * Get all available commodities (Standard defaults + Community-added crops)
+ */
+export function getPlatformCommodities() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_COMMODITIES_KEY);
+    const customList = raw ? JSON.parse(raw) : [];
+    const combined = Array.from(new Set([...DEFAULT_COMMODITIES, ...customList])).filter(Boolean);
+    return combined;
+  } catch {
+    return DEFAULT_COMMODITIES;
+  }
+}
+
+/**
+ * Register a newly added commodity by a farmer so it is available to all farmers & buyers
+ */
+export function registerCustomCommodity(name, customImageUrl = null) {
+  if (!name || typeof name !== 'string') return null;
+  const cleanName = name.trim().charAt(0).toUpperCase() + name.trim().slice(1);
+  if (!cleanName) return null;
+
+  try {
+    const raw = localStorage.getItem(CUSTOM_COMMODITIES_KEY);
+    const customList = raw ? JSON.parse(raw) : [];
+    if (!customList.includes(cleanName) && !DEFAULT_COMMODITIES.includes(cleanName)) {
+      customList.push(cleanName);
+      localStorage.setItem(CUSTOM_COMMODITIES_KEY, JSON.stringify(customList));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_commodities_updated', { detail: { commodity: cleanName } }));
+      }
+    }
+    if (customImageUrl && !COMMODITY_IMAGES[cleanName]) {
+      COMMODITY_IMAGES[cleanName] = customImageUrl;
+    }
+    return cleanName;
+  } catch (err) {
+    console.warn('Failed to register custom commodity:', err);
+    return cleanName;
+  }
+}
+
 export const COMMODITY_IMAGES = {
   Tomato: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80',
   Onion: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&auto=format&fit=crop&q=80',
