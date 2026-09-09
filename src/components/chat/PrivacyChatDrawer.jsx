@@ -34,7 +34,9 @@ import {
   getSharedThreadKey,
   formatChatTimestamp,
   getPlatformContacts,
-  getAllStoredThreads
+  getAllStoredThreads,
+  markThreadAsRead,
+  isThreadRead
 } from '../../utils/chat';
 import { getBuyerOrders, getFarmerOrders } from '../../utils/orders';
 
@@ -249,7 +251,7 @@ export default function PrivacyChatDrawer({
       console.warn('Error loading chat channels:', err);
     }
 
-    // Attach stored message previews & timestamps to each channel
+    // Attach stored message previews, read status & timestamps to each channel
     const enriched = defaultChannels.map((c) => {
       const msgs = getThreadMessages(c.key);
       const nonSystem = msgs.filter((m) => !m.isSystem && m.id !== 'msg_init');
@@ -259,8 +261,10 @@ export default function PrivacyChatDrawer({
           : msgs && msgs.length > 0
           ? msgs[msgs.length - 1]
           : null;
+      const isRead = isThreadRead(c.key);
       return {
         ...c,
+        unreadCount: isRead ? 0 : (c.unreadCount || 0),
         lastMessageText: latestMsg ? latestMsg.text : c.subtitle,
         lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '2:27 pm',
         lastSenderMe: latestMsg ? latestMsg.senderId === user.id : false,
@@ -272,6 +276,7 @@ export default function PrivacyChatDrawer({
     // If targeted directly from button/context, open straight into conversation view
     if (partnerContext) {
       const targetKey = partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`;
+      markThreadAsRead(targetKey);
       setSelectedChannelKey(targetKey);
       setViewMode('conversation');
     } else if (orderContext) {
@@ -290,6 +295,7 @@ export default function PrivacyChatDrawer({
         ? 'maran'
         : 'veerappan';
       const matchedKey = getSharedThreadKey(myIdentifier, partnerId);
+      markThreadAsRead(matchedKey);
       setSelectedChannelKey(matchedKey);
       setViewMode('conversation');
     } else {
@@ -302,6 +308,20 @@ export default function PrivacyChatDrawer({
       loadChannels();
     }
   }, [isOpen, user.id, user.name, user.role, orderContext, partnerContext, threadKey]);
+
+  // When viewing conversation, mark thread as read immediately
+  useEffect(() => {
+    if (isOpen && viewMode === 'conversation' && selectedChannelKey) {
+      markThreadAsRead(selectedChannelKey);
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.key === selectedChannelKey || (selectedChannelKey && c.key.includes(selectedChannelKey))
+            ? { ...c, unreadCount: 0 }
+            : c
+        )
+      );
+    }
+  }, [isOpen, viewMode, selectedChannelKey]);
 
   // Load messages for the selected channel
   const refreshMessages = () => {
@@ -316,15 +336,25 @@ export default function PrivacyChatDrawer({
     }
   }, [isOpen, selectedChannelKey]);
 
-  // Live storage sync
+  // Live storage sync for messages and read status
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'agrolnk_privacy_chat_threads') {
         refreshMessages();
       }
+      if (e.key === 'agrolnk_chat_read_threads') {
+        loadChannels();
+      }
+    };
+    const handleReadUpdate = () => {
+      loadChannels();
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('agrolnk_chat_read_update', handleReadUpdate);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('agrolnk_chat_read_update', handleReadUpdate);
+    };
   }, [selectedChannelKey]);
 
   useEffect(() => {
@@ -363,9 +393,15 @@ export default function PrivacyChatDrawer({
   };
 
   const openConversation = (key) => {
+    markThreadAsRead(key);
     setSelectedChannelKey(key);
     const threadMsgs = getThreadMessages(key);
     setMessages(threadMsgs);
+    setChannels((prev) =>
+      prev.map((c) =>
+        c.key === key || (key && c.key.includes(key)) ? { ...c, unreadCount: 0 } : c
+      )
+    );
     setViewMode('conversation');
   };
 
@@ -746,7 +782,10 @@ export default function PrivacyChatDrawer({
             <div className="px-4 py-3.5 bg-[#0B3326] text-white flex items-center justify-between shrink-0 shadow-xs">
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
-                  onClick={() => setViewMode('chat_list')}
+                  onClick={() => {
+                    loadChannels();
+                    setViewMode('chat_list');
+                  }}
                   className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
                   title="Back to Chats List"
                 >

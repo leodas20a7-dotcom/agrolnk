@@ -262,6 +262,55 @@ function saveStoredThreads(threads) {
   }
 }
 
+const READ_THREADS_STORAGE_KEY = 'agrolnk_chat_read_threads';
+
+export function getReadThreadKeys() {
+  try {
+    const raw = localStorage.getItem(READ_THREADS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function markThreadAsRead(threadKey) {
+  if (!threadKey) return;
+  try {
+    const readMap = getReadThreadKeys();
+    readMap[threadKey] = Date.now();
+    // Also mark normalized variants
+    if (threadKey.includes('salem')) readMap['chat_partner_wh_salem_01'] = Date.now();
+    if (threadKey.includes('dindigul')) readMap['chat_partner_wh_dindigul_02'] = Date.now();
+    if (threadKey.includes('veerappan')) readMap['direct_maran_veerappan'] = Date.now();
+    if (threadKey.includes('mani')) readMap['direct_maran_mani'] = Date.now();
+    if (threadKey.includes('sakthi')) readMap['direct_maran_sakthivel'] = Date.now();
+    if (threadKey.includes('transporter') || threadKey.includes('vetri')) readMap['chat_partner_usr_transporter_03'] = Date.now();
+    if (threadKey.includes('financier') || threadKey.includes('kisan')) readMap['chat_partner_usr_financier_05'] = Date.now();
+
+    localStorage.setItem(READ_THREADS_STORAGE_KEY, JSON.stringify(readMap));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_chat_read_update', { detail: { threadKey } }));
+    }
+  } catch (err) {
+    console.error('Failed to mark thread as read:', err);
+  }
+}
+
+export function isThreadRead(threadKey) {
+  if (!threadKey) return true;
+  const readMap = getReadThreadKeys();
+  if (readMap[threadKey]) return true;
+  if (threadKey.includes('salem') && readMap['chat_partner_wh_salem_01']) return true;
+  if (threadKey.includes('dindigul') && readMap['chat_partner_wh_dindigul_02']) return true;
+  if (threadKey.includes('veerappan') && readMap['direct_maran_veerappan']) return true;
+  if (threadKey.includes('mani') && readMap['direct_maran_mani']) return true;
+  if (threadKey.includes('sakthi') && readMap['direct_maran_sakthivel']) return true;
+  if ((threadKey.includes('transporter') || threadKey.includes('vetri')) && readMap['chat_partner_usr_transporter_03']) return true;
+  if ((threadKey.includes('financier') || threadKey.includes('kisan')) && readMap['chat_partner_usr_financier_05']) return true;
+  return false;
+}
+
 export function getAllStoredThreads() {
   return getStoredThreads();
 }
