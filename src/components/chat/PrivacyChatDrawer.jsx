@@ -81,6 +81,34 @@ export default function PrivacyChatDrawer({
         unreadCount: 0,
       },
       {
+        key: 'direct_maran_sakthivel',
+        title: user.role === 'farmer' ? 'Maran (Wholesale Buyer)' : 'Sakthi Vel (Farmer)',
+        subtitle: 'Fresh Farm Produce • Active Trade Order',
+        role: user.role === 'farmer' ? 'Buyer' : 'Farmer',
+        category: 'orders',
+        icon: Package,
+        avatarBg: user.role === 'farmer' ? 'bg-indigo-600' : 'bg-emerald-600',
+        avatarColor: 'text-white',
+        badgeColor: 'blue',
+        phoneMask: '+91 94432 *****',
+        initials: user.role === 'farmer' ? 'MB' : 'SV',
+        unreadCount: 0,
+      },
+      {
+        key: 'direct_maran_veerappan',
+        title: user.role === 'farmer' ? 'Maran (Wholesale Buyer)' : 'Veerappan (Farmer)',
+        subtitle: 'Order #AGM-6454 • Grade-A Basmati Rice',
+        role: user.role === 'farmer' ? 'Buyer' : 'Farmer',
+        category: 'orders',
+        icon: Package,
+        avatarBg: user.role === 'farmer' ? 'bg-indigo-600' : 'bg-emerald-600',
+        avatarColor: 'text-white',
+        badgeColor: 'blue',
+        phoneMask: '+91 98402 *****',
+        initials: user.role === 'farmer' ? 'MB' : 'VP',
+        unreadCount: 0,
+      },
+      {
         key: 'chat_partner_wh_salem_01',
         title: 'Salem Agri Cold Storage Hub',
         subtitle: 'WDRA Accredited Facility • 5,000 MT Cold Vault',
@@ -92,7 +120,7 @@ export default function PrivacyChatDrawer({
         badgeColor: 'emerald',
         phoneMask: '+91 98421 88901',
         initials: 'SL',
-        unreadCount: 1,
+        unreadCount: 0,
       },
       {
         key: 'chat_partner_wh_dindigul_02',
@@ -356,6 +384,9 @@ export default function PrivacyChatDrawer({
           if (prev.some((m) => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
         });
+        if (viewMode === 'conversation') {
+          markThreadAsRead(selectedChannelKey, user.id);
+        }
         // Also update channel preview list in background
         setChannels((prev) =>
           prev.map((c) =>
@@ -393,7 +424,18 @@ export default function PrivacyChatDrawer({
         unsubscribe();
       }
     };
-  }, [isOpen, selectedChannelKey]);
+  }, [isOpen, selectedChannelKey, viewMode]);
+
+  // Live reload channels when global unread update event occurs
+  useEffect(() => {
+    const handleUnreadUpdate = () => {
+      if (isOpen && viewMode === 'chat_list') {
+        loadChannels();
+      }
+    };
+    window.addEventListener('agrolnk_chat_unread_update', handleUnreadUpdate);
+    return () => window.removeEventListener('agrolnk_chat_unread_update', handleUnreadUpdate);
+  }, [isOpen, viewMode]);
 
   // Sync across browser tabs
   useEffect(() => {

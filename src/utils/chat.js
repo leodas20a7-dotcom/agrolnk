@@ -372,19 +372,15 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
 }
 
 export function getUserChannelKeys(currentUser) {
-  const role = currentUser?.role || 'buyer';
-  if (role === 'admin') {
-    return ['agrolnk_support_desk'];
-  }
   const defaultKeys = [
     'agrolnk_support_desk',
+    'direct_maran_sakthivel',
+    'direct_maran_veerappan',
+    'direct_maran_mani',
     'chat_partner_wh_salem_01',
     'chat_partner_wh_dindigul_02',
     'chat_partner_usr_transporter_03',
     'chat_partner_usr_financier_05',
-    'direct_maran_veerappan',
-    'direct_maran_mani',
-    'direct_maran_sakthivel',
   ];
   const threads = getStoredThreads();
   const allStored = Object.keys(threads);
@@ -449,6 +445,9 @@ export function subscribeToGlobalUnreadMessages(currentUser, onUpdate) {
             }
           }
           handleUpdate();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('agrolnk_chat_unread_update', { detail: { count: getTotalPlatformUnreadCount(currentUser) } }));
+          }
         }
       )
       .subscribe();
