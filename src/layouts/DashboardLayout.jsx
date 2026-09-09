@@ -589,16 +589,12 @@ export default function DashboardLayout({
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setIsChatOpen(true)}
-          className="flex items-center gap-2.5 bg-[#0B3326] hover:bg-[#07241A] text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group relative"
+          className="flex items-center gap-2 bg-[#0B3326] hover:bg-[#07241A] text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group"
           title="Open Privacy Chatbot"
         >
           <div className="relative">
             <MessageSquare className="w-5 h-5 text-[#34D399]" />
-            {unreadChatCount > 0 ? (
-              <span className="absolute -top-2.5 -right-2.5 min-w-[20px] h-5 px-1 bg-[#10B981] text-white text-[11px] font-extrabold rounded-full flex items-center justify-center border-2 border-[#0B3326] shadow-md animate-pulse">
-                {unreadChatCount}
-              </span>
-            ) : (
+            {unreadChatCount === 0 && (
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#0B3326] animate-pulse"></span>
             )}
           </div>
@@ -606,7 +602,7 @@ export default function DashboardLayout({
             Secure Chat
           </span>
           {unreadChatCount > 0 && (
-            <span className="hidden md:inline px-1.5 py-0.5 rounded-full bg-[#10B981] text-white text-[10px] font-extrabold">
+            <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#10B981] text-white text-[11px] font-bold flex items-center justify-center shadow-xs">
               {unreadChatCount}
             </span>
           )}
