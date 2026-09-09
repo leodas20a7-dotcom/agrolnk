@@ -2,6 +2,8 @@
 // Requirement: Users can communicate while phone numbers, emails, domain fragments, 
 // spelled-out words, and split-message contact exchanges are strictly detected and protected.
 
+import { supabase } from '../lib/supabase';
+
 const CHAT_STORAGE_KEY = 'agrolnk_privacy_chat_threads';
 
 // Comprehensive multilingual number words (English, Hindi/Hinglish, Tamil/Tanglish)
@@ -842,6 +844,142 @@ export function getDemoSeedForThread(threadKey) {
 }
 
 /**
+ * Format database row into UI message model
+ */
+function mapDbRowToMessage(row) {
+  return {
+    id: row.id,
+    threadKey: row.thread_key,
+    senderId: row.sender_id,
+    senderName: row.sender_name,
+    senderRole: row.sender_role,
+    rawText: row.raw_text,
+    text: row.text,
+    isSystem: !!row.is_system,
+    timestamp: row.created_at,
+  };
+}
+
+/**
+ * Format UI message model into Supabase database row
+ */
+function mapMessageToDbRow(threadKey, msg) {
+  return {
+    id: msg.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    thread_key: threadKey,
+    sender_id: msg.senderId || 'usr_current',
+    sender_name: msg.senderName || 'Trading Participant',
+    sender_role: msg.senderRole || 'buyer',
+    raw_text: msg.rawText || msg.text || '',
+    text: msg.text || '',
+    is_system: !!msg.isSystem,
+    created_at: msg.timestamp || new Date().toISOString(),
+  };
+}
+
+/**
+ * Fetch thread messages from Supabase with instant local fallback and auto-seeding
+ */
+export async function fetchThreadMessages(threadKey) {
+  if (!threadKey) return [];
+
+  // Instant local cache return
+  const localCached = getThreadMessages(threadKey);
+
+  try {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('thread_key', threadKey)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.warn('Supabase chat fetch notice (using local cache):', error.message);
+      return localCached;
+    }
+
+    if (data && data.length > 0) {
+      const formatted = data.map(mapDbRowToMessage);
+      const threads = getStoredThreads();
+      threads[threadKey] = formatted;
+      saveStoredThreads(threads);
+      return formatted;
+    }
+
+    // If Supabase table is empty for this thread, seed initial demo dialogue into Supabase
+    const demoSeed = getDemoSeedForThread(threadKey);
+    if (demoSeed && demoSeed.length > 0) {
+      const dbRows = demoSeed.map((m) => mapMessageToDbRow(threadKey, m));
+      supabase
+        .from('chat_messages')
+        .insert(dbRows)
+        .then(({ error: insertErr }) => {
+          if (insertErr) {
+            console.warn('Supabase demo chat seed notice:', insertErr.message);
+          }
+        });
+
+      const threads = getStoredThreads();
+      threads[threadKey] = demoSeed;
+      saveStoredThreads(threads);
+      return demoSeed;
+    }
+
+    return localCached;
+  } catch (err) {
+    console.warn('Supabase chat fetch error, fallback to local:', err);
+    return localCached;
+  }
+}
+
+/**
+ * Subscribe to real-time incoming messages on Supabase
+ */
+export function subscribeToThread(threadKey, onNewMessage) {
+  if (!threadKey || typeof window === 'undefined') return () => {};
+
+  try {
+    const safeChannelName = `chat_${threadKey.replace(/[^a-zA-Z0-9_]/g, '_')}_${Date.now()}`;
+    const channel = supabase
+      .channel(safeChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `thread_key=eq.${threadKey}`,
+        },
+        (payload) => {
+          if (payload && payload.new) {
+            const formatted = mapDbRowToMessage(payload.new);
+
+            // Update local storage cache
+            const threads = getStoredThreads();
+            const current = threads[threadKey] || [];
+            if (!current.some((m) => m.id === formatted.id)) {
+              threads[threadKey] = [...current, formatted];
+              saveStoredThreads(threads);
+            }
+
+            if (typeof onNewMessage === 'function') {
+              onNewMessage(formatted);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (err) {
+    console.warn('Failed to subscribe to chat realtime channel:', err);
+    return () => {};
+  }
+}
+
+/**
  * Get messages for a specific order or context thread (with bidirectional fallback & demo seed auto-repair)
  */
 export function getThreadMessages(threadKey) {
@@ -954,10 +1092,11 @@ export function sendPrivacyMessage(threadKey, messageData) {
   };
 
   const updatedMessages = [...sanitizedCurrentMessages, newMessage];
+  const newMessagesToPersist = [newMessage];
 
   // If evasion attempt was detected, immediately inject an automated Anti-Circumvention Security Notice
   if (evasionDetected) {
-    updatedMessages.push({
+    const securityMsg = {
       id: `msg_security_${Date.now()}`,
       senderId: 'system_bot',
       senderName: 'AgroLnk Security Shield',
@@ -965,14 +1104,16 @@ export function sendPrivacyMessage(threadKey, messageData) {
       text: '⚠️ AgroLnk Security Alert: Fragmented contact details (split phone numbers or email provider names) were detected across multiple messages. Previous numeric fragments have been automatically redacted. Exchanging direct contact details to trade off-platform voids 100% Escrow Protection and AgroLnk dispute arbitration.',
       timestamp: new Date(Date.now() + 200).toISOString(),
       isSystem: true,
-    });
+    };
+    updatedMessages.push(securityMsg);
+    newMessagesToPersist.push(securityMsg);
   }
 
   // Smart Chatbot Automated Assistance Trigger
   const lower = rawInput.toLowerCase();
   if (!evasionDetected) {
     if (lower.includes('escrow') || lower.includes('payment') || lower.includes('release')) {
-      updatedMessages.push({
+      const escrowMsg = {
         id: `msg_bot_${Date.now()}`,
         senderId: 'system_bot',
         senderName: 'AgroLnk Smart Assistant',
@@ -980,9 +1121,11 @@ export function sendPrivacyMessage(threadKey, messageData) {
         text: 'ℹ️ Escrow Payout: 100% of the funds are held securely by AgroLnk Escrow. Payout is automatically released to the seller as soon as the buyer completes arrival inspection.',
         timestamp: new Date(Date.now() + 500).toISOString(),
         isSystem: true,
-      });
+      };
+      updatedMessages.push(escrowMsg);
+      newMessagesToPersist.push(escrowMsg);
     } else if (lower.includes('freight') || lower.includes('driver') || lower.includes('truck') || lower.includes('delivery')) {
-      updatedMessages.push({
+      const logisticsMsg = {
         id: `msg_bot_${Date.now()}`,
         senderId: 'system_bot',
         senderName: 'AgroLnk Logistics Assistant',
@@ -990,12 +1133,31 @@ export function sendPrivacyMessage(threadKey, messageData) {
         text: '🚚 Transporter Notice: Driver location and live GPS corridor transit can be tracked directly via the "Track Dispatch" tab.',
         timestamp: new Date(Date.now() + 500).toISOString(),
         isSystem: true,
-      });
+      };
+      updatedMessages.push(logisticsMsg);
+      newMessagesToPersist.push(logisticsMsg);
     }
   }
 
+  // 1. Optimistic Local Persistence (Zero-lag UI response)
   threads[threadKey] = updatedMessages;
   saveStoredThreads(threads);
+
+  // 2. Asynchronous Supabase Insertion
+  try {
+    const dbRows = newMessagesToPersist.map((m) => mapMessageToDbRow(threadKey, m));
+    supabase
+      .from('chat_messages')
+      .insert(dbRows)
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Supabase message insert notice (saved locally):', error.message);
+        }
+      });
+  } catch (err) {
+    console.warn('Supabase chat insert error:', err);
+  }
+
   return updatedMessages;
 }
 

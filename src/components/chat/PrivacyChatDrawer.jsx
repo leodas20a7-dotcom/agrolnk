@@ -29,6 +29,8 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import {
   getThreadMessages,
+  fetchThreadMessages,
+  subscribeToThread,
   sendPrivacyMessage,
   maskSensitivePII,
   getSharedThreadKey,
@@ -252,24 +254,26 @@ export default function PrivacyChatDrawer({
     }
 
     // Attach stored message previews, read status & timestamps to each channel
-    const enriched = defaultChannels.map((c) => {
-      const msgs = getThreadMessages(c.key);
-      const nonSystem = msgs.filter((m) => !m.isSystem && m.id !== 'msg_init');
-      const latestMsg =
-        nonSystem.length > 0
-          ? nonSystem[nonSystem.length - 1]
-          : msgs && msgs.length > 0
-          ? msgs[msgs.length - 1]
-          : null;
-      const isRead = isThreadRead(c.key);
-      return {
-        ...c,
-        unreadCount: isRead ? 0 : (c.unreadCount || 0),
-        lastMessageText: latestMsg ? latestMsg.text : c.subtitle,
-        lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '2:27 pm',
-        lastSenderMe: latestMsg ? latestMsg.senderId === user.id : false,
-      };
-    });
+    const enriched = await Promise.all(
+      defaultChannels.map(async (c) => {
+        const msgs = await fetchThreadMessages(c.key);
+        const nonSystem = msgs.filter((m) => !m.isSystem && m.id !== 'msg_init');
+        const latestMsg =
+          nonSystem.length > 0
+            ? nonSystem[nonSystem.length - 1]
+            : msgs && msgs.length > 0
+            ? msgs[msgs.length - 1]
+            : null;
+        const isRead = isThreadRead(c.key);
+        return {
+          ...c,
+          unreadCount: isRead ? 0 : (c.unreadCount || 0),
+          lastMessageText: latestMsg ? latestMsg.text : c.subtitle,
+          lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '2:27 pm',
+          lastSenderMe: latestMsg ? latestMsg.senderId === user.id : false,
+        };
+      })
+    );
 
     setChannels(enriched);
   };
@@ -283,6 +287,9 @@ export default function PrivacyChatDrawer({
         markThreadAsRead(targetKey);
         setSelectedChannelKey(targetKey);
         setMessages(getThreadMessages(targetKey));
+        fetchThreadMessages(targetKey).then((dbMsgs) => {
+          if (dbMsgs && dbMsgs.length > 0) setMessages(dbMsgs);
+        });
         setViewMode('conversation');
       } else if (orderContext) {
         const partnerName =
@@ -303,6 +310,9 @@ export default function PrivacyChatDrawer({
         markThreadAsRead(matchedKey);
         setSelectedChannelKey(matchedKey);
         setMessages(getThreadMessages(matchedKey));
+        fetchThreadMessages(matchedKey).then((dbMsgs) => {
+          if (dbMsgs && dbMsgs.length > 0) setMessages(dbMsgs);
+        });
         setViewMode('conversation');
       } else {
         setViewMode('chat_list');
@@ -310,14 +320,49 @@ export default function PrivacyChatDrawer({
     }
   }, [isOpen, partnerContext, orderContext]);
 
-  // Load messages whenever selected channel changes
+  // Load messages & subscribe to Supabase Realtime channel for selected conversation
   useEffect(() => {
-    if (isOpen && selectedChannelKey) {
-      setMessages(getThreadMessages(selectedChannelKey));
-    }
+    if (!isOpen || !selectedChannelKey) return;
+
+    // 1. Optimistic instant local load
+    setMessages(getThreadMessages(selectedChannelKey));
+
+    // 2. Fetch latest data from Supabase
+    fetchThreadMessages(selectedChannelKey).then((fetched) => {
+      if (fetched && fetched.length > 0) {
+        setMessages(fetched);
+      }
+    });
+
+    // 3. Supabase Realtime Subscription
+    const unsubscribe = subscribeToThread(selectedChannelKey, (newMsg) => {
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+      // Also update channel preview list in background
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.key === selectedChannelKey
+            ? {
+                ...c,
+                lastMessageText: newMsg.text,
+                lastMessageTime: formatChatTimestamp(newMsg.timestamp),
+                lastSenderMe: newMsg.senderId === user.id,
+              }
+            : c
+        )
+      );
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, [isOpen, selectedChannelKey]);
 
-  // Sync across tabs
+  // Sync across browser tabs
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'agrolnk_privacy_chat_threads' && selectedChannelKey) {
@@ -361,13 +406,33 @@ export default function PrivacyChatDrawer({
 
     setMessages(updated);
     setInputText('');
+
+    // Update channel preview in local state
+    const nonSystem = updated.filter((m) => !m.isSystem && m.id !== 'msg_init');
+    const latest = nonSystem[nonSystem.length - 1] || updated[updated.length - 1];
+    if (latest) {
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.key === selectedChannelKey
+            ? {
+                ...c,
+                lastMessageText: latest.text,
+                lastMessageTime: formatChatTimestamp(latest.timestamp),
+                lastSenderMe: true,
+              }
+            : c
+        )
+      );
+    }
   };
 
   const openConversation = (key) => {
     markThreadAsRead(key);
     setSelectedChannelKey(key);
-    const threadMsgs = getThreadMessages(key);
-    setMessages(threadMsgs);
+    setMessages(getThreadMessages(key));
+    fetchThreadMessages(key).then((msgs) => {
+      if (msgs && msgs.length > 0) setMessages(msgs);
+    });
     setChannels((prev) =>
       prev.map((c) =>
         c.key === key || (key && c.key.includes(key)) ? { ...c, unreadCount: 0 } : c
