@@ -594,7 +594,7 @@ export default function DashboardLayout({
           setActivePartnerContext(null);
         }}
         currentUser={user}
-        threadKey={activeChatThread || `${user.role}_support`}
+        threadKey={activeChatThread || 'agrolnk_support_desk'}
         partnerContext={activePartnerContext}
       />
     </div>

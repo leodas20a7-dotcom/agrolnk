@@ -46,7 +46,7 @@ export default function PrivacyChatDrawer({
   isOpen,
   onClose,
   currentUser,
-  threadKey = 'general_support',
+  threadKey = 'agrolnk_support_desk',
   orderContext = null,
   partnerContext = null,
 }) {
@@ -66,7 +66,7 @@ export default function PrivacyChatDrawer({
   const loadChannels = async () => {
     const defaultChannels = [
       {
-        key: `${user.role || 'general'}_support`,
+        key: 'agrolnk_support_desk',
         title: 'AgroLnk Desk & Smart Assistant',
         subtitle: 'Official Support, Escrow & Dispute Desk',
         role: 'Admin & AI Assistant',
@@ -744,7 +744,7 @@ export default function PrivacyChatDrawer({
               
               {/* My Status Item (Matching Image 2) */}
               <div
-                onClick={() => openConversation(`${user.role || 'general'}_support`)}
+                onClick={() => openConversation('agrolnk_support_desk')}
                 className="px-4 py-3 hover:bg-[#F8FAF8] transition-colors cursor-pointer flex items-center gap-3.5"
               >
                 <div className="w-11 h-11 rounded-full bg-[#10B981] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">

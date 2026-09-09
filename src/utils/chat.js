@@ -361,7 +361,7 @@ export function getPlatformContacts(user) {
   const baseContacts = [
     {
       id: 'contact_support',
-      threadKey: `${currentRole}_support`,
+      threadKey: 'agrolnk_support_desk',
       name: 'AgroLnk Desk & Smart Assistant',
       role: 'Admin & AI Assistant',
       category: 'support',
@@ -722,13 +722,13 @@ const INITIAL_DEMO_THREADS = {
     },
   ],
 
-  buyer_support: [
+  agrolnk_support_desk: [
     {
       id: 'sp_0',
       senderId: 'system_bot',
       senderName: 'AgroLnk Trust & Privacy Bot',
       senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active: 100% Escrow Protection is enabled.',
+      text: '🛡️ AgroLnk Smart Privacy Shield Active: 100% Escrow Protection & Support Desk.',
       timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
       isSystem: true,
     },
@@ -737,14 +737,14 @@ const INITIAL_DEMO_THREADS = {
       senderId: 'system_bot',
       senderName: 'AgroLnk Desk & Smart Assistant',
       senderRole: 'admin',
-      text: 'Welcome to AgroLnk! Your wholesale procurement desk is active with 100% Escrow Protection. How can we assist you today?',
+      text: 'Welcome to AgroLnk! Official support desk is active with 100% Escrow Protection and verified trade settlement. How can we assist you today?',
       timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
       isSystem: false,
     },
     {
       id: 'sp_2',
-      senderId: 'usr_current',
-      senderName: 'You',
+      senderId: 'usr_buyer_maran',
+      senderName: 'Maran',
       senderRole: 'buyer',
       text: 'How do I request dispute mediation or warehouse assaying checks?',
       timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
@@ -756,45 +756,6 @@ const INITIAL_DEMO_THREADS = {
       senderName: 'AgroLnk Desk & Smart Assistant',
       senderRole: 'admin',
       text: 'You can initiate third-party quality assaying directly from your Active Orders tab or message here anytime for senior escrow mediation.',
-      timestamp: new Date(Date.now() - 900000).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  farmer_support: [
-    {
-      id: 'fsp_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active: WDRA Certified Warehouses & Direct Wholesale Buyers.',
-      timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'fsp_1',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Desk & Smart Assistant',
-      senderRole: 'admin',
-      text: 'Welcome to AgroLnk! Your farmer desk is active with WDRA certified storage facilities and direct wholesale buyers.',
-      timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'fsp_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'farmer',
-      text: 'How do I pledge warehouse receipts for instant bank credit?',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'fsp_3',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Desk & Smart Assistant',
-      senderRole: 'admin',
-      text: 'Once produce is deposited at any WDRA warehouse, go to Warehouse Inventory -> Pledge for e-NWR Loan for instant disbursement.',
       timestamp: new Date(Date.now() - 900000).toISOString(),
       isSystem: false,
     },
@@ -812,6 +773,9 @@ export function getDemoSeedForThread(threadKey) {
     return INITIAL_DEMO_THREADS[threadKey];
   }
 
+  if (key.includes('support')) {
+    return INITIAL_DEMO_THREADS.agrolnk_support_desk;
+  }
   if (key.includes('salem')) {
     return INITIAL_DEMO_THREADS.chat_partner_wh_salem_01;
   }
@@ -832,12 +796,6 @@ export function getDemoSeedForThread(threadKey) {
   }
   if (key.includes('financier') || key.includes('kisan')) {
     return INITIAL_DEMO_THREADS.chat_partner_usr_financier_05;
-  }
-  if (key.includes('farmer_support')) {
-    return INITIAL_DEMO_THREADS.farmer_support;
-  }
-  if (key.includes('support')) {
-    return INITIAL_DEMO_THREADS.buyer_support;
   }
 
   return null;
