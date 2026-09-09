@@ -188,7 +188,10 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
               name="state"
               required
               value={formData.state}
-              onChange={onChange}
+              onChange={(e) => {
+                const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.-]/g, '');
+                onChange({ target: { name: 'state', value: lettersOnly } });
+              }}
               placeholder="e.g. Tamil Nadu"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
             />
@@ -203,7 +206,10 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
               name="district"
               required
               value={formData.district}
-              onChange={onChange}
+              onChange={(e) => {
+                const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.-]/g, '');
+                onChange({ target: { name: 'district', value: lettersOnly } });
+              }}
               placeholder="e.g. Salem"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
             />

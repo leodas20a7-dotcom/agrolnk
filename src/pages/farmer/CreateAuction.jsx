@@ -80,6 +80,12 @@ export default function CreateAuction({ currentUser, onNavigate }) {
         commodity: value,
         images: [defaultImg],
       }));
+    } else if (name === 'district' || name === 'state') {
+      const lettersOnly = value.replace(/[^a-zA-Z\s.-]/g, '');
+      setFormData((prev) => ({
+        ...prev,
+        [name]: lettersOnly,
+      }));
     } else {
       setFormData((prev) => ({
         ...prev,

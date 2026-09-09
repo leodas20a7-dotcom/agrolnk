@@ -124,9 +124,17 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
       }
     }
 
-    if (currentStep === 4 && (!formData.state.trim() || !formData.district.trim())) {
-      setError('Please provide state and district.');
-      return;
+    if (currentStep === 4) {
+      const stateVal = formData.state.trim();
+      const districtVal = formData.district.trim();
+      if (!stateVal || !districtVal) {
+        setError('Please provide state and district.');
+        return;
+      }
+      if (/\d/.test(stateVal) || /\d/.test(districtVal)) {
+        setError('District and State names cannot contain numbers. Please enter alphabetic names only.');
+        return;
+      }
     }
 
     setCurrentStep((prev) => Math.min(5, prev + 1));
@@ -638,12 +646,15 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
               
               <div className="space-y-1">
                 <label className="text-xs font-bold text-[#0B3326] block">
-                  District
+                  District <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.district}
-                  onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                  onChange={(e) => {
+                    const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.-]/g, '');
+                    setFormData({ ...formData, district: lettersOnly });
+                  }}
                   placeholder="e.g. Salem"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
@@ -651,12 +662,15 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-[#0B3326] block">
-                  State
+                  State <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  onChange={(e) => {
+                    const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.-]/g, '');
+                    setFormData({ ...formData, state: lettersOnly });
+                  }}
                   placeholder="e.g. Tamil Nadu"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />

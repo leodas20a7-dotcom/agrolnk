@@ -479,14 +479,14 @@ export default function WarehouseSetupModal({
                   <input
                     type="text"
                     value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
+                    onChange={(e) => setDistrict(e.target.value.replace(/[^a-zA-Z\s.-]/g, ''))}
                     placeholder="District"
                     className="px-3 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs text-[#14211D]"
                   />
                   <input
                     type="text"
                     value={state}
-                    onChange={(e) => setState(e.target.value)}
+                    onChange={(e) => setState(e.target.value.replace(/[^a-zA-Z\s.-]/g, ''))}
                     placeholder="State"
                     className="px-3 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs text-[#14211D]"
                   />
