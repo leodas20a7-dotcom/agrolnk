@@ -275,21 +275,52 @@ export function getReadThreadKeys() {
   }
 }
 
-export function markThreadAsRead(threadKey) {
+export function markThreadAsRead(threadKey, currentUserId) {
   if (!threadKey) return;
   try {
     const readMap = getReadThreadKeys();
-    readMap[threadKey] = Date.now();
+    const now = Date.now();
+    readMap[threadKey] = now;
     // Also mark normalized variants
-    if (threadKey.includes('salem')) readMap['chat_partner_wh_salem_01'] = Date.now();
-    if (threadKey.includes('dindigul')) readMap['chat_partner_wh_dindigul_02'] = Date.now();
-    if (threadKey.includes('veerappan')) readMap['direct_maran_veerappan'] = Date.now();
-    if (threadKey.includes('mani')) readMap['direct_maran_mani'] = Date.now();
-    if (threadKey.includes('sakthi')) readMap['direct_maran_sakthivel'] = Date.now();
-    if (threadKey.includes('transporter') || threadKey.includes('vetri')) readMap['chat_partner_usr_transporter_03'] = Date.now();
-    if (threadKey.includes('financier') || threadKey.includes('kisan')) readMap['chat_partner_usr_financier_05'] = Date.now();
+    if (threadKey.includes('support')) readMap['agrolnk_support_desk'] = now;
+    if (threadKey.includes('salem')) readMap['chat_partner_wh_salem_01'] = now;
+    if (threadKey.includes('dindigul')) readMap['chat_partner_wh_dindigul_02'] = now;
+    if (threadKey.includes('veerappan')) readMap['direct_maran_veerappan'] = now;
+    if (threadKey.includes('mani')) readMap['direct_maran_mani'] = now;
+    if (threadKey.includes('sakthi')) readMap['direct_maran_sakthivel'] = now;
+    if (threadKey.includes('transporter') || threadKey.includes('vetri')) readMap['chat_partner_usr_transporter_03'] = now;
+    if (threadKey.includes('financier') || threadKey.includes('kisan')) readMap['chat_partner_usr_financier_05'] = now;
 
     localStorage.setItem(READ_THREADS_STORAGE_KEY, JSON.stringify(readMap));
+
+    // Update local thread cache messages to isRead = true
+    const threads = getStoredThreads();
+    if (threads[threadKey] && Array.isArray(threads[threadKey])) {
+      let updated = false;
+      threads[threadKey] = threads[threadKey].map((m) => {
+        if (!m.isSystem && (!currentUserId || (m.senderId !== currentUserId && m.senderId !== 'usr_current'))) {
+          if (!m.isRead) {
+            updated = true;
+            return { ...m, isRead: true };
+          }
+        }
+        return m;
+      });
+      if (updated) {
+        saveStoredThreads(threads);
+      }
+    }
+
+    // Background update to Supabase
+    if (currentUserId) {
+      supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('thread_key', threadKey)
+        .neq('sender_id', currentUserId)
+        .then(() => {})
+        .catch(() => {});
+    }
   } catch (err) {
     console.error('Failed to mark thread as read:', err);
   }
@@ -834,6 +865,7 @@ function mapDbRowToMessage(row) {
     rawText: row.raw_text,
     text: row.text,
     isSystem: !!row.is_system,
+    isRead: row.is_read !== undefined ? !!row.is_read : (row.isRead !== undefined ? !!row.isRead : true),
     timestamp: row.created_at,
   };
 }
@@ -851,6 +883,7 @@ function mapMessageToDbRow(threadKey, msg) {
     raw_text: msg.rawText || msg.text || '',
     text: msg.text || '',
     is_system: !!msg.isSystem,
+    is_read: msg.isRead !== undefined ? !!msg.isRead : false,
     created_at: msg.timestamp || new Date().toISOString(),
   };
 }
@@ -911,9 +944,9 @@ export async function fetchThreadMessages(threadKey) {
 }
 
 /**
- * Subscribe to real-time incoming messages on Supabase
+ * Subscribe to real-time incoming messages on Supabase (inserts & read updates)
  */
-export function subscribeToThread(threadKey, onNewMessage) {
+export function subscribeToThread(threadKey, onNewMessage, onMessageUpdate) {
   if (!threadKey || typeof window === 'undefined') return () => {};
 
   try {
@@ -923,25 +956,36 @@ export function subscribeToThread(threadKey, onNewMessage) {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen to INSERT and UPDATE
           schema: 'public',
           table: 'chat_messages',
           filter: `thread_key=eq.${threadKey}`,
         },
         (payload) => {
-          if (payload && payload.new) {
-            const formatted = mapDbRowToMessage(payload.new);
+          if (payload) {
+            if (payload.eventType === 'INSERT' && payload.new) {
+              const formatted = mapDbRowToMessage(payload.new);
 
-            // Update local storage cache
-            const threads = getStoredThreads();
-            const current = threads[threadKey] || [];
-            if (!current.some((m) => m.id === formatted.id)) {
-              threads[threadKey] = [...current, formatted];
+              // Update local storage cache
+              const threads = getStoredThreads();
+              const current = threads[threadKey] || [];
+              if (!current.some((m) => m.id === formatted.id)) {
+                threads[threadKey] = [...current, formatted];
+                saveStoredThreads(threads);
+              }
+
+              if (typeof onNewMessage === 'function') {
+                onNewMessage(formatted);
+              }
+            } else if (payload.eventType === 'UPDATE' && payload.new) {
+              const formatted = mapDbRowToMessage(payload.new);
+              const threads = getStoredThreads();
+              const current = threads[threadKey] || [];
+              threads[threadKey] = current.map((m) => (m.id === formatted.id ? formatted : m));
               saveStoredThreads(threads);
-            }
-
-            if (typeof onNewMessage === 'function') {
-              onNewMessage(formatted);
+              if (typeof onMessageUpdate === 'function') {
+                onMessageUpdate(formatted);
+              }
             }
           }
         }
@@ -1007,6 +1051,7 @@ export function getThreadMessages(threadKey) {
       text: '🛡️ AgroLnk Smart Privacy Shield Active: Personal phone numbers, emails, and direct accounts are protected from off-platform exposure. Please coordinate consignment pickup, delivery timing, and lot specifications securely here.',
       timestamp: new Date().toISOString(),
       isSystem: true,
+      isRead: true,
     },
   ];
   threads[threadKey] = defaultMessages;
@@ -1067,6 +1112,7 @@ export function sendPrivacyMessage(threadKey, messageData) {
     text: cleanText,
     timestamp: new Date().toISOString(),
     isSystem: false,
+    isRead: false, // Starts with 1 tick (sent)
   };
 
   const updatedMessages = [...sanitizedCurrentMessages, newMessage];

@@ -266,14 +266,16 @@ export default function PrivacyChatDrawer({
             ? msgs[msgs.length - 1]
             : null;
         const unreadCount = getThreadUnreadCount(c.key, user.id, msgs);
+        const isLastSenderMe = latestMsg
+          ? latestMsg.senderId === user.id || latestMsg.senderId === 'usr_current'
+          : false;
         return {
           ...c,
           unreadCount,
           lastMessageText: latestMsg ? latestMsg.text : c.subtitle,
           lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '2:27 pm',
-          lastSenderMe: latestMsg
-            ? latestMsg.senderId === user.id || latestMsg.senderId === 'usr_current'
-            : false,
+          lastSenderMe: isLastSenderMe,
+          lastMessageRead: latestMsg ? !!latestMsg.isRead : false,
         };
       })
     );
@@ -287,7 +289,7 @@ export default function PrivacyChatDrawer({
       loadChannels();
       if (partnerContext) {
         const targetKey = partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`;
-        markThreadAsRead(targetKey);
+        markThreadAsRead(targetKey, user.id);
         setSelectedChannelKey(targetKey);
         setMessages(getThreadMessages(targetKey));
         fetchThreadMessages(targetKey).then((dbMsgs) => {
@@ -310,7 +312,7 @@ export default function PrivacyChatDrawer({
           ? 'maran'
           : 'veerappan';
         const matchedKey = getSharedThreadKey(myIdentifier, partnerId);
-        markThreadAsRead(matchedKey);
+        markThreadAsRead(matchedKey, user.id);
         setSelectedChannelKey(matchedKey);
         setMessages(getThreadMessages(matchedKey));
         fetchThreadMessages(matchedKey).then((dbMsgs) => {
@@ -327,6 +329,9 @@ export default function PrivacyChatDrawer({
   useEffect(() => {
     if (!isOpen || !selectedChannelKey) return;
 
+    // Mark messages in this active thread as read
+    markThreadAsRead(selectedChannelKey, user.id);
+
     // 1. Optimistic instant local load
     setMessages(getThreadMessages(selectedChannelKey));
 
@@ -338,25 +343,44 @@ export default function PrivacyChatDrawer({
     });
 
     // 3. Supabase Realtime Subscription
-    const unsubscribe = subscribeToThread(selectedChannelKey, (newMsg) => {
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
-      });
-      // Also update channel preview list in background
-      setChannels((prev) =>
-        prev.map((c) =>
-          c.key === selectedChannelKey
-            ? {
-                ...c,
-                lastMessageText: newMsg.text,
-                lastMessageTime: formatChatTimestamp(newMsg.timestamp),
-                lastSenderMe: newMsg.senderId === user.id,
-              }
-            : c
-        )
-      );
-    });
+    const unsubscribe = subscribeToThread(
+      selectedChannelKey,
+      (newMsg) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+        // Also update channel preview list in background
+        setChannels((prev) =>
+          prev.map((c) =>
+            c.key === selectedChannelKey
+              ? {
+                  ...c,
+                  lastMessageText: newMsg.text,
+                  lastMessageTime: formatChatTimestamp(newMsg.timestamp),
+                  lastSenderMe: newMsg.senderId === user.id || newMsg.senderId === 'usr_current',
+                  lastMessageRead: !!newMsg.isRead,
+                }
+              : c
+          )
+        );
+      },
+      (updatedMsg) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+        );
+        setChannels((prev) =>
+          prev.map((c) =>
+            c.key === selectedChannelKey
+              ? {
+                  ...c,
+                  lastMessageRead: !!updatedMsg.isRead,
+                }
+              : c
+          )
+        );
+      }
+    );
 
     return () => {
       if (typeof unsubscribe === 'function') {
@@ -422,6 +446,7 @@ export default function PrivacyChatDrawer({
                 lastMessageText: latest.text,
                 lastMessageTime: formatChatTimestamp(latest.timestamp),
                 lastSenderMe: true,
+                lastMessageRead: false,
               }
             : c
         )
@@ -430,7 +455,7 @@ export default function PrivacyChatDrawer({
   };
 
   const openConversation = (key) => {
-    markThreadAsRead(key);
+    markThreadAsRead(key, user.id);
     setSelectedChannelKey(key);
     setMessages(getThreadMessages(key));
     fetchThreadMessages(key).then((msgs) => {
@@ -644,7 +669,11 @@ export default function PrivacyChatDrawer({
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-xs text-[#566861] truncate flex items-center gap-1">
                             {chan.lastSenderMe && (
-                              <CheckCheck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                              chan.lastMessageRead ? (
+                                <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" title="Seen" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5 text-[#8696A0] shrink-0" title="Sent" />
+                              )
                             )}
                             <span className="truncate">{chan.lastMessageText || chan.subtitle}</span>
                           </p>
@@ -930,7 +959,11 @@ export default function PrivacyChatDrawer({
                           }).toLowerCase()}
                         </span>
                         {isMe && (
-                          <CheckCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                          msg.isRead ? (
+                            <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" title="Seen" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5 text-[#8696A0] shrink-0" title="Sent" />
+                          )
                         )}
                       </div>
                     </div>
