@@ -54,14 +54,18 @@ export default function DashboardLayout({
 
   // Dynamic calculation and live sync of unread messages count
   useEffect(() => {
-    const updateUnread = () => {
-      setUnreadChatCount(getTotalPlatformUnreadCount(user));
+    const updateUnread = (e) => {
+      if (e && e.detail && typeof e.detail.count === 'number') {
+        setUnreadChatCount(e.detail.count);
+      } else {
+        setUnreadChatCount(getTotalPlatformUnreadCount(user));
+      }
     };
     updateUnread();
-    const interval = setInterval(updateUnread, 3000);
+    window.addEventListener('agrolnk_chat_unread_update', updateUnread);
     window.addEventListener('storage', updateUnread);
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('agrolnk_chat_unread_update', updateUnread);
       window.removeEventListener('storage', updateUnread);
     };
   }, [user, isChatOpen]);

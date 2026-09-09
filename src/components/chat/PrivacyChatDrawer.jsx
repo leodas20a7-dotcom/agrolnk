@@ -281,6 +281,10 @@ export default function PrivacyChatDrawer({
     );
 
     setChannels(enriched);
+    const totalUnread = enriched.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_chat_unread_update', { detail: { count: totalUnread } }));
+    }
   };
 
   // Handle drawer open state and initial viewMode
@@ -461,11 +465,16 @@ export default function PrivacyChatDrawer({
     fetchThreadMessages(key).then((msgs) => {
       if (msgs && msgs.length > 0) setMessages(msgs);
     });
-    setChannels((prev) =>
-      prev.map((c) =>
+    setChannels((prev) => {
+      const updated = prev.map((c) =>
         c.key === key || (key && c.key.includes(key)) ? { ...c, unreadCount: 0 } : c
-      )
-    );
+      );
+      const totalUnread = updated.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_chat_unread_update', { detail: { count: totalUnread } }));
+      }
+      return updated;
+    });
     setViewMode('conversation');
   };
 

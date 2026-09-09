@@ -353,12 +353,17 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
     if (m.isSystem || m.id === 'msg_init') return false;
     if (currentUserId && (m.senderId === currentUserId || m.senderId === 'usr_current')) return false;
 
-    // Explicit read check takes precedence
-    if (m.isRead === false) return true;
-    if (m.isRead === true) return false;
-
-    // Fallback timestamp check if isRead is not boolean
+    // 1. If this thread was marked as read after the message timestamp, it's already read
     const msgTime = new Date(m.timestamp).getTime();
+    if (lastReadTime > 0 && !isNaN(msgTime) && msgTime <= lastReadTime) {
+      return false;
+    }
+
+    // 2. Explicit read boolean
+    if (m.isRead === true) return false;
+    if (m.isRead === false && lastReadTime === 0) return true;
+
+    // 3. Fallback timestamp check
     if (isNaN(msgTime)) return false;
     return msgTime > lastReadTime;
   });
@@ -369,22 +374,15 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
 export function getTotalPlatformUnreadCount(currentUser) {
   const currentUserId = currentUser?.id || 'usr_current';
   const threads = getStoredThreads();
-  const baseKeys = [
-    'agrolnk_support_desk',
-    'chat_partner_wh_salem_01',
-    'chat_partner_wh_dindigul_02',
-    'direct_maran_veerappan',
-    'direct_maran_mani',
-    'direct_maran_sakthivel',
-    'chat_partner_usr_transporter_03',
-    'chat_partner_usr_financier_05',
-    ...Object.keys(threads)
-  ];
-  const uniqueKeys = Array.from(new Set(baseKeys));
+  const threadKeys = Object.keys(threads);
+  if (threadKeys.length === 0) return 0;
+
   let total = 0;
-  uniqueKeys.forEach((key) => {
-    const msgs = threads[key] || getThreadMessages(key);
-    total += getThreadUnreadCount(key, currentUserId, msgs);
+  threadKeys.forEach((key) => {
+    const msgs = threads[key];
+    if (Array.isArray(msgs) && msgs.length > 0) {
+      total += getThreadUnreadCount(key, currentUserId, msgs);
+    }
   });
   return total;
 }
