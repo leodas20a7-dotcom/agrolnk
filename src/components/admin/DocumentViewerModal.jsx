@@ -160,10 +160,10 @@ export default function DocumentViewerModal({
         </div>
 
         {/* Document Body Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F1F5F3] flex items-center justify-center">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F1F5F3] flex items-start justify-center">
           <div 
             style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-            className="w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-[#D1DDD6] overflow-hidden transition-transform duration-150 relative text-left"
+            className="w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-[#D1DDD6] overflow-hidden transition-transform duration-150 relative text-left my-2"
           >
             {/* Real Uploaded Image Rendering if available */}
             {hasRealImage ? (
