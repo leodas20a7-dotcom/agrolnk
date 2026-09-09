@@ -280,8 +280,12 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
     raw_text TEXT,
     text TEXT NOT NULL,
     is_system BOOLEAN NOT NULL DEFAULT false,
+    is_read BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure is_read column exists for existing tables
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
 
 -- ============================================================================
 -- 10. ROW LEVEL SECURITY (RLS) POLICIES

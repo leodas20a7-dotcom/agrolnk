@@ -912,9 +912,13 @@ export async function fetchThreadMessages(threadKey) {
     if (data && data.length > 0) {
       const formatted = data.map(mapDbRowToMessage);
       const threads = getStoredThreads();
-      threads[threadKey] = formatted;
+      const currentLocal = threads[threadKey] || [];
+      // Keep any locally created message that might still be in-flight
+      const pendingLocal = currentLocal.filter((m) => !formatted.some((f) => f.id === m.id));
+      const merged = [...formatted, ...pendingLocal];
+      threads[threadKey] = merged;
       saveStoredThreads(threads);
-      return formatted;
+      return merged;
     }
 
     // If Supabase table is empty for this thread, seed initial demo dialogue into Supabase
@@ -926,7 +930,9 @@ export async function fetchThreadMessages(threadKey) {
         .insert(dbRows)
         .then(({ error: insertErr }) => {
           if (insertErr) {
-            console.warn('Supabase demo chat seed notice:', insertErr.message);
+            // Schema-safe retry without is_read
+            const fallbackRows = dbRows.map(({ is_read, ...rest }) => rest);
+            supabase.from('chat_messages').insert(fallbackRows).then(() => {});
           }
         });
 
@@ -1167,7 +1173,7 @@ export function sendPrivacyMessage(threadKey, messageData) {
   threads[threadKey] = updatedMessages;
   saveStoredThreads(threads);
 
-  // 2. Asynchronous Supabase Insertion
+  // 2. Asynchronous Supabase Insertion with Schema Fallback
   try {
     const dbRows = newMessagesToPersist.map((m) => mapMessageToDbRow(threadKey, m));
     supabase
@@ -1175,7 +1181,17 @@ export function sendPrivacyMessage(threadKey, messageData) {
       .insert(dbRows)
       .then(({ error }) => {
         if (error) {
-          console.warn('Supabase message insert notice (saved locally):', error.message);
+          console.warn('Supabase message insert notice, retrying with base schema:', error.message);
+          // Auto-fallback: If is_read column does not exist yet in Supabase table, insert without is_read
+          const fallbackRows = dbRows.map(({ is_read, ...rest }) => rest);
+          supabase
+            .from('chat_messages')
+            .insert(fallbackRows)
+            .then(({ error: retryErr }) => {
+              if (retryErr) {
+                console.warn('Supabase fallback insert note:', retryErr.message);
+              }
+            });
         }
       });
   } catch (err) {
