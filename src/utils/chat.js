@@ -245,6 +245,23 @@ export function getSharedThreadKey(userA, userB) {
   return `direct_${sorted[0]}_${sorted[1]}`;
 }
 
+function getStoredThreads() {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredThreads(threads) {
+  try {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(threads));
+  } catch (err) {
+    console.error('Failed to save chat threads:', err);
+  }
+}
+
 export function getAllStoredThreads() {
   return getStoredThreads();
 }
