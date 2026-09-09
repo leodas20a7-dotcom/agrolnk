@@ -21,6 +21,8 @@ export default function CommoditySelect({
   const [commodities, setCommodities] = useState(() => getPlatformCommodities());
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newCropName, setNewCropName] = useState('');
+  const [cropToConfirm, setCropToConfirm] = useState(null);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -73,21 +75,35 @@ export default function CommoditySelect({
     setIsOpen(false);
     setSearchTerm('');
     setIsAddingNew(false);
+    setCropToConfirm(null);
   };
 
-  const handleAddNewCrop = async (customName) => {
+  // Step 1: Prompt confirmation
+  const requestAddNewCrop = (customName) => {
     const targetName = (customName || newCropName || searchTerm).trim();
     if (!targetName) return;
-
     const clean = targetName.charAt(0).toUpperCase() + targetName.slice(1);
-    const registered = await registerCustomCommodity(clean, null, userId);
+    setCropToConfirm(clean);
+  };
 
-    if (registered) {
-      setCommodities(getPlatformCommodities());
-      handleSelect(registered);
-      setNewCropName('');
-      setIsAddingNew(false);
-      setSearchTerm('');
+  // Step 2: User clicks OK on confirm modal
+  const handleConfirmAddCrop = async () => {
+    if (!cropToConfirm) return;
+    setIsRegistering(true);
+    try {
+      const registered = await registerCustomCommodity(cropToConfirm, null, userId);
+      if (registered) {
+        setCommodities(getPlatformCommodities());
+        handleSelect(registered);
+        setNewCropName('');
+        setIsAddingNew(false);
+        setSearchTerm('');
+        setCropToConfirm(null);
+      }
+    } catch (err) {
+      console.warn('Failed to add crop:', err);
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -156,7 +172,7 @@ export default function CommoditySelect({
                     if (filtered.length > 0) {
                       handleSelect(filtered[0]);
                     } else if (searchTerm.trim()) {
-                      handleAddNewCrop(searchTerm);
+                      requestAddNewCrop(searchTerm);
                     }
                   }
                 }}
@@ -221,7 +237,7 @@ export default function CommoditySelect({
                 </p>
                 <button
                   type="button"
-                  onClick={() => handleAddNewCrop(searchTerm)}
+                  onClick={() => requestAddNewCrop(searchTerm)}
                   className="w-full py-2 px-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -249,11 +265,11 @@ export default function CommoditySelect({
                 <input
                   type="text"
                   value={newCropName}
-                  onChange={(e) => setNewCropName(e.target.value)}
+                  onChange={(e) => setNewCropName(e.target.value.replace(/[^a-zA-Z\s.-]/g, ''))}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      handleAddNewCrop(newCropName);
+                      requestAddNewCrop(newCropName);
                     }
                   }}
                   placeholder="e.g. Dragon Fruit, Moringa"
@@ -262,7 +278,7 @@ export default function CommoditySelect({
                 />
                 <button
                   type="button"
-                  onClick={() => handleAddNewCrop(newCropName)}
+                  onClick={() => requestAddNewCrop(newCropName)}
                   disabled={!newCropName.trim()}
                   className="px-2.5 py-1.5 bg-[#10B981] hover:bg-[#059669] disabled:opacity-50 text-white text-xs font-bold rounded-lg shrink-0 cursor-pointer"
                 >
@@ -281,6 +297,65 @@ export default function CommoditySelect({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Confirmation Modal: Add New Commodity (OK / Cancel) */}
+      {cropToConfirm && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 border border-[#E5EDE8] shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-[#10B981]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-[#0B3326]">
+                  Confirm New Commodity
+                </h3>
+                <p className="text-xs text-[#566861]">
+                  Do you want to add <span className="font-bold text-[#14211D]">"{cropToConfirm}"</span> to the platform catalog?
+                </p>
+              </div>
+            </div>
+
+            {/* Explanatory Banner */}
+            <div className="p-3 bg-[#F8FAF8] rounded-2xl border border-[#E5EDE8] text-[11px] text-[#566861] space-y-1">
+              <p className="font-semibold text-[#0B3326] flex items-center gap-1">
+                <span>🌾</span> Benefits All Farmers & Buyers:
+              </p>
+              <p>
+                Once added, <strong>{cropToConfirm}</strong> will be saved to Supabase and become available in listings and auctions for everyone.
+              </p>
+            </div>
+
+            {/* Action Buttons: OK vs Cancel */}
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setCropToConfirm(null)}
+                disabled={isRegistering}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#14211D] text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAddCrop}
+                disabled={isRegistering}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {isRegistering ? (
+                  <span>Adding...</span>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>OK, Add Crop</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
