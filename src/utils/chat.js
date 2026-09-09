@@ -245,21 +245,143 @@ export function getSharedThreadKey(userA, userB) {
   return `direct_${sorted[0]}_${sorted[1]}`;
 }
 
-function getStoredThreads() {
-  try {
-    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+export function getAllStoredThreads() {
+  return getStoredThreads();
 }
 
-function saveStoredThreads(threads) {
-  try {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(threads));
-  } catch (err) {
-    console.error('Failed to save chat threads:', err);
+/**
+ * Format ISO timestamp into WhatsApp-style display (e.g. 1:42 pm, Yesterday, 08/09/2026)
+ */
+export function formatChatTimestamp(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  if (isToday) {
+    return date.toLocaleTimeString('en-IN', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).toLowerCase();
   }
+
+  if (isYesterday) {
+    return 'Yesterday';
+  }
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+}
+
+/**
+ * Get verified directory contacts tailored to the current user
+ */
+export function getPlatformContacts(user) {
+  const currentRole = user?.role || 'buyer';
+  
+  const baseContacts = [
+    {
+      id: 'contact_support',
+      threadKey: `${currentRole}_support`,
+      name: 'AgroLnk Desk & Smart Assistant',
+      role: 'Admin & AI Assistant',
+      category: 'support',
+      status: 'Official Support & Escrow Desk',
+      avatarColor: 'bg-[#0B3326] text-[#34D399]',
+      isOfficial: true,
+      phoneMask: 'Official Channel',
+      initials: 'AL',
+    },
+    {
+      id: 'wh_salem_01',
+      threadKey: 'chat_partner_wh_salem_01',
+      name: 'Salem Agri Cold Storage Hub',
+      role: 'Warehouse Operator',
+      category: 'warehouse',
+      facilityName: 'Salem Agri Cold Storage Hub',
+      status: 'WDRA Accredited Facility • 5,000 MT Cold Vault',
+      avatarColor: 'bg-emerald-700 text-white',
+      phoneMask: '+91 98421 *****',
+      initials: 'SL',
+    },
+    {
+      id: 'wh_dindigul_02',
+      threadKey: 'chat_partner_wh_dindigul_02',
+      name: 'Dindigul Central Agri Logistics Park',
+      role: 'Warehouse Operator',
+      category: 'warehouse',
+      facilityName: 'Dindigul Central Agri Logistics Park',
+      status: 'NABARD Approved Modern Silo • 8,000 MT',
+      avatarColor: 'bg-teal-700 text-white',
+      phoneMask: '+91 94432 *****',
+      initials: 'DG',
+    },
+    {
+      id: 'usr_transporter_03',
+      threadKey: 'chat_partner_usr_transporter_03',
+      name: 'Vetri Logistics Fleet',
+      role: 'Transporter',
+      category: 'logistics',
+      status: 'National Goods Carriage • Multi-axle Reefer Fleet',
+      avatarColor: 'bg-amber-600 text-white',
+      phoneMask: '+91 94433 *****',
+      initials: 'VL',
+    },
+    {
+      id: 'usr_financier_05',
+      threadKey: 'chat_partner_usr_financier_05',
+      name: 'Kisan Capital Partners',
+      role: 'Financier',
+      category: 'financier',
+      status: 'Trade Settlement & e-NWR Credit Desk',
+      avatarColor: 'bg-blue-700 text-white',
+      phoneMask: '+91 98400 *****',
+      initials: 'KC',
+    },
+  ];
+
+  if (currentRole === 'buyer') {
+    baseContacts.splice(1, 0, {
+      id: 'usr_farmer_sakthi',
+      threadKey: 'direct_maran_sakthivel',
+      name: 'Sakthi Vel (Farmer)',
+      role: 'Farmer',
+      category: 'orders',
+      status: 'Active Supplier • Organic Tomatoes & Basmati Rice',
+      avatarColor: 'bg-emerald-600 text-white',
+      phoneMask: '+91 94432 *****',
+      initials: 'SV',
+    });
+  } else {
+    baseContacts.splice(1, 0, {
+      id: 'usr_buyer_maran',
+      threadKey: 'direct_maran_sakthivel',
+      name: 'Maran (Wholesale Buyer)',
+      role: 'Buyer',
+      category: 'orders',
+      status: 'Procurement Desk • Orders #AGM-6454 & #AGM-2361',
+      avatarColor: 'bg-indigo-600 text-white',
+      phoneMask: '+91 98840 *****',
+      initials: 'MB',
+    });
+  }
+
+  return baseContacts;
 }
 
 /**
