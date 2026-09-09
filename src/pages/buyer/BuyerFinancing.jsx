@@ -212,7 +212,20 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setSelectedRequestForReview(existingRequest)}
+                          onClick={() =>
+                            setSelectedRequestForReview({
+                              ...existingRequest,
+                              commodity: existingRequest.commodity || order.commodity,
+                              variety: existingRequest.variety || order.variety,
+                              grade: existingRequest.grade || order.grade || 'A',
+                              quantity: existingRequest.quantity || order.quantity,
+                              unit: existingRequest.unit || order.unit || 'kg',
+                              transactionValue: existingRequest.transactionValue || order.totalAmount,
+                              requestedAmount: existingRequest.requestedAmount || Math.round((order.totalAmount || 0) * 0.7),
+                              orderNumber: existingRequest.orderNumber || order.orderNumber,
+                              orderId: existingRequest.orderId || order.id,
+                            })
+                          }
                           className="text-xs font-bold text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer"
                         >
                           View Status →

@@ -126,74 +126,104 @@ export default function FinancingReviewModal({
 
         </div>
 
-        {/* Commodity & Financial Underwriting Breakdown */}
-        <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-base font-bold text-[#0B3326] font-heading">
-                  {request.commodity || 'Produce Lot'}
-                </h4>
-                <Badge variant="dark" size="sm">
-                  Grade {request.grade || 'A'}
-                </Badge>
+        {/* Commodity & Financial Underwriting Breakdown - Hidden until Approved for Applicant View */}
+        {!isFinancier && request.status !== 'approved' ? (
+          <div className="p-6 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-center space-y-3.5 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-[#FEF3C7] text-[#D97706] flex items-center justify-center mx-auto shadow-xs">
+              <Clock className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-base font-bold text-[#0B3326] font-heading">
+                Funding Application Under Review
+              </h4>
+              <p className="text-xs text-[#566861] max-w-md mx-auto leading-relaxed">
+                Your trade credit request has been submitted to institutional financiers for evaluation. The sanctioned credit amount, approved loan-to-value (LTV) ratio, and settlement breakdown will be unlocked and displayed here immediately upon approval.
+              </p>
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EBF5F0] text-[11px] font-semibold text-[#10B981] border border-[#DCFCE7]">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>100% Escrow Collateral Backed</span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] space-y-4 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-bold text-[#0B3326] font-heading">
+                    {request.commodity || 'Produce Lot'}
+                  </h4>
+                  <Badge variant="dark" size="sm">
+                    Grade {request.grade || 'A'}
+                  </Badge>
+                </div>
+                <span className="text-xs text-[#566861]">
+                  Lot Volume: {Number(request.quantity || 0).toLocaleString('en-IN')} {request.unit || 'kg'} • Variety: {request.variety || 'Standard'}
+                </span>
               </div>
-              <span className="text-xs text-[#566861]">
-                Lot Volume: {Number(request.quantity || 0).toLocaleString('en-IN')} {request.unit || 'kg'} • Variety: {request.variety || 'Standard'}
-              </span>
-            </div>
 
-            <div className="text-right">
-              <span className="text-[11px] text-[#566861] block font-medium">
-                Total Transaction Value
-              </span>
-              <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-                ₹{Number(request.transactionValue || 0).toLocaleString('en-IN')}
-              </span>
-            </div>
-          </div>
-
-          {/* Requested vs Approved Comparison */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
-            <div>
-              <span className="text-[10px] text-[#566861] block font-medium">Requested Funding</span>
-              <span className="text-sm font-extrabold text-[#0B3326]">
-                ₹{Number(request.requestedAmount || 0).toLocaleString('en-IN')}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-[#566861] block font-medium">Loan-to-Value (LTV)</span>
-              <span className="text-sm font-bold text-[#10B981]">
-                {Number(request.transactionValue) > 0 && Number(request.requestedAmount) > 0
-                  ? Math.round((Number(request.requestedAmount) / Number(request.transactionValue)) * 100)
-                  : 0}%
-              </span>
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <span className="text-[10px] text-[#566861] block font-medium">Settlement Terms</span>
-              <span className="text-xs font-semibold text-[#14211D] block truncate">
-                {request.repaymentLabel || 'Auto Escrow Release'}
-              </span>
-            </div>
-          </div>
-
-          {/* Purpose & Notes */}
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center gap-2 text-[#566861]">
-              <Tag className="w-3.5 h-3.5 text-[#10B981]" />
-              <span>
-                Financing Purpose: <strong className="text-[#14211D]">{request.purposeLabel || request.purpose || 'Working Capital Advance'}</strong>
-              </span>
-            </div>
-
-            {request.notes && (
-              <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#566861]">
-                <strong className="text-[#14211D] block mb-0.5">Applicant Notes:</strong>
-                <p>{request.notes}</p>
+              <div className="text-right">
+                <span className="text-[11px] text-[#566861] block font-medium">
+                  Total Transaction Value
+                </span>
+                <span className="text-xl font-extrabold text-[#0B3326] font-heading">
+                  ₹{Number(request.transactionValue || 0).toLocaleString('en-IN')}
+                </span>
               </div>
-            )}
+            </div>
+
+            {/* Requested vs Approved Comparison */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
+              <div>
+                <span className="text-[10px] text-[#566861] block font-medium">
+                  {request.status === 'approved' ? 'Approved Funding' : 'Requested Funding'}
+                </span>
+                <span className="text-sm font-extrabold text-[#0B3326]">
+                  ₹{Number((request.status === 'approved' ? request.approvedAmount : request.requestedAmount) || request.requestedAmount || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[#566861] block font-medium">Loan-to-Value (LTV)</span>
+                <span className="text-sm font-bold text-[#10B981]">
+                  {Number(request.transactionValue) > 0 && Number(request.requestedAmount || request.approvedAmount) > 0
+                    ? Math.round((Number(request.approvedAmount || request.requestedAmount) / Number(request.transactionValue)) * 100)
+                    : 0}%
+                </span>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <span className="text-[10px] text-[#566861] block font-medium">Settlement Terms</span>
+                <span className="text-xs font-semibold text-[#14211D] block truncate">
+                  {request.repaymentLabel || 'Auto Escrow Release'}
+                </span>
+              </div>
+            </div>
+
+            {/* Purpose & Notes */}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-[#566861]">
+                <Tag className="w-3.5 h-3.5 text-[#10B981]" />
+                <span>
+                  Financing Purpose: <strong className="text-[#14211D]">{request.purposeLabel || request.purpose || 'Working Capital Advance'}</strong>
+                </span>
+              </div>
+
+              {request.reviewNotes && (
+                <div className="p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/30 text-xs text-[#0B3326]">
+                  <strong className="text-[#0B3326] block mb-0.5">Financier Memo:</strong>
+                  <p>{request.reviewNotes}</p>
+                </div>
+              )}
+
+              {request.notes && (
+                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#566861]">
+                  <strong className="text-[#14211D] block mb-0.5">Applicant Notes:</strong>
+                  <p>{request.notes}</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Financier Underwriting Controls (Only for Financier role) */}
         {isFinancier && (
