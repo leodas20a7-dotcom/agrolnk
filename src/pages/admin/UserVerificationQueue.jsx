@@ -18,7 +18,12 @@ import {
   Eye,
   X,
   ExternalLink,
-  Download
+  Download,
+  LayoutGrid,
+  List,
+  Phone,
+  Mail,
+  MapPin
 } from 'lucide-react';
 import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
 
@@ -33,6 +38,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'verified' | 'all'
   const [roleFilter, setRoleFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'rows'
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedUserForDocs, setSelectedUserForDocs] = useState(null);
 
@@ -191,20 +197,53 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
             </button>
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search user, email or entity..."
-              className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-            />
+          {/* Right Controls: View Mode Switch & Search */}
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+            {/* View Switch: Grid vs Rows */}
+            <div className="flex items-center bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                title="Grid View (2-Column Cards)"
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
+                    : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="text-[11px]">Grid</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('rows')}
+                title="Row-wise List View (Full Width Rows)"
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === 'rows'
+                    ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
+                    : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                <List className="w-3.5 h-3.5" />
+                <span className="text-[11px]">Rows</span>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative flex-1 sm:w-72">
+              <Search className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search user, email or entity..."
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+              />
+            </div>
           </div>
         </div>
 
-        {/* User Cards Grid */}
+        {/* Content Display: Empty State OR (Grid Mode vs Row Mode) */}
         {filteredUsers.length === 0 ? (
           <div className="bg-white rounded-2xl border border-[#E5EDE8] p-12 text-center space-y-2">
             <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
@@ -215,7 +254,8 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               All participants matching this filter have been processed.
             </p>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
+          /* ================= GRID VIEW ================= */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredUsers.map((item) => {
               const RoleIcon = getRoleIcon(item.role);
@@ -357,6 +397,136 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     </div>
                   </div>
 
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ================= ROW-WISE / LIST VIEW ================= */
+          <div className="space-y-3">
+            {filteredUsers.map((item) => {
+              const RoleIcon = getRoleIcon(item.role);
+              const isVerified = item.verificationStatus === 'verified';
+              const isPending = item.verificationStatus === 'pending' || item.verificationStatus === 'action_required';
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                >
+                  {/* Left: User Identity & Details */}
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-[240px]">
+                    <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-extrabold text-base shrink-0 shadow-2xs">
+                      {item.name ? item.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-[#0B3326]">
+                          {item.name}
+                        </h3>
+                        {item.pendingChanges ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
+                            ⚡ Revision Request
+                          </span>
+                        ) : isVerified ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            ✓ Verified
+                          </span>
+                        ) : isPending ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            Pending
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-[#0B3326]">{item.orgName || item.email}</span>
+                        <span>&bull;</span>
+                        <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-1.5 py-0.5 rounded text-[11px]">{item.role}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Middle Left: Contact & Location */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-3 text-xs text-[#566861] lg:px-4 lg:border-l lg:border-[#E5EDE8]">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold text-[#566861]/70 block">Contact Info</span>
+                      <div className="flex flex-col gap-0.5 text-[11px]">
+                        {item.phone && <span className="font-mono text-[#0B3326]">📞 {item.phone}</span>}
+                        <span className="truncate max-w-[160px] text-[#566861]">{item.email}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold text-[#566861]/70 block">Location</span>
+                      <span className="text-[11px] font-medium text-[#0B3326] block">
+                        📍 {item.district ? `${item.district}, ${item.state || 'India'}` : 'Registered User'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Middle Right: Documents Badges */}
+                  <div className="space-y-1 lg:px-4 lg:border-l lg:border-[#E5EDE8] min-w-[200px]">
+                    <span className="text-[10px] uppercase font-bold text-[#566861]/70 block">Credentials</span>
+                    {item.documents && item.documents.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.documents.map((doc, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setSelectedUserForDocs(item)}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold bg-[#F8FAF8] hover:bg-[#EBF5F0] text-[#0B3326] px-2 py-1 rounded-lg border border-[#E5EDE8] transition-colors cursor-pointer"
+                            title={`Inspect ${doc.type} (${doc.number})`}
+                          >
+                            <FileText className="w-3 h-3 text-[#10B981]" />
+                            <span>{doc.type}</span>
+                            <Eye className="w-2.5 h-2.5 text-[#566861]" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] italic text-[#566861]">No docs uploaded</span>
+                    )}
+                  </div>
+
+                  {/* Right: Quick Actions */}
+                  <div className="flex items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-[#E5EDE8] shrink-0 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedUserForDocs(item)}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-[#10B981]" />
+                      <span>Details</span>
+                    </button>
+
+                    {isPending ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleReject(item.id, item.name)}
+                          className="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApprove(item.id, item.name)}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
+                          <span>Approve</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleReject(item.id, item.name)}
+                        className="px-3 py-1 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
