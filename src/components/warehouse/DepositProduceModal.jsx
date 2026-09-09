@@ -23,12 +23,12 @@ export default function DepositProduceModal({
 
   const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0];
 
-  const [commodity, setCommodity] = useState('Tomato');
-  const [variety, setVariety] = useState('Hybrid Shivam');
+  const [commodity, setCommodity] = useState('');
+  const [variety, setVariety] = useState('');
   const [grade, setGrade] = useState('A');
-  const [quantity, setQuantity] = useState('1000');
+  const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('kg');
-  const [priceEstimate, setPriceEstimate] = useState('42');
+  const [priceEstimate, setPriceEstimate] = useState('');
   const [chamber, setChamber] = useState(
     currentWarehouse?.chambers?.[0] || 'Chamber A1 (Dry Storage)'
   );
@@ -210,9 +210,10 @@ export default function DepositProduceModal({
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                min="100"
-                step="50"
-                className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
+                placeholder="e.g. 1000"
+                min="1"
+                step="10"
+                className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
                 required
               />
             </div>
@@ -225,9 +226,10 @@ export default function DepositProduceModal({
                 type="number"
                 value={priceEstimate}
                 onChange={(e) => setPriceEstimate(e.target.value)}
+                placeholder="e.g. 42"
                 min="1"
                 step="1"
-                className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
+                className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
                 required
               />
             </div>

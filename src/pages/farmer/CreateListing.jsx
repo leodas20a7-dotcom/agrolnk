@@ -34,20 +34,20 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const [saleType, setSaleType] = useState(initialSource?.saleType || 'direct'); // 'direct' | 'auction'
 
   const [formData, setFormData] = useState({
-    commodity: initialSource?.commodity || 'Tomato',
-    variety: initialSource?.variety || 'Hybrid Shivam',
+    commodity: initialSource?.commodity || '',
+    variety: initialSource?.variety || '',
     grade: initialSource?.grade || 'A',
-    quantity: initialSource?.quantity ? String(initialSource.quantity) : '500',
+    quantity: initialSource?.quantity ? String(initialSource.quantity) : '',
     unit: initialSource?.unit || 'kg',
-    price: initialSource?.price ? String(initialSource.price) : (initialSource?.pricePerUnit ? String(initialSource.pricePerUnit) : '42'),
-    startingBid: initialSource?.startingBid ? String(initialSource.startingBid) : '38',
-    reservePrice: initialSource?.reservePrice ? String(initialSource.reservePrice) : '45',
+    price: initialSource?.price ? String(initialSource.price) : (initialSource?.pricePerUnit ? String(initialSource.pricePerUnit) : ''),
+    startingBid: initialSource?.startingBid ? String(initialSource.startingBid) : '',
+    reservePrice: initialSource?.reservePrice ? String(initialSource.reservePrice) : '',
     durationMinutes: initialSource?.durationMinutes ? String(initialSource.durationMinutes) : '1440',
-    state: initialSource?.state || 'Tamil Nadu',
-    district: initialSource?.district || 'Salem',
-    village: initialSource?.village || 'Attur Farmgate Hub',
+    state: initialSource?.state || '',
+    district: initialSource?.district || '',
+    village: initialSource?.village || '',
     harvestDate: initialSource?.harvestDate || new Date().toISOString().split('T')[0],
-    images: initialSource?.images || [COMMODITY_IMAGES.Tomato],
+    images: initialSource?.images || [],
     isDefaultImage: !initialSource?.images,
   });
 
@@ -415,13 +415,14 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
               {/* Commodity */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-[#0B3326] block">
-                  Commodity
+                  Commodity <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.commodity}
                   onChange={handleCommoditySelect}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] cursor-pointer"
                 >
+                  <option value="">Select Commodity</option>
                   {commodities.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -438,7 +439,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   value={formData.variety}
                   onChange={(e) => setFormData({ ...formData, variety: e.target.value })}
                   placeholder="e.g. Hybrid Shivam, Nasik Red"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
               </div>
 
@@ -450,7 +451,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 <select
                   value={formData.grade}
                   onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] cursor-pointer"
                 >
                   {grades.map((g) => (
                     <option key={g} value={g}>Grade {g}</option>
@@ -464,11 +465,17 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   Lot Sample Photo
                 </label>
                 <div className="flex items-center gap-3">
-                  <img
-                    src={formData.images[0]}
-                    alt="Sample"
-                    className="w-10 h-10 rounded-xl object-cover border border-[#E5EDE8] shrink-0"
-                  />
+                  {formData.images?.[0] ? (
+                    <img
+                      src={formData.images[0]}
+                      alt="Sample"
+                      className="w-10 h-10 rounded-xl object-cover border border-[#E5EDE8] shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-[#F0F2F5] border border-dashed border-[#E5EDE8] flex items-center justify-center text-[#566861] shrink-0">
+                      <Camera className="w-4 h-4 opacity-50" />
+                    </div>
+                  )}
                   <label className="px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] bg-[#F8FAF8] hover:bg-[#EBF5F0] transition-colors cursor-pointer flex items-center gap-1.5">
                     <Camera className="w-3.5 h-3.5 text-[#10B981]" />
                     <span>Upload Custom Photo</span>
@@ -510,14 +517,15 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     type="number"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                    min="50"
-                    step="10"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    placeholder="e.g. 500"
+                    min="1"
+                    step="1"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                   />
                   <select
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className="px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] shrink-0"
+                    className="px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] shrink-0 cursor-pointer"
                   >
                     {units.map((u) => (
                       <option key={u} value={u}>{u}</option>
@@ -536,9 +544,10 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     type="number"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    placeholder="e.g. 42"
                     min="1"
                     step="0.5"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-extrabold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                   />
                 </div>
               ) : (
@@ -551,9 +560,10 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                       type="number"
                       value={formData.startingBid}
                       onChange={(e) => setFormData({ ...formData, startingBid: e.target.value })}
+                      placeholder="e.g. 38"
                       min="1"
                       step="0.5"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                     />
                   </div>
 
@@ -565,9 +575,10 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                       type="number"
                       value={formData.reservePrice}
                       onChange={(e) => setFormData({ ...formData, reservePrice: e.target.value })}
+                      placeholder="e.g. 45"
                       min="1"
                       step="0.5"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                     />
                   </div>
 
@@ -634,7 +645,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   value={formData.district}
                   onChange={(e) => setFormData({ ...formData, district: e.target.value })}
                   placeholder="e.g. Salem"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
               </div>
 
@@ -647,7 +658,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   value={formData.state}
                   onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                   placeholder="e.g. Tamil Nadu"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
               </div>
 
@@ -660,7 +671,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   value={formData.village}
                   onChange={(e) => setFormData({ ...formData, village: e.target.value })}
                   placeholder="e.g. Attur Farmgate Depot, Salem"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
               </div>
 
@@ -686,20 +697,20 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
             {/* Compact Spec Grid */}
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <img
-                src={formData.images[0]}
-                alt={formData.commodity}
+                src={formData.images?.[0] || COMMODITY_IMAGES[formData.commodity] || COMMODITY_IMAGES.Other}
+                alt={formData.commodity || 'Produce'}
                 className="w-20 h-20 rounded-2xl object-cover border border-[#E5EDE8] shrink-0"
               />
 
               <div className="flex-1 space-y-1 text-left">
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
-                    {formData.commodity}
+                    {formData.commodity || 'Unspecified Commodity'}
                   </h3>
                   <Badge variant="dark" size="sm">Grade {formData.grade}</Badge>
                 </div>
                 <p className="text-xs text-[#566861]">
-                  Variety: <strong>{formData.variety || 'Standard Lot'}</strong> • Location: <strong>{formData.district}, {formData.state}</strong>
+                  Variety: <strong>{formData.variety || 'Standard Lot'}</strong> • Location: <strong>{formData.district || 'Unspecified'}, {formData.state || 'India'}</strong>
                 </p>
               </div>
 
@@ -709,7 +720,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   ₹{estimatedValue.toLocaleString('en-IN')}
                 </span>
                 <span className="text-[11px] text-[#10B981] font-semibold block">
-                  {formData.quantity} {formData.unit} @ ₹{saleType === 'direct' ? formData.price : formData.startingBid}/{formData.unit}
+                  {formData.quantity || 0} {formData.unit} @ ₹{saleType === 'direct' ? (formData.price || 0) : (formData.startingBid || 0)}/{formData.unit}
                 </span>
               </div>
             </div>

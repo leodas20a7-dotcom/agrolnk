@@ -71,14 +71,14 @@ export default function WarehouseSetupModal({
   const user = currentUser || { id: 'usr_wh_01', name: 'Sundar', email: 'sundar@gmail.com' };
 
   const [companyName, setCompanyName] = useState('');
-  const [totalCapacityTonnes, setTotalCapacityTonnes] = useState('2000');
+  const [totalCapacityTonnes, setTotalCapacityTonnes] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [wdraCode, setWdraCode] = useState('');
   const [gstin, setGstin] = useState('');
-  const [address, setAddress] = useState('NH-44 Agri Corridor, Omalur Industrial Belt');
-  const [district, setDistrict] = useState(user.district || 'Salem');
-  const [state, setState] = useState(user.state || 'Tamil Nadu');
-  const [pincode, setPincode] = useState('636004');
+  const [address, setAddress] = useState('');
+  const [district, setDistrict] = useState(user.district || '');
+  const [state, setState] = useState(user.state || '');
+  const [pincode, setPincode] = useState('');
 
   // Selected storage types and individual capacities
   const [selectedTypes, setSelectedTypes] = useState({

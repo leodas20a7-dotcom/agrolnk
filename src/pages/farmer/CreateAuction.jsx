@@ -22,17 +22,17 @@ export default function CreateAuction({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
 
   const [formData, setFormData] = useState({
-    commodity: 'Tomato',
-    variety: 'Hybrid Shivam',
+    commodity: '',
+    variety: '',
     grade: 'A',
-    quantity: '500',
+    quantity: '',
     unit: 'kg',
-    startingBid: '40',
-    reservePrice: '40',
-    durationMinutes: '30',
-    state: 'Tamil Nadu',
-    district: 'Salem',
-    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'],
+    startingBid: '',
+    reservePrice: '',
+    durationMinutes: '1440',
+    state: '',
+    district: '',
+    images: [],
   });
 
   const [error, setError] = useState('');
@@ -215,6 +215,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
                 >
+                  <option value="">Select Commodity</option>
                   {commodities.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}

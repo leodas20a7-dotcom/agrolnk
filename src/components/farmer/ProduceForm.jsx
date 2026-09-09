@@ -74,6 +74,7 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
               required
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all cursor-pointer"
             >
+              <option value="">Select Commodity</option>
               {commodities.map((c) => (
                 <option key={c} value={c}>
                   {c}
