@@ -536,22 +536,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         <span className="font-semibold text-[#0B3326]">{item.orgName || item.email}</span>
                         <span>&bull;</span>
                         <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-md text-[11px]">{item.role}</span>
+                        <span>&bull;</span>
+                        <span className="text-[11px] text-[#566861] flex items-center gap-1 font-medium">
+                          <Clock className="w-3 h-3 text-[#10B981]" />
+                          {formatRequestDateTime(item.submittedAt || item.created_at)}
+                        </span>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Middle: Request Date & Time */}
-                  <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
-                    <div className="p-2 rounded-lg bg-[#EBF5F0] text-[#0B3326] shrink-0">
-                      <Clock className="w-4 h-4 text-[#10B981]" />
-                    </div>
-                    <div className="space-y-0.5 text-left">
-                      <span className="text-[10px] uppercase font-bold text-[#566861] block tracking-wider">
-                        Requested Date & Time
-                      </span>
-                      <span className="font-bold text-[#0B3326] text-xs sm:text-[13px] block">
-                        {formatRequestDateTime(item.submittedAt || item.created_at)}
-                      </span>
                     </div>
                   </div>
 
