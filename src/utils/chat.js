@@ -406,50 +406,17 @@ export function getTotalPlatformUnreadCount(currentUser) {
   return total;
 }
 
-export async function fetchPlatformUnreadCount(currentUser) {
-  const currentUserId = currentUser?.id || 'usr_current';
-  const allowedThreadKeys = getUserChannelKeys(currentUser);
-
-  try {
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('id, thread_key, sender_id, is_read, created_at')
-      .eq('is_read', false);
-
-    if (error || !data) {
-      return getTotalPlatformUnreadCount(currentUser);
-    }
-
-    const readMap = getReadThreadKeys(currentUserId);
-    const unread = data.filter((row) => {
-      // Must belong to a channel relevant to this user/role
-      if (!allowedThreadKeys.includes(row.thread_key)) return false;
-      // Not sent by this user
-      if (row.sender_id === currentUserId || row.sender_id === 'usr_current') return false;
-      // If user has marked thread as read after this message creation time
-      const lastRead = readMap[row.thread_key] || 0;
-      const msgTime = new Date(row.created_at).getTime();
-      if (lastRead > 0 && !isNaN(msgTime) && msgTime <= lastRead) return false;
-      return true;
-    });
-
-    return unread.length;
-  } catch {
-    return getTotalPlatformUnreadCount(currentUser);
-  }
-}
-
 export function subscribeToGlobalUnreadMessages(currentUser, onUpdate) {
   if (!currentUser || typeof window === 'undefined') return () => {};
 
-  const handleFetchAndUpdate = async () => {
-    const count = await fetchPlatformUnreadCount(currentUser);
+  const handleUpdate = () => {
+    const count = getTotalPlatformUnreadCount(currentUser);
     if (typeof onUpdate === 'function') {
       onUpdate(count);
     }
   };
 
-  handleFetchAndUpdate();
+  handleUpdate();
 
   try {
     const channelName = `global_unread_${(currentUser.id || 'usr').replace(/[^a-zA-Z0-9_]/g, '_')}_${Date.now()}`;
@@ -462,8 +429,26 @@ export function subscribeToGlobalUnreadMessages(currentUser, onUpdate) {
           schema: 'public',
           table: 'chat_messages',
         },
-        () => {
-          handleFetchAndUpdate();
+        (payload) => {
+          if (payload && payload.new) {
+            const row = payload.new;
+            const threadKey = row.thread_key;
+            if (threadKey) {
+              const formatted = mapDbRowToMessage(row);
+              const threads = getStoredThreads();
+              const current = threads[threadKey] || [];
+              if (payload.eventType === 'INSERT') {
+                if (!current.some((m) => m.id === formatted.id)) {
+                  threads[threadKey] = [...current, formatted];
+                  saveStoredThreads(threads);
+                }
+              } else if (payload.eventType === 'UPDATE') {
+                threads[threadKey] = current.map((m) => (m.id === formatted.id ? formatted : m));
+                saveStoredThreads(threads);
+              }
+            }
+          }
+          handleUpdate();
         }
       )
       .subscribe();
