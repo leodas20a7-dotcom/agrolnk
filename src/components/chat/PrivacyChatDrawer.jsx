@@ -250,15 +250,20 @@ export default function PrivacyChatDrawer({
     }
 
     // Attach stored message previews & timestamps to each channel
-    const allThreads = getAllStoredThreads();
     const enriched = defaultChannels.map((c) => {
-      const msgs = allThreads[c.key] || getThreadMessages(c.key);
-      const lastMsg = msgs && msgs.length > 0 ? msgs[msgs.length - 1] : null;
+      const msgs = getThreadMessages(c.key);
+      const nonSystem = msgs.filter((m) => !m.isSystem && m.id !== 'msg_init');
+      const latestMsg =
+        nonSystem.length > 0
+          ? nonSystem[nonSystem.length - 1]
+          : msgs && msgs.length > 0
+          ? msgs[msgs.length - 1]
+          : null;
       return {
         ...c,
-        lastMessageText: lastMsg ? lastMsg.text : c.subtitle,
-        lastMessageTime: lastMsg ? formatChatTimestamp(lastMsg.timestamp) : '1:42 pm',
-        lastSenderMe: lastMsg ? lastMsg.senderId === user.id : false,
+        lastMessageText: latestMsg ? latestMsg.text : c.subtitle,
+        lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '2:27 pm',
+        lastSenderMe: latestMsg ? latestMsg.senderId === user.id : false,
       };
     });
 
@@ -359,6 +364,8 @@ export default function PrivacyChatDrawer({
 
   const openConversation = (key) => {
     setSelectedChannelKey(key);
+    const threadMsgs = getThreadMessages(key);
+    setMessages(threadMsgs);
     setViewMode('conversation');
   };
 
