@@ -26,6 +26,7 @@ export default function PrivacyChatDrawer({
   currentUser,
   threadKey = 'general_support',
   orderContext = null,
+  partnerContext = null,
 }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -36,7 +37,7 @@ export default function PrivacyChatDrawer({
 
   const user = currentUser || { id: 'usr_guest', name: 'Trading Participant', role: 'buyer' };
 
-  // Load available channels (Support Desk + Deduplicated Trading Partners)
+  // Load available channels (Support Desk + Deduplicated Trading Partners + Direct Partner Contexts)
   useEffect(() => {
     const loadChannels = async () => {
       const defaultChannels = [
@@ -49,6 +50,23 @@ export default function PrivacyChatDrawer({
           badgeColor: 'emerald',
         },
       ];
+
+      // If direct partner / warehouse context is passed, inject it at top
+      if (partnerContext) {
+        const partnerKey = partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`;
+        defaultChannels.unshift({
+          key: partnerKey,
+          title: partnerContext.partnerName || partnerContext.facilityName || 'Certified Storage Operator',
+          subtitle: partnerContext.facilityName 
+            ? `WDRA Accredited Facility • Direct Inquiries`
+            : `${partnerContext.partnerRole || 'Operator'} • Direct Secure Chat`,
+          role: partnerContext.partnerRole || 'Warehouse Operator',
+          icon: Building2,
+          badgeColor: 'emerald',
+          isWarehouse: true,
+          facilityName: partnerContext.facilityName,
+        });
+      }
 
       try {
         let userOrders = [];
@@ -123,8 +141,10 @@ export default function PrivacyChatDrawer({
 
       setChannels(defaultChannels);
 
-      // Default to orderContext if provided, else support or active channel
-      if (orderContext) {
+      // Select targeted channel
+      if (partnerContext) {
+        setSelectedChannelKey(partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`);
+      } else if (orderContext) {
         const partnerName = user.role === 'buyer' 
           ? (orderContext.farmerName || 'Verified Producer') 
           : (orderContext.buyerName || 'Wholesale Buyer');
@@ -135,6 +155,8 @@ export default function PrivacyChatDrawer({
         const myIdentifier = user.name ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_') : (user.role === 'buyer' ? 'maran' : 'veerappan');
         const matchedKey = getSharedThreadKey(myIdentifier, partnerId);
         setSelectedChannelKey(matchedKey);
+      } else if (threadKey) {
+        setSelectedChannelKey(threadKey);
       } else if (!selectedChannelKey) {
         setSelectedChannelKey(defaultChannels[0].key);
       }
@@ -143,7 +165,7 @@ export default function PrivacyChatDrawer({
     if (isOpen) {
       loadChannels();
     }
-  }, [isOpen, user.id, user.name, user.role, orderContext]);
+  }, [isOpen, user.id, user.name, user.role, orderContext, partnerContext, threadKey]);
 
   // Load messages for the selected channel with live storage sync
   const refreshMessages = () => {

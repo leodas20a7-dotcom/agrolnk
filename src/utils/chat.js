@@ -400,3 +400,26 @@ export function sendPrivacyMessage(threadKey, messageData) {
   saveStoredThreads(threads);
   return updatedMessages;
 }
+
+/**
+ * Trigger global event to open privacy chat drawer for a specific partner/warehouse
+ */
+export function openDirectChat({ partnerId, partnerName, partnerRole = 'Warehouse Operator', facilityName = '', initialMessage = '' }) {
+  const safeId = partnerId || (partnerName ? partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'partner');
+  const threadKey = `chat_partner_${safeId}`;
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('agrolnk_open_chat', {
+        detail: {
+          threadKey,
+          partnerId: safeId,
+          partnerName: partnerName || facilityName || 'Certified Operator',
+          partnerRole,
+          facilityName: facilityName || partnerName || 'Certified Storage Facility',
+          initialMessage,
+        },
+      })
+    );
+  }
+}

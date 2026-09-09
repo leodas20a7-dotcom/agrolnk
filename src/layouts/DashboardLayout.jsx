@@ -45,7 +45,25 @@ export default function DashboardLayout({
 
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeChatThread, setActiveChatThread] = useState(null);
+  const [activePartnerContext, setActivePartnerContext] = useState(null);
   const navRef = useRef(null);
+
+  // Global listener to open chat for specific partners (e.g. warehouse operators)
+  useEffect(() => {
+    const handleOpenDirectChat = (e) => {
+      const detail = e.detail || {};
+      if (detail.threadKey) {
+        setActiveChatThread(detail.threadKey);
+      }
+      setActivePartnerContext(detail);
+      setIsChatOpen(true);
+    };
+
+    window.addEventListener('agrolnk_open_chat', handleOpenDirectChat);
+    return () => window.removeEventListener('agrolnk_open_chat', handleOpenDirectChat);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -298,8 +316,6 @@ export default function DashboardLayout({
       ],
     },
   ];
-
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const getNavGroups = () => {
     if (user.role === 'admin') return adminNavGroups;
@@ -573,9 +589,13 @@ export default function DashboardLayout({
       {/* Privacy-Preserving Chatbot Drawer */}
       <PrivacyChatDrawer
         isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
+        onClose={() => {
+          setIsChatOpen(false);
+          setActivePartnerContext(null);
+        }}
         currentUser={user}
-        threadKey={`${user.role}_support`}
+        threadKey={activeChatThread || `${user.role}_support`}
+        partnerContext={activePartnerContext}
       />
     </div>
   );

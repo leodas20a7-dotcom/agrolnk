@@ -9,11 +9,22 @@ import {
   ThermometerSnowflake,
   Layers,
   ArrowRight,
-  Phone
+  MessageSquare
 } from 'lucide-react';
+import { openDirectChat } from '../../utils/chat';
 
 export default function WarehouseCard({ warehouse, onDeposit }) {
   const isCold = warehouse.facilityType?.toLowerCase().includes('cold');
+
+  const handleChat = () => {
+    openDirectChat({
+      partnerId: warehouse.id || warehouse.name?.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      partnerName: warehouse.name,
+      partnerRole: 'Warehouse Operator',
+      facilityName: warehouse.name,
+      initialMessage: `Hello, I am inquiring about storage capacity availability and deposit rates at ${warehouse.name}.`,
+    });
+  };
 
   return (
     <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 text-left flex flex-col justify-between">
@@ -110,12 +121,17 @@ export default function WarehouseCard({ warehouse, onDeposit }) {
 
       </div>
 
-      {/* Action Footer */}
+      {/* Action Footer: Direct Chat & Deposit Buttons */}
       <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs text-[#566861]">
-          <Phone className="w-3.5 h-3.5 text-[#10B981]" />
-          <span>{warehouse.operatorContact}</span>
-        </div>
+        <button
+          type="button"
+          onClick={handleChat}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#EBF5F0] hover:bg-[#D1FAE5] text-[#0B3326] border border-[#10B981]/30 text-xs font-bold transition-all shadow-2xs cursor-pointer group"
+          title={`Chat directly with ${warehouse.name}`}
+        >
+          <MessageSquare className="w-3.5 h-3.5 text-[#10B981] group-hover:scale-110 transition-transform" />
+          <span>Chat with Warehouse</span>
+        </button>
 
         {onDeposit && (
           <Button
