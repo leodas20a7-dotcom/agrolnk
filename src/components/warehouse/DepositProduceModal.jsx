@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { X, Building2, Package, Calendar, ShieldCheck, ArrowRight, AlertCircle, Layers } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Building2, Package, Calendar, ShieldCheck, ArrowRight, AlertCircle, Layers, Sparkles } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { getWarehouses, depositProduceToWarehouse } from '../../utils/warehouses';
+import { getPlatformCommodities, fetchRemoteCommodities, registerCustomCommodity } from '../../utils/listings';
 
 export default function DepositProduceModal({
   preselectedWarehouse,
@@ -22,6 +23,19 @@ export default function DepositProduceModal({
   );
 
   const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0];
+
+  const [commodities, setCommodities] = useState(() => getPlatformCommodities());
+  const [isAddingCustomCommodity, setIsAddingCustomCommodity] = useState(false);
+  const [customCommodityName, setCustomCommodityName] = useState('');
+
+  useEffect(() => {
+    fetchRemoteCommodities().then(list => {
+      if (list && list.length > 0) setCommodities(list);
+    });
+    const handleUpdated = () => setCommodities(getPlatformCommodities());
+    window.addEventListener('agrolnk_commodities_updated', handleUpdated);
+    return () => window.removeEventListener('agrolnk_commodities_updated', handleUpdated);
+  }, []);
 
   const [commodity, setCommodity] = useState('');
   const [variety, setVariety] = useState('');
@@ -161,17 +175,67 @@ export default function DepositProduceModal({
           {/* Commodity & Variety */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                Commodity
-              </label>
-              <input
-                type="text"
-                value={commodity}
-                onChange={(e) => setCommodity(e.target.value)}
-                placeholder="e.g. Tomato, Onion, Wheat"
-                className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
-                required
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
+                  Commodity
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCustomCommodity(!isAddingCustomCommodity)}
+                  className="text-2xs font-semibold text-[#10B981] hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {isAddingCustomCommodity ? 'Select Existing' : '+ Add Crop'}
+                </button>
+              </div>
+
+              {!isAddingCustomCommodity ? (
+                <select
+                  value={commodity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__custom__') {
+                      setIsAddingCustomCommodity(true);
+                    } else {
+                      setCommodity(val);
+                    }
+                  }}
+                  className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs cursor-pointer"
+                  required
+                >
+                  <option value="">Select Crop...</option>
+                  {commodities.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                  <option value="__custom__">➕ + Add New / Other Commodity...</option>
+                </select>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customCommodityName}
+                    onChange={(e) => setCustomCommodityName(e.target.value)}
+                    placeholder="Enter crop name (e.g. Dragon Fruit)"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#10B981] text-xs font-semibold text-[#14211D] focus:outline-none"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!customCommodityName.trim()) return;
+                      const clean = customCommodityName.trim().charAt(0).toUpperCase() + customCommodityName.trim().slice(1);
+                      registerCustomCommodity(clean, null, user.id);
+                      setCommodity(clean);
+                      setCommodities(getPlatformCommodities());
+                      setCustomCommodityName('');
+                      setIsAddingCustomCommodity(false);
+                    }}
+                    className="px-3 py-2.5 rounded-xl bg-[#10B981] text-white text-xs font-bold shrink-0 hover:bg-[#059669] cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">

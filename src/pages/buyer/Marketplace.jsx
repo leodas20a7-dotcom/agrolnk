@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Sparkles
 } from 'lucide-react';
-import { getActiveMarketplaceListings } from '../../utils/listings';
+import { getActiveMarketplaceListings, getPlatformCommodities, fetchRemoteCommodities } from '../../utils/listings';
 
 export default function Marketplace({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Ananya Agro', role: 'buyer' };
@@ -24,24 +24,42 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const [selectedGrade, setSelectedGrade] = useState('All');
   const [selectedLocation, setSelectedLocation] = useState(navState?.initialLocation || 'All');
   const [sortBy, setSortBy] = useState('latest');
+  const [availableCommodities, setAvailableCommodities] = useState(() => ['All', ...getPlatformCommodities()]);
 
   useEffect(() => {
     let isMounted = true;
     const fetchListings = async () => {
       try {
-        const activeLots = await getActiveMarketplaceListings();
-        if (isMounted) setAllListings(activeLots || []);
+        const [activeLots, fetchedCommodities] = await Promise.all([
+          getActiveMarketplaceListings(),
+          fetchRemoteCommodities()
+        ]);
+        if (isMounted) {
+          setAllListings(activeLots || []);
+          if (fetchedCommodities && fetchedCommodities.length > 0) {
+            setAvailableCommodities(['All', ...fetchedCommodities]);
+          }
+        }
       } catch (err) {
         console.error('Error fetching marketplace listings:', err);
       }
     };
     fetchListings();
+
+    const handleCommoditiesUpdated = () => {
+      if (isMounted) {
+        setAvailableCommodities(['All', ...getPlatformCommodities()]);
+      }
+    };
+    window.addEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
     };
   }, []);
 
-  const commodities = ['All', 'Tomato', 'Potato', 'Onion', 'Apple', 'Wheat', 'Maize'];
+  const commodities = availableCommodities;
   const grades = ['All', 'A', 'B', 'C'];
   const locations = ['All', 'Tamil Nadu', 'Maharashtra', 'Madhya Pradesh', 'Himachal Pradesh'];
 
