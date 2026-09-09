@@ -44,10 +44,23 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'custom'
   const [customDate, setCustomDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('rows'); // 'grid' | 'rows'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('agrolnk_admin_kyc_viewmode') || 'rows';
+    } catch {
+      return 'rows';
+    }
+  }); // default: 'rows'
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedUserForDocs, setSelectedUserForDocs] = useState(null);
   const [inspectingDoc, setInspectingDoc] = useState(null); // { doc, user }
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('agrolnk_admin_kyc_viewmode', mode);
+    } catch {}
+  };
 
   const loadKYC = async () => {
     try {
@@ -289,7 +302,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
             <div className="flex items-center bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl shrink-0">
               <button
                 type="button"
-                onClick={() => setViewMode('grid')}
+                onClick={() => handleSetViewMode('grid')}
                 title="Grid View (2-Column Cards)"
                 className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   viewMode === 'grid'
@@ -302,7 +315,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('rows')}
+                onClick={() => handleSetViewMode('rows')}
                 title="Row-wise List View (Full Width Rows)"
                 className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   viewMode === 'rows'
