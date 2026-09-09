@@ -23,6 +23,7 @@ import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustom
 import { createAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
+import CommoditySelect from '../../components/ui/CommoditySelect';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -445,76 +446,28 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
               
               {/* Commodity */}
               <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#0B3326] block">
-                    Commodity <span className="text-red-500">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingCustomCommodity(true)}
-                    className="text-[11px] font-bold text-[#10B981] hover:text-[#059669] transition-colors cursor-pointer"
-                  >
-                    + Add New Crop
-                  </button>
-                </div>
-                <select
+                <label className="text-xs font-bold text-[#0B3326] block">
+                  Commodity <span className="text-red-500">*</span>
+                </label>
+                <CommoditySelect
                   value={formData.commodity}
-                  onChange={handleCommoditySelect}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] cursor-pointer"
-                >
-                  <option value="">Select Commodity</option>
-                  {commodities.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__custom__">➕ + Add New / Other Commodity...</option>
-                </select>
-
-                {/* Inline Custom Commodity Creator */}
-                {isAddingCustomCommodity && (
-                  <div className="p-3 mt-2 bg-[#EBF5F0] rounded-2xl border border-[#10B981]/30 space-y-2 animate-in fade-in duration-150">
-                    <div className="flex items-center justify-between text-xs text-[#0B3326] font-bold">
-                      <span className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
-                        <span>Register New Commodity</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingCustomCommodity(false)}
-                        className="text-[11px] text-[#566861] hover:text-red-600 font-semibold cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={customCommodityName}
-                        onChange={(e) => setCustomCommodityName(e.target.value.replace(/[^a-zA-Z\s.-]/g, ''))}
-                        placeholder="e.g. Dragon Fruit, Moringa, Cashew"
-                        className="flex-1 px-3 py-2 bg-white rounded-xl border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSaveCustomCommodity();
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="accent"
-                        size="sm"
-                        onClick={handleSaveCustomCommodity}
-                        disabled={!customCommodityName.trim()}
-                        className="text-xs font-bold px-3 py-1.5 shrink-0 cursor-pointer shadow-xs"
-                      >
-                        Add & Select
-                      </Button>
-                    </div>
-                    <p className="text-[10px] text-[#566861] leading-tight">
-                      🌾 Added crops are saved to the platform so other farmers and buyers can select and trade them instantly!
-                    </p>
-                  </div>
-                )}
+                  onChange={(val) => {
+                    const defaultImg = COMMODITY_IMAGES[val] || COMMODITY_IMAGES.Other;
+                    setFormData((prev) => ({
+                      ...prev,
+                      commodity: val,
+                      images: prev.isDefaultImage ? [defaultImg] : (prev.images.length ? prev.images : [defaultImg]),
+                    }));
+                  }}
+                  onImageChange={(imgUrl) => {
+                    if (formData.isDefaultImage) {
+                      setFormData((prev) => ({ ...prev, images: [imgUrl] }));
+                    }
+                  }}
+                  userId={user.id}
+                  placeholder="Select Commodity..."
+                  required
+                />
               </div>
 
               {/* Variety */}

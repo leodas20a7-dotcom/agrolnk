@@ -2,61 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Image as ImageIcon, MapPin, Tag, Sparkles, AlertCircle } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
-
-import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
+import CommoditySelect from '../ui/CommoditySelect';
+import { COMMODITY_IMAGES } from '../../utils/listings';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
-  const [commodities, setCommodities] = useState(() => getPlatformCommodities());
-  const [isAddingCustomCommodity, setIsAddingCustomCommodity] = useState(false);
-  const [customCommodityName, setCustomCommodityName] = useState('');
-
-  useEffect(() => {
-    // Initial fetch from Supabase
-    fetchRemoteCommodities().then(list => {
-      if (list && list.length > 0) setCommodities(list);
-    });
-
-    const handleCommoditiesUpdated = () => {
-      setCommodities(getPlatformCommodities());
-    };
-    window.addEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
-    return () => window.removeEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
-  }, []);
-
   const grades = ['Grade A', 'Grade B', 'Grade C'];
   const units = ['kg', 'Quintal', 'MT'];
 
   const estimatedValue =
     Number(formData.quantity || 0) * Number(formData.price || 0);
-
-  const handleCommoditySelect = (e) => {
-    const val = e.target.value;
-    if (val === '__custom__') {
-      setIsAddingCustomCommodity(true);
-      return;
-    }
-    setIsAddingCustomCommodity(false);
-    onChange({ target: { name: 'commodity', value: val } });
-    if (!formData.images || formData.images.length === 0 || formData.isDefaultImage) {
-      if (COMMODITY_IMAGES[val]) {
-        onImageChange(COMMODITY_IMAGES[val], true);
-      }
-    }
-  };
-
-  const handleSaveCustomCommodity = () => {
-    if (!customCommodityName.trim()) return;
-    const cleanName = customCommodityName.trim().charAt(0).toUpperCase() + customCommodityName.trim().slice(1);
-    const registered = registerCustomCommodity(cleanName);
-    if (registered) {
-      setCommodities(getPlatformCommodities());
-      onChange({ target: { name: 'commodity', value: registered } });
-      const defaultImg = COMMODITY_IMAGES[registered] || COMMODITY_IMAGES.Other;
-      onImageChange(defaultImg, true);
-      setCustomCommodityName('');
-      setIsAddingCustomCommodity(false);
-    }
-  };
 
   const handleCustomImage = (e) => {
     const file = e.target.files?.[0];
@@ -83,80 +37,23 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Commodity Dropdown */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-[#14211D]">
-                Commodity <span className="text-red-500">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => setIsAddingCustomCommodity(true)}
-                className="text-[11px] font-bold text-[#10B981] hover:text-[#059669] transition-colors cursor-pointer"
-              >
-                + Add New Crop
-              </button>
-            </div>
-            <select
-              name="commodity"
+            <label className="block text-xs font-bold text-[#14211D] mb-1.5">
+              Commodity <span className="text-red-500">*</span>
+            </label>
+            <CommoditySelect
               value={formData.commodity}
-              onChange={handleCommoditySelect}
+              onChange={(val) => {
+                onChange({ target: { name: 'commodity', value: val } });
+                if (!formData.images || formData.images.length === 0 || formData.isDefaultImage) {
+                  if (COMMODITY_IMAGES[val]) {
+                    onImageChange(COMMODITY_IMAGES[val], true);
+                  }
+                }
+              }}
+              onImageChange={onImageChange}
+              placeholder="Select Commodity..."
               required
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all cursor-pointer"
-            >
-              <option value="">Select Commodity</option>
-              {commodities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-              <option value="__custom__">➕ + Add New / Other Commodity...</option>
-            </select>
-
-            {/* Inline Custom Commodity Creator */}
-            {isAddingCustomCommodity && (
-              <div className="p-3 mt-2 bg-[#EBF5F0] rounded-2xl border border-[#10B981]/30 space-y-2 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between text-xs text-[#0B3326] font-bold">
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
-                    <span>Register New Commodity</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingCustomCommodity(false)}
-                    className="text-[11px] text-[#566861] hover:text-red-600 font-semibold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customCommodityName}
-                    onChange={(e) => setCustomCommodityName(e.target.value.replace(/[^a-zA-Z\s.-]/g, ''))}
-                    placeholder="e.g. Dragon Fruit, Moringa, Cashew"
-                    className="flex-1 px-3 py-2 bg-white rounded-xl border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSaveCustomCommodity();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="accent"
-                    size="sm"
-                    onClick={handleSaveCustomCommodity}
-                    disabled={!customCommodityName.trim()}
-                    className="text-xs font-bold px-3 py-1.5 shrink-0 cursor-pointer shadow-xs"
-                  >
-                    Add & Select
-                  </Button>
-                </div>
-                <p className="text-[10px] text-[#566861] leading-tight">
-                  🌾 Added crops are saved to the platform so other farmers and buyers can select and trade them instantly!
-                </p>
-              </div>
-            )}
+            />
           </div>
 
           {/* Variety */}
