@@ -58,18 +58,28 @@ export default function FinancingReviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-3 sm:p-6 flex items-start sm:items-center justify-center animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isUpdating) {
+          onClose?.();
+        }
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-2xl w-full max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-150 relative overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+        {/* Pinned Header */}
+        <div className="p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center shrink-0 shadow-xs">
               <Landmark className="w-5 h-5 text-[#34D399]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
+                <h3 className="text-lg sm:text-xl font-extrabold text-[#0B3326] font-heading">
                   Funding Application {request.requestNumber || ''}
                 </h3>
                 <FinancingStatusBadge status={request.status} />
@@ -89,6 +99,9 @@ export default function FinancingReviewModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Scrollable Content Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
 
         {/* Key Information Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -313,30 +326,7 @@ export default function FinancingReviewModal({
           </div>
         )}
 
-        {/* Read-Only Status Banner for Applicant View */}
-        {!isFinancier && (
-          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-              <span className="text-[#566861]">
-                {request.status === 'approved' && `Funding of ₹${Number(request.approvedAmount || request.requestedAmount || 0).toLocaleString('en-IN')} is approved and earmarked.`}
-                {request.status === 'under_review' && 'Institutional financier is evaluating your order collateral.'}
-                {request.status === 'pending' && 'Application submitted to verified Agrolnk trade finance network.'}
-                {request.status === 'rejected' && 'Application declined. You may adjust requested amount and reapply.'}
-              </span>
-            </div>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onClose}
-              className="text-xs font-bold"
-            >
-              Close
-            </Button>
-          </div>
-        )}
-
+        </div>
       </div>
     </div>
   );
