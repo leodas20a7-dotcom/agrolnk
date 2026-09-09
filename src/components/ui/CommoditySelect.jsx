@@ -231,18 +231,10 @@ export default function CommoditySelect({
                 );
               })
             ) : (
-              <div className="p-3 text-center space-y-2">
-                <p className="text-2xs text-[#566861]">
+              <div className="py-6 px-4 text-center">
+                <p className="text-xs text-[#566861]">
                   No crop found matching <span className="font-bold text-[#14211D]">"{searchTerm}"</span>
                 </p>
-                <button
-                  type="button"
-                  onClick={() => requestAddNewCrop(searchTerm)}
-                  className="w-full py-2 px-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Add "{searchTerm.trim()}" to Platform
-                </button>
               </div>
             )}
           </div>
@@ -317,16 +309,6 @@ export default function CommoditySelect({
                   Do you want to add <span className="font-bold text-[#14211D]">"{cropToConfirm}"</span> to the platform catalog?
                 </p>
               </div>
-            </div>
-
-            {/* Explanatory Banner */}
-            <div className="p-3 bg-[#F8FAF8] rounded-2xl border border-[#E5EDE8] text-[11px] text-[#566861] space-y-1">
-              <p className="font-semibold text-[#0B3326] flex items-center gap-1">
-                <span>🌾</span> Benefits All Farmers & Buyers:
-              </p>
-              <p>
-                Once added, <strong>{cropToConfirm}</strong> will be saved to Supabase and become available in listings and auctions for everyone.
-              </p>
             </div>
 
             {/* Action Buttons: OK vs Cancel */}
