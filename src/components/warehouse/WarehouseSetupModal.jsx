@@ -277,13 +277,16 @@ export default function WarehouseSetupModal({
           gstinCert: gstUrl,
           insuranceCert: insUrl,
         },
-        setupCompleted: true,
-        kycStatus: 'pending',
       };
 
       const saved = await saveWarehouseProfile(user.id, profilePayload);
 
-      setSuccessMessage('Warehouse facility and KYC documents saved successfully!');
+      if (saved.hasPendingReview && saved.verificationStatus === 'modification_pending') {
+        setSuccessMessage('✓ Facility revisions submitted for Administrative Approval! Your currently active verified capacity remains live until the compliance board approves your update.');
+      } else {
+        setSuccessMessage('✓ Warehouse facility and KYC documents submitted for verification successfully!');
+      }
+
       if (onProfileSaved) {
         onProfileSaved(saved);
       }
@@ -291,7 +294,7 @@ export default function WarehouseSetupModal({
       setTimeout(() => {
         setIsSubmitting(false);
         onClose();
-      }, 1200);
+      }, 1600);
     } catch (err) {
       console.error('Failed to save warehouse profile:', err);
       setErrorMessage(err.message || 'Failed to save warehouse profile. Please try again.');

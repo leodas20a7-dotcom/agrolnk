@@ -238,16 +238,19 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           <h3 className="text-sm font-bold text-[#0B3326]">
                             {item.name}
                           </h3>
-                          {isVerified && (
+                          {item.pendingChanges ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
+                              ⚡ Revision Request
+                            </span>
+                          ) : isVerified ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                               ✓ Verified
                             </span>
-                          )}
-                          {isPending && (
+                          ) : isPending ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                               Pending
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         <span className="text-xs text-[#566861] block">
                           {item.orgName || item.email} &bull; <span className="capitalize font-semibold text-[#0B3326]">{item.role}</span>
@@ -407,10 +410,63 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 <div>
                   <span className="text-[#566861] block text-[11px]">Verification Status</span>
                   <span className="font-bold capitalize text-[#0B3326]">
-                    {selectedUserForDocs.verificationStatus}
+                    {selectedUserForDocs.hasPendingReview ? 'Revision Under Review' : selectedUserForDocs.verificationStatus}
                   </span>
                 </div>
               </div>
+
+              {/* Facility Revision Request Diff Box (If warehouse operator edited protected fields) */}
+              {selectedUserForDocs.pendingChanges && (
+                <div className="p-4 rounded-2xl bg-[#EFF6FF] border-2 border-[#3B82F6]/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#1E3A8A] flex items-center gap-1.5 uppercase tracking-wide">
+                      <Clock className="w-4 h-4 text-[#2563EB]" />
+                      Requested Protected Facility Revisions
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#1E40AF] text-[10px] font-extrabold uppercase">
+                      Admin Review Required
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs bg-white p-3 rounded-xl border border-[#BFDBFE]">
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] text-[#566861] block font-medium">Storage Capacity (Tonnes)</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#566861] line-through text-[11px]">{selectedUserForDocs.orgCapacity || '2,000'} T (Live)</span>
+                        <span className="font-extrabold text-[#2563EB]">➔ {selectedUserForDocs.pendingChanges.totalCapacityTonnes} T</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] text-[#566861] block font-medium">WDRA License / Reg No.</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-[#2563EB]">{selectedUserForDocs.pendingChanges.wdraCode || 'Updated License'}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5 sm:col-span-2 pt-1 border-t border-[#E5EDE8]">
+                      <span className="text-[11px] text-[#566861] block font-medium">Enterprise Legal Name</span>
+                      <span className="font-bold text-[#0B3326]">{selectedUserForDocs.pendingChanges.companyName || selectedUserForDocs.orgName}</span>
+                    </div>
+
+                    {selectedUserForDocs.pendingChanges.storageTypes && selectedUserForDocs.pendingChanges.storageTypes.length > 0 && (
+                      <div className="space-y-1 sm:col-span-2 pt-1 border-t border-[#E5EDE8]">
+                        <span className="text-[11px] text-[#566861] block font-medium">Requested Chamber Telemetry</span>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedUserForDocs.pendingChanges.storageTypes.map((st, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#1E293B] text-[10px] font-semibold">
+                              {st.name}: {st.capacity}T ({st.temp})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#1E40AF] leading-relaxed">
+                    💡 Approving will update the live capacity and accreditation documents visible across the Agrolnk marketplace.
+                  </p>
+                </div>
+              )}
 
               {/* Submitted Credentials & Certificate Previews */}
               <div className="space-y-3">
@@ -502,7 +558,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     onClick={() => handleReject(selectedUserForDocs.id, selectedUserForDocs.name)}
                     className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer"
                   >
-                    Reject
+                    {selectedUserForDocs.pendingChanges ? 'Reject Revision' : 'Reject'}
                   </button>
                   <button
                     type="button"
@@ -510,7 +566,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     className="px-5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
                   >
                     <CheckCircle2 className="w-4 h-4 text-[#34D399]" />
-                    Approve & Issue Badge
+                    {selectedUserForDocs.pendingChanges ? 'Approve & Apply Revision' : 'Approve & Issue Badge'}
                   </button>
                 </div>
               </div>

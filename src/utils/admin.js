@@ -258,6 +258,21 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
 
   saveStoredKYC(all);
 
+  // If this is a warehouse operator, update warehouse profile state
+  if (targetUser?.role === 'warehouse') {
+    try {
+      if (newStatus === 'verified') {
+        const { approveWarehouseProfileModification } = await import('./warehouses');
+        approveWarehouseProfileModification(userId);
+      } else if (newStatus === 'rejected') {
+        const { rejectWarehouseProfileModification } = await import('./warehouses');
+        rejectWarehouseProfileModification(userId, auditNotes || 'Rejected by Compliance Admin');
+      }
+    } catch (whErr) {
+      console.warn('Could not sync warehouse profile on admin approval:', whErr);
+    }
+  }
+
   // Sync with Supabase Database
   try {
     await supabase

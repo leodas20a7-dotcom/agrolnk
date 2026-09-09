@@ -241,6 +241,7 @@ export const DEMO_WAREHOUSES = [
 /**
  * Get all available active warehouses across the Agrolnk platform.
  * NOTE: Unconfigured or unsubmitted warehouse accounts are STRICTLY HIDDEN from farmers & buyers.
+ * For modified facilities, only the ACTIVE APPROVED capacity and details are shown until Admin approves revisions.
  */
 export function getWarehouses() {
   const activeWarehouses = [...DEMO_WAREHOUSES];
@@ -251,14 +252,22 @@ export function getWarehouses() {
 
     // Only include user warehouse profiles that have explicitly completed setup with valid capacity
     Object.values(profiles).forEach((p) => {
-      if (p && p.setupCompleted && Number(p.totalCapacityTonnes) > 0) {
+      // Use active approved values if modifications are pending
+      const activeCapacity = p?.totalCapacityTonnes || p?.pendingChanges?.totalCapacityTonnes || 0;
+      const isApproved = p && p.setupCompleted && Number(activeCapacity) > 0;
+
+      if (isApproved) {
         // Prevent duplicate entries
         const existingIdx = activeWarehouses.findIndex(
           (w) => w.id === p.userId || (p.email && w.operatorContact?.includes(p.phone)) || w.name.toLowerCase() === (p.companyName || p.warehouseName || '').toLowerCase()
         );
 
-        const formattedChambers = Array.isArray(p.storageTypes) && p.storageTypes.length > 0
-          ? p.storageTypes.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
+        const chambersToUse = (Array.isArray(p.storageTypes) && p.storageTypes.length > 0)
+          ? p.storageTypes
+          : (p.pendingChanges?.storageTypes || []);
+
+        const formattedChambers = chambersToUse.length > 0
+          ? chambersToUse.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
           : ['Chamber A1 (Multi-Commodity)'];
 
         const dynamicWh = {
@@ -273,12 +282,12 @@ export function getWarehouses() {
           address: p.address ? `${p.address}, ${p.district} - ${p.pincode || ''}` : `${p.district || 'Salem'}, ${p.state || 'Tamil Nadu'}`,
           type: 'WDRA Accredited Agri Storage',
           facilityType: 'WDRA Accredited Agri Storage',
-          capacity: `${Number(p.totalCapacityTonnes).toLocaleString('en-IN')} MT`,
-          totalCapacityTonnes: Number(p.totalCapacityTonnes),
+          capacity: `${Number(activeCapacity).toLocaleString('en-IN')} MT`,
+          totalCapacityTonnes: Number(activeCapacity),
           occupiedTonnes: 0,
           occupancyPct: 0,
           occupancyPercent: 0,
-          temperatureRange: p.storageTypes?.[0]?.temp || '2°C to 12°C',
+          temperatureRange: chambersToUse[0]?.temp || '2°C to 12°C',
           humidityRange: '85% to 95% RH',
           monthlyRatePerKg: 0.35,
           monthlyRatePerTonne: 350,
@@ -287,6 +296,8 @@ export function getWarehouses() {
           commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
           chambers: formattedChambers,
           isUserSubmitted: true,
+          verificationStatus: p.verificationStatus || 'pending',
+          hasPendingReview: Boolean(p.hasPendingReview),
         };
 
         if (existingIdx >= 0) {
@@ -435,20 +446,61 @@ export function getWarehouseProfile(userId, userEmail) {
 }
 
 /**
- * Save or update warehouse profile & persist to Supabase Database (profiles table) and Admin KYC Registry
+ * Save or update warehouse profile:
+ * - Operational fields (websiteUrl, phone) reflect immediately.
+ * - Protected fields (capacity, WDRA code, GSTIN, documents, address, storage types)
+ *   are stored as Pending Changes awaiting Admin Approval if the profile was previously verified.
  */
 export async function saveWarehouseProfile(userId, profileData) {
   try {
     const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
     const profiles = raw ? JSON.parse(raw) : {};
+    const existing = profiles[userId] || (profileData.email ? profiles[profileData.email] : null) || {};
 
-    const updated = {
-      ...profiles[userId],
-      ...profileData,
-      userId,
-      setupCompleted: true,
-      updatedAt: new Date().toISOString(),
-    };
+    const isInitialSetup = !existing.setupCompleted;
+    const isPreviouslyVerified = existing.verificationStatus === 'verified';
+
+    // Check if protected fields have changed
+    const protectedFieldsChanged = !isInitialSetup && isPreviouslyVerified && (
+      Number(existing.totalCapacityTonnes) !== Number(profileData.totalCapacityTonnes) ||
+      existing.wdraCode !== profileData.wdraCode ||
+      existing.gstin !== profileData.gstin ||
+      existing.companyName !== profileData.companyName ||
+      existing.address !== profileData.address ||
+      JSON.stringify(existing.storageTypesConfig) !== JSON.stringify(profileData.storageTypesConfig) ||
+      JSON.stringify(existing.documentNames) !== JSON.stringify(profileData.documentNames)
+    );
+
+    let updated;
+
+    if (protectedFieldsChanged) {
+      // Keep live approved profile active, but record pending modification for Admin Review
+      updated = {
+        ...existing,
+        // Operational fields update immediately
+        websiteUrl: profileData.websiteUrl || existing.websiteUrl,
+        phone: profileData.phone || existing.phone,
+        hasPendingReview: true,
+        verificationStatus: 'modification_pending',
+        pendingChanges: {
+          ...profileData,
+          requestedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+    } else {
+      // Initial setup or direct operational update
+      updated = {
+        ...existing,
+        ...profileData,
+        userId,
+        setupCompleted: true,
+        hasPendingReview: isInitialSetup,
+        verificationStatus: isInitialSetup ? 'pending' : (existing.verificationStatus || 'pending'),
+        pendingChanges: isInitialSetup ? { ...profileData, requestedAt: new Date().toISOString() } : null,
+        updatedAt: new Date().toISOString(),
+      };
+    }
 
     profiles[userId] = updated;
     if (profileData.email) {
@@ -459,10 +511,10 @@ export async function saveWarehouseProfile(userId, profileData) {
     // 1. Persist to Supabase Database 'profiles' table
     try {
       const dbPayload = {
-        company_name: profileData.companyName || profileData.warehouseName,
-        state: profileData.state || 'Tamil Nadu',
-        district: profileData.district || 'Salem',
-        kyc_status: 'pending',
+        company_name: updated.companyName || updated.warehouseName,
+        state: updated.state || 'Tamil Nadu',
+        district: updated.district || 'Salem',
+        kyc_status: updated.verificationStatus === 'verified' ? 'verified' : 'pending',
         updated_at: new Date().toISOString(),
       };
 
@@ -481,7 +533,7 @@ export async function saveWarehouseProfile(userId, profileData) {
       console.warn('Supabase profile database update notice:', dbErr);
     }
 
-    // 2. Also sync to Admin KYC registry for administrative compliance approval
+    // 2. Sync to Admin KYC registry
     try {
       const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
       const registry = storedRaw ? JSON.parse(storedRaw) : [];
@@ -489,66 +541,68 @@ export async function saveWarehouseProfile(userId, profileData) {
         (u) => u.id === userId || (profileData.email && u.email === profileData.email)
       );
 
+      const docsToUse = protectedFieldsChanged ? (profileData.documentUrls || {}) : (updated.documentUrls || {});
+      const namesToUse = protectedFieldsChanged ? (profileData.documentNames || {}) : (updated.documentNames || {});
+
       const docList = [
         {
           type: 'WDRA Accreditation Certificate',
-          number: profileData.wdraCode || 'WDRA Submitted',
+          number: (protectedFieldsChanged ? profileData.wdraCode : updated.wdraCode) || 'WDRA Submitted',
           status: 'pending',
-          fileUrl: profileData.documentUrls?.wdraCert || '',
-          fileName: profileData.documentNames?.wdraCert || 'wdra_certificate.pdf',
+          fileUrl: docsToUse.wdraCert || '',
+          fileName: namesToUse.wdraCert || 'wdra_certificate.pdf',
         },
         {
           type: 'GST / Commercial Storage License',
-          number: profileData.gstin || 'GST Submitted',
+          number: (protectedFieldsChanged ? profileData.gstin : updated.gstin) || 'GST Submitted',
           status: 'pending',
-          fileUrl: profileData.documentUrls?.gstinCert || '',
-          fileName: profileData.documentNames?.gstinCert || 'gst_certificate.pdf',
+          fileUrl: docsToUse.gstinCert || '',
+          fileName: namesToUse.gstinCert || 'gst_certificate.pdf',
         },
       ];
 
-      if (profileData.documentUrls?.insuranceCert) {
+      if (docsToUse.insuranceCert) {
         docList.push({
           type: 'Storage Facility Insurance / FSSAI',
           number: 'Insured Facility',
           status: 'pending',
-          fileUrl: profileData.documentUrls.insuranceCert,
-          fileName: profileData.documentNames?.insuranceCert || 'insurance_policy.pdf',
+          fileUrl: docsToUse.insuranceCert,
+          fileName: namesToUse.insuranceCert || 'insurance_policy.pdf',
         });
       }
 
-      const storageTypeSummary = Array.isArray(profileData.storageTypes)
-        ? profileData.storageTypes.map((t) => `${t.name} (${t.capacity}T)`).join(', ')
+      const activeTypes = protectedFieldsChanged ? profileData.storageTypes : updated.storageTypes;
+      const storageTypeSummary = Array.isArray(activeTypes)
+        ? activeTypes.map((t) => `${t.name} (${t.capacity}T)`).join(', ')
         : 'Multi-Chamber';
 
-      const auditNotes = `Facility: ${profileData.companyName || profileData.warehouseName} • Total Capacity: ${profileData.totalCapacityTonnes} Tonnes (${storageTypeSummary}) • WDRA: ${profileData.wdraCode || 'N/A'} • Website: ${profileData.websiteUrl || 'None'}`;
+      const diffNotes = protectedFieldsChanged
+        ? `[MODIFICATION REQUEST] Requested Capacity: ${profileData.totalCapacityTonnes}T (Current Live: ${existing.totalCapacityTonnes}T) • WDRA: ${profileData.wdraCode} • Storage Types: ${storageTypeSummary}`
+        : `Facility: ${profileData.companyName || profileData.warehouseName} • Capacity: ${profileData.totalCapacityTonnes}T (${storageTypeSummary}) • WDRA: ${profileData.wdraCode || 'N/A'}`;
+
+      const registryPayload = {
+        id: userId,
+        name: profileData.operatorName || updated.operatorName || 'Warehouse Operator',
+        role: 'warehouse',
+        email: profileData.email || updated.email || '',
+        phone: profileData.phone || updated.phone || '',
+        state: profileData.state || updated.state || 'Tamil Nadu',
+        district: profileData.district || updated.district || 'Salem',
+        orgName: profileData.companyName || profileData.warehouseName || updated.companyName || 'Agri Storage Facility',
+        orgCapacity: updated.totalCapacityTonnes,
+        websiteUrl: profileData.websiteUrl || updated.websiteUrl || '',
+        verificationStatus: updated.verificationStatus,
+        hasPendingReview: updated.hasPendingReview,
+        pendingChanges: updated.pendingChanges,
+        submittedAt: new Date().toISOString(),
+        documents: docList,
+        auditNotes: diffNotes,
+      };
 
       if (userIndex >= 0) {
-        registry[userIndex] = {
-          ...registry[userIndex],
-          orgName: profileData.companyName || profileData.warehouseName || registry[userIndex].orgName,
-          state: profileData.state || registry[userIndex].state,
-          district: profileData.district || registry[userIndex].district,
-          websiteUrl: profileData.websiteUrl || '',
-          verificationStatus: 'pending',
-          documents: docList,
-          auditNotes,
-        };
+        registry[userIndex] = { ...registry[userIndex], ...registryPayload };
       } else {
-        registry.unshift({
-          id: userId,
-          name: profileData.operatorName || 'Warehouse Operator',
-          role: 'warehouse',
-          email: profileData.email || '',
-          phone: profileData.phone || '',
-          state: profileData.state || 'Tamil Nadu',
-          district: profileData.district || 'Salem',
-          orgName: profileData.companyName || profileData.warehouseName || 'Agri Storage Facility',
-          websiteUrl: profileData.websiteUrl || '',
-          verificationStatus: 'pending',
-          submittedAt: new Date().toISOString(),
-          documents: docList,
-          auditNotes,
-        });
+        registry.unshift(registryPayload);
       }
       localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
     } catch (regErr) {
@@ -559,6 +613,79 @@ export async function saveWarehouseProfile(userId, profileData) {
   } catch (err) {
     console.error('Error saving warehouse profile:', err);
     throw err;
+  }
+}
+
+/**
+ * Approve a warehouse profile or pending facility revision (Admin Action)
+ */
+export function approveWarehouseProfileModification(userId) {
+  try {
+    const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+    const p = profiles[userId];
+    if (!p) return null;
+
+    let merged;
+    if (p.pendingChanges) {
+      merged = {
+        ...p,
+        ...p.pendingChanges,
+        pendingChanges: null,
+        hasPendingReview: false,
+        verificationStatus: 'verified',
+        verifiedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    } else {
+      merged = {
+        ...p,
+        hasPendingReview: false,
+        verificationStatus: 'verified',
+        verifiedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    profiles[userId] = merged;
+    if (merged.email) {
+      profiles[merged.email] = merged;
+    }
+    localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
+    return merged;
+  } catch (err) {
+    console.error('Error approving warehouse profile modification:', err);
+    return null;
+  }
+}
+
+/**
+ * Reject a warehouse pending facility revision (Admin Action)
+ */
+export function rejectWarehouseProfileModification(userId, reason = 'Modification rejected by Compliance Board') {
+  try {
+    const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+    const p = profiles[userId];
+    if (!p) return null;
+
+    const reverted = {
+      ...p,
+      pendingChanges: null,
+      hasPendingReview: false,
+      lastRejectionReason: reason,
+      updatedAt: new Date().toISOString(),
+    };
+
+    profiles[userId] = reverted;
+    if (reverted.email) {
+      profiles[reverted.email] = reverted;
+    }
+    localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
+    return reverted;
+  } catch (err) {
+    console.error('Error rejecting warehouse profile modification:', err);
+    return null;
   }
 }
 

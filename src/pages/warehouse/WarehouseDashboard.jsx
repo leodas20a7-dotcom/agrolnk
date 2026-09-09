@@ -28,7 +28,8 @@ import {
   Truck,
   RotateCcw,
   CheckCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Eye
 } from 'lucide-react';
 import {
   getWarehouseOperatorStats,
@@ -234,6 +235,40 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           </div>
         )}
 
+        {/* Pending Modification Review Banner (If active warehouse submitted revisions) */}
+        {isSetupCompleted && (profile?.hasPendingReview || profile?.verificationStatus === 'modification_pending') && (
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#EFF6FF] border-2 border-[#3B82F6]/40 text-[#1E40AF] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Clock className="w-5 h-5 text-white" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-[#1E3A8A]">
+                    Facility Revision Under Review by Agrolnk Compliance
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#1E40AF] text-[10px] font-extrabold uppercase border border-[#BFDBFE]">
+                    Pending Approval
+                  </span>
+                </div>
+                <p className="text-xs text-[#1E40AF]/90 leading-relaxed">
+                  Your requested facility updates (Requested Capacity: <strong>{profile?.pendingChanges?.totalCapacityTonnes || totalCapacityTonnes} Tonnes</strong>, WDRA accreditation files) are awaiting Admin verification. Your active verified capacity (<strong>{totalCapacityTonnes} Tonnes</strong>) remains live across the marketplace.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Eye}
+              iconPosition="left"
+              onClick={() => setIsSetupModalOpen(true)}
+              className="font-bold text-xs py-2 px-3.5 shrink-0 cursor-pointer border-[#93C5FD] bg-white text-[#1E40AF] hover:bg-[#DBEAFE]"
+            >
+              View Revision
+            </Button>
+          </div>
+        )}
+
         {/* Top Header Banner */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2 max-w-2xl text-left">
@@ -242,9 +277,15 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                 <Building2 className="w-3.5 h-3.5" /> Warehouse Management & e-NWR Terminal
               </div>
               {isSetupCompleted ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
-                  <CheckCircle2 className="w-3 h-3" /> Live & Visible to Farmers
-                </span>
+                profile?.hasPendingReview || profile?.verificationStatus === 'modification_pending' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
+                    <Clock className="w-3 h-3" /> Live (Revision Under Review)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
+                    <CheckCircle2 className="w-3 h-3" /> Live & Verified
+                  </span>
+                )
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
                   <AlertCircle className="w-3 h-3" /> Offline & Hidden (Setup Pending)
