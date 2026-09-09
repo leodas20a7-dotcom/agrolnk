@@ -3,7 +3,7 @@ import { Camera, Image as ImageIcon, MapPin, Tag, Sparkles, AlertCircle } from '
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 
-import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity } from '../../utils/listings';
+import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
   const [commodities, setCommodities] = useState(() => getPlatformCommodities());
@@ -11,6 +11,11 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
   const [customCommodityName, setCustomCommodityName] = useState('');
 
   useEffect(() => {
+    // Initial fetch from Supabase
+    fetchRemoteCommodities().then(list => {
+      if (list && list.length > 0) setCommodities(list);
+    });
+
     const handleCommoditiesUpdated = () => {
       setCommodities(getPlatformCommodities());
     };

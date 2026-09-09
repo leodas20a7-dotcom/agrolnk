@@ -19,7 +19,7 @@ import {
   Calendar,
   Building2
 } from 'lucide-react';
-import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity } from '../../utils/listings';
+import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
 import { createAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
@@ -61,6 +61,11 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const [customCommodityName, setCustomCommodityName] = useState('');
 
   React.useEffect(() => {
+    // Initial fetch from Supabase
+    fetchRemoteCommodities().then(list => {
+      if (list && list.length > 0) setCommodities(list);
+    });
+
     const handleCommoditiesUpdated = () => {
       setCommodities(getPlatformCommodities());
     };

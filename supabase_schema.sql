@@ -418,7 +418,47 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
--- 10. SUPABASE STORAGE BUCKET CONFIGURATION (proof)
+-- 11. COMMODITIES REGISTRY TABLE (Platform & Community-Added Crops)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.commodities (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    category TEXT DEFAULT 'Agriculture',
+    image_url TEXT,
+    created_by TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.commodities ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read commodities" ON public.commodities FOR SELECT USING (true);
+CREATE POLICY "Allow public insert commodities" ON public.commodities FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update commodities" ON public.commodities FOR UPDATE USING (true);
+
+-- Enable Supabase Realtime for commodities
+ALTER PUBLICATION supabase_realtime ADD TABLE public.commodities;
+
+-- Insert Standard Seed Commodities
+INSERT INTO public.commodities (id, name, image_url)
+VALUES
+    ('cmd_tomato', 'Tomato', 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_onion', 'Onion', 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_potato', 'Potato', 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_red_chilli', 'Red Chilli', 'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_mango', 'Mango', 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_turmeric', 'Turmeric', 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_basmati_rice', 'Basmati Rice', 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_wheat', 'Wheat', 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_cotton', 'Cotton', 'https://images.unsplash.com/photo-1594897030560-ab279cf66def?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_cardamom', 'Cardamom', 'https://images.unsplash.com/photo-1635363638580-c2809d049eee?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_ginger', 'Ginger', 'https://images.unsplash.com/photo-1635363638580-c2809d049eee?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_apple', 'Apple', 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_maize', 'Maize', 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_soybean', 'Soybean', 'https://images.unsplash.com/photo-1599420186946-7b6fb4e53799?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_banana', 'Banana', 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=800&auto=format&fit=crop&q=80')
+ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================================
+-- 12. SUPABASE STORAGE BUCKET CONFIGURATION (proof)
 -- Used for KYC identity documents, certificates, bills of lading, and e-NWRs
 -- ============================================================================
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -436,3 +476,4 @@ CREATE POLICY "Public & Auth Upload KYC Proofs"
 ON storage.objects FOR INSERT 
 TO public 
 WITH CHECK (bucket_id = 'proof');
+

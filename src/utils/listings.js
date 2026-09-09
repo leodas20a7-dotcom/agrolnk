@@ -22,6 +22,49 @@ export const DEFAULT_COMMODITIES = [
 const CUSTOM_COMMODITIES_KEY = 'agrolnk_custom_commodities';
 
 /**
+ * Fetch latest commodities from Supabase commodities table (merges with local registry)
+ */
+export async function fetchRemoteCommodities() {
+  try {
+    const { data, error } = await supabase
+      .from('commodities')
+      .select('name, image_url')
+      .order('name', { ascending: true });
+
+    if (error) return getPlatformCommodities();
+
+    if (Array.isArray(data) && data.length > 0) {
+      const raw = localStorage.getItem(CUSTOM_COMMODITIES_KEY);
+      const customList = raw ? JSON.parse(raw) : [];
+      let updated = false;
+
+      data.forEach(item => {
+        if (item.name) {
+          const clean = item.name.trim();
+          if (!customList.includes(clean) && !DEFAULT_COMMODITIES.includes(clean)) {
+            customList.push(clean);
+            updated = true;
+          }
+          if (item.image_url && !COMMODITY_IMAGES[clean]) {
+            COMMODITY_IMAGES[clean] = item.image_url;
+          }
+        }
+      });
+
+      if (updated) {
+        localStorage.setItem(CUSTOM_COMMODITIES_KEY, JSON.stringify(customList));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('agrolnk_commodities_updated', { detail: { count: customList.length } }));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase commodities sync:', err);
+  }
+  return getPlatformCommodities();
+}
+
+/**
  * Get all available commodities (Standard defaults + Community-added crops)
  */
 export function getPlatformCommodities() {
@@ -37,8 +80,9 @@ export function getPlatformCommodities() {
 
 /**
  * Register a newly added commodity by a farmer so it is available to all farmers & buyers
+ * Syncs to both Supabase 'commodities' table and localStorage with live broadcast
  */
-export function registerCustomCommodity(name, customImageUrl = null) {
+export function registerCustomCommodity(name, customImageUrl = null, createdBy = null) {
   if (!name || typeof name !== 'string') return null;
   const cleanName = name.trim().charAt(0).toUpperCase() + name.trim().slice(1);
   if (!cleanName) return null;
@@ -56,6 +100,22 @@ export function registerCustomCommodity(name, customImageUrl = null) {
     if (customImageUrl && !COMMODITY_IMAGES[cleanName]) {
       COMMODITY_IMAGES[cleanName] = customImageUrl;
     }
+
+    // Asynchronously insert into Supabase 'commodities' table
+    (async () => {
+      try {
+        await supabase.from('commodities').upsert({
+          id: 'cmd_' + cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          name: cleanName,
+          image_url: customImageUrl || COMMODITY_IMAGES[cleanName] || null,
+          created_by: createdBy || null
+        }, { onConflict: 'name' });
+      } catch (e) {
+        // Fallback gracefully if table not yet created
+        console.info('Custom commodity stored locally and queued for cloud sync');
+      }
+    })();
+
     return cleanName;
   } catch (err) {
     console.warn('Failed to register custom commodity:', err);

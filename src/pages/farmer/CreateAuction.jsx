@@ -16,7 +16,7 @@ import {
   Check
 } from 'lucide-react';
 import { createAuction } from '../../utils/auctions';
-import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity } from '../../utils/listings';
+import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -44,6 +44,11 @@ export default function CreateAuction({ currentUser, onNavigate }) {
   const [customCommodityName, setCustomCommodityName] = useState('');
 
   React.useEffect(() => {
+    // Initial fetch from Supabase
+    fetchRemoteCommodities().then(list => {
+      if (list && list.length > 0) setCommodities(list);
+    });
+
     const handleCommoditiesUpdated = () => {
       setCommodities(getPlatformCommodities());
     };
