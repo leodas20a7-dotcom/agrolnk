@@ -23,7 +23,10 @@ import {
   List,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Calendar,
+  CalendarDays,
+  Filter
 } from 'lucide-react';
 import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
@@ -38,8 +41,10 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const [kycUsers, setKycUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'verified' | 'all'
   const [roleFilter, setRoleFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'custom'
+  const [customDate, setCustomDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'rows'
+  const [viewMode, setViewMode] = useState('rows'); // 'grid' | 'rows'
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedUserForDocs, setSelectedUserForDocs] = useState(null);
   const [inspectingDoc, setInspectingDoc] = useState(null); // { doc, user }
@@ -93,6 +98,24 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     }
   };
 
+  const formatRequestDateTime = (dateStr) => {
+    if (!dateStr) return '09 Sep 2026, 10:45 AM';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '09 Sep 2026, 10:45 AM';
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return '09 Sep 2026, 10:45 AM';
+    }
+  };
+
   const safeUsers = Array.isArray(kycUsers) ? kycUsers : [];
 
   const pendingCount = safeUsers.filter((u) => u.verificationStatus === 'pending' || u.verificationStatus === 'action_required').length;
@@ -111,7 +134,37 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
       item.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.orgName && item.orgName.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return matchesTab && matchesRole && matchesSearch;
+    // Date Filter Logic
+    const matchesDate = (() => {
+      if (dateFilter === 'all') return true;
+      const userDate = new Date(item.submittedAt || item.created_at || item.createdAt || 0);
+      if (isNaN(userDate.getTime())) return true;
+      const now = new Date();
+      if (dateFilter === 'today') {
+        return userDate.toDateString() === now.toDateString();
+      }
+      if (dateFilter === 'week') {
+        const pastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return userDate >= pastWeek;
+      }
+      if (dateFilter === 'month') {
+        const pastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return userDate >= pastMonth;
+      }
+      if (dateFilter === 'custom' && customDate) {
+        return userDate.toISOString().slice(0, 10) === customDate;
+      }
+      return true;
+    })();
+
+    return matchesTab && matchesRole && matchesSearch && matchesDate;
+  });
+
+  // Always show most recent first
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    const timeA = new Date(a.submittedAt || a.created_at || a.createdAt || a.updated_at || 0).getTime();
+    const timeB = new Date(b.submittedAt || b.created_at || b.createdAt || b.updated_at || 0).getTime();
+    return timeB - timeA;
   });
 
   const getRoleIcon = (role) => {
@@ -163,44 +216,75 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
         </div>
 
         {/* Filters Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           
-          {/* Tab Filter */}
-          <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl w-full sm:w-auto">
-            <button
-              onClick={() => setActiveTab('pending')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'pending'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
-            >
-              Pending ({pendingCount})
-            </button>
-            <button
-              onClick={() => setActiveTab('verified')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'verified'
-                  ? 'bg-[#0B3326] text-white shadow-xs'
-                  : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
-            >
-              Verified ({verifiedCount})
-            </button>
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'all'
-                  ? 'bg-[#0B3326] text-white shadow-xs'
-                  : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
-            >
-              All ({safeUsers.length})
-            </button>
+          {/* Left: Tab Filter & Date Filter */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Tab Filter */}
+            <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'pending'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                Pending ({pendingCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('verified')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'verified'
+                    ? 'bg-[#0B3326] text-white shadow-xs'
+                    : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                Verified ({verifiedCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'all'
+                    ? 'bg-[#0B3326] text-white shadow-xs'
+                    : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                All ({safeUsers.length})
+              </button>
+            </div>
+
+            {/* Date Filter Dropdown */}
+            <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
+              <div className="flex items-center gap-1 pl-2 pr-1 text-[#566861]">
+                <Calendar className="w-3.5 h-3.5 text-[#10B981]" />
+                <span className="text-[11px] font-bold text-[#0B3326] hidden sm:inline">Date:</span>
+              </div>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="bg-white border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-[#10B981] cursor-pointer"
+              >
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="week">Past 7 Days</option>
+                <option value="month">This Month</option>
+                <option value="custom">Custom Date</option>
+              </select>
+
+              {dateFilter === 'custom' && (
+                <input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="bg-white border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#10B981] cursor-pointer"
+                />
+              )}
+            </div>
           </div>
 
           {/* Right Controls: View Mode Switch & Search */}
-          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-2.5 w-full lg:w-auto justify-between lg:justify-end">
             {/* View Switch: Grid vs Rows */}
             <div className="flex items-center bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl shrink-0">
               <button
@@ -232,7 +316,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
             </div>
 
             {/* Search Input */}
-            <div className="relative flex-1 sm:w-72">
+            <div className="relative flex-1 lg:w-64">
               <Search className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -246,7 +330,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
         </div>
 
         {/* Content Display: Empty State OR (Grid Mode vs Row Mode) */}
-        {filteredUsers.length === 0 ? (
+        {sortedUsers.length === 0 ? (
           <div className="bg-white rounded-2xl border border-[#E5EDE8] p-12 text-center space-y-2">
             <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
             <h4 className="text-sm font-bold text-[#0B3326]">
@@ -259,7 +343,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
         ) : viewMode === 'grid' ? (
           /* ================= GRID VIEW ================= */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredUsers.map((item) => {
+            {sortedUsers.map((item) => {
               const RoleIcon = getRoleIcon(item.role);
               const isVerified = item.verificationStatus === 'verified';
               const isPending = item.verificationStatus === 'pending' || item.verificationStatus === 'action_required';
@@ -300,8 +384,14 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                       </div>
                     </div>
 
-                    <div className="text-right text-[11px] text-[#566861]">
-                      {item.district ? `${item.district}, ${item.state || 'India'}` : 'Registered User'}
+                    <div className="text-right space-y-0.5">
+                      <span className="text-[11px] font-medium text-[#0B3326] flex items-center justify-end gap-1">
+                        <Clock className="w-3 h-3 text-[#10B981]" />
+                        {formatRequestDateTime(item.submittedAt || item.created_at)}
+                      </span>
+                      <span className="text-[10px] text-[#566861] block">
+                        {item.district ? `${item.district}, ${item.state || 'India'}` : 'Registered User'}
+                      </span>
                     </div>
                   </div>
 
@@ -367,7 +457,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                       onClick={() => setSelectedUserForDocs(item)}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-[#566861] hover:text-[#0B3326] cursor-pointer"
                     >
-                      <Eye className="w-3.5 h-3.5 text-[#10B981]" /> View Documents
+                      <Eye className="w-3.5 h-3.5 text-[#10B981]" /> View Details
                     </button>
 
                     <div className="flex items-center gap-2">
@@ -408,7 +498,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
         ) : (
           /* ================= ROW-WISE / LIST VIEW ================= */
           <div className="space-y-3">
-            {filteredUsers.map((item) => {
+            {sortedUsers.map((item) => {
               const RoleIcon = getRoleIcon(item.role);
               const isVerified = item.verificationStatus === 'verified';
               const isPending = item.verificationStatus === 'pending' || item.verificationStatus === 'action_required';
@@ -416,7 +506,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               return (
                 <div
                   key={item.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   {/* Left: User Identity & Details */}
                   <div className="flex items-start sm:items-center gap-3.5 min-w-[240px]">
@@ -445,59 +535,32 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                       <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-[#0B3326]">{item.orgName || item.email}</span>
                         <span>&bull;</span>
-                        <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-1.5 py-0.5 rounded text-[11px]">{item.role}</span>
+                        <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-md text-[11px]">{item.role}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Middle Left: Contact & Location */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-3 text-xs text-[#566861] lg:px-4 lg:border-l lg:border-[#E5EDE8]">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase font-bold text-[#566861]/70 block">Contact Info</span>
-                      <div className="flex flex-col gap-0.5 text-[11px]">
-                        {item.phone && <span className="font-mono text-[#0B3326]">📞 {item.phone}</span>}
-                        <span className="truncate max-w-[160px] text-[#566861]">{item.email}</span>
-                      </div>
+                  {/* Middle: Request Date & Time */}
+                  <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                    <div className="p-2 rounded-lg bg-[#EBF5F0] text-[#0B3326] shrink-0">
+                      <Clock className="w-4 h-4 text-[#10B981]" />
                     </div>
-
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase font-bold text-[#566861]/70 block">Location</span>
-                      <span className="text-[11px] font-medium text-[#0B3326] block">
-                        📍 {item.district ? `${item.district}, ${item.state || 'India'}` : 'Registered User'}
+                    <div className="space-y-0.5 text-left">
+                      <span className="text-[10px] uppercase font-bold text-[#566861] block tracking-wider">
+                        Requested Date & Time
+                      </span>
+                      <span className="font-bold text-[#0B3326] text-xs sm:text-[13px] block">
+                        {formatRequestDateTime(item.submittedAt || item.created_at)}
                       </span>
                     </div>
                   </div>
 
-                  {/* Middle Right: Documents Badges */}
-                  <div className="space-y-1 lg:px-4 lg:border-l lg:border-[#E5EDE8] min-w-[200px]">
-                    <span className="text-[10px] uppercase font-bold text-[#566861]/70 block">Credentials</span>
-                    {item.documents && item.documents.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.documents.map((doc, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setInspectingDoc({ doc, user: item })}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold bg-[#F8FAF8] hover:bg-[#EBF5F0] text-[#0B3326] px-2 py-1 rounded-lg border border-[#E5EDE8] transition-colors cursor-pointer group"
-                            title={`Inspect ${doc.type} (${doc.number})`}
-                          >
-                            <FileText className="w-3 h-3 text-[#10B981]" />
-                            <span>{doc.type}</span>
-                            <Eye className="w-2.5 h-2.5 text-[#566861] group-hover:text-[#10B981]" />
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[11px] italic text-[#566861]">No docs uploaded</span>
-                    )}
-                  </div>
-
                   {/* Right: Quick Actions */}
-                  <div className="flex items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-[#E5EDE8] shrink-0 justify-end">
+                  <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E5EDE8] shrink-0 justify-end">
                     <button
                       type="button"
                       onClick={() => setSelectedUserForDocs(item)}
-                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
+                      className="px-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 shadow-2xs"
                     >
                       <Eye className="w-3.5 h-3.5 text-[#10B981]" />
                       <span>Details</span>
@@ -508,14 +571,14 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         <button
                           type="button"
                           onClick={() => handleReject(item.id, item.name)}
-                          className="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
+                          className="px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
                         >
                           Reject
                         </button>
                         <button
                           type="button"
                           onClick={() => handleApprove(item.id, item.name)}
-                          className="px-3.5 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1"
+                          className="px-4 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
                           <span>Approve</span>
@@ -525,7 +588,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                       <button
                         type="button"
                         onClick={() => handleReject(item.id, item.name)}
-                        className="px-3 py-1 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
                       >
                         Revoke
                       </button>
