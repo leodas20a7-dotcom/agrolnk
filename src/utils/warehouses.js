@@ -250,44 +250,45 @@ export function getWarehouses() {
     const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
     const profiles = raw ? JSON.parse(raw) : {};
 
-    // Only include user warehouse profiles that have explicitly completed setup with valid capacity
+    // Only include user warehouse profiles that have been strictly APPROVED by Admin ('verified')
     Object.values(profiles).forEach((p) => {
-      // Use active approved values if modifications are pending
-      const activeCapacity = p?.totalCapacityTonnes || p?.pendingChanges?.totalCapacityTonnes || 0;
-      const isApproved = p && p.setupCompleted && Number(activeCapacity) > 0;
+      // Must be explicitly verified by Admin with valid approved capacity
+      const isVerified = p && p.verificationStatus === 'verified' && Number(p.totalCapacityTonnes) > 0;
 
-      if (isApproved) {
+      if (isVerified) {
+        const approvedCapacity = Number(p.totalCapacityTonnes);
+
         // Prevent duplicate entries
         const existingIdx = activeWarehouses.findIndex(
-          (w) => w.id === p.userId || (p.email && w.operatorContact?.includes(p.phone)) || w.name.toLowerCase() === (p.companyName || p.warehouseName || '').toLowerCase()
+          (w) => w.id === p.userId || (p.email && w.operatorContact?.includes(p.phone)) || w.name?.toLowerCase() === (p.companyName || p.warehouseName || '').toLowerCase()
         );
 
         const chambersToUse = (Array.isArray(p.storageTypes) && p.storageTypes.length > 0)
           ? p.storageTypes
-          : (p.pendingChanges?.storageTypes || []);
-
-        const formattedChambers = chambersToUse.length > 0
-          ? chambersToUse.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
           : ['Chamber A1 (Multi-Commodity)'];
+
+        const formattedChambers = Array.isArray(chambersToUse) && chambersToUse.length > 0 && typeof chambersToUse[0] === 'object'
+          ? chambersToUse.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
+          : chambersToUse;
 
         const dynamicWh = {
           id: p.userId || `wh_${Date.now()}`,
           name: p.companyName || p.warehouseName || 'Agri Storage Hub',
           code: `WH-${(p.district || 'AG').slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
-          wdraCode: p.wdraCode || 'WDRA/2025/APP/PENDING',
-          wdraRegNo: p.wdraCode || 'WDRA/2025/APP/PENDING',
+          wdraCode: p.wdraCode || 'WDRA/2025/VERIFIED',
+          wdraRegNo: p.wdraCode || 'WDRA/2025/VERIFIED',
           location: `${p.district || 'Salem'}, ${p.state || 'Tamil Nadu'}`,
           district: p.district || 'Salem',
           state: p.state || 'Tamil Nadu',
           address: p.address ? `${p.address}, ${p.district} - ${p.pincode || ''}` : `${p.district || 'Salem'}, ${p.state || 'Tamil Nadu'}`,
           type: 'WDRA Accredited Agri Storage',
           facilityType: 'WDRA Accredited Agri Storage',
-          capacity: `${Number(activeCapacity).toLocaleString('en-IN')} MT`,
-          totalCapacityTonnes: Number(activeCapacity),
+          capacity: `${approvedCapacity.toLocaleString('en-IN')} MT`,
+          totalCapacityTonnes: approvedCapacity,
           occupiedTonnes: 0,
           occupancyPct: 0,
           occupancyPercent: 0,
-          temperatureRange: chambersToUse[0]?.temp || '2°C to 12°C',
+          temperatureRange: (typeof chambersToUse[0] === 'object' && chambersToUse[0]?.temp) || '2°C to 12°C',
           humidityRange: '85% to 95% RH',
           monthlyRatePerKg: 0.35,
           monthlyRatePerTonne: 350,
@@ -296,7 +297,7 @@ export function getWarehouses() {
           commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
           chambers: formattedChambers,
           isUserSubmitted: true,
-          verificationStatus: p.verificationStatus || 'pending',
+          verificationStatus: 'verified',
           hasPendingReview: Boolean(p.hasPendingReview),
         };
 
