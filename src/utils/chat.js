@@ -353,19 +353,17 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
     if (m.isSystem || m.id === 'msg_init') return false;
     if (currentUserId && (m.senderId === currentUserId || m.senderId === 'usr_current')) return false;
 
-    // 1. If this thread was marked as read after the message timestamp, it's already read
+    // 1. Explicit read check
+    if (m.isRead === true) return false;
+
+    // 2. If thread was marked read at or after message timestamp
     const msgTime = new Date(m.timestamp).getTime();
     if (lastReadTime > 0 && !isNaN(msgTime) && msgTime <= lastReadTime) {
       return false;
     }
 
-    // 2. Explicit read boolean
-    if (m.isRead === true) return false;
-    if (m.isRead === false && lastReadTime === 0) return true;
-
-    // 3. Fallback timestamp check
-    if (isNaN(msgTime)) return false;
-    return msgTime > lastReadTime;
+    // 3. Strictly count only messages that are explicitly unread
+    return m.isRead === false;
   });
 
   return unread.length;
@@ -847,35 +845,30 @@ export function getDemoSeedForThread(threadKey) {
   if (!threadKey) return null;
   const key = String(threadKey).toLowerCase();
 
+  let seed = null;
   if (INITIAL_DEMO_THREADS[threadKey]) {
-    return INITIAL_DEMO_THREADS[threadKey];
+    seed = INITIAL_DEMO_THREADS[threadKey];
+  } else if (key.includes('support')) {
+    seed = INITIAL_DEMO_THREADS.agrolnk_support_desk;
+  } else if (key.includes('salem')) {
+    seed = INITIAL_DEMO_THREADS.chat_partner_wh_salem_01;
+  } else if (key.includes('dindigul')) {
+    seed = INITIAL_DEMO_THREADS.chat_partner_wh_dindigul_02;
+  } else if (key.includes('veerappan')) {
+    seed = INITIAL_DEMO_THREADS.direct_maran_veerappan;
+  } else if (key.includes('mani')) {
+    seed = INITIAL_DEMO_THREADS.direct_maran_mani;
+  } else if (key.includes('sakthi')) {
+    seed = INITIAL_DEMO_THREADS.direct_maran_sakthivel;
+  } else if (key.includes('transporter') || key.includes('vetri')) {
+    seed = INITIAL_DEMO_THREADS.chat_partner_usr_transporter_03;
+  } else if (key.includes('financier') || key.includes('kisan')) {
+    seed = INITIAL_DEMO_THREADS.chat_partner_usr_financier_05;
   }
 
-  if (key.includes('support')) {
-    return INITIAL_DEMO_THREADS.agrolnk_support_desk;
+  if (seed && Array.isArray(seed)) {
+    return seed.map((m) => ({ ...m, isRead: true }));
   }
-  if (key.includes('salem')) {
-    return INITIAL_DEMO_THREADS.chat_partner_wh_salem_01;
-  }
-  if (key.includes('dindigul')) {
-    return INITIAL_DEMO_THREADS.chat_partner_wh_dindigul_02;
-  }
-  if (key.includes('veerappan')) {
-    return INITIAL_DEMO_THREADS.direct_maran_veerappan;
-  }
-  if (key.includes('mani')) {
-    return INITIAL_DEMO_THREADS.direct_maran_mani;
-  }
-  if (key.includes('sakthi')) {
-    return INITIAL_DEMO_THREADS.direct_maran_sakthivel;
-  }
-  if (key.includes('transporter') || key.includes('vetri')) {
-    return INITIAL_DEMO_THREADS.chat_partner_usr_transporter_03;
-  }
-  if (key.includes('financier') || key.includes('kisan')) {
-    return INITIAL_DEMO_THREADS.chat_partner_usr_financier_05;
-  }
-
   return null;
 }
 
