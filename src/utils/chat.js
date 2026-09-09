@@ -371,14 +371,33 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
   return unread.length;
 }
 
+export function getUserChannelKeys(currentUser) {
+  const role = currentUser?.role || 'buyer';
+  if (role === 'admin') {
+    return ['agrolnk_support_desk'];
+  }
+  const defaultKeys = [
+    'agrolnk_support_desk',
+    'chat_partner_wh_salem_01',
+    'chat_partner_wh_dindigul_02',
+    'chat_partner_usr_transporter_03',
+    'chat_partner_usr_financier_05',
+    'direct_maran_veerappan',
+    'direct_maran_mani',
+    'direct_maran_sakthivel',
+  ];
+  const threads = getStoredThreads();
+  const allStored = Object.keys(threads);
+  return Array.from(new Set([...defaultKeys, ...allStored]));
+}
+
 export function getTotalPlatformUnreadCount(currentUser) {
   const currentUserId = currentUser?.id || 'usr_current';
+  const allowedThreadKeys = getUserChannelKeys(currentUser);
   const threads = getStoredThreads();
-  const threadKeys = Object.keys(threads);
-  if (threadKeys.length === 0) return 0;
 
   let total = 0;
-  threadKeys.forEach((key) => {
+  allowedThreadKeys.forEach((key) => {
     const msgs = threads[key];
     if (Array.isArray(msgs) && msgs.length > 0) {
       total += getThreadUnreadCount(key, currentUserId, msgs);
@@ -389,6 +408,8 @@ export function getTotalPlatformUnreadCount(currentUser) {
 
 export async function fetchPlatformUnreadCount(currentUser) {
   const currentUserId = currentUser?.id || 'usr_current';
+  const allowedThreadKeys = getUserChannelKeys(currentUser);
+
   try {
     const { data, error } = await supabase
       .from('chat_messages')
@@ -401,7 +422,11 @@ export async function fetchPlatformUnreadCount(currentUser) {
 
     const readMap = getReadThreadKeys(currentUserId);
     const unread = data.filter((row) => {
+      // Must belong to a channel relevant to this user/role
+      if (!allowedThreadKeys.includes(row.thread_key)) return false;
+      // Not sent by this user
       if (row.sender_id === currentUserId || row.sender_id === 'usr_current') return false;
+      // If user has marked thread as read after this message creation time
       const lastRead = readMap[row.thread_key] || 0;
       const msgTime = new Date(row.created_at).getTime();
       if (lastRead > 0 && !isNaN(msgTime) && msgTime <= lastRead) return false;
