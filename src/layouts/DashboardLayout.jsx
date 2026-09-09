@@ -605,15 +605,19 @@ export default function DashboardLayout({
         >
           <div className="relative">
             <MessageSquare className="w-5 h-5 text-[#34D399]" />
-            {unreadChatCount === 0 && (
+            {unreadChatCount === 0 ? (
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#0B3326] animate-pulse"></span>
+            ) : (
+              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#10B981] text-white text-[10px] font-bold flex md:hidden items-center justify-center border-2 border-[#0B3326]">
+                {unreadChatCount}
+              </span>
             )}
           </div>
           <span className="text-xs font-bold tracking-wide hidden md:inline">
             Secure Chat
           </span>
           {unreadChatCount > 0 && (
-            <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#10B981] text-white text-[11px] font-bold flex items-center justify-center shadow-xs">
+            <span className="hidden md:flex min-w-[20px] h-5 px-1.5 rounded-full bg-[#10B981] text-white text-[11px] font-bold items-center justify-center shadow-xs">
               {unreadChatCount}
             </span>
           )}
