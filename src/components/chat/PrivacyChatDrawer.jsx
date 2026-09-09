@@ -38,7 +38,8 @@ import {
   getPlatformContacts,
   getAllStoredThreads,
   markThreadAsRead,
-  isThreadRead
+  isThreadRead,
+  getThreadUnreadCount
 } from '../../utils/chat';
 import { getBuyerOrders, getFarmerOrders } from '../../utils/orders';
 
@@ -264,13 +265,15 @@ export default function PrivacyChatDrawer({
             : msgs && msgs.length > 0
             ? msgs[msgs.length - 1]
             : null;
-        const isRead = isThreadRead(c.key);
+        const unreadCount = getThreadUnreadCount(c.key, user.id, msgs);
         return {
           ...c,
-          unreadCount: isRead ? 0 : (c.unreadCount || 0),
+          unreadCount,
           lastMessageText: latestMsg ? latestMsg.text : c.subtitle,
           lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '2:27 pm',
-          lastSenderMe: latestMsg ? latestMsg.senderId === user.id : false,
+          lastSenderMe: latestMsg
+            ? latestMsg.senderId === user.id || latestMsg.senderId === 'usr_current'
+            : false,
         };
       })
     );
@@ -550,13 +553,18 @@ export default function PrivacyChatDrawer({
 
                 <button
                   onClick={() => setActiveFilter('unread')}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                     activeFilter === 'unread'
                       ? 'bg-[#EBF5F0] text-[#0B3326] font-bold border border-[#10B981]/30'
                       : 'bg-[#F0F2F5] text-[#566861] hover:bg-[#E5EDE8]'
                   }`}
                 >
-                  Unread
+                  <span>Unread</span>
+                  {channels.reduce((sum, c) => sum + (c.unreadCount || 0), 0) > 0 && (
+                    <span className="min-w-[16px] h-4 px-1 rounded-full bg-[#10B981] text-white text-[10px] font-bold flex items-center justify-center">
+                      {channels.reduce((sum, c) => sum + (c.unreadCount || 0), 0)}
+                    </span>
+                  )}
                 </button>
 
                 <button

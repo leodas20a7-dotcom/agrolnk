@@ -295,18 +295,38 @@ export function markThreadAsRead(threadKey) {
   }
 }
 
-export function isThreadRead(threadKey) {
+export function isThreadRead(threadKey, messages = [], currentUserId = null) {
   if (!threadKey) return true;
+  if (!messages || messages.length === 0) return true;
+  return getThreadUnreadCount(threadKey, currentUserId, messages) === 0;
+}
+
+export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
+  if (!threadKey || !Array.isArray(messages) || messages.length === 0) return 0;
+  
   const readMap = getReadThreadKeys();
-  if (readMap[threadKey]) return true;
-  if (threadKey.includes('salem') && readMap['chat_partner_wh_salem_01']) return true;
-  if (threadKey.includes('dindigul') && readMap['chat_partner_wh_dindigul_02']) return true;
-  if (threadKey.includes('veerappan') && readMap['direct_maran_veerappan']) return true;
-  if (threadKey.includes('mani') && readMap['direct_maran_mani']) return true;
-  if (threadKey.includes('sakthi') && readMap['direct_maran_sakthivel']) return true;
-  if ((threadKey.includes('transporter') || threadKey.includes('vetri')) && readMap['chat_partner_usr_transporter_03']) return true;
-  if ((threadKey.includes('financier') || threadKey.includes('kisan')) && readMap['chat_partner_usr_financier_05']) return true;
-  return false;
+  const lastReadTime =
+    readMap[threadKey] ||
+    (threadKey.includes('support') ? readMap['agrolnk_support_desk'] : 0) ||
+    (threadKey.includes('salem') ? readMap['chat_partner_wh_salem_01'] : 0) ||
+    (threadKey.includes('dindigul') ? readMap['chat_partner_wh_dindigul_02'] : 0) ||
+    (threadKey.includes('veerappan') ? readMap['direct_maran_veerappan'] : 0) ||
+    (threadKey.includes('mani') ? readMap['direct_maran_mani'] : 0) ||
+    (threadKey.includes('sakthi') ? readMap['direct_maran_sakthivel'] : 0) ||
+    ((threadKey.includes('transporter') || threadKey.includes('vetri')) ? readMap['chat_partner_usr_transporter_03'] : 0) ||
+    ((threadKey.includes('financier') || threadKey.includes('kisan')) ? readMap['chat_partner_usr_financier_05'] : 0) ||
+    0;
+
+  // Filter messages that are non-system, not sent by the current user, and created AFTER lastReadTime
+  const unread = messages.filter((m) => {
+    if (m.isSystem || m.id === 'msg_init') return false;
+    if (currentUserId && (m.senderId === currentUserId || m.senderId === 'usr_current')) return false;
+    const msgTime = new Date(m.timestamp).getTime();
+    if (isNaN(msgTime)) return false;
+    return msgTime > lastReadTime;
+  });
+
+  return unread.length;
 }
 
 export function getAllStoredThreads() {
