@@ -264,11 +264,12 @@ function saveStoredThreads(threads) {
   }
 }
 
-const READ_THREADS_STORAGE_KEY = 'agrolnk_chat_read_threads';
+const READ_THREADS_STORAGE_KEY_PREFIX = 'agrolnk_chat_read_';
 
-export function getReadThreadKeys() {
+export function getReadThreadKeys(userId = 'default') {
+  const safeUser = userId || 'default';
   try {
-    const raw = localStorage.getItem(READ_THREADS_STORAGE_KEY);
+    const raw = localStorage.getItem(`${READ_THREADS_STORAGE_KEY_PREFIX}${safeUser}`);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -277,8 +278,9 @@ export function getReadThreadKeys() {
 
 export function markThreadAsRead(threadKey, currentUserId) {
   if (!threadKey) return;
+  const safeUser = currentUserId || 'default';
   try {
-    const readMap = getReadThreadKeys();
+    const readMap = getReadThreadKeys(safeUser);
     const now = Date.now();
     readMap[threadKey] = now;
     // Also mark normalized variants
@@ -291,7 +293,7 @@ export function markThreadAsRead(threadKey, currentUserId) {
     if (threadKey.includes('transporter') || threadKey.includes('vetri')) readMap['chat_partner_usr_transporter_03'] = now;
     if (threadKey.includes('financier') || threadKey.includes('kisan')) readMap['chat_partner_usr_financier_05'] = now;
 
-    localStorage.setItem(READ_THREADS_STORAGE_KEY, JSON.stringify(readMap));
+    localStorage.setItem(`${READ_THREADS_STORAGE_KEY_PREFIX}${safeUser}`, JSON.stringify(readMap));
 
     // Update local thread cache messages to isRead = true
     const threads = getStoredThreads();
@@ -335,7 +337,7 @@ export function isThreadRead(threadKey, messages = [], currentUserId = null) {
 export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
   if (!threadKey || !Array.isArray(messages) || messages.length === 0) return 0;
   
-  const readMap = getReadThreadKeys();
+  const readMap = getReadThreadKeys(currentUserId);
   const lastReadTime =
     readMap[threadKey] ||
     (threadKey.includes('support') ? readMap['agrolnk_support_desk'] : 0) ||
@@ -353,16 +355,16 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
     if (m.isSystem || m.id === 'msg_init') return false;
     if (currentUserId && (m.senderId === currentUserId || m.senderId === 'usr_current')) return false;
 
-    // 1. Explicit read check
+    // 1. If explicitly marked read in state/DB, it's not unread
     if (m.isRead === true) return false;
 
-    // 2. If thread was marked read at or after message timestamp
+    // 2. If this thread was marked read at or after message timestamp by this specific user
     const msgTime = new Date(m.timestamp).getTime();
     if (lastReadTime > 0 && !isNaN(msgTime) && msgTime <= lastReadTime) {
       return false;
     }
 
-    // 3. Strictly count only messages that are explicitly unread
+    // 3. Strictly count messages that are unread
     return m.isRead === false;
   });
 
@@ -383,6 +385,71 @@ export function getTotalPlatformUnreadCount(currentUser) {
     }
   });
   return total;
+}
+
+export async function fetchPlatformUnreadCount(currentUser) {
+  const currentUserId = currentUser?.id || 'usr_current';
+  try {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('id, thread_key, sender_id, is_read, created_at')
+      .eq('is_read', false);
+
+    if (error || !data) {
+      return getTotalPlatformUnreadCount(currentUser);
+    }
+
+    const readMap = getReadThreadKeys(currentUserId);
+    const unread = data.filter((row) => {
+      if (row.sender_id === currentUserId || row.sender_id === 'usr_current') return false;
+      const lastRead = readMap[row.thread_key] || 0;
+      const msgTime = new Date(row.created_at).getTime();
+      if (lastRead > 0 && !isNaN(msgTime) && msgTime <= lastRead) return false;
+      return true;
+    });
+
+    return unread.length;
+  } catch {
+    return getTotalPlatformUnreadCount(currentUser);
+  }
+}
+
+export function subscribeToGlobalUnreadMessages(currentUser, onUpdate) {
+  if (!currentUser || typeof window === 'undefined') return () => {};
+
+  const handleFetchAndUpdate = async () => {
+    const count = await fetchPlatformUnreadCount(currentUser);
+    if (typeof onUpdate === 'function') {
+      onUpdate(count);
+    }
+  };
+
+  handleFetchAndUpdate();
+
+  try {
+    const channelName = `global_unread_${(currentUser.id || 'usr').replace(/[^a-zA-Z0-9_]/g, '_')}_${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        () => {
+          handleFetchAndUpdate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (err) {
+    console.warn('Failed to subscribe to global unread channel:', err);
+    return () => {};
+  }
 }
 
 export function getAllStoredThreads() {

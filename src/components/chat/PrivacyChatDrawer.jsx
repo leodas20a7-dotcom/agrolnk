@@ -333,8 +333,10 @@ export default function PrivacyChatDrawer({
   useEffect(() => {
     if (!isOpen || !selectedChannelKey) return;
 
-    // Mark messages in this active thread as read
-    markThreadAsRead(selectedChannelKey, user.id);
+    // Only mark messages as read when the user is actively in conversation view
+    if (viewMode === 'conversation') {
+      markThreadAsRead(selectedChannelKey, user.id);
+    }
 
     // 1. Optimistic instant local load
     setMessages(getThreadMessages(selectedChannelKey));

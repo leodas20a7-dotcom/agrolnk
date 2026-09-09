@@ -30,7 +30,7 @@ import Badge from '../components/ui/Badge';
 import { logoutUser } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
-import { getTotalPlatformUnreadCount } from '../utils/chat';
+import { getTotalPlatformUnreadCount, subscribeToGlobalUnreadMessages } from '../utils/chat';
 
 export default function DashboardLayout({
   children,
@@ -39,6 +39,7 @@ export default function DashboardLayout({
   currentPage,
 }) {
   const user = currentUser || {
+    id: 'usr_guest',
     name: 'Sakthi Vel',
     email: 'farmer@agrolnk.com',
     role: 'farmer',
@@ -52,21 +53,27 @@ export default function DashboardLayout({
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const navRef = useRef(null);
 
-  // Dynamic calculation and live sync of unread messages count
+  // Dynamic calculation and live sync of unread messages count via Supabase Realtime
   useEffect(() => {
-    const updateUnread = (e) => {
+    const handleUnreadEvent = (e) => {
       if (e && e.detail && typeof e.detail.count === 'number') {
         setUnreadChatCount(e.detail.count);
-      } else {
-        setUnreadChatCount(getTotalPlatformUnreadCount(user));
       }
     };
-    updateUnread();
-    window.addEventListener('agrolnk_chat_unread_update', updateUnread);
-    window.addEventListener('storage', updateUnread);
+
+    window.addEventListener('agrolnk_chat_unread_update', handleUnreadEvent);
+    window.addEventListener('storage', handleUnreadEvent);
+
+    const unsubscribeRealtime = subscribeToGlobalUnreadMessages(user, (count) => {
+      setUnreadChatCount(count);
+    });
+
     return () => {
-      window.removeEventListener('agrolnk_chat_unread_update', updateUnread);
-      window.removeEventListener('storage', updateUnread);
+      window.removeEventListener('agrolnk_chat_unread_update', handleUnreadEvent);
+      window.removeEventListener('storage', handleUnreadEvent);
+      if (typeof unsubscribeRealtime === 'function') {
+        unsubscribeRealtime();
+      }
     };
   }, [user, isChatOpen]);
 
