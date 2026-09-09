@@ -315,77 +315,90 @@ export default function WarehouseSetupModal({
   const chamberSum = calculateSumOfChambers();
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-[#E5EDE8] space-y-6 text-left relative animate-in zoom-in-95 duration-150 my-6">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-3 sm:p-6 flex items-start sm:items-center justify-center animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) {
+          onClose?.();
+        }
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-2xl w-full max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-150 relative overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          disabled={isSubmitting}
-          className="absolute top-6 right-6 p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Modal Header */}
-        <div className="flex items-start gap-3.5 pr-8">
-          <div className="w-12 h-12 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center shrink-0 shadow-md">
-            <Building2 className="w-6 h-6 text-[#34D399]" />
-          </div>
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EBF5F0] text-[11px] font-bold text-[#10B981]">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>WDRA Accredited Facility KYC</span>
+        {/* Pinned Modal Header */}
+        <div className="p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10 relative space-y-4">
+          <div className="flex items-start gap-3.5 pr-8">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center shrink-0 shadow-md">
+              <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#34D399]" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-[#0B3326] font-heading">
-              Warehouse Facility Setup & Verification
-            </h2>
-            <p className="text-xs text-[#566861]">
-              Enter your enterprise storage capacities, chamber telemetry, WDRA accreditation, and KYC files.
-            </p>
+            <div className="space-y-0.5">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EBF5F0] text-[11px] font-bold text-[#10B981]">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>WDRA Accredited Facility KYC</span>
+              </div>
+              <h2 className="text-lg sm:text-2xl font-bold text-[#0B3326] font-heading">
+                Warehouse Facility Setup & Verification
+              </h2>
+              <p className="text-xs text-[#566861]">
+                Enter your enterprise storage capacities, chamber telemetry, WDRA accreditation, and KYC files.
+              </p>
+            </div>
+          </div>
+
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="absolute top-5 sm:top-6 right-5 sm:right-6 p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* 3 Step Pill Indicator */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setActiveStep(1)}
+              className={`py-2 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeStep === 1
+                  ? 'bg-[#0B3326] text-white shadow-xs'
+                  : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0]'
+              }`}
+            >
+              <span>1. Enterprise Profile</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveStep(2)}
+              className={`py-2 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeStep === 2
+                  ? 'bg-[#0B3326] text-white shadow-xs'
+                  : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0]'
+              }`}
+            >
+              <span>2. Storage Types</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveStep(3)}
+              className={`py-2 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeStep === 3
+                  ? 'bg-[#0B3326] text-white shadow-xs'
+                  : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0]'
+              }`}
+            >
+              <span>3. WDRA & Documents</span>
+            </button>
           </div>
         </div>
 
-        {/* 3 Step Pill Indicator */}
-        <div className="grid grid-cols-3 gap-2 pb-2 border-b border-[#E5EDE8]">
-          <button
-            type="button"
-            onClick={() => setActiveStep(1)}
-            className={`py-2 px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeStep === 1
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0]'
-            }`}
-          >
-            <span>1. Enterprise Profile</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveStep(2)}
-            className={`py-2 px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeStep === 2
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0]'
-            }`}
-          >
-            <span>2. Storage Types</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveStep(3)}
-            className={`py-2 px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeStep === 3
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0]'
-            }`}
-          >
-            <span>3. WDRA & Documents</span>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Scrollable Form Body */}
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
           
           {/* ================= STEP 1: Enterprise Profile & Total Capacity ================= */}
           {activeStep === 1 && (
