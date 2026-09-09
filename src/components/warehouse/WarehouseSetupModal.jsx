@@ -181,6 +181,16 @@ export default function WarehouseSetupModal({
     }
   };
 
+  const readFileAsDataURL = (fileObj) => {
+    return new Promise((resolve) => {
+      if (!fileObj) return resolve('');
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => resolve(URL.createObjectURL(fileObj));
+      reader.readAsDataURL(fileObj);
+    });
+  };
+
   const uploadFileToSupabase = async (fileObj, folder = 'kyc') => {
     if (!fileObj) return '';
     try {
@@ -196,13 +206,13 @@ export default function WarehouseSetupModal({
 
       if (error) {
         console.warn('Supabase storage upload notice:', error);
-        return URL.createObjectURL(fileObj);
+        return await readFileAsDataURL(fileObj);
       }
 
       const { data: publicUrlData } = supabase.storage.from('proof').getPublicUrl(path);
-      return publicUrlData?.publicUrl || URL.createObjectURL(fileObj);
+      return publicUrlData?.publicUrl || (await readFileAsDataURL(fileObj));
     } catch {
-      return fileObj ? URL.createObjectURL(fileObj) : '';
+      return await readFileAsDataURL(fileObj);
     }
   };
 

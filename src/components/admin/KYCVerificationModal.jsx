@@ -16,6 +16,7 @@ import {
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { updateKYCStatus } from '../../utils/admin';
+import DocumentViewerModal from './DocumentViewerModal';
 
 export default function KYCVerificationModal({
   user,
@@ -25,6 +26,7 @@ export default function KYCVerificationModal({
 }) {
   const [auditNotes, setAuditNotes] = useState(user?.auditNotes || '');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [inspectingDoc, setInspectingDoc] = useState(null);
 
   React.useEffect(() => {
     if (user) {
@@ -149,15 +151,14 @@ export default function KYCVerificationModal({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <a
-                    href={doc.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setInspectingDoc(doc)}
                     className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#F8FAF8] border border-[#E5EDE8] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors inline-flex items-center gap-1 cursor-pointer"
                   >
                     <span>Inspect</span>
                     <ExternalLink className="w-3 h-3" />
-                  </a>
+                  </button>
                 </div>
               </div>
             ))}
@@ -216,6 +217,18 @@ export default function KYCVerificationModal({
             {isUpdating ? 'Approving...' : 'Approve & Activate'}
           </Button>
         </div>
+
+        {/* Document Inspection Lightbox Modal */}
+        {inspectingDoc && (
+          <DocumentViewerModal
+            isOpen={!!inspectingDoc}
+            onClose={() => setInspectingDoc(null)}
+            document={inspectingDoc}
+            user={user}
+            onApprove={() => handleAction('verified')}
+            onReject={() => handleAction('rejected')}
+          />
+        )}
 
       </div>
     </div>

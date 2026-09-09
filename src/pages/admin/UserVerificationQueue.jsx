@@ -26,6 +26,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
+import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 
 export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -41,6 +42,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'rows'
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedUserForDocs, setSelectedUserForDocs] = useState(null);
+  const [inspectingDoc, setInspectingDoc] = useState(null); // { doc, user }
 
   const loadKYC = async () => {
     try {
@@ -321,8 +323,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     {item.documents && item.documents.length > 0 ? (
                       <div className="space-y-1.5">
                         {item.documents.map((doc, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-[#E5EDE8]">
-                            <span className="text-[#566861] flex items-center gap-1.5 font-medium">
+                          <div 
+                            key={idx} 
+                            onClick={() => setInspectingDoc({ doc, user: item })}
+                            className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] transition-all cursor-pointer group"
+                          >
+                            <span className="text-[#566861] group-hover:text-[#0B3326] flex items-center gap-1.5 font-medium">
                               <FileText className="w-3.5 h-3.5 text-[#10B981]" />
                               {doc.type}
                             </span>
@@ -330,14 +336,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                               <span className="font-mono font-semibold text-[#0B3326]">
                                 {doc.number || 'Submitted'}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedUserForDocs(item)}
-                                className="p-1 text-[#566861] hover:text-[#10B981] hover:bg-[#EBF5F0] rounded cursor-pointer"
-                                title="View Document"
+                              <span
+                                className="p-1 text-[#566861] group-hover:text-[#10B981] rounded"
+                                title="Inspect Document"
                               >
                                 <Eye className="w-3.5 h-3.5" />
-                              </button>
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -473,13 +477,13 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           <button
                             key={idx}
                             type="button"
-                            onClick={() => setSelectedUserForDocs(item)}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold bg-[#F8FAF8] hover:bg-[#EBF5F0] text-[#0B3326] px-2 py-1 rounded-lg border border-[#E5EDE8] transition-colors cursor-pointer"
+                            onClick={() => setInspectingDoc({ doc, user: item })}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold bg-[#F8FAF8] hover:bg-[#EBF5F0] text-[#0B3326] px-2 py-1 rounded-lg border border-[#E5EDE8] transition-colors cursor-pointer group"
                             title={`Inspect ${doc.type} (${doc.number})`}
                           >
                             <FileText className="w-3 h-3 text-[#10B981]" />
                             <span>{doc.type}</span>
-                            <Eye className="w-2.5 h-2.5 text-[#566861]" />
+                            <Eye className="w-2.5 h-2.5 text-[#566861] group-hover:text-[#10B981]" />
                           </button>
                         ))}
                       </div>
@@ -664,7 +668,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                             </span>
                           </div>
 
-                          {/* PDF Document Preview Banner */}
+                          {/* Document Preview & Inspect Action Banner */}
                           <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between gap-2">
                             <div className="space-y-0.5 text-xs">
                               <span className="font-bold text-[#0B3326] block truncate max-w-[220px]">
@@ -675,29 +679,14 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                               </span>
                             </div>
 
-                            {doc.fileUrl ? (
-                              <a
-                                href={doc.fileUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F2FBF6] hover:text-[#0B3326] text-xs font-semibold text-[#566861] flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5 text-[#10B981]" />
-                                <span>Open {isPdf ? 'PDF' : 'File'}</span>
-                              </a>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setFeedbackMessage(`Auditing credential: ${displayFileName} (ID: ${doc.number})`);
-                                  setTimeout(() => setFeedbackMessage(''), 3500);
-                                }}
-                                className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F2FBF6] hover:text-[#0B3326] text-xs font-semibold text-[#566861] flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                              >
-                                <FileText className="w-3.5 h-3.5 text-[#10B981]" />
-                                <span>Inspect ID</span>
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setInspectingDoc({ doc, user: selectedUserForDocs })}
+                              className="px-3.5 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-[#34D399]" />
+                              <span>View & Inspect</span>
+                            </button>
                           </div>
                         </div>
                       );
@@ -743,6 +732,18 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
             </div>
           </div>
+        )}
+
+        {/* High-Definition Verifiable Document Inspector Modal */}
+        {inspectingDoc && (
+          <DocumentViewerModal
+            isOpen={!!inspectingDoc}
+            onClose={() => setInspectingDoc(null)}
+            document={inspectingDoc.doc}
+            user={inspectingDoc.user}
+            onApprove={() => handleApprove(inspectingDoc.user.id, inspectingDoc.user.name)}
+            onReject={() => handleReject(inspectingDoc.user.id, inspectingDoc.user.name)}
+          />
         )}
 
       </div>
