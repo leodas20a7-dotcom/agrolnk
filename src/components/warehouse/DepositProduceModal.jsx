@@ -40,7 +40,7 @@ export default function DepositProduceModal({
   const ratePerTonne = Number(currentWarehouse?.monthlyRatePerTonne || 350);
   const monthlyRentalEst = Math.round(((Number(quantity) || 0) / 1000) * ratePerTonne);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!quantity || Number(quantity) <= 0) {
@@ -49,12 +49,14 @@ export default function DepositProduceModal({
     }
 
     setIsSubmitting(true);
+    setError('');
 
     try {
       const depositData = {
         farmerId: user.id,
         farmerName: user.name,
         warehouseId: selectedWarehouseId,
+        warehouseName: currentWarehouse?.name || 'Agri Storage Hub',
         commodity,
         variety,
         grade,
@@ -65,7 +67,7 @@ export default function DepositProduceModal({
         storageDays: Number(storageDays),
       };
 
-      const created = depositProduceToWarehouse(depositData);
+      const created = await depositProduceToWarehouse(depositData);
       setIsSubmitting(false);
       onSuccess?.(created);
       onClose();

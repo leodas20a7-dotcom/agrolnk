@@ -28,7 +28,7 @@ export default function ListFromInventoryModal({
   const maxAvailable = inventory.availableQuantity || 0;
   const totalListedValue = (Number(quantity) || 0) * (Number(pricePerUnit) || 0);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const numQty = Number(quantity);
@@ -43,6 +43,7 @@ export default function ListFromInventoryModal({
     }
 
     setIsSubmitting(true);
+    setError('');
 
     try {
       const tradeData = {
@@ -52,7 +53,7 @@ export default function ListFromInventoryModal({
         reservePrice: Number(reservePrice),
       };
 
-      const result = listProduceFromInventory(inventory.id, tradeData);
+      const result = await listProduceFromInventory(inventory.id, tradeData);
       setIsSubmitting(false);
       onSuccess?.(result, saleType);
       onClose();
