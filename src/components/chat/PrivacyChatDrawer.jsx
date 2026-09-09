@@ -272,89 +272,60 @@ export default function PrivacyChatDrawer({
     });
 
     setChannels(enriched);
-
-    // If targeted directly from button/context, open straight into conversation view
-    if (partnerContext) {
-      const targetKey = partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`;
-      markThreadAsRead(targetKey);
-      setSelectedChannelKey(targetKey);
-      setViewMode('conversation');
-    } else if (orderContext) {
-      const partnerName =
-        user.role === 'buyer'
-          ? orderContext.farmerName || 'Verified Producer'
-          : orderContext.buyerName || 'Wholesale Buyer';
-      const partnerId =
-        user.role === 'buyer'
-          ? orderContext.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_')
-          : orderContext.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-      const myIdentifier = user.name
-        ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
-        : user.role === 'buyer'
-        ? 'maran'
-        : 'veerappan';
-      const matchedKey = getSharedThreadKey(myIdentifier, partnerId);
-      markThreadAsRead(matchedKey);
-      setSelectedChannelKey(matchedKey);
-      setViewMode('conversation');
-    } else {
-      setViewMode('chat_list');
-    }
   };
 
+  // Handle drawer open state and initial viewMode
   useEffect(() => {
     if (isOpen) {
       loadChannels();
-    }
-  }, [isOpen, user.id, user.name, user.role, orderContext, partnerContext, threadKey]);
+      if (partnerContext) {
+        const targetKey = partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`;
+        markThreadAsRead(targetKey);
+        setSelectedChannelKey(targetKey);
+        setMessages(getThreadMessages(targetKey));
+        setViewMode('conversation');
+      } else if (orderContext) {
+        const partnerName =
+          user.role === 'buyer'
+            ? orderContext.farmerName || 'Verified Producer'
+            : orderContext.buyerName || 'Wholesale Buyer';
+        const partnerId =
+          user.role === 'buyer'
+            ? orderContext.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_')
+            : orderContext.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
-  // When viewing conversation, mark thread as read immediately
-  useEffect(() => {
-    if (isOpen && viewMode === 'conversation' && selectedChannelKey) {
-      markThreadAsRead(selectedChannelKey);
-      setChannels((prev) =>
-        prev.map((c) =>
-          c.key === selectedChannelKey || (selectedChannelKey && c.key.includes(selectedChannelKey))
-            ? { ...c, unreadCount: 0 }
-            : c
-        )
-      );
+        const myIdentifier = user.name
+          ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
+          : user.role === 'buyer'
+          ? 'maran'
+          : 'veerappan';
+        const matchedKey = getSharedThreadKey(myIdentifier, partnerId);
+        markThreadAsRead(matchedKey);
+        setSelectedChannelKey(matchedKey);
+        setMessages(getThreadMessages(matchedKey));
+        setViewMode('conversation');
+      } else {
+        setViewMode('chat_list');
+      }
     }
-  }, [isOpen, viewMode, selectedChannelKey]);
+  }, [isOpen, partnerContext, orderContext]);
 
-  // Load messages for the selected channel
-  const refreshMessages = () => {
-    if (selectedChannelKey) {
-      setMessages(getThreadMessages(selectedChannelKey));
-    }
-  };
-
+  // Load messages whenever selected channel changes
   useEffect(() => {
     if (isOpen && selectedChannelKey) {
-      refreshMessages();
+      setMessages(getThreadMessages(selectedChannelKey));
     }
   }, [isOpen, selectedChannelKey]);
 
-  // Live storage sync for messages and read status
+  // Sync across tabs
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'agrolnk_privacy_chat_threads') {
-        refreshMessages();
+      if (e.key === 'agrolnk_privacy_chat_threads' && selectedChannelKey) {
+        setMessages(getThreadMessages(selectedChannelKey));
       }
-      if (e.key === 'agrolnk_chat_read_threads') {
-        loadChannels();
-      }
-    };
-    const handleReadUpdate = () => {
-      loadChannels();
     };
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('agrolnk_chat_read_update', handleReadUpdate);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('agrolnk_chat_read_update', handleReadUpdate);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [selectedChannelKey]);
 
   useEffect(() => {

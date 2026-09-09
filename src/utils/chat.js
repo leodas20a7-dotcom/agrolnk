@@ -288,10 +288,6 @@ export function markThreadAsRead(threadKey) {
     if (threadKey.includes('financier') || threadKey.includes('kisan')) readMap['chat_partner_usr_financier_05'] = Date.now();
 
     localStorage.setItem(READ_THREADS_STORAGE_KEY, JSON.stringify(readMap));
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrolnk_chat_read_update', { detail: { threadKey } }));
-    }
   } catch (err) {
     console.error('Failed to mark thread as read:', err);
   }
