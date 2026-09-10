@@ -148,7 +148,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
           </div>
 
           {/* Filter Pills & Refresh Button */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={loadInspections}
               disabled={isLoading}
@@ -159,7 +159,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
               <span className="hidden sm:inline">Refresh</span>
             </button>
 
-            <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
+            <div className="flex flex-wrap items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
               <button
                 onClick={() => { setFilter('all'); setCurrentPage(1); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${

@@ -121,10 +121,10 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
             </div>
 
             {/* Role Filter */}
-            <div className="flex items-center gap-1.5 bg-[#F8FAF8] p-1 rounded-xl border border-[#E5EDE8] shrink-0">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 bg-[#F8FAF8] p-1 rounded-xl border border-[#E5EDE8] w-full sm:w-auto">
               <button
                 onClick={() => setSelectedRoleFilter('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
                   selectedRoleFilter === 'all'
                     ? 'bg-[#0B3326] text-white shadow-xs'
                     : 'text-[#566861] hover:text-[#0B3326]'
@@ -134,7 +134,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
               </button>
               <button
                 onClick={() => setSelectedRoleFilter('farmer')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
                   selectedRoleFilter === 'farmer'
                     ? 'bg-[#0B3326] text-white shadow-xs'
                     : 'text-[#566861] hover:text-[#0B3326]'
@@ -144,7 +144,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
               </button>
               <button
                 onClick={() => setSelectedRoleFilter('buyer')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
                   selectedRoleFilter === 'buyer'
                     ? 'bg-[#0B3326] text-white shadow-xs'
                     : 'text-[#566861] hover:text-[#0B3326]'

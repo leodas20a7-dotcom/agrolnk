@@ -144,34 +144,34 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               icon={Truck}
               iconPosition="left"
               onClick={() => onNavigate('buyer-deliveries')}
-              className="text-xs font-bold"
+              className="flex-1 sm:flex-initial text-xs font-bold justify-center"
             >
               Inbound Deliveries
             </Button>
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               icon={CreditCard}
               iconPosition="left"
               onClick={() => onNavigate('buyer-financing')}
-              className="text-xs font-bold"
+              className="flex-1 sm:flex-initial text-xs font-bold justify-center"
             >
               Trade Credit
             </Button>
             <Button
               variant="accent"
-              size="md"
+              size="sm"
               icon={Compass}
               iconPosition="left"
               onClick={() => onNavigate('buyer-marketplace')}
-              className="font-bold py-2.5 px-5 shadow-xs cursor-pointer text-xs"
+              className="w-full sm:w-auto font-bold py-2 px-4 shadow-xs cursor-pointer text-xs justify-center"
             >
               Marketplace
             </Button>

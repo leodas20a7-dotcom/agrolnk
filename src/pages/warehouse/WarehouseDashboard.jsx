@@ -337,7 +337,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             )}
           </div>
 
-          <div className="flex sm:flex-col items-center sm:items-end justify-between w-full lg:w-auto gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/10">
+          <div className="flex flex-col sm:flex-col items-stretch sm:items-end justify-between w-full lg:w-auto gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/10">
             <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-left sm:text-right shrink-0">
               <span className="text-white/80 block text-[11px]">Accredited Capacity</span>
               <span className="font-bold text-[#34D399] block text-base sm:text-lg font-heading">
@@ -354,7 +354,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               icon={FileCheck2}
               iconPosition="left"
               onClick={() => setIsSetupModalOpen(true)}
-              className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white text-xs font-bold py-2 px-3.5 cursor-pointer shrink-0"
+              className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white text-xs font-bold py-2.5 px-3.5 cursor-pointer w-full sm:w-auto justify-center"
             >
               {isSetupCompleted ? 'Edit Facility & KYC' : 'Complete Setup & Go Live'}
             </Button>

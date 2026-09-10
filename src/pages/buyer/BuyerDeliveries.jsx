@@ -101,24 +101,24 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               icon={ShoppingBag}
               iconPosition="left"
               onClick={() => onNavigate('buyer-orders')}
-              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+              className="w-full sm:w-auto font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center"
             >
               My Orders ({orders.length})
             </Button>
             <Button
               variant="accent"
-              size="md"
+              size="sm"
               icon={Compass}
               iconPosition="left"
               onClick={() => onNavigate('buyer-marketplace')}
-              className="font-bold text-xs cursor-pointer"
+              className="w-full sm:w-auto font-bold text-xs cursor-pointer justify-center"
             >
               Marketplace
             </Button>

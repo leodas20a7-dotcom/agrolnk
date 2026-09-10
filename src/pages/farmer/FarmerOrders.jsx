@@ -173,14 +173,14 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button
               variant="secondary"
               size="sm"
               icon={Truck}
               iconPosition="left"
               onClick={() => onNavigate('farmer-deliveries')}
-              className="text-xs font-bold"
+              className="text-xs font-bold w-full sm:w-auto justify-center"
             >
               Deliveries Desk
             </Button>

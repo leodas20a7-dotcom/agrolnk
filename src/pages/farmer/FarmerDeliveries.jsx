@@ -154,11 +154,11 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
 
           <Button
             variant="secondary"
-            size="md"
+            size="sm"
             icon={ShoppingBag}
             iconPosition="left"
             onClick={() => onNavigate('farmer-orders')}
-            className="shrink-0 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+            className="w-full sm:w-auto font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center"
           >
             View Orders ({orders.length})
           </Button>

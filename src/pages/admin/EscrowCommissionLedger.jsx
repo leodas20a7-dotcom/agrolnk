@@ -107,7 +107,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             >
               <ArrowLeft className="w-4 h-4" /> Back to Operations Dashboard
             </button>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+            <h1 className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               Escrow & 0.50% Commission Ledger
             </h1>
             <p className="text-xs sm:text-sm text-[#566861]">
@@ -115,24 +115,24 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button
               variant="primary"
-              size="md"
+              size="sm"
               icon={Zap}
               iconPosition="left"
               onClick={() => setIsEscrowModalOpen(true)}
-              className="text-xs font-bold cursor-pointer bg-[#0B3326] text-white hover:bg-[#0A261D]"
+              className="text-xs font-bold cursor-pointer bg-[#0B3326] text-white hover:bg-[#0A261D] w-full sm:w-auto justify-center py-2.5 px-4"
             >
               ⚡ Live Escrow Gateway & API
             </Button>
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               icon={Download}
               iconPosition="left"
               onClick={handleExportCSV}
-              className="text-xs font-bold cursor-pointer"
+              className="text-xs font-bold cursor-pointer w-full sm:w-auto justify-center py-2.5 px-4"
             >
               {downloadSuccess ? 'Ledger Exported (CSV) ✓' : 'Export Audit Ledger'}
             </Button>

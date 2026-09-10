@@ -242,7 +242,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
           {/* Left: Tab Filter & Date Filter */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Tab Filter */}
-            <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
+            <div className="flex flex-wrap items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
               <button
                 onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
