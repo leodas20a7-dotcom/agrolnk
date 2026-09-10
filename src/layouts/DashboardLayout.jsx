@@ -23,13 +23,15 @@ import {
   Receipt,
   Menu,
   X,
-  MessageSquare
+  MessageSquare,
+  Settings
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { logoutUser } from '../utils/auth';
+import { logoutUser, getCurrentUser } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
+import UserProfileModal from '../components/profile/UserProfileModal';
 import { getTotalPlatformUnreadCount, subscribeToGlobalUnreadMessages } from '../utils/chat';
 
 export default function DashboardLayout({
@@ -38,16 +40,36 @@ export default function DashboardLayout({
   onNavigate,
   currentPage,
 }) {
-  const user = currentUser || {
+  const [activeUser, setActiveUser] = useState(() => currentUser || getCurrentUser() || {
     id: 'usr_guest',
     name: 'Sakthi Vel',
     email: 'farmer@agrolnk.com',
     role: 'farmer',
-  };
+  });
+
+  useEffect(() => {
+    if (currentUser) {
+      setActiveUser(currentUser);
+    }
+  }, [currentUser]);
+
+  // Listen to profile updates globally
+  useEffect(() => {
+    const handleProfileUpdated = (e) => {
+      if (e?.detail) {
+        setActiveUser(e.detail);
+      }
+    };
+    window.addEventListener('agrolnk_user_profile_updated', handleProfileUpdated);
+    return () => window.removeEventListener('agrolnk_user_profile_updated', handleProfileUpdated);
+  }, []);
+
+  const user = activeUser;
 
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [activeChatThread, setActiveChatThread] = useState(null);
   const [activePartnerContext, setActivePartnerContext] = useState(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -483,20 +505,25 @@ export default function DashboardLayout({
                 })()
               )}
 
-              {/* User Avatar & Name */}
-              <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-[#E5EDE8]">
-                <div className="w-8 h-8 rounded-full bg-[#0B3326] text-white flex items-center justify-center text-xs font-bold shadow-xs">
+              {/* User Avatar & Name Clickable Button */}
+              <button
+                type="button"
+                onClick={() => setIsProfileModalOpen(true)}
+                title="Click to edit Profile, Address, District & Auto-Fill Defaults"
+                className="flex items-center gap-2 pl-2 border-l border-[#E5EDE8] hover:bg-[#F2FBF6] p-1.5 rounded-2xl transition-all cursor-pointer group"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#0B3326] text-white flex items-center justify-center text-xs font-bold shadow-xs group-hover:ring-2 group-hover:ring-[#10B981] group-hover:scale-105 transition-all">
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div className="text-left leading-tight hidden xl:block">
-                  <span className="block text-xs font-bold text-[#14211D]">
+                  <span className="block text-xs font-bold text-[#14211D] group-hover:text-[#0B3326] transition-colors">
                     {user.name || 'User'}
                   </span>
                   <span className="block text-[10px] text-[#566861]">
                     {user.email}
                   </span>
                 </div>
-              </div>
+              </button>
 
               {/* Sign Out */}
               <Button
@@ -635,6 +662,16 @@ export default function DashboardLayout({
         currentUser={user}
         threadKey={activeChatThread || 'agrolnk_support_desk'}
         partnerContext={activePartnerContext}
+      />
+
+      {/* User Profile & Auto-Fill Defaults Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={user}
+        onProfileUpdated={(updated) => {
+          setActiveUser(updated);
+        }}
       />
     </div>
   );

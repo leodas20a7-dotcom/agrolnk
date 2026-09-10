@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import OrderCard from '../../components/orders/OrderCard';
+import OrderRow from '../../components/orders/OrderRow';
 import OrderTimeline from '../../components/orders/OrderTimeline';
 import OrderSummary from '../../components/orders/OrderSummary';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import CreateDeliveryModal from '../../components/delivery/CreateDeliveryModal';
@@ -31,9 +34,27 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('agrolnk_farmer_orders_viewmode') || 'rows';
+    } catch {
+      return 'rows';
+    }
+  });
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('agrolnk_farmer_orders_viewmode', mode);
+    } catch {}
+  };
+
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [linkedDelivery, setLinkedDelivery] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const ITEMS_PER_PAGE = 6;
 
   // In-order financing modals
   const [orderForFinancing, setOrderForFinancing] = useState(null);
@@ -96,6 +117,11 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
     },
   ];
 
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setCurrentPage(1);
+  };
+
   const filteredOrders = safeOrders.filter((o) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return o.status === 'pending' || o.status === 'order_placed';
@@ -105,6 +131,12 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
       return o.status === 'completed' || o.status === 'delivered';
     return true;
   });
+
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE) || 1;
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const handleAdvanceStatus = async (nextStatus) => {
     if (!selectedOrder) return;
@@ -158,46 +190,76 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
           </div>
         </div>
 
-        {/* Tab Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-                  isActive
-                    ? 'bg-[#0B3326] text-white shadow-xs'
-                    : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+        {/* Tab Filters & View Mode Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-[#E5EDE8]">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                     isActive
-                      ? 'bg-[#10B981] text-white'
-                      : 'bg-[#F8FAF8] text-[#566861]'
+                      ? 'bg-[#0B3326] text-white shadow-xs'
+                      : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
                   }`}
                 >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      isActive
+                        ? 'bg-[#10B981] text-white'
+                        : 'bg-[#F8FAF8] text-[#566861]'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <ViewModeToggle
+            viewMode={viewMode}
+            onViewModeChange={handleSetViewMode}
+          />
         </div>
 
-        {/* Orders List Grid */}
+        {/* Orders Content: Row View vs Card Grid */}
         {filteredOrders.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {filteredOrders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                viewerRole="farmer"
-                onView={(item) => setSelectedOrder(item)}
-              />
-            ))}
+          <div className="space-y-6">
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {paginatedOrders.map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    viewerRole="farmer"
+                    onView={(item) => setSelectedOrder(item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {paginatedOrders.map((order) => (
+                  <OrderRow
+                    key={order.id}
+                    order={order}
+                    viewerRole="farmer"
+                    onView={(item) => setSelectedOrder(item)}
+                  />
+                ))}
+              </div>
+            )}
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredOrders.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
           </div>
         ) : (
           <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">

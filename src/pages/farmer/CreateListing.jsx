@@ -24,6 +24,7 @@ import { createAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
 import CommoditySelect from '../../components/ui/CommoditySelect';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -44,9 +45,9 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     startingBid: initialSource?.startingBid ? String(initialSource.startingBid) : '',
     reservePrice: initialSource?.reservePrice ? String(initialSource.reservePrice) : '',
     durationMinutes: initialSource?.durationMinutes ? String(initialSource.durationMinutes) : '1440',
-    state: initialSource?.state || '',
-    district: initialSource?.district || '',
-    village: initialSource?.village || '',
+    state: initialSource?.state || user?.state || 'Tamil Nadu',
+    district: initialSource?.district || user?.district || '',
+    village: initialSource?.village || user?.address || '',
     harvestDate: initialSource?.harvestDate || new Date().toISOString().split('T')[0],
     images: initialSource?.images || [],
     isDefaultImage: !initialSource?.images,
@@ -489,15 +490,17 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 <label className="text-xs font-bold text-[#0B3326] block">
                   Quality Grade
                 </label>
-                <select
+                <SearchableSelect
+                  options={grades.map((g) => ({
+                    value: g,
+                    label: `Grade ${g}`,
+                  }))}
                   value={formData.grade}
-                  onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] cursor-pointer"
-                >
-                  {grades.map((g) => (
-                    <option key={g} value={g}>Grade {g}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setFormData({ ...formData, grade: val })}
+                  placeholder="Select Grade"
+                  searchPlaceholder="Search grade..."
+                  buttonClassName="bg-[#F8FAF8]"
+                />
               </div>
 
               {/* Photo & Upload */}
@@ -563,15 +566,16 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     step="1"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                   />
-                  <select
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className="px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] shrink-0 cursor-pointer"
-                  >
-                    {units.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
+                  <div className="w-28 shrink-0">
+                    <SearchableSelect
+                      options={units.map((u) => ({ value: u, label: u }))}
+                      value={formData.unit}
+                      onChange={(val) => setFormData({ ...formData, unit: val })}
+                      placeholder="Unit"
+                      searchPlaceholder="Search unit..."
+                      buttonClassName="bg-[#F8FAF8]"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -627,21 +631,24 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     <label className="text-xs font-bold text-[#0B3326] block">
                       Auction Closing Duration
                     </label>
-                    <select
+                    <SearchableSelect
+                      options={[
+                        { value: '15', label: '⏱ 15 Minutes (Flash Auction)' },
+                        { value: '30', label: '⏱ 30 Minutes (Quick Sale)' },
+                        { value: '60', label: '⏱ 1 Hour' },
+                        { value: '120', label: '⏱ 2 Hours' },
+                        { value: '360', label: '⏱ 6 Hours' },
+                        { value: '720', label: '⏱ 12 Hours' },
+                        { value: '1440', label: '⏱ 24 Hours (1 Day - Recommended)' },
+                        { value: '2880', label: '⏱ 2 Days (48 Hours)' },
+                        { value: '4320', label: '⏱ 3 Days (72 Hours)' },
+                      ]}
                       value={formData.durationMinutes}
-                      onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] cursor-pointer"
-                    >
-                      <option value="15">⏱ 15 Minutes (Flash Auction)</option>
-                      <option value="30">⏱ 30 Minutes (Quick Sale)</option>
-                      <option value="60">⏱ 1 Hour</option>
-                      <option value="120">⏱ 2 Hours</option>
-                      <option value="360">⏱ 6 Hours</option>
-                      <option value="720">⏱ 12 Hours</option>
-                      <option value="1440">⏱ 24 Hours (1 Day - Recommended)</option>
-                      <option value="2880">⏱ 2 Days (48 Hours)</option>
-                      <option value="4320">⏱ 3 Days (72 Hours)</option>
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, durationMinutes: val })}
+                      placeholder="Select Duration"
+                      searchPlaceholder="Search duration..."
+                      buttonClassName="bg-[#F8FAF8]"
+                    />
                     <span className="text-[10px] text-[#566861] block pt-0.5">
                       💡 You can accept any fair offer and close the auction early at any time during the bidding window.
                     </span>

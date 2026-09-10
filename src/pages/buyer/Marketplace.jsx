@@ -4,6 +4,7 @@ import MarketplaceCard from '../../components/buyer/MarketplaceCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 import {
   Search,
   Filter,
@@ -157,17 +158,17 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               <label className="block text-[11px] font-bold text-[#566861] mb-1">
                 Commodity
               </label>
-              <select
+              <SearchableSelect
+                options={commodities.map((c) => ({
+                  value: c,
+                  label: c === 'All' ? 'All Commodities' : c,
+                }))}
                 value={selectedCommodity}
-                onChange={(e) => setSelectedCommodity(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
-              >
-                {commodities.map((c) => (
-                  <option key={c} value={c}>
-                    {c === 'All' ? 'All Commodities' : c}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedCommodity(val)}
+                placeholder="Commodity"
+                searchPlaceholder="Search commodity..."
+                buttonClassName="py-2 text-xs"
+              />
             </div>
 
             {/* Quality Grade Filter */}
@@ -175,17 +176,17 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               <label className="block text-[11px] font-bold text-[#566861] mb-1">
                 Quality Grade
               </label>
-              <select
+              <SearchableSelect
+                options={grades.map((g) => ({
+                  value: g,
+                  label: g === 'All' ? 'All Grades' : `Grade ${g}`,
+                }))}
                 value={selectedGrade}
-                onChange={(e) => setSelectedGrade(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
-              >
-                {grades.map((g) => (
-                  <option key={g} value={g}>
-                    {g === 'All' ? 'All Grades' : `Grade ${g}`}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedGrade(val)}
+                placeholder="Grade"
+                searchPlaceholder="Search grade..."
+                buttonClassName="py-2 text-xs"
+              />
             </div>
 
             {/* Location / State Filter */}
@@ -193,17 +194,17 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               <label className="block text-[11px] font-bold text-[#566861] mb-1">
                 Location
               </label>
-              <select
+              <SearchableSelect
+                options={locations.map((loc) => ({
+                  value: loc,
+                  label: loc === 'All' ? 'All Locations' : loc,
+                }))}
                 value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
-              >
-                {locations.map((loc) => (
-                  <option key={loc} value={loc}>
-                    {loc === 'All' ? 'All Locations' : loc}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedLocation(val)}
+                placeholder="Location"
+                searchPlaceholder="Search state/district..."
+                buttonClassName="py-2 text-xs"
+              />
             </div>
 
             {/* Sort Filter */}
@@ -211,15 +212,18 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               <label className="block text-[11px] font-bold text-[#566861] mb-1">
                 Sort By
               </label>
-              <select
+              <SearchableSelect
+                options={[
+                  { value: 'latest', label: 'Newest Lots' },
+                  { value: 'price-low', label: 'Price: Low to High' },
+                  { value: 'price-high', label: 'Price: High to Low' },
+                ]}
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
-              >
-                <option value="latest">Newest Lots</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
+                onChange={(val) => setSortBy(val)}
+                placeholder="Sort"
+                searchPlaceholder="Search sort order..."
+                buttonClassName="py-2 text-xs"
+              />
             </div>
 
           </div>

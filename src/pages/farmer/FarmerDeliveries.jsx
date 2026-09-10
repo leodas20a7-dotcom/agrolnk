@@ -3,7 +3,10 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import DeliveryCard from '../../components/delivery/DeliveryCard';
+import DeliveryRow from '../../components/delivery/DeliveryRow';
 import CreateDeliveryModal from '../../components/delivery/CreateDeliveryModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import DeliveryStatusBadge from '../../components/delivery/DeliveryStatusBadge';
@@ -34,10 +37,29 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
 
   const [orders, setOrders] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [deliveriesPage, setDeliveriesPage] = useState(1);
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('agrolnk_farmer_deliveries_viewmode') || 'rows';
+    } catch {
+      return 'rows';
+    }
+  });
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('agrolnk_farmer_deliveries_viewmode', mode);
+    } catch {}
+  };
+
   const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState(
     navState?.orderForDelivery || null
   );
   const [selectedDeliveryForDetail, setSelectedDeliveryForDetail] = useState(null);
+
+  const ITEMS_PER_PAGE = 6;
 
   const loadData = async () => {
     try {
@@ -98,6 +120,18 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
 
   const completedDeliveries = safeDeliveries.filter(
     (d) => d.status === 'completed'
+  );
+
+  const totalOrdersPages = Math.ceil(confirmedOrdersNeedingTransport.length / ITEMS_PER_PAGE) || 1;
+  const paginatedConfirmedOrders = confirmedOrdersNeedingTransport.slice(
+    (ordersPage - 1) * ITEMS_PER_PAGE,
+    ordersPage * ITEMS_PER_PAGE
+  );
+
+  const totalDeliveriesPages = Math.ceil(safeDeliveries.length / ITEMS_PER_PAGE) || 1;
+  const paginatedDeliveries = safeDeliveries.slice(
+    (deliveriesPage - 1) * ITEMS_PER_PAGE,
+    deliveriesPage * ITEMS_PER_PAGE
   );
 
   return (
@@ -193,95 +227,115 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {confirmedOrdersNeedingTransport.map((order) => {
-              const existingDelivery = getDeliveryForOrder(order.orderNumber);
+          {confirmedOrdersNeedingTransport.length > 0 ? (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {paginatedConfirmedOrders.map((order) => {
+                  const existingDelivery = getDeliveryForOrder(order.orderNumber);
 
-              return (
-                <Card key={order.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="dark" size="sm">
-                        {order.orderNumber}
-                      </Badge>
-                      <span className="text-xs text-[#566861]">
-                        Buyer: {order.buyerName || 'Ananya Agro'}
-                      </span>
-                    </div>
+                  return (
+                    <Card key={order.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="dark" size="sm">
+                            {order.orderNumber}
+                          </Badge>
+                          <span className="text-xs text-[#566861]">
+                            Buyer: {order.buyerName || 'Ananya Agro'}
+                          </span>
+                        </div>
 
-                    <div>
-                      <h4 className="text-base font-bold text-[#14211D]">
-                        {order.commodity} ({order.quantity} {order.unit})
-                      </h4>
-                      <span className="text-xs text-[#566861]">
-                        Destination: {order.deliveryLocation?.district || 'Chennai'}, {order.deliveryLocation?.state || 'Tamil Nadu'}
-                      </span>
-                    </div>
+                        <div>
+                          <h4 className="text-base font-bold text-[#14211D]">
+                            {order.commodity} ({order.quantity} {order.unit})
+                          </h4>
+                          <span className="text-xs text-[#566861]">
+                            Destination: {order.deliveryLocation?.district || 'Chennai'}, {order.deliveryLocation?.state || 'Tamil Nadu'}
+                          </span>
+                        </div>
 
-                    <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs">
-                      <span className="text-[#566861]">Consignment Value:</span>
-                      <span className="font-extrabold text-[#0B3326]">
-                        ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
+                        <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs">
+                          <span className="text-[#566861]">Consignment Value:</span>
+                          <span className="font-extrabold text-[#0B3326]">
+                            ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
 
-                  <div className="pt-2 border-t border-[#E5EDE8] space-y-2">
-                    {existingDelivery ? (
-                      <div>
-                        {existingDelivery.status === 'price_offered' ? (
-                          <div className="p-3 rounded-xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-[#34D399] font-bold">Quote: ₹{existingDelivery.freightAmount}</span>
-                              <span className="text-[10px] text-white/70">{existingDelivery.transporterName || 'Carrier'}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="accent"
-                                size="sm"
-                                onClick={() => handleAcceptPrice(existingDelivery)}
-                                className="w-full text-xs font-bold py-1.5 shadow-xs cursor-pointer"
-                              >
-                                Accept ₹{existingDelivery.freightAmount} & Confirm
-                              </Button>
-                            </div>
+                      <div className="pt-2 border-t border-[#E5EDE8] space-y-2">
+                        {existingDelivery ? (
+                          <div>
+                            {existingDelivery.status === 'price_offered' ? (
+                              <div className="p-3 rounded-xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-[#34D399] font-bold">Quote: ₹{existingDelivery.freightAmount}</span>
+                                  <span className="text-[10px] text-white/70">{existingDelivery.transporterName || 'Carrier'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="accent"
+                                    size="sm"
+                                    onClick={() => handleAcceptPrice(existingDelivery)}
+                                    className="w-full text-xs font-bold py-1.5 shadow-xs cursor-pointer"
+                                  >
+                                    Accept ₹{existingDelivery.freightAmount} & Confirm
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <DeliveryStatusBadge status={existingDelivery.status} size="sm" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedDeliveryForDetail(existingDelivery)}
+                                  className="text-xs font-bold text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer"
+                                >
+                                  Track Trip →
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <div className="flex items-center justify-between gap-2">
-                            <DeliveryStatusBadge status={existingDelivery.status} size="sm" />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedDeliveryForDetail(existingDelivery)}
-                              className="text-xs font-bold text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer"
-                            >
-                              Track Trip →
-                            </Button>
-                          </div>
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            onClick={() => setSelectedOrderForDelivery(order)}
+                            icon={Truck}
+                            iconPosition="left"
+                            className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
+                          >
+                            Arrange Delivery
+                          </Button>
                         )}
                       </div>
-                    ) : (
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        onClick={() => setSelectedOrderForDelivery(order)}
-                        icon={Truck}
-                        iconPosition="left"
-                        className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
-                      >
-                        Arrange Delivery
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <Pagination
+                currentPage={ordersPage}
+                totalPages={totalOrdersPages}
+                totalItems={confirmedOrdersNeedingTransport.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setOrdersPage}
+              />
+            </div>
+          ) : (
+            <Card className="p-8 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
+              <Package className="w-8 h-8 text-[#10B981] mx-auto" />
+              <h4 className="text-sm font-bold text-[#0B3326]">No orders awaiting transport</h4>
+              <p className="text-xs text-[#566861]">
+                Confirmed buyer orders needing logistics dispatch will appear here.
+              </p>
+            </Card>
+          )}
         </div>
 
         {/* Section 2: Active & Historical Outbound Deliveries */}
         <div className="space-y-4 pt-4 border-t border-[#E5EDE8]">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-[#0B3326] font-heading">
                 Outbound Delivery Shipments ({deliveries.length})
@@ -290,20 +344,50 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                 Real-time tracking of consignments from farmgate to wholesale destination
               </p>
             </div>
+
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewModeChange={handleSetViewMode}
+            />
           </div>
 
           {deliveries.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {deliveries.map((item) => (
-                <DeliveryCard
-                  key={item.id}
-                  delivery={item}
-                  viewerRole="farmer"
-                  onView={(d) => setSelectedDeliveryForDetail(d)}
-                  onAcceptPrice={handleAcceptPrice}
-                  onDeclinePrice={handleDeclinePrice}
-                />
-              ))}
+            <div className="space-y-5">
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryCard
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="farmer"
+                      onView={(d) => setSelectedDeliveryForDetail(d)}
+                      onAcceptPrice={handleAcceptPrice}
+                      onDeclinePrice={handleDeclinePrice}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryRow
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="farmer"
+                      onView={(d) => setSelectedDeliveryForDetail(d)}
+                      onAcceptPrice={handleAcceptPrice}
+                      onDeclinePrice={handleDeclinePrice}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <Pagination
+                currentPage={deliveriesPage}
+                totalPages={totalDeliveriesPages}
+                totalItems={deliveries.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setDeliveriesPage}
+              />
             </div>
           ) : (
             <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">

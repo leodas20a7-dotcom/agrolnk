@@ -18,7 +18,7 @@ export default function CreateDeliveryModal({
 
   const defaultPickupState = order?.pickupLocation?.state || order?.state || user?.state || '';
   const defaultPickupDistrict = order?.pickupLocation?.district || order?.district || user?.district || '';
-  const defaultPickupAddress = order?.pickupLocation?.address || order?.village || '';
+  const defaultPickupAddress = order?.pickupLocation?.address || order?.village || user?.address || '';
 
   const defaultDestState = order?.deliveryLocation?.state || '';
   const defaultDestDistrict = order?.deliveryLocation?.district || '';

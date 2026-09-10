@@ -18,6 +18,7 @@ import {
 import { createAuction } from '../../utils/auctions';
 import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
 import CommoditySelect from '../../components/ui/CommoditySelect';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -315,16 +316,13 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                   <label className="block text-xs font-bold text-[#14211D] mb-1.5">
                     Unit
                   </label>
-                  <select
-                    name="unit"
+                  <SearchableSelect
+                    options={units.map((u) => ({ value: u, label: u }))}
                     value={formData.unit}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
-                  >
-                    {units.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, unit: val })}
+                    placeholder="Select Unit"
+                    searchPlaceholder="Search unit..."
+                  />
                 </div>
               </div>
             </div>
@@ -423,20 +421,17 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                 <label className="block text-xs font-bold text-[#14211D] mb-1.5">
                   Select Closing Duration <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <select
-                    name="durationMinutes"
-                    value={formData.durationMinutes}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-3 rounded-xl border border-[#E5EDE8] text-xs sm:text-sm font-bold text-[#0B3326] bg-[#F8FAF8] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all cursor-pointer"
-                  >
-                    {durations.map((d) => (
-                      <option key={d.value} value={d.value}>
-                        ⏱ {d.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SearchableSelect
+                  options={durations.map((d) => ({
+                    value: d.value,
+                    label: `⏱ ${d.label}`,
+                  }))}
+                  value={formData.durationMinutes}
+                  onChange={(val) => setFormData({ ...formData, durationMinutes: val })}
+                  placeholder="Select Closing Duration"
+                  searchPlaceholder="Search duration..."
+                  buttonClassName="bg-[#F8FAF8]"
+                />
               </div>
 
               {/* Quick Select Preset Buttons */}

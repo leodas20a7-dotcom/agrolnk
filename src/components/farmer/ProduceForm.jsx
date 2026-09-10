@@ -3,6 +3,7 @@ import { Camera, Image as ImageIcon, MapPin, Tag, Sparkles, AlertCircle } from '
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import CommoditySelect from '../ui/CommoditySelect';
+import SearchableSelect from '../ui/SearchableSelect';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
@@ -124,18 +125,13 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
             <label className="block text-xs font-bold text-[#14211D] mb-1.5">
               Unit
             </label>
-            <select
-              name="unit"
+            <SearchableSelect
+              options={units.map((u) => ({ value: u, label: u }))}
               value={formData.unit}
-              onChange={onChange}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all cursor-pointer"
-            >
-              {units.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => onChange({ target: { name: 'unit', value: val } })}
+              placeholder="Select Unit"
+              searchPlaceholder="Search unit..."
+            />
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import AlertModal from '../../components/ui/AlertModal';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
 import WarehouseSetupModal from '../../components/warehouse/WarehouseSetupModal';
 import {
@@ -509,40 +510,45 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                 </div>
 
                 {/* Status Filter */}
-                <select
+                <SearchableSelect
+                  options={[
+                    { value: 'active', label: 'All Active in Storage' },
+                    { value: 'available', label: 'Available to Trade (>0 kg)' },
+                    { value: 'listed', label: '100% Listed on Trade Floor' },
+                    { value: 'all', label: 'All Records' },
+                  ]}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white cursor-pointer font-medium"
-                >
-                  <option value="active">All Active in Storage</option>
-                  <option value="available">Available to Trade ({'>'}0 kg)</option>
-                  <option value="listed">100% Listed on Trade Floor</option>
-                  <option value="all">All Records</option>
-                </select>
+                  onChange={(val) => setStatusFilter(val)}
+                  placeholder="Storage Status"
+                  searchPlaceholder="Search status..."
+                  buttonClassName="bg-[#F8FAF8] py-2 text-xs"
+                />
 
                 {/* Commodity Filter */}
-                <select
+                <SearchableSelect
+                  options={[
+                    { value: 'all', label: 'All Commodities' },
+                    ...availableCommodities.map((c) => ({ value: c, label: c })),
+                  ]}
                   value={commodityFilter}
-                  onChange={(e) => setCommodityFilter(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white cursor-pointer font-medium"
-                >
-                  <option value="all">All Commodities</option>
-                  {availableCommodities.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setCommodityFilter(val)}
+                  placeholder="Commodity"
+                  searchPlaceholder="Search crop..."
+                  buttonClassName="bg-[#F8FAF8] py-2 text-xs"
+                />
 
                 {/* Chamber Filter */}
-                <select
+                <SearchableSelect
+                  options={[
+                    { value: 'all', label: 'All Chambers' },
+                    ...availableChambers.map((ch) => ({ value: ch, label: ch })),
+                  ]}
                   value={chamberFilter}
-                  onChange={(e) => setChamberFilter(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white cursor-pointer font-medium"
-                >
-                  <option value="all">All Chambers</option>
-                  {availableChambers.map((ch) => (
-                    <option key={ch} value={ch}>{ch}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setChamberFilter(val)}
+                  placeholder="Chamber"
+                  searchPlaceholder="Search chamber..."
+                  buttonClassName="bg-[#F8FAF8] py-2 text-xs"
+                />
 
               </div>
             </div>

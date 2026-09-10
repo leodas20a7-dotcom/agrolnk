@@ -3,7 +3,10 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import InventoryCard from '../../components/warehouse/InventoryCard';
+import InventoryRow from '../../components/warehouse/InventoryRow';
 import WarehouseCard from '../../components/warehouse/WarehouseCard';
 import DepositProduceModal from '../../components/warehouse/DepositProduceModal';
 import ListFromInventoryModal from '../../components/warehouse/ListFromInventoryModal';
@@ -42,8 +45,27 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'warehouses'
   const [inventoryList, setInventoryList] = useState([]);
   const [warehousesList, setWarehousesList] = useState([]);
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [warehousesPage, setWarehousesPage] = useState(1);
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('agrolnk_farmer_inventory_viewmode') || 'rows';
+    } catch {
+      return 'rows';
+    }
+  });
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('agrolnk_farmer_inventory_viewmode', mode);
+    } catch {}
+  };
+
   const [notifications, setNotifications] = useState([]);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const ITEMS_PER_PAGE = 6;
   
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -300,7 +322,10 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
           <button
             type="button"
-            onClick={() => setActiveTab('inventory')}
+            onClick={() => {
+              setActiveTab('inventory');
+              setInventoryPage(1);
+            }}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
               activeTab === 'inventory'
                 ? 'bg-[#0B3326] text-white shadow-xs'
@@ -321,7 +346,10 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
 
           <button
             type="button"
-            onClick={() => setActiveTab('warehouses')}
+            onClick={() => {
+              setActiveTab('warehouses');
+              setWarehousesPage(1);
+            }}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
               activeTab === 'warehouses'
                 ? 'bg-[#0B3326] text-white shadow-xs'
@@ -344,7 +372,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
         {/* Content Section: My Stored Produce */}
         {activeTab === 'inventory' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
                   Stored Commodity Batches ({inventoryList.length})
@@ -353,20 +381,50 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                   Directly list for sale or auction without moving produce from storage
                 </p>
               </div>
+
+              <ViewModeToggle
+                viewMode={viewMode}
+                onViewModeChange={handleSetViewMode}
+              />
             </div>
 
             {inventoryList.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {inventoryList.map((item) => (
-                  <InventoryCard
-                    key={item.id}
-                    inventory={item}
-                    onView={(inv) => setSelectedInventoryForDetail(inv)}
-                    onList={(inv) => setSelectedInventoryForList(inv)}
-                    onPayRent={(inv) => setSelectedInventoryForRent(inv)}
-                    onRequestFinancing={() => onNavigate('farmer-financing')}
-                  />
-                ))}
+              <div className="space-y-6">
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {paginatedInventory.map((item) => (
+                      <InventoryCard
+                        key={item.id}
+                        inventory={item}
+                        onView={(inv) => setSelectedInventoryForDetail(inv)}
+                        onList={(inv) => setSelectedInventoryForList(inv)}
+                        onPayRent={(inv) => setSelectedInventoryForRent(inv)}
+                        onRequestFinancing={() => onNavigate('farmer-financing')}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {paginatedInventory.map((item) => (
+                      <InventoryRow
+                        key={item.id}
+                        inventory={item}
+                        onView={(inv) => setSelectedInventoryForDetail(inv)}
+                        onList={(inv) => setSelectedInventoryForList(inv)}
+                        onPayRent={(inv) => setSelectedInventoryForRent(inv)}
+                        onRequestFinancing={() => onNavigate('farmer-financing')}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <Pagination
+                  currentPage={inventoryPage}
+                  totalPages={totalInventoryPages}
+                  totalItems={inventoryList.length}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onPageChange={setInventoryPage}
+                />
               </div>
             ) : (
               <Card className="p-8 sm:p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-5 bg-gradient-to-b from-white to-[#F8FAF8]">
@@ -382,7 +440,6 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                   </p>
                 </div>
 
-                {/* 3 Quick Benefits */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto text-left pt-2">
                   <div className="p-3 rounded-2xl bg-white border border-[#E5EDE8]">
                     <span className="text-[11px] font-bold text-[#0B3326] block">✓ WDRA Insured</span>
@@ -411,7 +468,10 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                   <Button
                     variant="secondary"
                     size="md"
-                    onClick={() => setActiveTab('warehouses')}
+                    onClick={() => {
+                      setActiveTab('warehouses');
+                      setWarehousesPage(1);
+                    }}
                     icon={Building2}
                     className="text-xs font-bold px-5 py-2.5 cursor-pointer"
                   >
@@ -437,17 +497,27 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {warehousesList.map((wh) => (
-                <WarehouseCard
-                  key={wh.id}
-                  warehouse={wh}
-                  onDeposit={(selected) => {
-                    setSelectedWarehouseForDeposit(selected);
-                    setShowDepositModal(true);
-                  }}
-                />
-              ))}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {paginatedWarehouses.map((wh) => (
+                  <WarehouseCard
+                    key={wh.id}
+                    warehouse={wh}
+                    onDeposit={(selected) => {
+                      setSelectedWarehouseForDeposit(selected);
+                      setShowDepositModal(true);
+                    }}
+                  />
+                ))}
+              </div>
+
+              <Pagination
+                currentPage={warehousesPage}
+                totalPages={totalWarehousesPages}
+                totalItems={warehousesList.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setWarehousesPage}
+              />
             </div>
           </div>
         )}

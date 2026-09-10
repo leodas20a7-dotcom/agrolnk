@@ -268,6 +268,61 @@ export async function fetchCurrentProfile() {
 }
 
 /**
+ * Update current user profile (address, district, state, phone, pincode, etc.)
+ * Saves to localStorage and Supabase, and broadcasts event to the whole app.
+ */
+export async function updateUserProfile(updatedFields) {
+  const current = getCurrentUser() || {};
+  const merged = {
+    ...current,
+    ...updatedFields,
+    // Ensure nested or aliased fields are kept in sync
+    address: updatedFields.address !== undefined ? updatedFields.address : current.address,
+    district: updatedFields.district !== undefined ? updatedFields.district : current.district,
+    state: updatedFields.state !== undefined ? updatedFields.state : current.state,
+    pincode: updatedFields.pincode !== undefined ? updatedFields.pincode : current.pincode,
+    phone: updatedFields.phone !== undefined ? updatedFields.phone : current.phone,
+    name: updatedFields.name !== undefined ? updatedFields.name : current.name,
+    orgName: updatedFields.orgName !== undefined ? updatedFields.orgName : (updatedFields.farmName || current.orgName || current.farmName),
+    farmName: updatedFields.farmName !== undefined ? updatedFields.farmName : (updatedFields.orgName || current.farmName || current.orgName),
+  };
+
+  setCurrentUser(merged);
+
+  // Sync to Supabase profiles if possible
+  try {
+    if (merged.id) {
+      await supabase
+        .from('profiles')
+        .update({
+          name: merged.name,
+          phone: merged.phone,
+          state: merged.state,
+          district: merged.district,
+          address: merged.address,
+          pincode: merged.pincode,
+          landmark: merged.landmark,
+          company_name: merged.orgName || merged.farmName || merged.companyName,
+        })
+        .eq('id', merged.id);
+    }
+  } catch (err) {
+    console.warn('Supabase profile sync skipped / error:', err);
+  }
+
+  // Broadcast event across windows and listeners
+  try {
+    window.dispatchEvent(
+      new CustomEvent('agrolnk_user_profile_updated', {
+        detail: merged,
+      })
+    );
+  } catch {}
+
+  return merged;
+}
+
+/**
  * Get current user role
  */
 export function getUserRole() {

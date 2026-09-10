@@ -3,6 +3,7 @@ import { X, Building2, Package, Calendar, ShieldCheck, ArrowRight, AlertCircle, 
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import CommoditySelect from '../ui/CommoditySelect';
+import SearchableSelect from '../ui/SearchableSelect';
 import { getWarehouses, depositProduceToWarehouse } from '../../utils/warehouses';
 
 export default function DepositProduceModal({
@@ -124,21 +125,22 @@ export default function DepositProduceModal({
             <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
               Certified Storage Facility
             </label>
-            <select
+            <SearchableSelect
+              options={warehouses.map((wh) => ({
+                value: wh.id,
+                label: wh.name,
+                subtext: `${wh.district}, ${wh.state} • ₹${wh.monthlyRatePerTonne}/Tonne`,
+                badge: `₹${wh.monthlyRatePerTonne}/T`,
+              }))}
               value={selectedWarehouseId}
-              onChange={(e) => {
-                setSelectedWarehouseId(e.target.value);
-                const selected = warehouses.find((w) => w.id === e.target.value);
+              onChange={(val) => {
+                setSelectedWarehouseId(val);
+                const selected = warehouses.find((w) => w.id === val);
                 if (selected) setChamber(selected.chambers[0]);
               }}
-              className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
-            >
-              {warehouses.map((wh) => (
-                <option key={wh.id} value={wh.id}>
-                  {wh.name} ({wh.district}, {wh.state}) • ₹{wh.monthlyRatePerTonne}/T
-                </option>
-              ))}
-            </select>
+              placeholder="Select Storage Facility"
+              searchPlaceholder="Search warehouse name, city..."
+            />
           </div>
 
           {/* Chamber Selection */}
@@ -146,17 +148,16 @@ export default function DepositProduceModal({
             <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
               Storage Chamber / Cell
             </label>
-            <select
+            <SearchableSelect
+              options={currentWarehouse.chambers.map((ch) => ({
+                value: ch,
+                label: ch,
+              }))}
               value={chamber}
-              onChange={(e) => setChamber(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
-            >
-              {currentWarehouse.chambers.map((ch, idx) => (
-                <option key={idx} value={ch}>
-                  {ch}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setChamber(val)}
+              placeholder="Select Chamber"
+              searchPlaceholder="Search chamber..."
+            />
           </div>
 
           {/* Commodity & Variety */}
@@ -184,18 +185,20 @@ export default function DepositProduceModal({
                   value={variety}
                   onChange={(e) => setVariety(e.target.value)}
                   placeholder="Variety"
-                  className="w-full px-3 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
+                  className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-2xs"
                   required
                 />
-                <select
+                <SearchableSelect
+                  options={[
+                    { value: 'A', label: 'Grade A' },
+                    { value: 'B', label: 'Grade B' },
+                    { value: 'Export', label: 'Export' },
+                  ]}
                   value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                  className="w-full px-3 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
-                >
-                  <option value="A">Grade A</option>
-                  <option value="B">Grade B</option>
-                  <option value="Export">Export</option>
-                </select>
+                  onChange={(val) => setGrade(val)}
+                  placeholder="Grade"
+                  searchPlaceholder="Search grade..."
+                />
               </div>
             </div>
           </div>

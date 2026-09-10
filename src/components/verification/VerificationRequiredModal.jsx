@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, X, FileText, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import Button from '../ui/Button';
+import SearchableSelect from '../ui/SearchableSelect';
 import { supabase } from '../../lib/supabase';
 
 export default function VerificationRequiredModal({
@@ -325,20 +326,23 @@ export default function VerificationRequiredModal({
                 <span>Select Document / ID Type</span>
                 <span className="text-red-500 font-bold">*</span>
               </label>
-              <select
+              <SearchableSelect
+                options={[
+                  { value: 'Aadhaar / Identity Document', label: 'Aadhaar / Government ID' },
+                  { value: 'GSTIN Registration Certificate', label: 'GSTIN Certificate' },
+                  { value: 'PAN Card (Business / Personal)', label: 'PAN Card' },
+                  { value: 'Trade License / Land Record / Permit', label: 'Trade License / Land Passbook' },
+                  { value: 'WDRA / Lab Accreditation', label: 'WDRA / Warehouse Accreditation' },
+                ]}
                 value={docType}
-                onChange={(e) => {
-                  setDocType(e.target.value);
+                onChange={(val) => {
+                  setDocType(val);
                   setFieldErrors((prev) => ({ ...prev, docNumber: '' }));
                 }}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-              >
-                <option value="Aadhaar / Identity Document">Aadhaar / Government ID</option>
-                <option value="GSTIN Registration Certificate">GSTIN Certificate</option>
-                <option value="PAN Card (Business / Personal)">PAN Card</option>
-                <option value="Trade License / Land Record / Permit">Trade License / Land Passbook</option>
-                <option value="WDRA / Lab Accreditation">WDRA / Warehouse Accreditation</option>
-              </select>
+                placeholder="Select ID Document Type"
+                searchPlaceholder="Search document type..."
+                buttonClassName="bg-[#F8FAF8]"
+              />
             </div>
 
             {/* Document ID Number */}
