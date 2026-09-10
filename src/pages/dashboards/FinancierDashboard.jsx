@@ -375,11 +375,28 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
           </div>
 
           {/* Right Column (5 Cols): Portfolio Allocation & Maturity Pipeline */}
-          <div className="lg:col-span-5 space-y-6">
+          <div className="lg:col-span-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+                  Portfolio Analytics
+                </h2>
+                <p className="text-xs text-[#566861]">
+                  Live capital allocation & upcoming maturity settlements
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigate('financier-portfolio')}
+                className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>View Portfolio</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
             
             {/* Risk & Segment Distribution */}
-            <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
-              <h3 className="text-sm font-bold text-[#0B3326] font-heading uppercase tracking-wider">
+            <Card className="p-5 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
+              <h3 className="text-sm font-bold text-[#0B3326] font-heading">
                 Capital Deployment Breakdown
               </h3>
 
@@ -435,9 +452,9 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
             </Card>
 
             {/* Upcoming Repayment Maturities */}
-            <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
+            <Card className="p-5 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-[#0B3326] font-heading uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-[#0B3326] font-heading">
                   Upcoming Maturities (30 Days)
                 </h3>
                 <span className="text-[11px] font-semibold text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-full">
