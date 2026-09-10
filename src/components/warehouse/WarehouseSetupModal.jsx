@@ -663,10 +663,10 @@ export default function WarehouseSetupModal({
                 </span>
 
                 {/* 1. WDRA Certificate */}
-                <div className="p-3 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-3 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <FileText className="w-5 h-5 text-[#10B981] shrink-0" />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <span className="font-bold text-[#14211D] block truncate">
                         1. WDRA Accreditation Certificate <span className="text-red-500">*</span>
                       </span>
@@ -676,7 +676,7 @@ export default function WarehouseSetupModal({
                     </div>
                   </div>
 
-                  <label className="px-3 py-1.5 rounded-xl border border-[#10B981] text-[#0B3326] bg-white hover:bg-[#EBF5F0] font-bold text-xs transition-colors cursor-pointer shrink-0 flex items-center gap-1.5">
+                  <label className="w-full sm:w-auto px-3 py-2 rounded-xl border border-[#10B981] text-[#0B3326] bg-white hover:bg-[#EBF5F0] font-bold text-xs transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1.5">
                     <Upload className="w-3.5 h-3.5 text-[#10B981]" />
                     <span>{wdraFileName ? 'Replace' : 'Upload'}</span>
                     <input
@@ -689,10 +689,10 @@ export default function WarehouseSetupModal({
                 </div>
 
                 {/* 2. GST / Trade License */}
-                <div className="p-3 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-3 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <FileText className="w-5 h-5 text-[#10B981] shrink-0" />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <span className="font-bold text-[#14211D] block truncate">
                         2. GSTIN Certificate / Trade License <span className="text-red-500">*</span>
                       </span>
@@ -702,7 +702,7 @@ export default function WarehouseSetupModal({
                     </div>
                   </div>
 
-                  <label className="px-3 py-1.5 rounded-xl border border-[#10B981] text-[#0B3326] bg-white hover:bg-[#EBF5F0] font-bold text-xs transition-colors cursor-pointer shrink-0 flex items-center gap-1.5">
+                  <label className="w-full sm:w-auto px-3 py-2 rounded-xl border border-[#10B981] text-[#0B3326] bg-white hover:bg-[#EBF5F0] font-bold text-xs transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1.5">
                     <Upload className="w-3.5 h-3.5 text-[#10B981]" />
                     <span>{gstFileName ? 'Replace' : 'Upload'}</span>
                     <input
@@ -715,10 +715,10 @@ export default function WarehouseSetupModal({
                 </div>
 
                 {/* 3. Insurance / Fire NOC (Optional) */}
-                <div className="p-3 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-3 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <FileText className="w-5 h-5 text-[#566861] shrink-0" />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <span className="font-bold text-[#14211D] block truncate">
                         3. Storage Facility Insurance / Fire NOC <span className="text-[10px] text-[#566861] font-normal">(Optional)</span>
                       </span>
@@ -728,7 +728,7 @@ export default function WarehouseSetupModal({
                     </div>
                   </div>
 
-                  <label className="px-3 py-1.5 rounded-xl border border-[#E5EDE8] text-[#566861] bg-white hover:bg-[#F8FAF8] font-bold text-xs transition-colors cursor-pointer shrink-0 flex items-center gap-1.5">
+                  <label className="w-full sm:w-auto px-3 py-2 rounded-xl border border-[#E5EDE8] text-[#566861] bg-white hover:bg-[#F8FAF8] font-bold text-xs transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1.5">
                     <Upload className="w-3.5 h-3.5" />
                     <span>{insFileName ? 'Replace' : 'Upload'}</span>
                     <input

@@ -357,12 +357,12 @@ export default function DocumentViewerModal({
             <span>Encrypted Audit Ledger &bull; Immutable record</span>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto justify-end">
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-xs cursor-pointer"
+              className="text-xs cursor-pointer justify-center w-full sm:w-auto"
             >
               Back to Profile
             </Button>
@@ -374,7 +374,7 @@ export default function DocumentViewerModal({
                   onReject();
                   onClose();
                 }}
-                className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors text-center justify-center w-full sm:w-auto"
               >
                 Reject Document
               </button>
@@ -387,7 +387,7 @@ export default function DocumentViewerModal({
                   onApprove();
                   onClose();
                 }}
-                className="px-5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center justify-center gap-1.5 w-full sm:w-auto"
               >
                 <CheckCircle2 className="w-4 h-4 text-[#34D399]" />
                 <span>Approve & Validate</span>

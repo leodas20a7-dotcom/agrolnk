@@ -299,13 +299,13 @@ export default function DepositProduceModal({
           </div>
 
           {/* Action Buttons Footer */}
-          <div className="p-4 sm:p-6 pt-4 border-t border-[#E5EDE8] flex items-center justify-end gap-3 shrink-0 bg-[#FAFBF9]">
+          <div className="p-4 sm:p-6 pt-4 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 shrink-0 bg-[#FAFBF9]">
             <Button
               type="button"
               variant="ghost"
               size="md"
               onClick={onClose}
-              className="text-xs text-[#566861]"
+              className="text-xs text-[#566861] justify-center w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -316,7 +316,7 @@ export default function DepositProduceModal({
               disabled={isSubmitting}
               icon={ArrowRight}
               iconPosition="right"
-              className="font-bold py-2.5 px-6 shadow-xs cursor-pointer"
+              className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"
             >
               {isSubmitting ? 'Issuing Receipt...' : 'Confirm Deposit & Issue Storage Receipt'}
             </Button>

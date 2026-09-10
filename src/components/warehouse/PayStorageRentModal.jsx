@@ -290,14 +290,14 @@ export default function PayStorageRentModal({
             </div>
 
             {/* Footer Buttons */}
-            <div className="p-5 border-t border-[#E5EDE8] bg-white flex items-center justify-end gap-3 shrink-0">
+            <div className="p-4 sm:p-5 border-t border-[#E5EDE8] bg-white flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 shrink-0">
               <Button
                 type="button"
                 variant="ghost"
                 size="md"
                 onClick={onClose}
                 disabled={isProcessing}
-                className="text-xs font-bold"
+                className="text-xs font-bold justify-center w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -307,7 +307,7 @@ export default function PayStorageRentModal({
                 variant="accent"
                 size="md"
                 disabled={isProcessing}
-                className="text-xs font-bold px-6 py-2.5 shadow-md shadow-[#10B981]/20 cursor-pointer"
+                className="text-xs font-bold px-6 py-2.5 shadow-md shadow-[#10B981]/20 cursor-pointer justify-center w-full sm:w-auto"
               >
                 {isProcessing ? 'Processing Payment...' : `Pay ₹${calculatedPayAmount.toLocaleString('en-IN')}`}
               </Button>

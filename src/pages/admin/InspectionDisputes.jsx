@@ -430,20 +430,20 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   />
                 </div>
 
-                <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-end gap-2.5">
+                <div className="pt-3 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
                   <button
                     type="button"
                     onClick={() => setSelectedRequestToInspect(null)}
-                    className="px-4 py-2 border border-[#E5EDE8] text-[#566861] rounded-xl text-xs font-semibold hover:bg-[#F8FAF8] cursor-pointer"
+                    className="px-4 py-2 border border-[#E5EDE8] text-[#566861] rounded-xl text-xs font-semibold hover:bg-[#F8FAF8] cursor-pointer text-center justify-center w-full sm:w-auto"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                    className="px-5 py-2 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
                   >
                     <Send className="w-3.5 h-3.5 text-[#34D399]" />
-                    Send Report to Buyer & Unlock Delivery
+                    <span>Send Report to Buyer</span>
                   </button>
                 </div>
               </form>
@@ -590,17 +590,17 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                     />
                   </div>
 
-                  <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-end gap-2.5">
+                  <div className="pt-3 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
                     <button
                       type="button"
                       onClick={() => setSelectedDispute(null)}
-                      className="px-4 py-2 border border-[#E5EDE8] text-[#566861] rounded-xl text-xs font-semibold hover:bg-[#F8FAF8] cursor-pointer"
+                      className="px-4 py-2 border border-[#E5EDE8] text-[#566861] rounded-xl text-xs font-semibold hover:bg-[#F8FAF8] cursor-pointer text-center justify-center w-full sm:w-auto"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                      className="px-5 py-2 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer text-center justify-center w-full sm:w-auto"
                     >
                       Execute Ruling
                     </button>

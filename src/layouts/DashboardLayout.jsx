@@ -637,7 +637,7 @@ export default function DashboardLayout({
       </footer>
 
       {/* Floating Privacy Chatbot Trigger */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-6 right-6 z-30">
         <button
           onClick={() => setIsChatOpen(true)}
           className="flex items-center gap-2 bg-[#0B3326] hover:bg-[#07241A] text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group"

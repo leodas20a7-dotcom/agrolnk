@@ -136,27 +136,27 @@ export default function KYCVerificationModal({
             {(user.documents || []).map((doc, idx) => (
               <div
                 key={idx}
-                className="p-3.5 rounded-xl bg-white border border-[#E5EDE8] flex items-center justify-between gap-3 hover:border-[#10B981]/40 transition-all shadow-xs"
+                className="p-3.5 rounded-xl bg-white border border-[#E5EDE8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 hover:border-[#10B981]/40 transition-all shadow-xs"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center shrink-0">
                     <FileText className="w-4 h-4 text-[#10B981]" />
                   </div>
-                  <div>
-                    <span className="font-bold text-xs text-[#14211D] block">{doc.type}</span>
-                    <span className="text-[11px] text-[#566861] font-mono">
+                  <div className="min-w-0 flex-1">
+                    <span className="font-bold text-xs text-[#14211D] block truncate">{doc.type}</span>
+                    <span className="text-[11px] text-[#566861] font-mono block truncate">
                       Ref / ID: {doc.number}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setInspectingDoc(doc)}
-                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#F8FAF8] border border-[#E5EDE8] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors inline-flex items-center gap-1 cursor-pointer"
+                    className="w-full sm:w-auto px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F8FAF8] border border-[#E5EDE8] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span>Inspect</span>
+                    <span>Inspect Document</span>
                     <ExternalLink className="w-3 h-3" />
                   </button>
                 </div>

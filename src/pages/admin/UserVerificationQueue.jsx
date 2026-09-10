@@ -746,12 +746,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           </div>
 
                           {/* Document Preview & Inspect Action Banner */}
-                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between gap-2">
-                            <div className="space-y-0.5 text-xs">
-                              <span className="font-bold text-[#0B3326] block truncate max-w-[220px]">
+                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="space-y-0.5 text-xs min-w-0 flex-1">
+                              <span className="font-bold text-[#0B3326] block truncate">
                                 📄 {displayFileName}
                               </span>
-                              <span className="text-[11px] text-[#566861] font-mono">
+                              <span className="text-[11px] text-[#566861] font-mono block">
                                 ID No: <strong>{doc.number}</strong>
                               </span>
                             </div>
@@ -759,7 +759,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                             <button
                               type="button"
                               onClick={() => setInspectingDoc({ doc, user: selectedUserForDocs })}
-                              className="px-3.5 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                              className="px-3.5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors w-full sm:w-auto shrink-0"
                             >
                               <Eye className="w-3.5 h-3.5 text-[#34D399]" />
                               <span>View & Inspect</span>
@@ -777,32 +777,32 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               </div>
 
               {/* Action Buttons inside Modal */}
-              <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-3">
+              <div className="pt-3 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedUserForDocs(null)}
-                  className="text-xs"
+                  className="text-xs justify-center w-full sm:w-auto"
                 >
                   Close
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => handleReject(selectedUserForDocs.id, selectedUserForDocs.name)}
-                    className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer text-center justify-center w-full sm:w-auto"
                   >
                     {selectedUserForDocs.pendingChanges ? 'Reject Revision' : 'Reject'}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApprove(selectedUserForDocs.id, selectedUserForDocs.name)}
-                    className="px-5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                    className="px-5 py-2.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
                   >
                     <CheckCircle2 className="w-4 h-4 text-[#34D399]" />
-                    {selectedUserForDocs.pendingChanges ? 'Approve & Apply Revision' : 'Approve & Issue Badge'}
+                    <span>{selectedUserForDocs.pendingChanges ? 'Approve & Apply Revision' : 'Approve & Issue Badge'}</span>
                   </button>
                 </div>
               </div>
