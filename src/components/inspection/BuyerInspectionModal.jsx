@@ -9,14 +9,19 @@ import {
   Award,
   Scale,
   Clock,
-  UserCheck
+  UserCheck,
+  CreditCard,
+  Lock,
+  Sparkles
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { getInspectionForOrder, requestQualityInspection, sendInspectionReportToBuyer } from '../../utils/inspection';
+import { getInspectionForOrder, requestQualityInspection, payInspectionFee } from '../../utils/inspection';
+import { initiateRazorpayInspectionFeeCheckout } from '../../utils/razorpayRouteClient';
 
 export default function BuyerInspectionModal({
   order,
+  buyerUser,
   isOpen = true,
   onClose,
   onSuccess,
@@ -25,6 +30,8 @@ export default function BuyerInspectionModal({
   const [inspection, setInspection] = useState(null);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPayingFee, setIsPayingFee] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
 
   const orderKey = order?.orderNumber || order?.id || order?.listingId;
   const isPreBuy = !order?.orderNumber;
@@ -39,23 +46,54 @@ export default function BuyerInspectionModal({
 
   if (!isOpen || !order) return null;
 
-  const handleRequestInspection = () => {
+  const handleRequestInspection = async () => {
     setIsSubmitting(true);
     const estAmount = order.totalAmount || (Number(order.quantity || 100) * Number(order.price || 0));
-    const created = requestQualityInspection({
-      orderId: orderKey,
-      orderNumber: orderKey,
-      buyerId: order.buyerId || 'usr_buyer_02',
-      buyerName: order.buyerName || 'Procurement Buyer',
-      sellerName: order.farmerName || 'Verified Producer',
-      commodity: order.commodity,
-      grade: order.grade || 'A',
-      quantity: order.quantity,
-      orderAmount: estAmount,
+    try {
+      const created = await requestQualityInspection({
+        orderId: orderKey,
+        orderNumber: orderKey,
+        buyerId: buyerUser?.id || order.buyerId || 'usr_buyer_02',
+        buyerName: buyerUser?.name || order.buyerName || 'Procurement Buyer',
+        sellerName: order.farmerName || 'Verified Producer',
+        commodity: order.commodity,
+        grade: order.grade || 'A',
+        quantity: order.quantity,
+        orderAmount: estAmount,
+      });
+      setInspection(created);
+      if (onSuccess) onSuccess(created);
+    } catch (err) {
+      console.error('Failed to request inspection:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePayInspectionFee = () => {
+    if (!inspection) return;
+    setIsPayingFee(true);
+    setPaymentError(null);
+
+    initiateRazorpayInspectionFeeCheckout({
+      inspection,
+      buyerUser: {
+        name: order.buyerName || 'Procurement Buyer',
+        email: order.buyerEmail || 'buyer@agrolnk.com',
+      },
+      onSuccess: (paymentData) => {
+        setIsPayingFee(false);
+        const updated = payInspectionFee(inspection.id, {
+          paymentId: paymentData.razorpay_payment_id,
+          method: 'Razorpay Gateway',
+        });
+        setInspection(updated || { ...inspection, feeStatus: 'paid', feePaymentId: paymentData.razorpay_payment_id });
+      },
+      onFailure: (err) => {
+        setIsPayingFee(false);
+        setPaymentError(err?.message || 'Payment was not completed. Please try again.');
+      }
     });
-    setInspection(created);
-    setIsSubmitting(false);
-    if (onSuccess) onSuccess(created);
   };
 
   const handleAcceptReport = () => {
@@ -65,6 +103,9 @@ export default function BuyerInspectionModal({
     }
     onClose();
   };
+
+  const isFeePaid = inspection?.feeStatus === 'paid';
+  const feeAmount = inspection?.inspectionFee || 500;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -120,7 +161,7 @@ export default function BuyerInspectionModal({
                 1. Click <strong>"Request Quality Inspection"</strong> below.<br />
                 2. Admin receives your request and dispatches a certified assayer to inspect the lot.<br />
                 3. The inspector tests moisture %, purity, and grade, and uploads the certified assay report.<br />
-                4. You review the official report and continue to delivery with 100% peace of mind.
+                4. Pay the certified inspection fee via Razorpay to unlock and accept the report before purchase.
               </p>
             </div>
 
@@ -165,7 +206,7 @@ export default function BuyerInspectionModal({
                 Quality Inspection Requested!
               </h4>
               <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                Admin has received your request and is dispatching a certified quality inspector to the farmgate lot. Once the assay report is uploaded, you can review the results here.
+                Admin has received your request and is dispatching a certified quality inspector to the farmgate lot. Once the assay report is uploaded with the lab fee, you can review and pay here.
               </p>
             </div>
             <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-left text-xs space-y-1">
@@ -187,8 +228,9 @@ export default function BuyerInspectionModal({
         )}
 
         {/* Stage 3: Inspector Report Available & Passed */}
-        {inspection && inspection.status === 'passed' && (
+        {inspection && (inspection.status === 'passed' || inspection.status === 'resolved') && (
           <div className="space-y-4">
+            {/* Assay Report Card */}
             <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-950 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-bold flex items-center gap-1 text-emerald-900">
@@ -224,20 +266,83 @@ export default function BuyerInspectionModal({
               </p>
             </div>
 
+            {/* Inspection Fee Card */}
+            {isFeePaid ? (
+              <div className="p-3.5 rounded-2xl bg-[#F2FBF6] border border-[#A7F3D0] flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#0B3326] block">
+                      Inspection & Lab Fee Paid: ₹{feeAmount}
+                    </span>
+                    <span className="text-[10px] text-[#566861] font-mono">
+                      Ref: {inspection.feePaymentId || 'pay_verified_razorpay'}
+                    </span>
+                  </div>
+                </div>
+                <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                  Settled
+                </span>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-amber-100 text-amber-800 rounded-lg">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-[#0B3326] block">
+                        Lab Assay & Inspection Fee
+                      </span>
+                      <span className="text-[11px] text-[#566861]">
+                        Billed by AgroLnk Quality Assurance
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-base font-extrabold text-[#0B3326]">₹{feeAmount}</span>
+                    <span className="block text-[10px] font-bold text-amber-700">Fee Due</span>
+                  </div>
+                </div>
+
+                {paymentError && (
+                  <p className="text-[11px] text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                    {paymentError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
             <div className="pt-2 flex items-center justify-end gap-2.5">
               <Button variant="ghost" size="sm" onClick={onClose} className="text-xs cursor-pointer">
                 Close
               </Button>
-              <Button
-                variant="accent"
-                size="md"
-                onClick={handleAcceptReport}
-                icon={CheckCircle2}
-                iconPosition="left"
-                className="text-xs font-bold cursor-pointer"
-              >
-                {isPreBuy ? 'Accept Quality & Proceed to Buy Now' : 'Accept Quality & Proceed with Delivery'}
-              </Button>
+              
+              {!isFeePaid ? (
+                <button
+                  onClick={handlePayInspectionFee}
+                  disabled={isPayingFee}
+                  className="px-4 py-2.5 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-2 transition-all"
+                >
+                  <CreditCard className="w-4 h-4 text-[#34D399]" />
+                  {isPayingFee ? 'Opening Razorpay...' : `Pay ₹${feeAmount} via Razorpay & Accept Report`}
+                </button>
+              ) : (
+                <Button
+                  variant="accent"
+                  size="md"
+                  onClick={handleAcceptReport}
+                  icon={CheckCircle2}
+                  iconPosition="left"
+                  className="text-xs font-bold cursor-pointer"
+                >
+                  {isPreBuy ? 'Accept Quality & Proceed to Buy Now' : 'Accept Quality & Proceed with Delivery'}
+                </Button>
+              )}
             </div>
           </div>
         )}

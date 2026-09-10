@@ -103,7 +103,7 @@ export default function DepositProduceModal({
                 Deposit Produce to Warehouse
               </h3>
               <span className="text-xs text-[#566861]">
-                Issue Electronic Negotiable Warehouse Receipt (e-NWR)
+                Issue Official Warehouse Storage Receipt
               </span>
             </div>
           </div>
@@ -259,7 +259,7 @@ export default function DepositProduceModal({
           </div>
 
           {/* Calculated Valuation & Fee Summary Card */}
-          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2 text-xs">
+          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-[#566861]">Estimated Lot Valuation:</span>
               <span className="font-extrabold text-[#0B3326] font-heading text-sm">
@@ -267,8 +267,11 @@ export default function DepositProduceModal({
               </span>
             </div>
             <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
-              <span className="text-[#566861]">Estimated Storage Rent:</span>
-              <span className="font-bold text-[#10B981]">
+              <div>
+                <span className="text-[#566861] block">Storage Rent:</span>
+                <span className="text-[10px] text-[#10B981] font-semibold">Auto-deducted upon produce sale (Zero upfront cash)</span>
+              </div>
+              <span className="font-extrabold text-[#0B3326] text-sm">
                 ₹{monthlyRentalEst} / month
               </span>
             </div>
@@ -286,7 +289,7 @@ export default function DepositProduceModal({
           <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
             <span>
-              e-NWR is accredited under WDRA regulations. Stored produce is fully insured and eligible for immediate institutional financing.
+              Warehouse storage is certified under government storage standards. Stored produce is fully insured and eligible for immediate working capital loans.
             </span>
           </div>
 
@@ -312,7 +315,7 @@ export default function DepositProduceModal({
               iconPosition="right"
               className="font-bold py-2.5 px-6 shadow-xs cursor-pointer"
             >
-              {isSubmitting ? 'Issuing Receipt...' : 'Confirm Deposit & Issue e-NWR'}
+              {isSubmitting ? 'Issuing Receipt...' : 'Confirm Deposit & Issue Storage Receipt'}
             </Button>
           </div>
 

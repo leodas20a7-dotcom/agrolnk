@@ -156,7 +156,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             <StatCard
               label="Stored Inventory"
               value={`${(totalStoredKg / 1000).toFixed(1)} T`}
-              subtext={`${inventory.length} active e-NWR receipts`}
+              subtext={`${inventory.length} active storage receipts`}
               icon={Building2}
               iconColor="#0B3326"
               iconBg="#F2FBF6"
@@ -196,7 +196,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           </div>
         </div>
 
-        {/* Certified Warehouse & e-NWR Callout Card */}
+        {/* Certified Warehouse & Storage Callout Card */}
         <Card className="p-6 bg-gradient-to-r from-[#EBF5F0] via-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shadow-xs">
@@ -204,7 +204,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             </div>
             <div>
               <span className="text-xs font-bold text-[#10B981] uppercase tracking-wider block">
-                WDRA Certified Storage & e-NWR Electronic Title
+                WDRA Certified Storage & Digital Receipts
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-xl font-extrabold text-[#0B3326] font-heading">
@@ -212,7 +212,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                 </span>
               </div>
               <p className="text-xs text-[#566861] mt-0.5">
-                Preserve produce freshness, reduce distress sales, and access 80% LTV bank advances on stored inventory.
+                Preserve produce freshness, reduce distress sales, and access 80% loan advances on stored harvest.
               </p>
             </div>
           </div>

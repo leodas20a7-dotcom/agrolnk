@@ -14,9 +14,12 @@ function mapDeliveryFromDb(row) {
     buyerName: row.buyer_name,
     transporterId: row.transporter_id,
     transporterName: row.transporter_name,
+    vehicleType: row.vehicle_type,
     vehicleNumber: row.vehicle_number,
     driverName: row.driver_name,
     driverPhone: row.driver_phone,
+    freightAmount: row.freight_amount ? Number(row.freight_amount) : null,
+    estimatedDistanceKm: row.estimated_distance_km ? Number(row.estimated_distance_km) : null,
     commodity: row.commodity,
     grade: row.grade,
     variety: row.variety,
@@ -25,10 +28,110 @@ function mapDeliveryFromDb(row) {
     pickupLocation: row.pickup_location || {},
     deliveryLocation: row.delivery_location || {},
     status: row.status,
+    notes: row.notes,
     pickupOtp: row.pickup_otp,
     deliveryOtp: row.delivery_otp,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+// District distance matrix (regional agricultural corridors)
+export const DISTRICT_DISTANCES = {
+  'salem-chennai': 340,
+  'salem-coimbatore': 165,
+  'salem-madurai': 225,
+  'salem-bangalore': 205,
+  'salem-trichy': 140,
+  'salem-dindigul': 175,
+  'dindigul-madurai': 65,
+  'dindigul-chennai': 430,
+  'dindigul-coimbatore': 155,
+  'coimbatore-chennai': 500,
+  'coimbatore-madurai': 210,
+  'coimbatore-bangalore': 365,
+  'madurai-chennai': 460,
+  'trichy-chennai': 330,
+  'theni-chennai': 490,
+  'dharmapuri-chennai': 295,
+  'erode-chennai': 395,
+  'thanjavur-chennai': 340,
+  'tirunelveli-chennai': 620,
+};
+
+/**
+ * Estimate road distance between pickup and delivery districts
+ */
+export function estimateDistanceKm(originDistrict = '', destDistrict = '') {
+  const orig = (originDistrict || '').trim().toLowerCase();
+  const dest = (destDistrict || '').trim().toLowerCase();
+  if (!orig || !dest || orig === dest) return 35;
+  const key1 = `${orig}-${dest}`;
+  const key2 = `${dest}-${orig}`;
+  if (DISTRICT_DISTANCES[key1]) return DISTRICT_DISTANCES[key1];
+  if (DISTRICT_DISTANCES[key2]) return DISTRICT_DISTANCES[key2];
+  return 180;
+}
+
+/**
+ * Transparent vehicle tariff matrix (Base fare + per-km rate)
+ */
+export const VEHICLE_TARIFF_RATES = {
+  'mini_truck': {
+    name: 'Mini Truck (Tata Ace / Bolero)',
+    maxCapacityKg: 1500,
+    baseFare: 400,
+    ratePerKm: 14,
+    description: 'Best for local & small lots (up to 1.5 MT)'
+  },
+  'medium_lcv': {
+    name: 'Medium LCV (14ft Eicher)',
+    maxCapacityKg: 5000,
+    baseFare: 900,
+    ratePerKm: 24,
+    description: 'Standard agri freight (up to 5.0 MT)'
+  },
+  'reefer_truck': {
+    name: 'Reefer Cold-Chain Truck',
+    maxCapacityKg: 8000,
+    baseFare: 1600,
+    ratePerKm: 34,
+    description: 'Temperature-controlled for perishable horticulture'
+  },
+  'heavy_truck': {
+    name: 'Heavy Commercial (10-Wheeler)',
+    maxCapacityKg: 20000,
+    baseFare: 2600,
+    ratePerKm: 42,
+    description: 'Bulk grain / wholesale volume (up to 20 MT)'
+  }
+};
+
+/**
+ * Calculate recommended vehicle and estimated fair price
+ */
+export function calculateEstimatedFare(weightKg, distanceKm, vehicleKey = null) {
+  const wt = Number(weightKg) || 1000;
+  const dist = Number(distanceKm) || 100;
+
+  let chosenKey = vehicleKey;
+  if (!chosenKey || !VEHICLE_TARIFF_RATES[chosenKey]) {
+    if (wt <= 1500) chosenKey = 'mini_truck';
+    else if (wt <= 5000) chosenKey = 'medium_lcv';
+    else if (wt <= 8000) chosenKey = 'reefer_truck';
+    else chosenKey = 'heavy_truck';
+  }
+
+  const rate = VEHICLE_TARIFF_RATES[chosenKey];
+  const calculatedFare = Math.round(rate.baseFare + (dist * rate.ratePerKm));
+  return {
+    vehicleKey: chosenKey,
+    vehicleName: rate.name,
+    distanceKm: dist,
+    estimatedFare: calculatedFare,
+    baseFare: rate.baseFare,
+    ratePerKm: rate.ratePerKm,
+    description: rate.description
   };
 }
 
@@ -402,7 +505,98 @@ export async function createOrUpdateSelfTransport(order, vehicleInfo) {
 }
 
 /**
- * Transporter accepts a transport delivery job
+ * Transporter submits a price quote & vehicle allocation for farmer approval
+ */
+export async function submitTransportQuote(deliveryId, quoteData) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({
+        transporter_id: quoteData.transporterId || null,
+        transporter_name: quoteData.transporterName || 'Vetri Logistics & Transport',
+        vehicle_type: quoteData.vehicleType || '14ft Eicher Truck',
+        vehicle_number: (quoteData.vehicleNumber || 'TN 28 AB 4092').trim().toUpperCase(),
+        driver_name: quoteData.driverName || 'M. Murugan',
+        driver_phone: quoteData.driverPhone || '+91 94433 77889',
+        freight_amount: Number(quoteData.freightAmount) || 2400,
+        estimated_distance_km: Number(quoteData.distanceKm) || 150,
+        status: 'price_offered',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error submitting transport quote:', error);
+      throw error;
+    }
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error in submitTransportQuote:', err);
+    throw err;
+  }
+}
+
+/**
+ * Farmer accepts the transporter's offered price ("It is OK")
+ * Immediately assigns the transport and moves to dispatch readiness
+ */
+export async function acceptTransportPrice(deliveryId) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({
+        status: 'assigned',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error accepting transport price:', error);
+      throw error;
+    }
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error in acceptTransportPrice:', err);
+    throw err;
+  }
+}
+
+/**
+ * Farmer declines the transporter's price quote
+ * Re-opens the freight request to the transport board
+ */
+export async function declineTransportPrice(deliveryId) {
+  try {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update({
+        status: 'transport_requested',
+        transporter_id: null,
+        transporter_name: null,
+        freight_amount: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error declining transport price:', error);
+      throw error;
+    }
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('Error in declineTransportPrice:', err);
+    throw err;
+  }
+}
+
+/**
+ * Transporter accepts a transport delivery job directly
  */
 export async function acceptDelivery(deliveryId, transporterInfo) {
   try {
@@ -411,6 +605,7 @@ export async function acceptDelivery(deliveryId, transporterInfo) {
       .update({
         transporter_id: transporterInfo.id || null,
         transporter_name: transporterInfo.name || 'Vetri Logistics',
+        vehicle_type: transporterInfo.vehicleType || '14ft Eicher Truck',
         vehicle_number: transporterInfo.vehicleNumber || 'TN 28 AB 4092',
         driver_name: transporterInfo.driverName || 'M. Murugan',
         driver_phone: transporterInfo.driverPhone || '+91 94433 77889',

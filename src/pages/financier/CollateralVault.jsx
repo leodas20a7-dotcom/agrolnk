@@ -79,10 +79,10 @@ export default function CollateralVault({ currentUser, onNavigate }) {
               <span className="hidden sm:inline">WDRA Certified Vault & Physical Collateral Registry</span>
             </div>
             <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
-              Collateral Vault & e-NWRs
+              Crop Collateral & Storage Loans
             </h1>
             <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85">
-              Inspect electronic Negotiable Warehouse Receipts (e-NWR), lab assay parameters, and registered liens.
+              Inspect certified stored harvest lots, lab quality assays, and fund loans up to 80% market value.
             </p>
           </div>
 
@@ -104,7 +104,7 @@ export default function CollateralVault({ currentUser, onNavigate }) {
               ₹{totalVaultValue.toLocaleString('en-IN')}
             </div>
             <div className="text-[10px] sm:text-[11px] text-[#10B981] font-semibold">
-              Across {inventory.length} certified e-NWRs
+              Across {inventory.length} insured storage lots
             </div>
           </Card>
 

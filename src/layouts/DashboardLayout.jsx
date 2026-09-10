@@ -225,10 +225,10 @@ export default function DashboardLayout({
           desc: 'Instant working capital advance',
         },
         {
-          label: 'Warehouse & e-NWR',
+          label: 'Warehouse & Storage',
           page: 'farmer-inventory',
           icon: Building2,
-          desc: 'WDRA certified storage receipts',
+          desc: 'Safe storage & deposit receipts',
         },
       ],
     },
@@ -329,10 +329,10 @@ export default function DashboardLayout({
       icon: Shield,
       items: [
         {
-          label: 'Collateral & e-NWR Vault',
+          label: 'Crop Collateral & Storage Loans',
           page: 'financier-collateral-vault',
           icon: Building2,
-          desc: 'WDRA receipts & escrow liens',
+          desc: 'Insured storage receipts & liens',
         },
         {
           label: 'Disbursements & Yields',
@@ -630,6 +630,7 @@ export default function DashboardLayout({
         onClose={() => {
           setIsChatOpen(false);
           setActivePartnerContext(null);
+          setActiveChatThread(null);
         }}
         currentUser={user}
         threadKey={activeChatThread || 'agrolnk_support_desk'}

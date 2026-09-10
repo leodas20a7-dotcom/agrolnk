@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { X, Truck, MapPin, Calendar, ShieldCheck, ArrowRight, AlertCircle, Package } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Truck, MapPin, Calendar, ShieldCheck, ArrowRight, AlertCircle, Package, Info, CheckCircle2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { createDelivery } from '../../utils/deliveries';
+import { createDelivery, estimateDistanceKm, calculateEstimatedFare } from '../../utils/deliveries';
 
 export default function CreateDeliveryModal({
   order,
@@ -16,13 +16,13 @@ export default function CreateDeliveryModal({
     role: 'farmer',
   };
 
-  const defaultPickupState = order?.pickupLocation?.state || order?.state || 'Tamil Nadu';
-  const defaultPickupDistrict = order?.pickupLocation?.district || order?.district || 'Salem';
-  const defaultPickupAddress = order?.pickupLocation?.address || `${defaultPickupDistrict} Farmgate Warehouse`;
+  const defaultPickupState = order?.pickupLocation?.state || order?.state || user?.state || '';
+  const defaultPickupDistrict = order?.pickupLocation?.district || order?.district || user?.district || '';
+  const defaultPickupAddress = order?.pickupLocation?.address || order?.village || '';
 
-  const defaultDestState = order?.deliveryLocation?.state || 'Tamil Nadu';
-  const defaultDestDistrict = order?.deliveryLocation?.district || 'Chennai';
-  const defaultDestAddress = order?.deliveryLocation?.address || `${defaultDestDistrict} Wholesale Market Bay 12`;
+  const defaultDestState = order?.deliveryLocation?.state || '';
+  const defaultDestDistrict = order?.deliveryLocation?.district || '';
+  const defaultDestAddress = order?.deliveryLocation?.address || '';
 
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
@@ -38,6 +38,15 @@ export default function CreateDeliveryModal({
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Dynamic distance and fair tariff estimation
+  const distanceKm = useMemo(() => {
+    return estimateDistanceKm(pickupDistrict, deliveryDistrict);
+  }, [pickupDistrict, deliveryDistrict]);
+
+  const fareEstimate = useMemo(() => {
+    return calculateEstimatedFare(order?.quantity, distanceKm);
+  }, [order?.quantity, distanceKm]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,6 +77,8 @@ export default function CreateDeliveryModal({
         grade: order.grade || 'A',
         quantity: order.quantity,
         unit: order.unit || 'kg',
+        estimatedDistanceKm: distanceKm,
+        freightAmount: fareEstimate.estimatedFare,
         pickupLocation: {
           state: pickupState,
           district: pickupDistrict,
@@ -227,6 +238,46 @@ export default function CreateDeliveryModal({
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
               required
             />
+          </div>
+
+          {/* Dynamic Distance & Fair Tariff Guide */}
+          <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 space-y-2.5 text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-[#10B981]" />
+                <span className="font-bold text-[#0B3326]">Estimated Distance & Tariff Guide</span>
+              </div>
+              <Badge variant="emerald" size="sm">
+                ~{distanceKm} km Corridor
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="bg-white/80 p-2.5 rounded-xl border border-[#10B981]/20">
+                <span className="text-[10px] text-[#566861] block font-medium">Recommended Vehicle</span>
+                <span className="text-xs font-bold text-[#0B3326] block truncate">
+                  {fareEstimate.vehicleName}
+                </span>
+                <span className="text-[10px] text-[#566861] block">
+                  Base ₹{fareEstimate.baseFare} + ₹{fareEstimate.ratePerKm}/km
+                </span>
+              </div>
+
+              <div className="bg-white/80 p-2.5 rounded-xl border border-[#10B981]/20 text-right">
+                <span className="text-[10px] text-[#566861] block font-medium">Guide Transport Price</span>
+                <span className="text-base font-extrabold text-[#0B3326] block">
+                  ₹{fareEstimate.estimatedFare.toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] text-[#10B981] font-semibold block">
+                  Zero Cash at Farmgate
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[11px] text-[#0B3326]/80 pt-1 border-t border-[#10B981]/20">
+              <Info className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+              <span>Transporters bid transparently against this standard rate. You confirm before dispatch.</span>
+            </div>
           </div>
 
           {/* Preferred Pickup Date */}

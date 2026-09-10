@@ -144,9 +144,12 @@ CREATE TABLE IF NOT EXISTS public.deliveries (
     buyer_name TEXT,
     transporter_id TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
     transporter_name TEXT,
+    vehicle_type TEXT,
     vehicle_number TEXT,
     driver_name TEXT,
     driver_phone TEXT,
+    freight_amount NUMERIC,
+    estimated_distance_km NUMERIC,
     commodity TEXT NOT NULL,
     grade TEXT,
     variety TEXT,
@@ -154,12 +157,21 @@ CREATE TABLE IF NOT EXISTS public.deliveries (
     unit TEXT NOT NULL DEFAULT 'kg',
     pickup_location JSONB NOT NULL DEFAULT '{}'::jsonb,
     delivery_location JSONB NOT NULL DEFAULT '{}'::jsonb,
-    status TEXT NOT NULL DEFAULT 'transport_requested' CHECK (status IN ('transport_requested', 'assigned', 'picked_up', 'dispatched', 'in_transit', 'delivered', 'completed')),
+    status TEXT NOT NULL DEFAULT 'transport_requested' CHECK (status IN ('transport_requested', 'price_offered', 'assigned', 'picked_up', 'dispatched', 'in_transit', 'delivered', 'completed')),
+    notes TEXT,
     pickup_otp TEXT,
     delivery_otp TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure newly added columns exist for existing deployments
+ALTER TABLE public.deliveries ADD COLUMN IF NOT EXISTS freight_amount NUMERIC;
+ALTER TABLE public.deliveries ADD COLUMN IF NOT EXISTS estimated_distance_km NUMERIC;
+ALTER TABLE public.deliveries ADD COLUMN IF NOT EXISTS vehicle_type TEXT;
+ALTER TABLE public.deliveries ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.deliveries DROP CONSTRAINT IF EXISTS deliveries_status_check;
+ALTER TABLE public.deliveries ADD CONSTRAINT deliveries_status_check CHECK (status IN ('transport_requested', 'price_offered', 'assigned', 'picked_up', 'dispatched', 'in_transit', 'delivered', 'completed'));
 
 -- ============================================================================
 -- 6. WAREHOUSES & ELECTRONIC NEGOTIABLE WAREHOUSE RECEIPTS (e-NWR)
@@ -262,11 +274,25 @@ CREATE TABLE IF NOT EXISTS public.inspections (
     order_amount NUMERIC NOT NULL DEFAULT 0,
     inspector_name TEXT,
     inspector_notes TEXT,
+    inspection_fee NUMERIC DEFAULT 500,
+    fee_status TEXT DEFAULT 'unpaid' CHECK (fee_status IN ('unpaid', 'paid', 'waived')),
+    fee_paid_at TIMESTAMP WITH TIME ZONE,
+    fee_payment_id TEXT,
+    fee_payment_method TEXT,
     dispute_reason TEXT,
     arbitration JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure newly added columns exist for existing deployments
+ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS inspection_fee NUMERIC DEFAULT 500;
+ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_status TEXT DEFAULT 'unpaid';
+ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_paid_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_payment_id TEXT;
+ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_payment_method TEXT;
+ALTER TABLE public.warehouse_receipts ADD COLUMN IF NOT EXISTS last_rent_paid_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.warehouse_receipts ADD COLUMN IF NOT EXISTS storage_fee_monthly NUMERIC DEFAULT 0;
 
 -- ============================================================================
 -- 9. PRIVACY CHAT MESSAGES & REAL-TIME THREADS
@@ -449,13 +475,13 @@ VALUES
     ('cmd_basmati_rice', 'Basmati Rice', 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80'),
     ('cmd_wheat', 'Wheat', 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80'),
     ('cmd_cotton', 'Cotton', 'https://images.unsplash.com/photo-1594897030560-ab279cf66def?w=800&auto=format&fit=crop&q=80'),
-    ('cmd_cardamom', 'Cardamom', 'https://images.unsplash.com/photo-1635363638580-c2809d049eee?w=800&auto=format&fit=crop&q=80'),
-    ('cmd_ginger', 'Ginger', 'https://images.unsplash.com/photo-1635363638580-c2809d049eee?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_cardamom', 'Cardamom', 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=800&auto=format&fit=crop&q=80'),
+    ('cmd_ginger', 'Ginger', 'https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=800&auto=format&fit=crop&q=80'),
     ('cmd_apple', 'Apple', 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=800&auto=format&fit=crop&q=80'),
     ('cmd_maize', 'Maize', 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=800&auto=format&fit=crop&q=80'),
     ('cmd_soybean', 'Soybean', 'https://images.unsplash.com/photo-1599420186946-7b6fb4e53799?w=800&auto=format&fit=crop&q=80'),
     ('cmd_banana', 'Banana', 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=800&auto=format&fit=crop&q=80')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT (name) DO UPDATE SET image_url = EXCLUDED.image_url;
 
 -- ============================================================================
 -- 12. SUPABASE STORAGE BUCKET CONFIGURATION (proof)

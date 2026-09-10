@@ -61,7 +61,47 @@ export default function PrivacyChatDrawer({
   const [selectedChannelKey, setSelectedChannelKey] = useState(threadKey);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unread' | 'orders' | 'warehouses'
+  const [activePartnerContext, setActivePartnerContext] = useState(partnerContext);
   const messagesEndRef = useRef(null);
+  const activeFetchKeyRef = useRef('');
+
+  // Handle drawer open state, incoming context and initial viewMode
+  useEffect(() => {
+    if (isOpen) {
+      if (partnerContext) {
+        setActivePartnerContext(partnerContext);
+        const target = partnerContext.threadKey || (partnerContext.partnerId ? `chat_partner_${partnerContext.partnerId}` : 'chat_partner_wh');
+        setSelectedChannelKey(target);
+        setViewMode('conversation');
+      } else if (orderContext) {
+        setActivePartnerContext(null);
+        const partnerName =
+          user.role === 'buyer'
+            ? orderContext.farmerName || 'Verified Producer'
+            : orderContext.buyerName || 'Wholesale Buyer';
+        const partnerId =
+          user.role === 'buyer'
+            ? orderContext.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_')
+            : orderContext.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+        const myIdentifier = user.name
+          ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
+          : user.role === 'buyer'
+          ? 'maran'
+          : 'veerappan';
+        const target = getSharedThreadKey(myIdentifier, partnerId);
+        setSelectedChannelKey(target);
+        setViewMode('conversation');
+      } else {
+        setActivePartnerContext(null);
+        if (threadKey) {
+          setSelectedChannelKey(threadKey);
+        }
+      }
+    } else {
+      setActivePartnerContext(null);
+    }
+  }, [isOpen, partnerContext, orderContext, threadKey]);
 
   // Load available channels & contacts directory
   const loadChannels = async () => {
@@ -153,7 +193,7 @@ export default function PrivacyChatDrawer({
       {
         key: 'chat_partner_usr_financier_05',
         title: 'Kisan Capital Credit Desk',
-        subtitle: 'Trade Settlement & Warehouse e-NWR Credit',
+        subtitle: 'Trade Settlement & Storage Crop Credit',
         role: 'Financier',
         category: 'orders',
         icon: Landmark,
@@ -167,26 +207,27 @@ export default function PrivacyChatDrawer({
     ];
 
     // If direct partner / warehouse context is passed, inject it at top
-    if (partnerContext) {
-      const partnerKey = partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`;
+    if (activePartnerContext || partnerContext) {
+      const pCtx = activePartnerContext || partnerContext;
+      const partnerKey = pCtx.threadKey || `chat_partner_${pCtx.partnerId || 'wh'}`;
       const exists = defaultChannels.find((c) => c.key === partnerKey);
       if (!exists) {
         defaultChannels.unshift({
           key: partnerKey,
-          title: partnerContext.partnerName || partnerContext.facilityName || 'Certified Storage Operator',
-          subtitle: partnerContext.facilityName
+          title: pCtx.partnerName || pCtx.facilityName || 'Certified Storage Operator',
+          subtitle: pCtx.facilityName
             ? `WDRA Accredited Facility • Direct Inquiries`
-            : `${partnerContext.partnerRole || 'Operator'} • Direct Secure Chat`,
-          role: partnerContext.partnerRole || 'Warehouse Operator',
+            : `${pCtx.partnerRole || 'Operator'} • Direct Secure Chat`,
+          role: pCtx.partnerRole || 'Warehouse Operator',
           category: 'warehouses',
           icon: Building2,
           avatarBg: 'bg-emerald-800',
           avatarColor: 'text-white',
           badgeColor: 'emerald',
           isWarehouse: true,
-          facilityName: partnerContext.facilityName,
+          facilityName: pCtx.facilityName,
           phoneMask: '+91 98421 *****',
-          initials: (partnerContext.partnerName || 'WH').slice(0, 2).toUpperCase(),
+          initials: (pCtx.partnerName || 'WH').slice(0, 2).toUpperCase(),
           unreadCount: 0,
         });
       }
@@ -301,7 +342,7 @@ export default function PrivacyChatDrawer({
           ...c,
           unreadCount,
           lastMessageText: latestMsg ? latestMsg.text : c.subtitle,
-          lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '2:27 pm',
+          lastMessageTime: latestMsg ? formatChatTimestamp(latestMsg.timestamp) : '',
           lastSenderMe: isLastSenderMe,
           lastMessageRead: latestMsg ? !!latestMsg.isRead : false,
         };
@@ -315,64 +356,24 @@ export default function PrivacyChatDrawer({
     }
   };
 
-  // Handle drawer open state and initial viewMode
-  useEffect(() => {
-    if (isOpen) {
-      loadChannels();
-      if (partnerContext) {
-        const targetKey = partnerContext.threadKey || `chat_partner_${partnerContext.partnerId || 'wh'}`;
-        markThreadAsRead(targetKey, user.id);
-        setSelectedChannelKey(targetKey);
-        setMessages(getThreadMessages(targetKey));
-        fetchThreadMessages(targetKey).then((dbMsgs) => {
-          if (dbMsgs && dbMsgs.length > 0) setMessages(dbMsgs);
-        });
-        setViewMode('conversation');
-      } else if (orderContext) {
-        const partnerName =
-          user.role === 'buyer'
-            ? orderContext.farmerName || 'Verified Producer'
-            : orderContext.buyerName || 'Wholesale Buyer';
-        const partnerId =
-          user.role === 'buyer'
-            ? orderContext.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_')
-            : orderContext.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-        const myIdentifier = user.name
-          ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
-          : user.role === 'buyer'
-          ? 'maran'
-          : 'veerappan';
-        const matchedKey = getSharedThreadKey(myIdentifier, partnerId);
-        markThreadAsRead(matchedKey, user.id);
-        setSelectedChannelKey(matchedKey);
-        setMessages(getThreadMessages(matchedKey));
-        fetchThreadMessages(matchedKey).then((dbMsgs) => {
-          if (dbMsgs && dbMsgs.length > 0) setMessages(dbMsgs);
-        });
-        setViewMode('conversation');
-      } else {
-        setViewMode('chat_list');
-      }
-    }
-  }, [isOpen, partnerContext, orderContext]);
-
   // Load messages & subscribe to Supabase Realtime channel for selected conversation
   useEffect(() => {
-    if (!isOpen || !selectedChannelKey) return;
-
-    // Only mark messages as read when the user is actively in conversation view
-    if (viewMode === 'conversation') {
-      markThreadAsRead(selectedChannelKey, user.id);
+    if (!isOpen || !selectedChannelKey) {
+      if (!isOpen) setMessages([]);
+      return;
     }
 
-    // 1. Optimistic instant local load
+    loadChannels();
+    activeFetchKeyRef.current = selectedChannelKey;
+    markThreadAsRead(selectedChannelKey, user.id);
+
+    // 1. Optimistic instant local load for selectedChannelKey
     setMessages(getThreadMessages(selectedChannelKey));
 
     // 2. Fetch latest data from Supabase
     fetchThreadMessages(selectedChannelKey).then((fetched) => {
-      if (fetched && fetched.length > 0) {
-        setMessages(fetched);
+      if (activeFetchKeyRef.current === selectedChannelKey) {
+        setMessages(fetched || []);
       }
     });
 
@@ -380,42 +381,20 @@ export default function PrivacyChatDrawer({
     const unsubscribe = subscribeToThread(
       selectedChannelKey,
       (newMsg) => {
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
-        if (viewMode === 'conversation') {
+        if (activeFetchKeyRef.current === selectedChannelKey) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
           markThreadAsRead(selectedChannelKey, user.id);
         }
-        // Also update channel preview list in background
-        setChannels((prev) =>
-          prev.map((c) =>
-            c.key === selectedChannelKey
-              ? {
-                  ...c,
-                  lastMessageText: newMsg.text,
-                  lastMessageTime: formatChatTimestamp(newMsg.timestamp),
-                  lastSenderMe: newMsg.senderId === user.id || newMsg.senderId === 'usr_current',
-                  lastMessageRead: !!newMsg.isRead,
-                }
-              : c
-          )
-        );
       },
       (updatedMsg) => {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
-        );
-        setChannels((prev) =>
-          prev.map((c) =>
-            c.key === selectedChannelKey
-              ? {
-                  ...c,
-                  lastMessageRead: !!updatedMsg.isRead,
-                }
-              : c
-          )
-        );
+        if (activeFetchKeyRef.current === selectedChannelKey) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+          );
+        }
       }
     );
 
@@ -424,7 +403,7 @@ export default function PrivacyChatDrawer({
         unsubscribe();
       }
     };
-  }, [isOpen, selectedChannelKey, viewMode]);
+  }, [isOpen, selectedChannelKey]);
 
   // Live reload channels when global unread update event occurs
   useEffect(() => {
@@ -453,20 +432,6 @@ export default function PrivacyChatDrawer({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, viewMode]);
-
-  if (!isOpen) return null;
-
-  const currentChannel =
-    channels.find((c) => c.key === selectedChannelKey) ||
-    channels[0] || {
-      title: 'AgroLnk Desk & Smart Assistant',
-      subtitle: 'Official Support & Trade Desk',
-      role: 'AgroLnk Platform',
-      badgeColor: 'emerald',
-      avatarBg: 'bg-[#0B3326]',
-      avatarColor: 'text-[#34D399]',
-      initials: 'AL',
-    };
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -503,22 +468,10 @@ export default function PrivacyChatDrawer({
   };
 
   const openConversation = (key) => {
+    setActivePartnerContext(null);
+    activeFetchKeyRef.current = key;
     markThreadAsRead(key, user.id);
     setSelectedChannelKey(key);
-    setMessages(getThreadMessages(key));
-    fetchThreadMessages(key).then((msgs) => {
-      if (msgs && msgs.length > 0) setMessages(msgs);
-    });
-    setChannels((prev) => {
-      const updated = prev.map((c) =>
-        c.key === key || (key && c.key.includes(key)) ? { ...c, unreadCount: 0 } : c
-      );
-      const totalUnread = updated.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('agrolnk_chat_unread_update', { detail: { count: totalUnread } }));
-      }
-      return updated;
-    });
     setViewMode('conversation');
   };
 
@@ -545,6 +498,38 @@ export default function PrivacyChatDrawer({
       (cnt.status && cnt.status.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   });
+
+  if (!isOpen) return null;
+
+  const currentChannel =
+    channels.find((c) => c.key === selectedChannelKey) ||
+    allContacts.find((c) => c.threadKey === selectedChannelKey || c.id === selectedChannelKey || c.key === selectedChannelKey) ||
+    (activePartnerContext && (activePartnerContext.threadKey === selectedChannelKey || activePartnerContext.partnerId === selectedChannelKey || selectedChannelKey?.includes(activePartnerContext.partnerId))
+      ? {
+          key: activePartnerContext.threadKey || selectedChannelKey,
+          title: activePartnerContext.partnerName || activePartnerContext.facilityName || 'Warehouse Operator',
+          subtitle: activePartnerContext.facilityName
+            ? 'WDRA Certified Facility • Direct Inquiries'
+            : `${activePartnerContext.partnerRole || 'Warehouse Operator'} • Direct Chat`,
+          role: activePartnerContext.partnerRole || 'Warehouse Operator',
+          category: 'warehouses',
+          badgeColor: 'emerald',
+          avatarBg: 'bg-emerald-800',
+          avatarColor: 'text-white',
+          initials: (activePartnerContext.partnerName || activePartnerContext.facilityName || 'WH').slice(0, 2).toUpperCase(),
+        }
+      : null) ||
+    channels[0] || {
+      key: selectedChannelKey || 'agrolnk_support_desk',
+      title: 'AgroLnk Desk & Smart Assistant',
+      subtitle: 'Official Support & Trade Desk',
+      role: 'AgroLnk Platform',
+      category: 'support',
+      badgeColor: 'emerald',
+      avatarBg: 'bg-[#0B3326]',
+      avatarColor: 'text-[#34D399]',
+      initials: 'AL',
+    };
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-black/50 backdrop-blur-2xs flex justify-end animate-in fade-in duration-200">
@@ -714,9 +699,11 @@ export default function PrivacyChatDrawer({
                           <h4 className="text-sm font-bold text-[#14211D] truncate group-hover:text-[#0B3326]">
                             {chan.title}
                           </h4>
-                          <span className="text-[11px] text-[#566861] font-medium shrink-0">
-                            {chan.lastMessageTime || '1:42 pm'}
-                          </span>
+                          {chan.lastMessageTime && (
+                            <span className="text-[11px] text-[#566861] font-medium shrink-0">
+                              {chan.lastMessageTime}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between gap-2">
@@ -909,6 +896,7 @@ export default function PrivacyChatDrawer({
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   onClick={() => {
+                    setActivePartnerContext(null);
                     loadChannels();
                     setViewMode('chat_list');
                   }}
@@ -919,25 +907,25 @@ export default function PrivacyChatDrawer({
                 </button>
 
                 <div
-                  className={`w-10 h-10 rounded-full ${currentChannel.avatarBg || 'bg-[#0F4A37]'} ${
-                    currentChannel.avatarColor || 'text-white'
+                  className={`w-10 h-10 rounded-full ${currentChannel?.avatarBg || 'bg-[#0F4A37]'} ${
+                    currentChannel?.avatarColor || 'text-white'
                   } flex items-center justify-center font-bold text-xs shrink-0 border border-white/20`}
                 >
-                  {currentChannel.key.includes('support') ? (
+                  {currentChannel?.key?.includes('support') ? (
                     <Bot className="w-5 h-5 text-[#34D399]" />
-                  ) : currentChannel.category === 'warehouses' ? (
+                  ) : currentChannel?.category === 'warehouses' ? (
                     <Building2 className="w-5 h-5 text-white" />
                   ) : (
-                    <span>{currentChannel.initials || 'AP'}</span>
+                    <span>{currentChannel?.initials || 'AP'}</span>
                   )}
                 </div>
 
                 <div className="min-w-0 text-left">
                   <h3 className="font-bold text-sm text-white truncate">
-                    {currentChannel.title}
+                    {currentChannel?.title || 'Direct Chat'}
                   </h3>
                   <span className="text-[11px] text-[#34D399] block truncate">
-                    {currentChannel.subtitle || 'Active Escrow Protection • Online'}
+                    {currentChannel?.subtitle || 'Active Escrow Protection • Online'}
                   </span>
                 </div>
               </div>
@@ -953,90 +941,88 @@ export default function PrivacyChatDrawer({
               </div>
             </div>
 
-            {/* Privacy Shield Notice (Matching Image 1) */}
-            <div className="px-4 py-2.5 bg-[#EBF5F0] border-b border-[#10B981]/20 text-[11px] text-[#0B3326] flex items-center gap-2 shrink-0 text-left font-medium">
-              <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-              <span>Privacy Shield Active &bull; Phone numbers, emails, and direct accounts are protected.</span>
-            </div>
-
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#EFEAE2]/30 text-left">
-              {messages.map((msg) => {
-                const isMe = msg.senderId === user.id;
-                const isSystem = msg.isSystem;
+            {messages.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#566861] space-y-3 bg-[#F8FAF8]">
+                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shadow-2xs">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-[#0B3326] font-heading">
+                    Direct Chat with {currentChannel?.title?.split('(')[0]?.trim() || 'Facility'}
+                  </h4>
+                  <p className="text-xs text-[#566861] max-w-xs leading-relaxed">
+                    Send a message to inquire about storage capacity, produce intake timing, or logistics.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#EFEAE2]/30 text-left">
+                {messages.map((msg) => {
+                  const isMe = msg.senderId === user.id;
+                  const isSystem = msg.isSystem;
 
-                if (isSystem) {
+                  if (isSystem) {
+                    return (
+                      <div
+                        key={msg.id}
+                        className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-1 text-xs text-[#0B3326] my-2"
+                      >
+                        <div className="flex items-center gap-1.5 font-bold text-[11px] text-[#10B981]">
+                          <Bot className="w-4 h-4" />
+                          <span>{msg.senderName}</span>
+                        </div>
+                        <p className="text-[#566861] leading-relaxed text-xs">{msg.text}</p>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={msg.id}
-                      className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-1 text-xs text-[#0B3326] my-2"
+                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                     >
-                      <div className="flex items-center gap-1.5 font-bold text-[11px] text-[#10B981]">
-                        <Bot className="w-4 h-4" />
-                        <span>{msg.senderName}</span>
+                      <div
+                        className={`p-3 rounded-2xl max-w-[85%] text-xs leading-relaxed relative shadow-2xs ${
+                          msg.text.includes('[Protected') || msg.text.includes('[Fragment Redacted')
+                            ? 'bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/30 font-medium'
+                            : isMe
+                            ? 'bg-[#E7FFDB] text-[#14211D] rounded-tr-none border border-[#D1F4BE]'
+                            : 'bg-white border border-[#E5EDE8] text-[#14211D] rounded-tl-none'
+                        }`}
+                      >
+                        {msg.text.includes('[Protected') || msg.text.includes('[Fragment Redacted') ? (
+                          <div className="flex items-start gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-[#D97706] shrink-0 mt-0.5" />
+                            <span>{msg.text}</span>
+                          </div>
+                        ) : (
+                          <span>{msg.text}</span>
+                        )}
+
+                        <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-[#566861]">
+                          <span>
+                            {new Date(msg.timestamp).toLocaleTimeString('en-IN', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true,
+                            }).toLowerCase()}
+                          </span>
+                          {isMe && (
+                            msg.isRead ? (
+                              <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" title="Seen" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5 text-[#8696A0] shrink-0" title="Sent" />
+                            )
+                          )}
+                        </div>
                       </div>
-                      <p className="text-[#566861] leading-relaxed text-xs">{msg.text}</p>
                     </div>
                   );
-                }
-
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-                  >
-                    <div
-                      className={`p-3 rounded-2xl max-w-[85%] text-xs leading-relaxed relative shadow-2xs ${
-                        msg.text.includes('[Protected') || msg.text.includes('[Fragment Redacted')
-                          ? 'bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/30 font-medium'
-                          : isMe
-                          ? 'bg-[#E7FFDB] text-[#14211D] rounded-tr-none border border-[#D1F4BE]'
-                          : 'bg-white border border-[#E5EDE8] text-[#14211D] rounded-tl-none'
-                      }`}
-                    >
-                      {msg.text.includes('[Protected') || msg.text.includes('[Fragment Redacted') ? (
-                        <div className="flex items-start gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-[#D97706] shrink-0 mt-0.5" />
-                          <span>{msg.text}</span>
-                        </div>
-                      ) : (
-                        <span>{msg.text}</span>
-                      )}
-
-                      <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-[#566861]">
-                        <span>
-                          {new Date(msg.timestamp).toLocaleTimeString('en-IN', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true,
-                          }).toLowerCase()}
-                        </span>
-                        {isMe && (
-                          msg.isRead ? (
-                            <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" title="Seen" />
-                          ) : (
-                            <Check className="w-3.5 h-3.5 text-[#8696A0] shrink-0" title="Sent" />
-                          )
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Live Typing Privacy Warning */}
-            {inputText.trim() &&
-              (maskSensitivePII(inputText) !== inputText ||
-                maskSensitivePII(inputText).includes('[Protected')) && (
-                <div className="px-4 py-2 bg-[#FFFBEB] border-t border-[#FCD34D] text-[11px] text-[#B45309] flex items-center gap-1.5 shrink-0 text-left animate-in fade-in duration-150">
-                  <Lock className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
-                  <span>
-                    <b>Privacy Shield:</b> Direct contact detail detected. Will be masked on send to preserve escrow warranty.
-                  </span>
-                </div>
-              )}
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
 
             {/* Chat Input Bar */}
             <form
@@ -1047,7 +1033,7 @@ export default function PrivacyChatDrawer({
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Message ${currentChannel.title.split('(')[0].trim()} (PII masked)...`}
+                placeholder="Type a message..."
                 className="flex-1 px-4 py-2.5 rounded-2xl bg-[#F0F2F5] border border-transparent text-xs font-medium text-[#14211D] placeholder:text-[#566861]/70 focus:bg-white focus:border-[#10B981] focus:outline-none transition-colors"
               />
               <Button

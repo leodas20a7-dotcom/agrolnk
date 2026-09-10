@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
 import AcceptBidEarlyModal from '../../components/auction/AcceptBidEarlyModal';
+import AuctionHistoryModal from '../../components/auction/AuctionHistoryModal';
 import {
   Gavel,
   Plus,
@@ -19,7 +20,8 @@ import {
   Eye,
   ShoppingBag,
   RotateCcw,
-  Zap
+  Zap,
+  Trophy
 } from 'lucide-react';
 import { getFarmerAuctions } from '../../utils/auctions';
 
@@ -29,6 +31,7 @@ export default function MyAuctions({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('all');
   const [timeNow, setTimeNow] = useState(Date.now());
   const [selectedAuctionForEarlyAccept, setSelectedAuctionForEarlyAccept] = useState(null);
+  const [selectedHistoryAuction, setSelectedHistoryAuction] = useState(null);
   const [earlyAcceptSuccess, setEarlyAcceptSuccess] = useState(null);
 
   const fetchAuctions = async () => {
@@ -307,16 +310,29 @@ export default function MyAuctions({ currentUser, onNavigate }) {
 
                   {/* Actions Footer */}
                   <div className="pt-3 border-t border-[#E5EDE8] flex flex-wrap items-center justify-between gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onNavigate('auction-room', { auctionId: auction.id, auction })}
-                      icon={Eye}
-                      iconPosition="left"
-                      className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
-                    >
-                      View Live Room
-                    </Button>
+                    {isCompleted ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedHistoryAuction(auction)}
+                        icon={Trophy}
+                        iconPosition="left"
+                        className="text-xs font-bold py-2 border-[#E5EDE8] text-[#0B3326] hover:border-[#10B981] hover:bg-[#EBF5F0] cursor-pointer"
+                      >
+                        View Auction Records
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onNavigate('auction-room', { auctionId: auction.id, auction })}
+                        icon={Eye}
+                        iconPosition="left"
+                        className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
+                      >
+                        View Live Room
+                      </Button>
+                    )}
 
                     <div className="flex items-center gap-2">
                       {isLive && (auction.highestBidderId || auction.totalBids > 0) && (
@@ -429,6 +445,14 @@ export default function MyAuctions({ currentUser, onNavigate }) {
             </div>
           </div>
         )}
+
+        {/* Auction History Record Modal */}
+        <AuctionHistoryModal
+          isOpen={Boolean(selectedHistoryAuction)}
+          onClose={() => setSelectedHistoryAuction(null)}
+          auction={selectedHistoryAuction}
+          onNavigate={onNavigate}
+        />
 
       </div>
     </DashboardLayout>

@@ -74,7 +74,7 @@ export default function Register({ onNavigate, navState }) {
       badge: 'Escrow Backed',
       tagline: 'Finance verified agricultural trades',
       bullets: [
-        'Backed by digital warehouse receipts (e-NWR)',
+        'Backed by certified digital storage receipts',
         'Automated trade turnaround & repayment',
         'Zero historical default rate on escrow lots',
       ],
@@ -100,9 +100,9 @@ export default function Register({ onNavigate, navState }) {
       title: 'Warehouse Operator',
       emoji: '🏭',
       badge: 'WDRA Certified',
-      tagline: 'Operate certified agri-storage & issue e-NWR',
+      tagline: 'Operate certified agri-storage & digital receipts',
       bullets: [
-        'Electronic Negotiable Warehouse Receipts (e-NWR)',
+        'Digital Warehouse Storage Receipts & Titles',
         'Real-time chamber temperature & capacity telemetry',
         'Seamless marketplace release order verification',
       ],

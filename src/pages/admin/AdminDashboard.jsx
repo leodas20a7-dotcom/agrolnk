@@ -289,7 +289,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] col-span-2 sm:col-span-1">
               <div className="text-xs font-semibold text-[#566861]">Warehouses</div>
               <div className="text-lg font-bold text-[#0B3326] mt-0.5">WDRA</div>
-              <div className="text-[10px] text-emerald-600 font-medium mt-0.5">e-NWR Storage</div>
+              <div className="text-[10px] text-emerald-600 font-medium mt-0.5">Certified Storage</div>
             </div>
           </div>
         </div>

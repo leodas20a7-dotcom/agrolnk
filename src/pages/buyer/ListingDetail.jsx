@@ -16,11 +16,14 @@ import {
   Sparkles,
   ShoppingBag,
   ClipboardCheck,
-  Clock
+  Clock,
+  Lock,
+  Scale,
+  AlertCircle
 } from 'lucide-react';
 import { createOrder } from '../../utils/orders';
 import { deductListingQuantity, COMMODITY_IMAGES } from '../../utils/listings';
-import { getInspectionForOrder } from '../../utils/inspection';
+import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
 
 export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Ananya Agro', id: 'usr_buyer_02', role: 'buyer' };
@@ -56,6 +59,22 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
 
   useEffect(() => {
     loadInspection();
+
+    const unsubscribe = subscribeToInspections(() => {
+      loadInspection();
+    });
+
+    const handleLocalUpdate = () => {
+      loadInspection();
+    };
+    window.addEventListener('agrolnk_inspections_updated', handleLocalUpdate);
+    window.addEventListener('storage', handleLocalUpdate);
+
+    return () => {
+      unsubscribe?.();
+      window.removeEventListener('agrolnk_inspections_updated', handleLocalUpdate);
+      window.removeEventListener('storage', handleLocalUpdate);
+    };
   }, [listing?.id]);
 
   const handleOrderConfirmed = async (orderPayload) => {
@@ -234,6 +253,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
               </div>
 
               {/* Quality Verification / Pre-Buy Inspection Desk */}
+              {/* Quality Verification / Pre-Buy Inspection Desk */}
               <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-[#0B3326] flex items-center gap-1.5">
@@ -243,10 +263,14 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   {existingInspection ? (
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       existingInspection.status === 'passed'
-                        ? 'bg-emerald-100 text-emerald-800'
+                        ? existingInspection.feeStatus === 'paid'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-amber-100 text-amber-800 border border-amber-300'
                         : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {existingInspection.status === 'passed' ? 'Assayed ✓' : 'Inspector Dispatched'}
+                      {existingInspection.status === 'passed' 
+                        ? (existingInspection.feeStatus === 'paid' ? 'Assayed & Paid ✓' : 'Assayed • Fee Due')
+                        : 'Inspector Dispatched'}
                     </span>
                   ) : (
                     <span className="text-[10px] text-amber-800 font-semibold">
@@ -256,7 +280,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </div>
                 <p className="text-[11px] text-[#566861]">
                   {existingInspection?.status === 'passed'
-                    ? `Assayed by ${existingInspection.inspectorName || 'AgroLnk Assayer'}: Grade ${existingInspection.grade || 'A'}, Moisture ${existingInspection.moisture || '10.5'}%.`
+                    ? `Assayed by ${existingInspection.inspectorName || 'AgroLnk Assayer'}: Grade ${existingInspection.grade || 'A'}, Moisture ${existingInspection.moisture || '10.5'}%. ${existingInspection.feeStatus === 'paid' ? 'Lab fee paid.' : 'Lab fee payment pending.'}`
                     : existingInspection?.status === 'requested'
                     ? 'Admin has dispatched an official assayer to test this lot before you purchase.'
                     : 'Want quality verification? Request an official assayer check before buying.'}
@@ -273,22 +297,89 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                     ? 'Request Quality Check Before Buy'
                     : existingInspection.status === 'requested'
                     ? 'View Inspector Status'
-                    : 'View Certified Assay Report'}
+                    : existingInspection.feeStatus === 'paid'
+                    ? 'View Certified Assay Report'
+                    : `Pay Lab Fee (₹${existingInspection.inspectionFee || 500}) & View Report`}
                 </Button>
               </div>
 
-              {/* Buy Now CTA */}
-              <div>
-                <Button
-                  variant="accent"
-                  size="lg"
-                  onClick={() => setIsModalOpen(true)}
-                  icon={ShoppingBag}
-                  iconPosition="left"
-                  className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
-                >
-                  Buy Now &bull; Escrow Secured
-                </Button>
+              {/* Buy Now CTA Section with Quality Inspection Protection */}
+              <div className="space-y-2">
+                {/* Condition 1: Inspection requested & awaiting admin inspector report */}
+                {existingInspection && (existingInspection.status === 'requested' || existingInspection.status === 'assigned') && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsInspectionOpen(true)}
+                      className="w-full py-3.5 px-4 bg-gray-100 border border-gray-300 text-gray-500 font-bold text-sm rounded-xl cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-200/80 transition-all"
+                    >
+                      <Lock className="w-4 h-4 text-amber-600" />
+                      <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
+                      Inspection in Progress (Awaiting Report)
+                    </button>
+                    <p className="text-[11px] text-amber-800 text-center font-medium bg-amber-50/70 p-2 rounded-lg border border-amber-200/60">
+                      🔒 Escrow payment locked until Admin completes and submits the certified quality assay.
+                    </p>
+                  </div>
+                )}
+
+                {/* Condition 2: Inspection report passed, BUT inspection fee is NOT yet paid */}
+                {existingInspection && (existingInspection.status === 'passed' || existingInspection.status === 'resolved') && existingInspection.feeStatus !== 'paid' && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsInspectionOpen(true)}
+                      className="w-full py-3.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Scale className="w-4 h-4 text-amber-200" />
+                      Pay Lab Assay Fee (₹{existingInspection.inspectionFee || 500}) to Unlock Buy
+                    </button>
+                    <p className="text-[11px] text-amber-900 text-center font-medium bg-amber-50 p-2 rounded-lg border border-amber-200">
+                      🔬 Certified assay is ready! Pay the ₹{existingInspection.inspectionFee || 500} lab fee via Razorpay to unlock purchase.
+                    </p>
+                  </div>
+                )}
+
+                {/* Condition 3: Quality disputed */}
+                {existingInspection && existingInspection.status === 'disputed' && (
+                  <div className="space-y-2">
+                    <button
+                      disabled
+                      className="w-full py-3.5 px-4 bg-red-50 border border-red-200 text-red-700 font-bold text-sm rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      Quality Dispute Under Review
+                    </button>
+                    <p className="text-[11px] text-red-700 text-center font-medium">
+                      Admin ombudsman is arbitrating the quality discrepancy.
+                    </p>
+                  </div>
+                )}
+
+                {/* Condition 4: No inspection requested OR inspection passed AND fee is paid */}
+                {(!existingInspection || (
+                  (existingInspection.status === 'passed' || existingInspection.status === 'resolved') && 
+                  existingInspection.feeStatus === 'paid'
+                )) && (
+                  <div>
+                    {existingInspection?.feeStatus === 'paid' && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-[#F2FBF6] border border-[#A7F3D0] px-3 py-1.5 rounded-xl font-semibold mb-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Quality Assayed & Fee Paid • Ready for Purchase</span>
+                      </div>
+                    )}
+                    <Button
+                      variant="accent"
+                      size="lg"
+                      onClick={() => setIsModalOpen(true)}
+                      icon={ShoppingBag}
+                      iconPosition="left"
+                      className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
+                    >
+                      Buy Now &bull; Escrow Secured
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Trust Guarantees */}
@@ -314,8 +405,12 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
       {/* Pre-Buy Quality Inspection Modal */}
       <BuyerInspectionModal
         order={listing}
+        buyerUser={user}
         isOpen={isInspectionOpen}
-        onClose={() => setIsInspectionOpen(false)}
+        onClose={() => {
+          setIsInspectionOpen(false);
+          loadInspection();
+        }}
         onSuccess={(insp) => {
           setExistingInspection(insp);
           loadInspection();

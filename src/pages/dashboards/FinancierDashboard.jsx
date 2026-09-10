@@ -98,7 +98,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
             <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85 leading-relaxed font-normal">
-              Direct underwriting, real-time escrow liens, and automated settlement of agricultural invoices and e-NWR warehouse receipts.
+              Direct underwriting, real-time escrow liens, and automated settlement of agricultural invoices and certified warehouse storage receipts.
             </p>
           </div>
 

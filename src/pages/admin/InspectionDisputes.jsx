@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { 
   AlertTriangle, ShieldCheck, CheckCircle2, 
-  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck
+  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck, RefreshCw
 } from 'lucide-react';
-import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer } from '../../utils/inspection';
+import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer, subscribeToInspections } from '../../utils/inspection';
 import { formatINR } from '../../utils/commission';
 import InspectionStatusBadge from '../../components/inspection/InspectionStatusBadge';
 import Button from '../../components/ui/Button';
@@ -17,6 +17,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
   };
 
   const [inspections, setInspections] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedDispute, setSelectedDispute] = useState(null);
   const [selectedRequestToInspect, setSelectedRequestToInspect] = useState(null);
   const [resolutionAction, setResolutionAction] = useState('partial_refund');
@@ -25,19 +26,43 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
   const [filter, setFilter] = useState('all'); // all, requested, disputed, passed
 
   // Inspector form states
-  const [inspectorName, setInspectorName] = useState('AgroLnk Certified Assayer (Govind)');
+  const [inspectorName, setInspectorName] = useState('');
   const [assayGrade, setAssayGrade] = useState('A');
-  const [assayMoisture, setAssayMoisture] = useState('11.0');
-  const [assayForeign, setAssayForeign] = useState('0.4');
-  const [assayNotes, setAssayNotes] = useState('Physical assay and moisture testing conducted at farmgate hub. Produce verified matching Grade A contract specifications.');
+  const [assayMoisture, setAssayMoisture] = useState('');
+  const [assayForeign, setAssayForeign] = useState('');
+  const [inspectionFee, setInspectionFee] = useState('500');
+  const [assayNotes, setAssayNotes] = useState('');
 
-  const loadInspections = () => {
-    const list = getInspectionRecords();
-    setInspections(list);
+  const loadInspections = async () => {
+    setIsLoading(true);
+    try {
+      const list = await getInspectionRecords();
+      setInspections(list);
+    } catch (err) {
+      console.error('Error loading inspections:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     loadInspections();
+
+    const unsubscribe = subscribeToInspections(() => {
+      loadInspections();
+    });
+
+    const handleLocalUpdate = () => {
+      loadInspections();
+    };
+    window.addEventListener('agrolnk_inspections_updated', handleLocalUpdate);
+    window.addEventListener('storage', handleLocalUpdate);
+
+    return () => {
+      unsubscribe?.();
+      window.removeEventListener('agrolnk_inspections_updated', handleLocalUpdate);
+      window.removeEventListener('storage', handleLocalUpdate);
+    };
   }, []);
 
   const filteredList = inspections.filter(i => {
@@ -54,11 +79,11 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     setResolutionAction('partial_refund');
   };
 
-  const handleSubmitResolution = (e) => {
+  const handleSubmitResolution = async (e) => {
     e.preventDefault();
     if (!selectedDispute) return;
 
-    arbitrateDispute(selectedDispute.id, {
+    await arbitrateDispute(selectedDispute.id, {
       action: resolutionAction,
       refundAmount: resolutionAction === 'partial_refund' ? Number(refundAmount) : (resolutionAction === 'full_refund' ? selectedDispute.orderAmount : 0),
       notes: arbitrationNotes,
@@ -69,15 +94,16 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     loadInspections();
   };
 
-  const handleSendReport = (e) => {
+  const handleSendReport = async (e) => {
     e.preventDefault();
     if (!selectedRequestToInspect) return;
 
-    sendInspectionReportToBuyer(selectedRequestToInspect.id, {
+    await sendInspectionReportToBuyer(selectedRequestToInspect.id, {
       inspectorName,
       grade: assayGrade,
       moisture: Number(assayMoisture),
       foreignMatter: Number(assayForeign),
+      inspectionFee: Number(inspectionFee) || 500,
       inspectorNotes: assayNotes,
       verdict: 'approved',
     });
@@ -112,40 +138,52 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
+          {/* Filter Pills & Refresh Button */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filter === 'all' ? 'bg-[#0B3326] text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
+              onClick={loadInspections}
+              disabled={isLoading}
+              title="Refresh inspection list"
+              className="p-2 rounded-xl border border-[#E5EDE8] bg-white text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-all cursor-pointer flex items-center gap-1 text-xs font-semibold"
             >
-              All ({inspections.length})
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#10B981]' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
-            <button
-              onClick={() => setFilter('requested')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filter === 'requested' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
-            >
-              Requested ({inspections.filter(i => i.status === 'requested').length})
-            </button>
-            <button
-              onClick={() => setFilter('passed')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filter === 'passed' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
-            >
-              Certified ({inspections.filter(i => i.status === 'passed' || i.status === 'resolved').length})
-            </button>
-            <button
-              onClick={() => setFilter('disputed')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filter === 'disputed' ? 'bg-red-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
-              }`}
-            >
-              Disputed ({inspections.filter(i => i.status === 'disputed').length})
-            </button>
+
+            <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  filter === 'all' ? 'bg-[#0B3326] text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                All ({inspections.length})
+              </button>
+              <button
+                onClick={() => setFilter('requested')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  filter === 'requested' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                Requested ({inspections.filter(i => i.status === 'requested').length})
+              </button>
+              <button
+                onClick={() => setFilter('passed')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  filter === 'passed' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                Certified ({inspections.filter(i => i.status === 'passed' || i.status === 'resolved').length})
+              </button>
+              <button
+                onClick={() => setFilter('disputed')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  filter === 'disputed' ? 'bg-red-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                Disputed ({inspections.filter(i => i.status === 'disputed').length})
+              </button>
+            </div>
           </div>
         </div>
 
@@ -282,6 +320,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                     value={inspectorName}
                     onChange={(e) => setInspectorName(e.target.value)}
                     required
+                    placeholder="e.g. Govind (Certified Assayer)"
                     className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
                   />
                 </div>
@@ -335,6 +374,28 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
 
                 <div>
                   <label className="font-bold text-[#0B3326] block mb-1">
+                    Quality Assay & Lab Inspection Fee (₹)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={inspectionFee}
+                      onChange={(e) => setInspectionFee(e.target.value)}
+                      required
+                      placeholder="500"
+                      className="w-full pl-7 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#566861] mt-0.5">
+                    This fee will be billed to the buyer via Razorpay to unlock and accept the certified assay report.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="font-bold text-[#0B3326] block mb-1">
                     Inspector Lab Notes / Certification
                   </label>
                   <textarea
@@ -342,6 +403,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                     onChange={(e) => setAssayNotes(e.target.value)}
                     rows="2"
                     required
+                    placeholder="Enter physical assay findings, purity metrics & notes..."
                     className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
                   />
                 </div>

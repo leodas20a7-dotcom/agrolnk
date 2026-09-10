@@ -218,7 +218,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-[#78350F] leading-relaxed max-w-3xl">
-                  Without entering your company name, total storage capacity in tonnes, chamber types, and KYC compliance documents, your warehouse is <strong>hidden from all farmers and buyers</strong> across Agrolnk and cannot receive produce deposits or issue e-NWRs.
+                  Without entering your company name, total storage capacity in tonnes, chamber types, and KYC compliance documents, your warehouse is <strong>hidden from all farmers and buyers</strong> across Agrolnk and cannot receive produce deposits or issue storage receipts.
                 </p>
               </div>
             </div>
@@ -274,7 +274,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           <div className="space-y-2 max-w-2xl text-left">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-                <Building2 className="w-3.5 h-3.5" /> Warehouse Management & e-NWR Terminal
+                <Building2 className="w-3.5 h-3.5" /> Warehouse Storage & Facility Hub
               </div>
               {isSetupCompleted ? (
                 profile?.hasPendingReview || profile?.verificationStatus === 'modification_pending' ? (
@@ -359,7 +359,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
 
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">In-Storage e-NWR Titles</span>
+              <span className="text-xs font-semibold text-[#566861]">Active Storage Lots</span>
               <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
                 <Award className="w-4 h-4" />
               </div>
@@ -611,7 +611,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                           iconPosition="right"
                           className="text-xs font-bold py-1.5 px-3 cursor-pointer"
                         >
-                          Audit e-NWR
+                          View Receipt
                         </Button>
                       </div>
                     </div>

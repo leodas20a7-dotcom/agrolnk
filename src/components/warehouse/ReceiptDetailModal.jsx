@@ -24,6 +24,7 @@ export default function ReceiptDetailModal({
   currentUser,
   onClose,
   onList,
+  onPayRent,
   onRequestFinancing,
 }) {
   if (!inventory) return null;
@@ -164,15 +165,15 @@ export default function ReceiptDetailModal({
           {/* Storage Vault & Chamber Location */}
           <div className="p-4 rounded-2xl bg-white border border-[#E5EDE8] space-y-2 relative z-10 text-xs">
             <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-              Physical Holding Facility
+              Physical Holding Facility & Payment Terms
             </span>
             <div className="flex items-center gap-2 font-bold text-[#0B3326]">
               <Building2 className="w-4 h-4 text-[#10B981]" />
               <span>{inventory.warehouseName}</span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-[#566861]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-[#566861] gap-1 pt-1 border-t border-[#E5EDE8]/60">
               <span>Storage Cell: <strong>{inventory.chamber}</strong></span>
-              <span>Valid Until: {new Date(inventory.validUntil).toLocaleDateString('en-IN')}</span>
+              <span className="text-[#10B981] font-semibold">Rent Payment: Auto-deducted from buyer escrow upon sale</span>
             </div>
           </div>
         </div>
@@ -184,7 +185,21 @@ export default function ReceiptDetailModal({
             <span>Digital e-NWR legal title registered on blockchain escrow</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onPayRent && (
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => {
+                  onClose();
+                  onPayRent(inventory);
+                }}
+                className="font-bold py-2.5 px-4 cursor-pointer text-xs border-[#E5EDE8] hover:border-[#10B981]"
+              >
+                Pay Storage Rent
+              </Button>
+            )}
+
             {inventory.availableQuantity > 0 && onList && (
               <Button
                 variant="accent"

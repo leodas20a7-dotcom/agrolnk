@@ -30,78 +30,30 @@ function mapReceiptFromDb(row) {
 }
 
 const LOCAL_RECEIPTS_KEY = 'agrolnk_warehouse_receipts_local';
+const RENT_PAYMENTS_KEY = 'agrolnk_warehouse_rent_payments';
 
-const INITIAL_RECEIPTS = [
-  {
-    id: 'rcpt_001_salem_tomato',
-    receiptNumber: '#eNWR-4091',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    warehouseId: 'wh_salem_01',
-    warehouseName: 'Salem Agri Cold Storage Hub',
-    chamber: 'Chamber B2 (Cold Cell 4°C-8°C)',
-    commodity: 'Tomato',
-    variety: 'Shivam Organic Hybrid',
-    grade: 'A',
-    totalQuantity: 5000,
-    availableQuantity: 5000,
-    lockedQuantity: 0,
-    unit: 'kg',
-    estimatedValue: 225000,
-    storageFeeMonthly: 1750,
-    assayedQuality: {
-      moisture: '11.8%',
-      purity: '99.2%',
-      grade: 'WDRA Certified Grade A',
-      assayStatus: 'Accredited Lab Passed',
-    },
-    depositedAt: '2026-09-02T10:30:00.000Z',
-    validUntil: '2026-12-02T10:30:00.000Z',
-    status: 'stored',
-    createdAt: '2026-09-02T10:30:00.000Z',
-    updatedAt: '2026-09-02T10:30:00.000Z',
-  },
-  {
-    id: 'rcpt_002_dindigul_onion',
-    receiptNumber: '#eNWR-8219',
-    farmerId: 'usr_farmer_01',
-    farmerName: 'Sakthi Vel',
-    warehouseId: 'wh_dindigul_02',
-    warehouseName: 'Dindigul Central Agri Logistics Park',
-    chamber: 'Cold Vault D1 (Onions & Roots)',
-    commodity: 'Onion',
-    variety: 'Nashik Red A-Grade',
-    grade: 'A',
-    totalQuantity: 8000,
-    availableQuantity: 5000,
-    lockedQuantity: 3000,
-    unit: 'kg',
-    estimatedValue: 288000,
-    storageFeeMonthly: 2400,
-    assayedQuality: {
-      moisture: '13.2%',
-      purity: '98.8%',
-      grade: 'WDRA Certified Grade A',
-      assayStatus: 'Accredited Lab Passed',
-    },
-    depositedAt: '2026-09-03T14:15:00.000Z',
-    validUntil: '2026-12-03T14:15:00.000Z',
-    status: 'partially_listed',
-    createdAt: '2026-09-03T14:15:00.000Z',
-    updatedAt: '2026-09-03T14:15:00.000Z',
-  }
-];
+const INITIAL_RECEIPTS = [];
 
 function getLocalReceipts() {
   try {
     const raw = localStorage.getItem(LOCAL_RECEIPTS_KEY);
     if (!raw) {
-      localStorage.setItem(LOCAL_RECEIPTS_KEY, JSON.stringify(INITIAL_RECEIPTS));
-      return INITIAL_RECEIPTS;
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      // Filter out legacy dummy entries
+      const cleaned = parsed.filter(
+        (r) => r.id !== 'rcpt_001_salem_tomato' && r.id !== 'rcpt_002_dindigul_onion' && !r.receiptNumber?.includes('#eNWR-4091') && !r.receiptNumber?.includes('#eNWR-8219')
+      );
+      if (cleaned.length !== parsed.length) {
+        saveLocalReceipts(cleaned);
+      }
+      return cleaned;
+    }
+    return [];
   } catch {
-    return INITIAL_RECEIPTS;
+    return [];
   }
 }
 
@@ -111,6 +63,139 @@ function saveLocalReceipts(receipts) {
   } catch (err) {
     console.warn('Failed to save local warehouse receipts:', err);
   }
+}
+
+/**
+ * Calculate accrued storage rental dues and validity metrics for an e-NWR lot
+ */
+export function calculateStorageRentalDues(receipt) {
+  if (!receipt) return null;
+
+  const totalQty = Number(receipt.totalQuantity || receipt.quantity || 0);
+  const monthlyRate = Number(receipt.storageFeeMonthly || Math.round((totalQty / 1000) * 350));
+  const dailyRate = monthlyRate / 30;
+
+  const depositedDate = receipt.depositedAt ? new Date(receipt.depositedAt) : new Date();
+  const lastPaidDate = receipt.lastRentPaidAt ? new Date(receipt.lastRentPaidAt) : depositedDate;
+  const now = new Date();
+
+  // Days since last rent payment
+  const daysDiff = Math.max(1, Math.ceil((now - lastPaidDate) / (1000 * 60 * 60 * 24)));
+  const accruedDue = Math.round(daysDiff * dailyRate);
+
+  // Expiry calculation
+  const validUntilDate = receipt.validUntil ? new Date(receipt.validUntil) : new Date(depositedDate.getTime() + 90 * 86400000);
+  const daysRemaining = Math.ceil((validUntilDate - now) / (1000 * 60 * 60 * 24));
+
+  return {
+    monthlyRate,
+    dailyRate: Math.round(dailyRate),
+    daysStored: daysDiff,
+    accruedDue,
+    daysRemaining: Math.max(0, daysRemaining),
+    validUntil: validUntilDate.toISOString(),
+    isExpiringSoon: daysRemaining <= 10 && daysRemaining > 0,
+    isExpired: daysRemaining <= 0,
+    paymentMode: 'auto_deduct_or_direct',
+  };
+}
+
+/**
+ * Pay / settle accrued warehouse storage rent
+ */
+export async function payStorageRent(receiptId, paymentDetails = {}) {
+  const localList = getLocalReceipts();
+  const idx = localList.findIndex((r) => r.id === receiptId);
+  let updatedReceipt = null;
+
+  const paymentRecord = {
+    id: `rent_pay_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    receiptId,
+    amount: Number(paymentDetails.amount || 0),
+    paymentMethod: paymentDetails.method || 'UPI / Auto-Escrow',
+    transactionRef: `RENT-TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+    paidAt: new Date().toISOString(),
+    extendedDays: Number(paymentDetails.extendedDays || 30),
+    paidBy: paymentDetails.paidBy || 'Farmer Depositor',
+  };
+
+  if (idx >= 0) {
+    const existing = localList[idx];
+    const prevValid = existing.validUntil ? new Date(existing.validUntil) : new Date();
+    const newValidUntil = new Date(Math.max(Date.now(), prevValid.getTime()) + (paymentRecord.extendedDays * 86400000)).toISOString();
+
+    localList[idx] = {
+      ...existing,
+      lastRentPaidAt: paymentRecord.paidAt,
+      validUntil: newValidUntil,
+      rentPaymentHistory: [paymentRecord, ...(existing.rentPaymentHistory || [])],
+      updatedAt: new Date().toISOString(),
+    };
+    saveLocalReceipts(localList);
+    updatedReceipt = localList[idx];
+  }
+
+  // Record payment in local payments registry
+  try {
+    const raw = localStorage.getItem(RENT_PAYMENTS_KEY);
+    const payments = raw ? JSON.parse(raw) : [];
+    payments.unshift(paymentRecord);
+    localStorage.setItem(RENT_PAYMENTS_KEY, JSON.stringify(payments));
+  } catch (err) {
+    console.warn('Failed to save rent payment record:', err);
+  }
+
+  return { success: true, receipt: updatedReceipt, payment: paymentRecord };
+}
+
+/**
+ * Get warehouse & storage notifications and alerts
+ */
+export function getWarehouseNotifications(userId, role = 'farmer') {
+  const receipts = getLocalReceipts();
+  const notifications = [];
+
+  receipts.forEach((r) => {
+    const dues = calculateStorageRentalDues(r);
+
+    if (role === 'farmer') {
+      if (dues.isExpiringSoon) {
+        notifications.push({
+          id: `notif_exp_${r.id}`,
+          type: 'warning',
+          title: 'Storage Validity Expiring Soon',
+          message: `${r.commodity} lot (${r.receiptNumber}) at ${r.warehouseName} has ${dues.daysRemaining} days remaining. Settle rent or list for direct sale.`,
+          date: new Date().toISOString(),
+          receiptId: r.id,
+          amountDue: dues.accruedDue,
+        });
+      }
+      if (dues.accruedDue > 0 && dues.daysStored >= 25) {
+        notifications.push({
+          id: `notif_rent_${r.id}`,
+          type: 'info',
+          title: 'Monthly Storage Rent Due Reminder',
+          message: `Monthly rent of ₹${dues.accruedDue} is due for ${r.commodity} lot (${r.receiptNumber}). Auto-deduct on sale or pay online.`,
+          date: new Date().toISOString(),
+          receiptId: r.id,
+          amountDue: dues.accruedDue,
+        });
+      }
+    } else if (role === 'warehouse') {
+      if (r.status === 'stored') {
+        notifications.push({
+          id: `wh_notif_${r.id}`,
+          type: 'success',
+          title: 'Active In-Storage Produce Lot',
+          message: `${r.farmerName || 'Farmer'} deposited ${r.totalQuantity} ${r.unit} ${r.commodity} in ${r.chamber}.`,
+          date: r.depositedAt || new Date().toISOString(),
+          receiptId: r.id,
+        });
+      }
+    }
+  });
+
+  return notifications;
 }
 
 /**
@@ -150,7 +235,7 @@ export async function getWarehouseReceipts() {
 export async function getFarmerInventory(farmerId) {
   const all = await getWarehouseReceipts();
   if (!farmerId) return all;
-  return all.filter((r) => !r.farmerId || r.farmerId === farmerId || r.farmerName?.includes('Sakthi') || farmerId.includes('farmer'));
+  return all.filter((r) => !r.farmerId || r.farmerId === farmerId || farmerId.includes('farmer'));
 }
 
 /**
@@ -162,13 +247,17 @@ export async function getWarehouseOperatorStats(warehouseId) {
     const activeReceipts = receipts.filter((r) => r.status === 'stored' || r.status === 'partially_listed');
     const totalValuation = activeReceipts.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
     const totalStoredKg = activeReceipts.reduce((sum, r) => sum + (r.totalQuantity || 0), 0);
+    const totalStoredTonnes = totalStoredKg / 1000;
+    const capacityTonnes = 5000;
+    const computedOccupancy = capacityTonnes > 0 ? Number(((totalStoredTonnes / capacityTonnes) * 100).toFixed(1)) : 0;
 
     return {
       activeReceipts: activeReceipts.length,
       totalValuation: `₹${(totalValuation / 100000).toFixed(2)} Lakh`,
       totalStoredKg,
+      totalStoredTonnes,
       releaseOrders: 0,
-      occupancyPercentage: 74,
+      occupancyPercentage: computedOccupancy,
       warehouse: {
         id: warehouseId || 'wh_salem_01',
         name: 'Salem Agri Cold Storage Hub',

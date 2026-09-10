@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import DeliveryCard from '../../components/delivery/DeliveryCard';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
+import TransportQuoteModal from '../../components/delivery/TransportQuoteModal';
 import {
   Truck,
   Package,
@@ -45,6 +46,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
     totalTonnes: 0,
   });
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [quotingDelivery, setQuotingDelivery] = useState(null);
 
   const loadData = async () => {
     try {
@@ -65,8 +67,10 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
   const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
 
-  const availableJobs = safeDeliveries.filter((d) => d.status === 'transport_requested');
-  const myDeliveries = safeDeliveries.filter((d) => d.transporterId === user.id || (d.status !== 'transport_requested' && !d.transporterId));
+  const availableJobs = safeDeliveries.filter(
+    (d) => d.status === 'transport_requested' || (d.status === 'price_offered' && d.transporterId === user.id)
+  );
+  const myDeliveries = safeDeliveries.filter((d) => d.transporterId === user.id || (d.status !== 'transport_requested' && d.status !== 'price_offered' && !d.transporterId));
   const activeTrips = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'picked_up' || d.status === 'in_transit');
   const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed');
 
@@ -86,14 +90,8 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
   const filteredDeliveries = getFilteredList();
 
-  const handleAcceptJobDirect = async (delivery) => {
-    try {
-      await acceptDeliveryJob(delivery.id, user);
-      await loadData();
-      setActiveTab('active');
-    } catch (err) {
-      console.error('Failed to accept delivery job:', err);
-    }
+  const handleStartQuote = (delivery) => {
+    setQuotingDelivery(delivery);
   };
 
   return (
@@ -245,7 +243,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                   delivery={item}
                   viewerRole="transporter"
                   onView={(d) => setSelectedDelivery(d)}
-                  onAccept={(d) => handleAcceptJobDirect(d)}
+                  onAccept={(d) => handleStartQuote(d)}
                 />
               ))}
             </div>
@@ -265,6 +263,18 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
         </div>
 
       </div>
+
+      {/* Transporter Quote Submission Modal */}
+      {quotingDelivery && (
+        <TransportQuoteModal
+          delivery={quotingDelivery}
+          currentUser={user}
+          onClose={() => setQuotingDelivery(null)}
+          onSuccess={async () => {
+            await loadData();
+          }}
+        />
+      )}
 
       {/* Delivery Inspection & Action Modal */}
       {selectedDelivery && (

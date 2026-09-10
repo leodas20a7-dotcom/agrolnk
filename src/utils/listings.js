@@ -174,12 +174,26 @@ export const COMMODITY_IMAGES = {
   Wheat: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80',
   Cotton: 'https://images.unsplash.com/photo-1594897030560-ab279cf66def?w=800&auto=format&fit=crop&q=80',
   Apple: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=800&auto=format&fit=crop&q=80',
-  Ginger: 'https://images.unsplash.com/photo-1635363638580-c2809d049eee?w=800&auto=format&fit=crop&q=80',
+  Cardamom: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=800&auto=format&fit=crop&q=80',
+  Ginger: '/commodities/ginger.jpg',
   Maize: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=800&auto=format&fit=crop&q=80',
   Banana: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=800&auto=format&fit=crop&q=80',
   Soybean: 'https://images.unsplash.com/photo-1599420186946-7b6fb4e53799?w=800&auto=format&fit=crop&q=80',
   Other: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
 };
+
+function sanitizeImages(images, commodity) {
+  const fallback = COMMODITY_IMAGES[commodity] || COMMODITY_IMAGES.Other;
+  if (!Array.isArray(images) || images.length === 0) {
+    return [fallback];
+  }
+  return images.map((img) => {
+    if (typeof img === 'string' && img.includes('photo-1635363638580-c2809d049eee')) {
+      return COMMODITY_IMAGES[commodity] || COMMODITY_IMAGES.Ginger;
+    }
+    return img || fallback;
+  });
+}
 
 function mapListingFromDb(row) {
   if (!row) return null;
@@ -197,9 +211,7 @@ function mapListingFromDb(row) {
     state: row.state,
     district: row.district,
     harvestDate: row.harvest_date,
-    images: Array.isArray(row.images) && row.images.length > 0 
-      ? row.images 
-      : [COMMODITY_IMAGES[row.commodity] || COMMODITY_IMAGES.Other],
+    images: sanitizeImages(row.images, row.commodity),
     status: row.status,
     originWarehouseId: row.origin_warehouse_id,
     originReceiptNumber: row.origin_receipt_number,

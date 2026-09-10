@@ -8,6 +8,7 @@ import WarehouseCard from '../../components/warehouse/WarehouseCard';
 import DepositProduceModal from '../../components/warehouse/DepositProduceModal';
 import ListFromInventoryModal from '../../components/warehouse/ListFromInventoryModal';
 import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
+import PayStorageRentModal from '../../components/warehouse/PayStorageRentModal';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import {
   Building2,
@@ -20,9 +21,20 @@ import {
   ArrowRight,
   Clock,
   Layers,
-  ThermometerSnowflake
+  ThermometerSnowflake,
+  HelpCircle,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Receipt
 } from 'lucide-react';
-import { getFarmerInventory, getWarehouses } from '../../utils/warehouses';
+import {
+  getFarmerInventory,
+  getWarehouses,
+  getWarehouseNotifications
+} from '../../utils/warehouses';
 
 export default function FarmerInventory({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -30,12 +42,15 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'warehouses'
   const [inventoryList, setInventoryList] = useState([]);
   const [warehousesList, setWarehousesList] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedWarehouseForDeposit, setSelectedWarehouseForDeposit] = useState(null);
   const [selectedInventoryForDetail, setSelectedInventoryForDetail] = useState(null);
   const [selectedInventoryForList, setSelectedInventoryForList] = useState(null);
+  const [selectedInventoryForRent, setSelectedInventoryForRent] = useState(null);
   const [inventoryForFinancing, setInventoryForFinancing] = useState(null);
 
   const loadData = async () => {
@@ -46,6 +61,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
       ]);
       setInventoryList(inv || []);
       setWarehousesList(whs || []);
+      setNotifications(getWarehouseNotifications(user.id, 'farmer'));
     } catch (err) {
       console.error('Error loading inventory:', err);
     }
@@ -62,6 +78,10 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
   const handleDepositSuccess = (newReceipt) => {
     loadData();
     setSelectedInventoryForDetail(newReceipt);
+  };
+
+  const handleRentSuccess = () => {
+    loadData();
   };
 
   const handleListSuccess = (result, type) => {
@@ -81,18 +101,26 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Award className="w-3.5 h-3.5" /> Certified Storage & e-NWR Vault
+              <Award className="w-3.5 h-3.5" /> Certified Storage & Warehouse Receipts
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
-              Warehouse & Inventory
+              Warehouse Storage & Receipts
             </h1>
             <p className="text-sm sm:text-base text-[#DCFCE7]/90 leading-relaxed font-normal">
-              Store your produce in WDRA certified warehouses, receive electronic Negotiable Warehouse Receipts (e-NWR), and sell or finance directly from storage.
+              Store your harvested crops safely in certified cold storages & warehouses, get digital storage receipts, and sell or take loans directly from storage.
             </p>
           </div>
 
           {/* Action Buttons */}
           <div className="shrink-0 flex flex-wrap gap-2.5 w-full sm:w-auto">
+            <button
+              onClick={() => setShowHowItWorks(!showHowItWorks)}
+              className="py-3 px-4 rounded-2xl font-semibold text-xs border border-[#34D399]/40 bg-[#0F4A37] text-[#34D399] hover:bg-[#14624A] transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>How Storage & Rent Works</span>
+              {showHowItWorks ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
             <Button
               variant="secondary"
               size="md"
@@ -101,7 +129,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
               onClick={() => onNavigate('farmer-financing')}
               className="py-3 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
             >
-              e-NWR Financing
+              Storage Crop Loan
             </Button>
             <Button
               variant="accent"
@@ -115,6 +143,93 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
             </Button>
           </div>
         </div>
+
+        {/* How Storage & Rent Works Explanatory Section */}
+        {showHowItWorks && (
+          <div className="p-6 rounded-3xl bg-white border border-[#E5EDE8] shadow-xs space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#10B981]" />
+                <h3 className="text-base font-extrabold text-[#0B3326] font-heading">
+                  Simple Guide: How Warehouse Storage & Rent Payments Work
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowHowItWorks(false)}
+                className="text-xs text-[#566861] hover:text-[#0B3326] font-semibold cursor-pointer"
+              >
+                Close Guide
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+                <div className="w-8 h-8 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center font-bold text-xs">
+                  1
+                </div>
+                <h4 className="text-sm font-bold text-[#0B3326]">Deposit & Get Storage Receipt</h4>
+                <p className="text-xs text-[#566861] leading-relaxed">
+                  Deliver your harvest to any certified warehouse. You instantly get a digital storage receipt showing your exact crop quantity, grade, and government insurance.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/20 space-y-2">
+                <div className="w-8 h-8 rounded-xl bg-[#10B981] text-white flex items-center justify-center font-bold text-xs">
+                  2
+                </div>
+                <h4 className="text-sm font-bold text-[#0B3326]">Auto-Deduct Rent on Sale (Zero Cash)</h4>
+                <p className="text-xs text-[#566861] leading-relaxed">
+                  You do not need upfront cash! When you sell produce to a buyer on Agrolnk, the warehouse storage rent is automatically deducted from the buyer's payment.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+                <div className="w-8 h-8 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center font-bold text-xs">
+                  3
+                </div>
+                <h4 className="text-sm font-bold text-[#0B3326]">Hold & Pay Online Anytime</h4>
+                <p className="text-xs text-[#566861] leading-relaxed">
+                  Want to wait for better commodity prices? You can easily pay monthly rent via UPI/Card to extend your storage validity by 30, 60, or 90 days.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notifications & Reminders Banner */}
+        {notifications.length > 0 && (
+          <div className="space-y-2">
+            {notifications.map((notif) => (
+              <div
+                key={notif.id}
+                className="p-4 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-[#92400E]">
+                      {notif.title}
+                    </h4>
+                    <p className="text-xs text-[#B45309]">
+                      {notif.message}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => {
+                    const item = inventoryList.find((r) => r.id === notif.receiptId);
+                    if (item) setSelectedInventoryForRent(item);
+                  }}
+                  className="text-xs font-bold shrink-0"
+                >
+                  Pay Rent Online (₹{notif.amountDue})
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* 4 Core Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -151,7 +266,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
 
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Active e-NWR Receipts</span>
+              <span className="text-xs font-semibold text-[#566861]">Active Storage Receipts</span>
               <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
                 <Award className="w-4 h-4" />
               </div>
@@ -160,7 +275,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
               {inventoryList.length}
             </div>
             <div className="text-[11px] text-[#566861]">
-              Electronic Titles of Ownership
+              Verified Storage Titles
             </div>
           </Card>
 
@@ -175,7 +290,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
               ₹{Math.round(totalValuation * 0.8).toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-[#566861]">
-              80% Loan-to-Value against e-NWR
+              80% Loan against stored produce
             </div>
           </Card>
 
@@ -192,7 +307,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                 : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
             }`}
           >
-            <span>My Stored e-NWR Inventory</span>
+            <span>My Stored Produce & Receipts</span>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                 activeTab === 'inventory'
@@ -226,7 +341,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
           </button>
         </div>
 
-        {/* Content Section: My Stored e-NWRs */}
+        {/* Content Section: My Stored Produce */}
         {activeTab === 'inventory' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -248,29 +363,59 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                     inventory={item}
                     onView={(inv) => setSelectedInventoryForDetail(inv)}
                     onList={(inv) => setSelectedInventoryForList(inv)}
+                    onPayRent={(inv) => setSelectedInventoryForRent(inv)}
                     onRequestFinancing={() => onNavigate('farmer-financing')}
                   />
                 ))}
               </div>
             ) : (
-              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
-                  <Building2 className="w-6 h-6 text-[#10B981]" />
+              <Card className="p-8 sm:p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-5 bg-gradient-to-b from-white to-[#F8FAF8]">
+                <div className="w-16 h-16 rounded-3xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto shadow-xs">
+                  <Building2 className="w-8 h-8 text-[#10B981]" />
                 </div>
-                <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                  No warehouse inventory stored yet
-                </h3>
-                <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                  Deposit your harvest into a certified warehouse to preserve shelf life and trade electronically.
-                </p>
-                <div className="pt-2">
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <h3 className="text-lg font-bold text-[#0B3326] font-heading">
+                    No Produce in Warehouse Storage Yet
+                  </h3>
+                  <p className="text-xs text-[#566861] leading-relaxed">
+                    Deposit your harvest in certified warehouses to prevent post-harvest spoilage, obtain verified digital receipts, and sell directly to buyers with zero transport hassle.
+                  </p>
+                </div>
+
+                {/* 3 Quick Benefits */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto text-left pt-2">
+                  <div className="p-3 rounded-2xl bg-white border border-[#E5EDE8]">
+                    <span className="text-[11px] font-bold text-[#0B3326] block">✓ WDRA Insured</span>
+                    <span className="text-[10px] text-[#566861]">100% safe storage</span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white border border-[#E5EDE8]">
+                    <span className="text-[11px] font-bold text-[#0B3326] block">✓ Auto-Deduct Rent</span>
+                    <span className="text-[10px] text-[#566861]">Zero upfront cash</span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white border border-[#E5EDE8]">
+                    <span className="text-[11px] font-bold text-[#0B3326] block">✓ Direct Trade</span>
+                    <span className="text-[10px] text-[#566861]">Sell from storage</span>
+                  </div>
+                </div>
+
+                <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
                   <Button
-                    variant="primary"
+                    variant="accent"
                     size="md"
                     onClick={() => setShowDepositModal(true)}
                     icon={Plus}
+                    className="text-xs font-bold px-6 py-2.5 shadow-md shadow-[#10B981]/20 cursor-pointer"
                   >
                     Deposit Produce Now
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={() => setActiveTab('warehouses')}
+                    icon={Building2}
+                    className="text-xs font-bold px-5 py-2.5 cursor-pointer"
+                  >
+                    Explore Certified Warehouses
                   </Button>
                 </div>
               </Card>
@@ -339,9 +484,22 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
           currentUser={user}
           onClose={() => setSelectedInventoryForDetail(null)}
           onList={(inv) => setSelectedInventoryForList(inv)}
+          onPayRent={(inv) => setSelectedInventoryForRent(inv)}
           onRequestFinancing={() => onNavigate('farmer-financing')}
+        />
+      )}
+
+      {/* Storage Rent Payment Modal */}
+      {selectedInventoryForRent && (
+        <PayStorageRentModal
+          inventory={selectedInventoryForRent}
+          currentUser={user}
+          isOpen={Boolean(selectedInventoryForRent)}
+          onClose={() => setSelectedInventoryForRent(null)}
+          onSuccess={handleRentSuccess}
         />
       )}
     </DashboardLayout>
   );
 }
+

@@ -21,7 +21,13 @@ import {
   Plus
 } from 'lucide-react';
 import { getFarmerOrders } from '../../utils/orders';
-import { getFarmerDeliveries, getDeliveryForOrder } from '../../utils/deliveries';
+import {
+  getFarmerDeliveries,
+  getDeliveryForOrder,
+  acceptTransportPrice,
+  declineTransportPrice
+} from '../../utils/deliveries';
+import { initiateRazorpayTransportCheckout } from '../../utils/razorpayRouteClient';
 
 export default function FarmerDeliveries({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -49,6 +55,34 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
   useEffect(() => {
     loadData();
   }, [user.id]);
+
+  const handleAcceptPrice = async (delivery) => {
+    try {
+      // Immediately open Razorpay Checkout for the farmer to fund the transport escrow
+      await initiateRazorpayTransportCheckout({
+        delivery,
+        farmerUser: user,
+        onSuccess: async (rzpPayment) => {
+          await acceptTransportPrice(delivery.id);
+          await loadData();
+        },
+        onFailure: (err) => {
+          console.warn('Transport payment notice / cancelled:', err);
+        },
+      });
+    } catch (err) {
+      console.error('Failed to initiate transport checkout:', err);
+    }
+  };
+
+  const handleDeclinePrice = async (delivery) => {
+    try {
+      await declineTransportPrice(delivery.id);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to decline transport quote:', err);
+    }
+  };
 
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
@@ -192,18 +226,39 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-[#E5EDE8]">
+                  <div className="pt-2 border-t border-[#E5EDE8] space-y-2">
                     {existingDelivery ? (
-                      <div className="flex items-center justify-between gap-2">
-                        <DeliveryStatusBadge status={existingDelivery.status} size="sm" />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedDeliveryForDetail(existingDelivery)}
-                          className="text-xs font-bold text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer"
-                        >
-                          Track Trip →
-                        </Button>
+                      <div>
+                        {existingDelivery.status === 'price_offered' ? (
+                          <div className="p-3 rounded-xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[#34D399] font-bold">Quote: ₹{existingDelivery.freightAmount}</span>
+                              <span className="text-[10px] text-white/70">{existingDelivery.transporterName || 'Carrier'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="accent"
+                                size="sm"
+                                onClick={() => handleAcceptPrice(existingDelivery)}
+                                className="w-full text-xs font-bold py-1.5 shadow-xs cursor-pointer"
+                              >
+                                Accept ₹{existingDelivery.freightAmount} & Confirm
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2">
+                            <DeliveryStatusBadge status={existingDelivery.status} size="sm" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedDeliveryForDetail(existingDelivery)}
+                              className="text-xs font-bold text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer"
+                            >
+                              Track Trip →
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <Button
@@ -245,6 +300,8 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                   delivery={item}
                   viewerRole="farmer"
                   onView={(d) => setSelectedDeliveryForDetail(d)}
+                  onAcceptPrice={handleAcceptPrice}
+                  onDeclinePrice={handleDeclinePrice}
                 />
               ))}
             </div>

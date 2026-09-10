@@ -16,6 +16,12 @@ export default function DeliveryStatusBadge({ status, size = 'sm' }) {
       icon: Clock,
       dot: true,
     },
+    price_offered: {
+      label: 'Quote Sent • Awaiting Approval',
+      variant: 'amber',
+      icon: Clock,
+      dot: true,
+    },
     assigned: {
       label: 'Transporter Assigned',
       variant: 'blue',

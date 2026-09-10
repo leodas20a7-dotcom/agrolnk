@@ -11,13 +11,22 @@ import {
   Navigation,
   Phone,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Check,
+  XCircle
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import DeliveryStatusBadge from './DeliveryStatusBadge';
 import DeliveryTimeline from './DeliveryTimeline';
-import { acceptDeliveryJob, updateDeliveryStatus, confirmBuyerReceipt } from '../../utils/deliveries';
+import {
+  acceptDeliveryJob,
+  updateDeliveryStatus,
+  confirmBuyerReceipt,
+  acceptTransportPrice,
+  declineTransportPrice
+} from '../../utils/deliveries';
+import { initiateRazorpayTransportCheckout } from '../../utils/razorpayRouteClient';
 
 export default function DeliveryDetailModal({
   delivery,
@@ -37,6 +46,7 @@ export default function DeliveryDetailModal({
   if (!currentDelivery) return null;
 
   const isTransporter = viewerRole === 'transporter';
+  const isFarmer = viewerRole === 'farmer';
   const isBuyer = viewerRole === 'buyer';
 
   const pickupStr = typeof currentDelivery.pickupLocation === 'object'
@@ -46,6 +56,52 @@ export default function DeliveryDetailModal({
   const destStr = typeof currentDelivery.deliveryLocation === 'object'
     ? `${currentDelivery.deliveryLocation?.address || ''}, ${currentDelivery.deliveryLocation?.district || 'Chennai'}, ${currentDelivery.deliveryLocation?.state || 'Tamil Nadu'}`
     : currentDelivery.deliveryLocation;
+
+  const handleFarmerAcceptPrice = async () => {
+    setIsUpdating(true);
+    setErrorMessage('');
+    try {
+      // Immediately open Razorpay Checkout for the farmer
+      await initiateRazorpayTransportCheckout({
+        delivery: currentDelivery,
+        farmerUser: currentUser || { name: currentDelivery.farmerName, role: 'farmer' },
+        onSuccess: async (rzpRes) => {
+          const updated = await acceptTransportPrice(currentDelivery.id);
+          if (updated) {
+            setCurrentDelivery(updated);
+            if (onStatusUpdated) await onStatusUpdated(updated);
+          }
+          setIsUpdating(false);
+        },
+        onFailure: (err) => {
+          console.warn('Transport payment notice / dismissed:', err);
+          setIsUpdating(false);
+        },
+      });
+    } catch (err) {
+      console.error('Failed to initiate transport checkout:', err);
+      setErrorMessage('Failed to open Razorpay payment gateway.');
+      setIsUpdating(false);
+    }
+  };
+
+  const handleFarmerDeclinePrice = async () => {
+    setIsUpdating(true);
+    setErrorMessage('');
+    try {
+      const updated = await declineTransportPrice(currentDelivery.id);
+      if (updated) {
+        setCurrentDelivery(updated);
+        if (onStatusUpdated) await onStatusUpdated(updated);
+      }
+      setIsUpdating(false);
+      onClose();
+    } catch (err) {
+      console.error('Failed to decline quote:', err);
+      setErrorMessage('Failed to decline transport quote.');
+      setIsUpdating(false);
+    }
+  };
 
   const handleTransporterAction = async (nextStatus) => {
     setIsUpdating(true);
@@ -233,6 +289,52 @@ export default function DeliveryDetailModal({
           </h4>
           <DeliveryTimeline currentStatus={currentDelivery.status} delivery={currentDelivery} />
         </div>
+
+        {/* Farmer Price Quote Review & Acceptance Action Bar */}
+        {isFarmer && currentDelivery.status === 'price_offered' && (
+          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div>
+                <span className="font-bold text-[#34D399] uppercase tracking-wider text-xs block">
+                  Carrier Price Quote Received
+                </span>
+                <span className="text-xs text-white/80">
+                  {currentDelivery.transporterName || 'Vetri Logistics'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} for this ~{currentDelivery.estimatedDistanceKm || 150} km route.
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-2xl font-extrabold text-[#34D399] font-heading block">
+                  ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/15">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isUpdating}
+                onClick={handleFarmerDeclinePrice}
+                icon={XCircle}
+                iconPosition="left"
+                className="text-xs text-red-300 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                Decline Quote
+              </Button>
+              <Button
+                variant="accent"
+                size="md"
+                disabled={isUpdating}
+                onClick={handleFarmerAcceptPrice}
+                icon={Check}
+                iconPosition="left"
+                className="font-bold py-2.5 px-6 shadow-xs cursor-pointer"
+              >
+                {isUpdating ? 'Opening Payment...' : `Pay ₹${Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} via Razorpay & Confirm`}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Transporter Action Bar */}
         {isTransporter && (

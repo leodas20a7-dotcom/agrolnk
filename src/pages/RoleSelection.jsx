@@ -54,11 +54,11 @@ export default function RoleSelection({ onNavigate, navState }) {
       id: 'warehouse',
       title: 'Warehouse',
       headline: 'Certified storage hub',
-      description: 'Operate WDRA certified chambers, issue digital e-NWR receipts, and manage lots.',
+      description: 'Operate certified storage chambers, issue digital receipts, and manage lots.',
       iconEmoji: '🏭',
       badge: 'WDRA Certified',
       bgLight: '#F3E8FF',
-      highlights: ['Digital e-NWR titles', 'Cold chain telemetry'],
+      highlights: ['Digital storage receipts', 'Cold chain telemetry'],
     },
   ];
 

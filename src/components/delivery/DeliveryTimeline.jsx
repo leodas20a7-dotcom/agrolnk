@@ -53,6 +53,7 @@ export default function DeliveryTimeline({
   const statusOrder = [
     'pending',
     'transport_requested',
+    'price_offered',
     'assigned',
     'picked_up',
     'in_transit',

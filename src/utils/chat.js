@@ -4,7 +4,7 @@
 
 import { supabase } from '../lib/supabase';
 
-const CHAT_STORAGE_KEY = 'agrolnk_privacy_chat_threads';
+const CHAT_STORAGE_KEY = 'agrolnk_chat_threads_v4';
 
 // Comprehensive multilingual number words (English, Hindi/Hinglish, Tamil/Tanglish)
 const NUMBER_WORDS_MAP = {
@@ -249,8 +249,46 @@ export function getSharedThreadKey(userA, userB) {
 
 function getStoredThreads() {
   try {
-    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('agrolnk_privacy_chat_threads');
+      localStorage.removeItem('agrolnk_privacy_chat_threads_v2');
+      localStorage.removeItem('agrolnk_privacy_chat_threads_v3');
+    }
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CHAT_STORAGE_KEY) : null;
+    const threads = raw ? JSON.parse(raw) : {};
+
+    let modified = false;
+    for (const key of Object.keys(threads)) {
+      if (Array.isArray(threads[key])) {
+        const cleaned = threads[key].filter(
+          (m) =>
+            m &&
+            !m.isSystem &&
+            m.id !== 'msg_init' &&
+            !m.id?.startsWith('wh_slm_') &&
+            !m.id?.startsWith('dg_') &&
+            !m.id?.startsWith('vr_') &&
+            !m.id?.startsWith('mn_') &&
+            !m.id?.startsWith('sk_') &&
+            !m.id?.startsWith('vl_') &&
+            !m.id?.startsWith('kc_') &&
+            !m.id?.startsWith('sp_') &&
+            !m.text?.includes('quintal') &&
+            !m.text?.includes('tariff') &&
+            !m.text?.includes('Chamber B2') &&
+            !m.text?.includes('e-NWR') &&
+            !m.text?.includes('Privacy Shield')
+        );
+        if (cleaned.length !== threads[key].length) {
+          threads[key] = cleaned;
+          modified = true;
+        }
+      }
+    }
+    if (modified && typeof localStorage !== 'undefined') {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(threads));
+    }
+    return threads;
   } catch {
     return {};
   }
@@ -600,351 +638,12 @@ export function getPlatformContacts(user) {
   return baseContacts;
 }
 
-const INITIAL_DEMO_THREADS = {
-  chat_partner_wh_salem_01: [
-    {
-      id: 'wh_slm_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active: Personal phone numbers, emails, and direct accounts are protected from off-platform exposure.',
-      timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'wh_slm_1',
-      senderId: 'wh_salem_operator',
-      senderName: 'Salem Agri Cold Storage Hub',
-      senderRole: 'warehouse',
-      text: 'Hello! Chamber B2 (4°C-8°C cold vault) has 1,300 MT available space for perishables and vegetables. WDRA receipts issued within 2 hours of gate arrival.',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'wh_slm_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'buyer',
-      text: 'What is the monthly storage rate per quintal for tomatoes, and do you support e-NWR pledges?',
-      timestamp: new Date(Date.now() - 1800000).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'wh_slm_3',
-      senderId: 'wh_salem_operator',
-      senderName: 'Salem Agri Cold Storage Hub',
-      senderRole: 'warehouse',
-      text: 'Our tariff is ₹35 per quintal monthly. Yes, all e-NWRs are accredited for instant collateral financing on Agrolnk.',
-      timestamp: new Date(Date.now() - 600000).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  chat_partner_wh_dindigul_02: [
-    {
-      id: 'dg_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active: WDRA and NABARD certified logistics facility.',
-      timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'dg_1',
-      senderId: 'wh_dindigul_operator',
-      senderName: 'Dindigul Central Agri Logistics Park',
-      senderRole: 'warehouse',
-      text: 'NABARD approved modern grain silos and cold cells are open for storage deposits. Daily electronic assaying available.',
-      timestamp: new Date(Date.now() - 3600000 * 18).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'dg_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'buyer',
-      text: 'Can we schedule a 20 MT consignment intake for tomorrow morning?',
-      timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'dg_3',
-      senderId: 'wh_dindigul_operator',
-      senderName: 'Dindigul Central Agri Logistics Park',
-      senderRole: 'warehouse',
-      text: 'Automated hermetic chambers are ready for maize and pulses. Bay 3 allocated from 8:00 AM.',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  direct_maran_veerappan: [
-    {
-      id: 'vr_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active: 100% Escrow Protection is enabled for Order #AGM-6454.',
-      timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'vr_1',
-      senderId: 'usr_farmer_veerappan',
-      senderName: 'veerappan (Farmer)',
-      senderRole: 'farmer',
-      text: 'Namaste! Grade-A Basmati Rice (100 kg) is harvested and packed in hermetic 50kg bags. Assayed moisture is 11.8%.',
-      timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'vr_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'buyer',
-      text: 'Great! The payment of ₹8,400 is locked securely in Agrolnk Escrow. Vetri Logistics is scheduled for pickup today.',
-      timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'vr_3',
-      senderId: 'usr_farmer_veerappan',
-      senderName: 'veerappan (Farmer)',
-      senderRole: 'farmer',
-      text: 'Understood. Dispatch gate pass is prepared. We will hand over the consignment to the transporter.',
-      timestamp: new Date(Date.now() - 1200000).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  direct_maran_mani: [
-    {
-      id: 'mn_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active for Order #AGM-2361.',
-      timestamp: new Date(Date.now() - 3600000 * 6).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'mn_1',
-      senderId: 'usr_farmer_mani',
-      senderName: 'mani (Farmer)',
-      senderRole: 'farmer',
-      text: 'Organic Tomatoes lot (100 kg) has passed quality sorting at Attur collection point.',
-      timestamp: new Date(Date.now() - 3600000 * 2.5).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'mn_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'buyer',
-      text: 'Please ensure crates are cushioned to prevent transit damage.',
-      timestamp: new Date(Date.now() - 1800000).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'mn_3',
-      senderId: 'usr_farmer_mani',
-      senderName: 'mani (Farmer)',
-      senderRole: 'farmer',
-      text: 'Yes, double corrugated ventilated crates used. Ready for loading at 3 PM.',
-      timestamp: new Date(Date.now() - 900000).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  direct_maran_sakthivel: [
-    {
-      id: 'sk_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active.',
-      timestamp: new Date(Date.now() - 3600000 * 7).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'sk_1',
-      senderId: 'usr_farmer_sakthi',
-      senderName: 'Sakthi Vel (Farmer)',
-      senderRole: 'farmer',
-      text: 'Good morning! Fresh Farm Carrots (50 kg) batch has been harvested and cleaned.',
-      timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'sk_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'buyer',
-      text: 'Great, please coordinate pickup with Vetri Logistics reefer truck.',
-      timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'sk_3',
-      senderId: 'usr_farmer_sakthi',
-      senderName: 'Sakthi Vel (Farmer)',
-      senderRole: 'farmer',
-      text: 'Sure, dispatch coordinator has scheduled vehicle TN 28 AB 4092 for pickup at 4 PM.',
-      timestamp: new Date(Date.now() - 1200000).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  chat_partner_usr_transporter_03: [
-    {
-      id: 'vl_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active.',
-      timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'vl_1',
-      senderId: 'usr_transporter_03',
-      senderName: 'Vetri Logistics Fleet',
-      senderRole: 'transporter',
-      text: 'Reefer Truck TN 28 AB 4092 is dispatched. Live corridor tracking is active on your Deliveries dashboard.',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'vl_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'buyer',
-      text: 'What is the estimated time of arrival at the destination warehouse?',
-      timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'vl_3',
-      senderId: 'usr_transporter_03',
-      senderName: 'Vetri Logistics Fleet',
-      senderRole: 'transporter',
-      text: 'ETA is 6:30 PM today. Cold chain temperature is locked at 6°C throughout transit.',
-      timestamp: new Date(Date.now() - 600000).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  chat_partner_usr_financier_05: [
-    {
-      id: 'kc_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active.',
-      timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'kc_1',
-      senderId: 'usr_financier_05',
-      senderName: 'Kisan Capital Credit Desk',
-      senderRole: 'financier',
-      text: 'Your trade credit pre-approval is verified. Earmarked liquidity is available for auction settlements.',
-      timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'kc_2',
-      senderId: 'usr_current',
-      senderName: 'You',
-      senderRole: 'buyer',
-      text: 'Can we get the e-NWR pledge disbursement release for Order #AGM-6454?',
-      timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'kc_3',
-      senderId: 'usr_financier_05',
-      senderName: 'Kisan Capital Credit Desk',
-      senderRole: 'financier',
-      text: 'Disbursement request is sanctioned. ₹75,000 released directly into escrow settlement vault.',
-      timestamp: new Date(Date.now() - 800000).toISOString(),
-      isSystem: false,
-    },
-  ],
-
-  agrolnk_support_desk: [
-    {
-      id: 'sp_0',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active: 100% Escrow Protection & Support Desk.',
-      timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
-      isSystem: true,
-    },
-    {
-      id: 'sp_1',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Desk & Smart Assistant',
-      senderRole: 'admin',
-      text: 'Welcome to AgroLnk! Official support desk is active with 100% Escrow Protection and verified trade settlement. How can we assist you today?',
-      timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'sp_2',
-      senderId: 'usr_buyer_maran',
-      senderName: 'Maran',
-      senderRole: 'buyer',
-      text: 'How do I request dispute mediation or warehouse assaying checks?',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      isSystem: false,
-    },
-    {
-      id: 'sp_3',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Desk & Smart Assistant',
-      senderRole: 'admin',
-      text: 'You can initiate third-party quality assaying directly from your Active Orders tab or message here anytime for senior escrow mediation.',
-      timestamp: new Date(Date.now() - 900000).toISOString(),
-      isSystem: false,
-    },
-  ],
-};
+const INITIAL_DEMO_THREADS = {};
 
 /**
- * Retrieve demo conversation seed for matching thread keys
+ * Retrieve demo conversation seed for matching thread keys (clean empty default)
  */
 export function getDemoSeedForThread(threadKey) {
-  if (!threadKey) return null;
-  const key = String(threadKey).toLowerCase();
-
-  let seed = null;
-  if (INITIAL_DEMO_THREADS[threadKey]) {
-    seed = INITIAL_DEMO_THREADS[threadKey];
-  } else if (key.includes('support')) {
-    seed = INITIAL_DEMO_THREADS.agrolnk_support_desk;
-  } else if (key.includes('salem')) {
-    seed = INITIAL_DEMO_THREADS.chat_partner_wh_salem_01;
-  } else if (key.includes('dindigul')) {
-    seed = INITIAL_DEMO_THREADS.chat_partner_wh_dindigul_02;
-  } else if (key.includes('veerappan')) {
-    seed = INITIAL_DEMO_THREADS.direct_maran_veerappan;
-  } else if (key.includes('mani')) {
-    seed = INITIAL_DEMO_THREADS.direct_maran_mani;
-  } else if (key.includes('sakthi')) {
-    seed = INITIAL_DEMO_THREADS.direct_maran_sakthivel;
-  } else if (key.includes('transporter') || key.includes('vetri')) {
-    seed = INITIAL_DEMO_THREADS.chat_partner_usr_transporter_03;
-  } else if (key.includes('financier') || key.includes('kisan')) {
-    seed = INITIAL_DEMO_THREADS.chat_partner_usr_financier_05;
-  }
-
-  if (seed && Array.isArray(seed)) {
-    return seed.map((m) => ({ ...m, isRead: true }));
-  }
   return null;
 }
 
@@ -1006,36 +705,50 @@ export async function fetchThreadMessages(threadKey) {
     }
 
     if (data && data.length > 0) {
-      const formatted = data.map(mapDbRowToMessage);
+      const dummyIds = [];
+      const genuine = data
+        .map(mapDbRowToMessage)
+        .filter((m) => {
+          const isDummy =
+            !m ||
+            m.isSystem ||
+            m.id === 'msg_init' ||
+            m.id?.startsWith('wh_slm_') ||
+            m.id?.startsWith('dg_') ||
+            m.id?.startsWith('vr_') ||
+            m.id?.startsWith('mn_') ||
+            m.id?.startsWith('sk_') ||
+            m.id?.startsWith('vl_') ||
+            m.id?.startsWith('kc_') ||
+            m.id?.startsWith('sp_') ||
+            m.text?.includes('quintal') ||
+            m.text?.includes('tariff') ||
+            m.text?.includes('Chamber B2') ||
+            m.text?.includes('e-NWR') ||
+            m.text?.includes('Privacy Shield');
+          if (isDummy && m.id) {
+            dummyIds.push(m.id);
+          }
+          return !isDummy;
+        });
+
+      if (dummyIds.length > 0) {
+        supabase
+          .from('chat_messages')
+          .delete()
+          .in('id', dummyIds)
+          .then(() => {})
+          .catch(() => {});
+      }
+
       const threads = getStoredThreads();
       const currentLocal = threads[threadKey] || [];
       // Keep any locally created message that might still be in-flight
-      const pendingLocal = currentLocal.filter((m) => !formatted.some((f) => f.id === m.id));
-      const merged = [...formatted, ...pendingLocal];
+      const pendingLocal = currentLocal.filter((m) => !genuine.some((f) => f.id === m.id));
+      const merged = [...genuine, ...pendingLocal];
       threads[threadKey] = merged;
       saveStoredThreads(threads);
       return merged;
-    }
-
-    // If Supabase table is empty for this thread, seed initial demo dialogue into Supabase
-    const demoSeed = getDemoSeedForThread(threadKey);
-    if (demoSeed && demoSeed.length > 0) {
-      const dbRows = demoSeed.map((m) => mapMessageToDbRow(threadKey, m));
-      supabase
-        .from('chat_messages')
-        .insert(dbRows)
-        .then(({ error: insertErr }) => {
-          if (insertErr) {
-            // Schema-safe retry without is_read
-            const fallbackRows = dbRows.map(({ is_read, ...rest }) => rest);
-            supabase.from('chat_messages').insert(fallbackRows).then(() => {});
-          }
-        });
-
-      const threads = getStoredThreads();
-      threads[threadKey] = demoSeed;
-      saveStoredThreads(threads);
-      return demoSeed;
     }
 
     return localCached;
@@ -1104,61 +817,39 @@ export function subscribeToThread(threadKey, onNewMessage, onMessageUpdate) {
 }
 
 /**
- * Get messages for a specific order or context thread (with bidirectional fallback & demo seed auto-repair)
+ * Get messages for a specific order or context thread (clean genuine messages only)
  */
 export function getThreadMessages(threadKey) {
+  if (!threadKey) return [];
   const threads = getStoredThreads();
   const stored = threads[threadKey];
-  const demoSeed = getDemoSeedForThread(threadKey);
 
-  // Check if stored messages already contain genuine conversation (not just system notices)
-  const hasRealMessages =
-    stored &&
-    Array.isArray(stored) &&
-    stored.some((m) => !m.isSystem && m.id !== 'msg_init');
-
-  // If already populated with genuine user conversation, return stored messages
-  if (stored && Array.isArray(stored) && hasRealMessages && stored.length >= (demoSeed ? demoSeed.length : 2)) {
-    return stored;
+  if (stored && Array.isArray(stored)) {
+    // Filter out obsolete dummy texts, fake system notices, and stale bot spam
+    const genuine = stored.filter(
+      (m) =>
+        m &&
+        !m.isSystem &&
+        m.id !== 'msg_init' &&
+        !m.id?.startsWith('wh_slm_') &&
+        !m.id?.startsWith('dg_') &&
+        !m.id?.startsWith('vr_') &&
+        !m.id?.startsWith('mn_') &&
+        !m.id?.startsWith('sk_') &&
+        !m.id?.startsWith('vl_') &&
+        !m.id?.startsWith('kc_') &&
+        !m.id?.startsWith('sp_') &&
+        !m.text?.includes('Chamber B2 (4°C-8°C') &&
+        !m.text?.includes('Privacy Shield Active')
+    );
+    if (genuine.length !== stored.length) {
+      threads[threadKey] = genuine;
+      saveStoredThreads(threads);
+    }
+    return genuine;
   }
 
-  // If a demo seed exists, use the demo seed and save it
-  if (demoSeed && Array.isArray(demoSeed) && demoSeed.length > 0) {
-    const extraUserMsgs = (stored && Array.isArray(stored))
-      ? stored.filter(
-          (m) =>
-            !m.isSystem &&
-            m.id !== 'msg_init' &&
-            !demoSeed.some((d) => d.id === m.id || (d.text === m.text && d.senderId === m.senderId))
-        )
-      : [];
-    const merged = [...demoSeed, ...extraUserMsgs];
-    threads[threadKey] = merged;
-    saveStoredThreads(threads);
-    return merged;
-  }
-
-  // If stored exists (even if fallback), return it
-  if (stored && Array.isArray(stored) && stored.length > 0) {
-    return stored;
-  }
-
-  // Seed initial welcome message fallback
-  const defaultMessages = [
-    {
-      id: 'msg_init',
-      senderId: 'system_bot',
-      senderName: 'AgroLnk Trust & Privacy Bot',
-      senderRole: 'system',
-      text: '🛡️ AgroLnk Smart Privacy Shield Active: Personal phone numbers, emails, and direct accounts are protected from off-platform exposure. Please coordinate consignment pickup, delivery timing, and lot specifications securely here.',
-      timestamp: new Date().toISOString(),
-      isSystem: true,
-      isRead: true,
-    },
-  ];
-  threads[threadKey] = defaultMessages;
-  saveStoredThreads(threads);
-  return defaultMessages;
+  return [];
 }
 
 /**
