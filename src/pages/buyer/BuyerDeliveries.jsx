@@ -74,9 +74,13 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
     currentPage * pageSize
   );
 
-  const handleConfirmDirect = (delivery) => {
-    confirmBuyerReceipt(delivery.id);
-    loadData();
+  const handleConfirmDirect = async (delivery) => {
+    try {
+      await confirmBuyerReceipt(delivery.id);
+      await loadData();
+    } catch (err) {
+      console.error('Error confirming delivery receipt:', err);
+    }
   };
 
   return (
@@ -260,6 +264,7 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
                       delivery={item}
                       viewerRole="buyer"
                       onView={(d) => setSelectedDeliveryForDetail(d)}
+                      onConfirmReceipt={(d) => handleConfirmDirect(d)}
                     />
                   ))}
                 </div>

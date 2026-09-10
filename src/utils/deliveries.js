@@ -648,21 +648,42 @@ export async function confirmPickup(deliveryId) {
 }
 
 /**
- * Confirm buyer delivery completion with OTP
+ * Confirm buyer delivery completion (Releases final escrow and settles consignment)
  */
 export async function confirmBuyerReceipt(deliveryId) {
   try {
     const { data, error } = await supabase
       .from('deliveries')
       .update({
-        status: 'delivered',
+        status: 'completed',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', deliveryId)
+      .or(`id.eq.${deliveryId},delivery_number.eq.${deliveryId}`)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error confirming delivery receipt:', error);
+      throw error;
+    }
+
+    // Auto-sync linked order in orders table to 'completed' and 'released' escrow
+    try {
+      const orderIdentifier = data.order_id || data.order_number;
+      if (orderIdentifier) {
+        await supabase
+          .from('orders')
+          .update({
+            status: 'completed',
+            escrow_status: 'released',
+            updated_at: new Date().toISOString(),
+          })
+          .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+      }
+    } catch (orderSyncErr) {
+      console.warn('Linked order auto-sync notice:', orderSyncErr);
+    }
+
     return mapDeliveryFromDb(data);
   } catch (err) {
     console.error('Error confirming delivery:', err);
