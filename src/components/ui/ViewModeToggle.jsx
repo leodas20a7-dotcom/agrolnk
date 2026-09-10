@@ -8,6 +8,9 @@ export default function ViewModeToggle({
   rowsLabel = 'Rows',
   className = '',
 }) {
+  const isRows = viewMode === 'rows' || viewMode === 'row' || viewMode === 'list';
+  const isGrid = viewMode === 'grid' || !isRows;
+
   return (
     <div className={`flex items-center bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl shrink-0 ${className}`}>
       <button
@@ -15,7 +18,7 @@ export default function ViewModeToggle({
         onClick={() => onViewModeChange('grid')}
         title="Card Box Grid View"
         className={`p-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-          viewMode === 'grid'
+          isGrid
             ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
             : 'text-[#566861] hover:text-[#0B3326]'
         }`}
@@ -28,7 +31,7 @@ export default function ViewModeToggle({
         onClick={() => onViewModeChange('rows')}
         title="Row / List Records View"
         className={`p-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-          viewMode === 'rows'
+          isRows
             ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
             : 'text-[#566861] hover:text-[#0B3326]'
         }`}
@@ -39,3 +42,4 @@ export default function ViewModeToggle({
     </div>
   );
 }
+

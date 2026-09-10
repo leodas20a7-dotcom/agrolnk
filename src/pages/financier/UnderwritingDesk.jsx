@@ -213,20 +213,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
               Try adjusting your search keywords or switching filter criteria.
             </p>
           </Card>
-        ) : viewMode === 'row' ? (
-          <div className="space-y-3">
-            {filteredRequests
-              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-              .map((req) => (
-                <FinancingRow
-                  key={req.id}
-                  request={req}
-                  viewerRole="financier"
-                  onView={() => setSelectedRequestForReview(req)}
-                />
-              ))}
-          </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {filteredRequests
               .slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -343,6 +330,19 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                   </Card>
                 );
               })}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredRequests
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((req) => (
+                <FinancingRow
+                  key={req.id}
+                  request={req}
+                  viewerRole="financier"
+                  onView={() => setSelectedRequestForReview(req)}
+                />
+              ))}
           </div>
         )}
 

@@ -177,19 +177,7 @@ export default function CollateralVault({ currentUser, onNavigate }) {
               Try adjusting your search criteria.
             </p>
           </Card>
-        ) : viewMode === 'row' ? (
-          <div className="space-y-3">
-            {filteredInventory
-              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-              .map((item) => (
-                <CollateralRow
-                  key={item.id}
-                  item={item}
-                  onOfferAdvance={() => onNavigate('financier-underwriting')}
-                />
-              ))}
-          </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredInventory
               .slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -274,6 +262,18 @@ export default function CollateralVault({ currentUser, onNavigate }) {
                     </Button>
                   </div>
                 </Card>
+              ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredInventory
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((item) => (
+                <CollateralRow
+                  key={item.id}
+                  item={item}
+                  onOfferAdvance={() => onNavigate('financier-underwriting')}
+                />
               ))}
           </div>
         )}
