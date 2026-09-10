@@ -207,13 +207,13 @@ export default function SelfTransportModal({
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-[#E5EDE8]">
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 border-t border-[#E5EDE8]">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-xs"
+              className="text-xs justify-center w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -222,7 +222,7 @@ export default function SelfTransportModal({
               variant="accent"
               size="md"
               disabled={isSubmitting}
-              className="text-xs font-bold"
+              className="text-xs font-bold justify-center w-full sm:w-auto"
             >
               {isSubmitting ? 'Dispatching & Notifying...' : 'Confirm Dispatch & Notify Buyer'}
             </Button>

@@ -199,13 +199,13 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
         </div>
 
         {/* Fixed Actions Footer */}
-        <div className="p-4 sm:p-6 pt-4 border-t border-[#E5EDE8] flex items-center gap-3 shrink-0 bg-[#FAFBF9]">
+        <div className="p-4 sm:p-6 pt-4 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0 bg-[#FAFBF9]">
           <Button
             variant="secondary"
             size="md"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 justify-center font-semibold text-xs py-3 cursor-pointer"
+            className="flex-1 justify-center font-semibold text-xs py-2.5 sm:py-3 cursor-pointer w-full sm:w-auto"
           >
             Cancel
           </Button>
@@ -216,7 +216,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
             disabled={isSubmitting}
             icon={Zap}
             iconPosition="left"
-            className="flex-1 justify-center font-bold text-xs py-3 shadow-xs cursor-pointer bg-[#0B3326] text-white hover:bg-[#0A261D]"
+            className="flex-1 justify-center font-bold text-xs py-2.5 sm:py-3 shadow-xs cursor-pointer bg-[#0B3326] text-white hover:bg-[#0A261D] w-full sm:w-auto"
           >
             {isSubmitting ? 'Opening Gateway...' : `Pay ${formatINR(financials.totalBuyerPayable)}`}
           </Button>

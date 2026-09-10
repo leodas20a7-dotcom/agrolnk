@@ -258,23 +258,24 @@ export default function InstitutionalUnderwriteModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between gap-3">
+        <div className="pt-2 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           <button
             type="button"
             onClick={handleReject}
             disabled={isSubmitting}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 px-3 py-2 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors cursor-pointer w-full sm:w-auto text-center"
           >
             <XCircle className="w-4 h-4" /> Reject Facility
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <Button
               type="button"
               variant="secondary"
               size="sm"
               onClick={onClose}
               disabled={isSubmitting}
+              className="justify-center w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -285,7 +286,7 @@ export default function InstitutionalUnderwriteModal({
               icon={CheckCircle2}
               iconPosition="right"
               disabled={isSubmitting}
-              className="font-bold cursor-pointer"
+              className="font-bold cursor-pointer justify-center w-full sm:w-auto"
             >
               {isSubmitting ? 'Processing...' : `Approve ₹${approvedAmount.toLocaleString('en-IN')}`}
             </Button>

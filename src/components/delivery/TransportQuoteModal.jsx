@@ -264,13 +264,13 @@ export default function TransportQuoteModal({
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-end gap-3">
+          <div className="pt-3 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
             <Button
               type="button"
               variant="ghost"
               size="md"
               onClick={onClose}
-              className="text-xs text-[#566861]"
+              className="text-xs text-[#566861] justify-center w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -281,9 +281,9 @@ export default function TransportQuoteModal({
               disabled={isSubmitting}
               icon={ArrowRight}
               iconPosition="right"
-              className="font-bold py-2.5 px-6 shadow-xs cursor-pointer"
+              className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"
             >
-              {isSubmitting ? 'Submitting Quote...' : `Send Quote (₹${Number(freightAmount || 0).toLocaleString('en-IN')})`}
+              {isSubmitting ? 'Submitting Quote...' : 'Submit Binding Quote'}
             </Button>
           </div>
 

@@ -316,19 +316,19 @@ export default function UserProfileModal({
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-[#E5EDE8] flex items-center justify-between gap-3">
-            <span className="text-[11px] text-[#566861] flex items-center gap-1">
+          <div className="pt-4 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <span className="text-[11px] text-[#566861] flex items-center justify-center sm:justify-start gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
               Secured in your encrypted session
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 onClick={onClose}
-                className="text-xs font-semibold"
+                className="text-xs font-semibold justify-center w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -339,7 +339,7 @@ export default function UserProfileModal({
                 icon={Save}
                 iconPosition="left"
                 disabled={isSaving}
-                className="text-xs font-bold shadow-xs cursor-pointer"
+                className="text-xs font-bold shadow-xs cursor-pointer justify-center w-full sm:w-auto"
               >
                 {isSaving ? 'Saving...' : 'Save Profile Defaults'}
               </Button>
