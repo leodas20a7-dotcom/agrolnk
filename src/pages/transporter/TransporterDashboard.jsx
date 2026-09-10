@@ -4,8 +4,11 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import DeliveryCard from '../../components/delivery/DeliveryCard';
+import DeliveryRow from '../../components/delivery/DeliveryRow';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import TransportQuoteModal from '../../components/delivery/TransportQuoteModal';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
   Truck,
   Package,
@@ -39,6 +42,9 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
   const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'all'
   const [deliveries, setDeliveries] = useState([]);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
   const [stats, setStats] = useState({
     availableJobs: 0,
     activeDeliveries: 0,
@@ -85,10 +91,16 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
     if (activeTab === 'available') return availableJobs;
     if (activeTab === 'active') return activeTrips;
     if (activeTab === 'completed') return completedTrips;
-    return deliveries;
+    return safeDeliveries;
   };
 
   const filteredDeliveries = getFilteredList();
+
+  const totalPages = Math.ceil(filteredDeliveries.length / pageSize) || 1;
+  const paginatedDeliveries = filteredDeliveries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleStartQuote = (delivery) => {
     setQuotingDelivery(delivery);
@@ -194,7 +206,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
         {/* Deliveries & Jobs Management */}
         <div className="space-y-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-[#0B3326] font-heading">
                 Logistics Dispatch Hub
@@ -203,6 +215,8 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                 Accept new delivery jobs and manage live trip milestones
               </p>
             </div>
+
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
 
           {/* Filter Tabs */}
@@ -212,7 +226,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }}
                   className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                     isActive
                       ? 'bg-[#0B3326] text-white shadow-xs'
@@ -234,18 +248,43 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             })}
           </div>
 
-          {/* Grid of Delivery Cards */}
+          {/* Deliveries List / Grid Content */}
           {filteredDeliveries.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {filteredDeliveries.map((item) => (
-                <DeliveryCard
-                  key={item.id}
-                  delivery={item}
-                  viewerRole="transporter"
-                  onView={(d) => setSelectedDelivery(d)}
-                  onAccept={(d) => handleStartQuote(d)}
-                />
-              ))}
+            <div className="space-y-6">
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryCard
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="transporter"
+                      onView={(d) => setSelectedDelivery(d)}
+                      onAccept={(d) => handleStartQuote(d)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryRow
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="transporter"
+                      onView={(d) => setSelectedDelivery(d)}
+                      onAccept={(d) => handleStartQuote(d)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredDeliveries.length}
+                pageSize={pageSize}
+              />
             </div>
           ) : (
             <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">

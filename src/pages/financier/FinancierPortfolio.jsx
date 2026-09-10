@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import Pagination from '../../components/ui/Pagination';
 import {
   PieChart,
   Landmark,
@@ -28,6 +29,8 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
 
   const [activeLoans, setActiveLoans] = useState([]);
   const [disbursements, setDisbursements] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 4;
 
   useEffect(() => {
     let isMounted = true;
@@ -152,82 +155,100 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
           </div>
 
           <div className="space-y-3.5">
-            {activeLoans.map((loan) => {
-              const approvedAmt = loan.approvedAmount || loan.requestedAmount;
-              const rate = loan.interestRate || 0.85;
-              const tenor = loan.tenorDays || 30;
-              const estInterest = Math.round(approvedAmt * (rate / 100) * (tenor / 30));
+            {activeLoans.length === 0 ? (
+              <Card className="p-8 bg-white border border-[#E5EDE8] text-center text-xs text-[#566861]">
+                No active loan facilities deployed at the moment.
+              </Card>
+            ) : (
+              activeLoans
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((loan) => {
+                  const approvedAmt = loan.approvedAmount || loan.requestedAmount;
+                  const rate = loan.interestRate || 0.85;
+                  const tenor = loan.tenorDays || 30;
+                  const estInterest = Math.round(approvedAmt * (rate / 100) * (tenor / 30));
 
-              return (
-                <Card
-                  key={loan.id}
-                  hoverEffect
-                  className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-[#0B3326]">
-                          {loan.requestNumber}
-                        </span>
-                        <span className="text-xs text-[#566861]">• Order {loan.orderNumber}</span>
-                        <Badge variant="emerald" size="sm">
-                          Active Facility
-                        </Badge>
-                      </div>
-                      <h3 className="text-base font-bold text-[#14211D]">
-                        {loan.applicantName} ({loan.applicantRole.toUpperCase()})
-                      </h3>
-                      <span className="text-xs text-[#566861]">
-                        Commodity: <b>{loan.commodity} ({loan.grade})</b> • {loan.quantity} {loan.unit}
-                      </span>
-                    </div>
+                  return (
+                    <Card
+                      key={loan.id}
+                      hoverEffect
+                      className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-[#0B3326]">
+                              {loan.requestNumber}
+                            </span>
+                            <span className="text-xs text-[#566861]">• Order {loan.orderNumber}</span>
+                            <Badge variant="emerald" size="sm">
+                              Active Facility
+                            </Badge>
+                          </div>
+                          <h3 className="text-base font-bold text-[#14211D]">
+                            {loan.applicantName} ({loan.applicantRole.toUpperCase()})
+                          </h3>
+                          <span className="text-xs text-[#566861]">
+                            Commodity: <b>{loan.commodity} ({loan.grade})</b> • {loan.quantity} {loan.unit}
+                          </span>
+                        </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F8FAF8] p-3.5 rounded-2xl border border-[#E5EDE8] text-center text-xs">
-                      <div>
-                        <span className="text-[10px] text-[#566861] block">Principal</span>
-                        <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
-                          ₹{approvedAmt.toLocaleString('en-IN')}
-                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F8FAF8] p-3.5 rounded-2xl border border-[#E5EDE8] text-center text-xs">
+                          <div>
+                            <span className="text-[10px] text-[#566861] block">Principal</span>
+                            <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                              ₹{approvedAmt.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] block">Interest Rate</span>
+                            <span className="font-bold text-[#10B981] text-xs sm:text-sm">
+                              {rate}% / month
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] block">Tenor</span>
+                            <span className="font-bold text-[#14211D] text-xs sm:text-sm">
+                              {tenor} Days
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] block">Est. Return</span>
+                            <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                              ₹{(approvedAmt + estInterest).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[10px] text-[#566861] block">Interest Rate</span>
-                        <span className="font-bold text-[#10B981] text-xs sm:text-sm">
-                          {rate}% / month
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#566861] block">Tenor</span>
-                        <span className="font-bold text-[#14211D] text-xs sm:text-sm">
-                          {tenor} Days
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#566861] block">Est. Return</span>
-                        <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
-                          ₹{(approvedAmt + estInterest).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="pt-3 border-t border-[#E5EDE8] flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 text-[#566861]">
-                      <Lock className="w-4 h-4 text-[#10B981]" />
-                      <span>Collateral: <b>{loan.collateralType || 'Escrow Lien Locked'}</b></span>
-                    </div>
+                      <div className="pt-3 border-t border-[#E5EDE8] flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2 text-[#566861]">
+                          <Lock className="w-4 h-4 text-[#10B981]" />
+                          <span>Collateral: <b>{loan.collateralType || 'Escrow Lien Locked'}</b></span>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[#10B981] font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Auto Escrow Deduction Scheduled</span>
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-[#10B981] font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Auto Escrow Deduction Scheduled</span>
+                          </span>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })
+            )}
           </div>
+
+          {activeLoans.length > pageSize && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(activeLoans.length / pageSize)}
+              onPageChange={setCurrentPage}
+              totalItems={activeLoans.length}
+              pageSize={pageSize}
+            />
+          )}
         </div>
 
       </div>

@@ -7,6 +7,9 @@ import AlertModal from '../../components/ui/AlertModal';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
 import WarehouseSetupModal from '../../components/warehouse/WarehouseSetupModal';
+import WarehouseBatchRow from '../../components/warehouse/WarehouseBatchRow';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
   Building2,
   Package,
@@ -52,6 +55,10 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'dispatched' | 'chambers'
   const [stats, setStats] = useState(null);
   const [inventory, setInventory] = useState([]);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [dispatchedPage, setDispatchedPage] = useState(1);
+  const pageSize = 6;
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [profile, setProfile] = useState(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
@@ -177,6 +184,20 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
       item.commodity?.toLowerCase().includes(q)
     );
   });
+
+  // Pagination for Active In-Storage Lots
+  const totalPages = Math.ceil(filteredStoredLots.length / pageSize) || 1;
+  const paginatedStoredLots = filteredStoredLots.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  // Pagination for Dispatched Archive Lots
+  const totalDispatchedPages = Math.ceil(filteredDispatchedLots.length / pageSize) || 1;
+  const paginatedDispatchedLots = filteredDispatchedLots.slice(
+    (dispatchedPage - 1) * pageSize,
+    dispatchedPage * pageSize
+  );
 
   const handleOpenDispatchConfirm = (item) => {
     setConfirmDispatchLot(item);
@@ -489,9 +510,12 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     Batches currently in storage under this WDRA license (Dispatched lots are moved to the Dispatched tab)
                   </p>
                 </div>
-                <Badge variant="emerald" size="sm">
-                  {filteredStoredLots.length} Batches Showing
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <Badge variant="emerald" size="sm">
+                    {filteredStoredLots.length} Batches Showing
+                  </Badge>
+                  <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+                </div>
               </div>
 
               {/* Interactive Search & Dropdown Filters */}
@@ -504,7 +528,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     type="text"
                     placeholder="Search receipt #, depositor, crop..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                     className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[#14211D] focus:outline-hidden focus:border-[#10B981] focus:bg-white transition-all"
                   />
                 </div>
@@ -518,7 +542,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     { value: 'all', label: 'All Records' },
                   ]}
                   value={statusFilter}
-                  onChange={(val) => setStatusFilter(val)}
+                  onChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}
                   placeholder="Storage Status"
                   searchPlaceholder="Search status..."
                   buttonClassName="bg-[#F8FAF8] py-2 text-xs"
@@ -531,7 +555,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     ...availableCommodities.map((c) => ({ value: c, label: c })),
                   ]}
                   value={commodityFilter}
-                  onChange={(val) => setCommodityFilter(val)}
+                  onChange={(val) => { setCommodityFilter(val); setCurrentPage(1); }}
                   placeholder="Commodity"
                   searchPlaceholder="Search crop..."
                   buttonClassName="bg-[#F8FAF8] py-2 text-xs"
@@ -544,7 +568,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     ...availableChambers.map((ch) => ({ value: ch, label: ch })),
                   ]}
                   value={chamberFilter}
-                  onChange={(val) => setChamberFilter(val)}
+                  onChange={(val) => { setChamberFilter(val); setCurrentPage(1); }}
                   placeholder="Chamber"
                   searchPlaceholder="Search chamber..."
                   buttonClassName="bg-[#F8FAF8] py-2 text-xs"
@@ -553,76 +577,101 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
 
-            {/* Inventory Cards Grid */}
+            {/* Inventory List / Grid Content */}
             {filteredStoredLots.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredStoredLots.map((item) => (
-                  <Card key={item.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between hover:border-[#10B981]/50 transition-all">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="emerald" size="sm">
-                          {item.receiptNumber}
-                        </Badge>
-                        <span className="text-xs text-[#566861]">
-                          Depositor: <strong>{item.farmerName}</strong>
-                        </span>
-                      </div>
+              <div className="space-y-6">
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {paginatedStoredLots.map((item) => (
+                      <Card key={item.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between hover:border-[#10B981]/50 transition-all">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="emerald" size="sm">
+                              {item.receiptNumber}
+                            </Badge>
+                            <span className="text-xs text-[#566861]">
+                              Depositor: <strong>{item.farmerName}</strong>
+                            </span>
+                          </div>
 
-                      <div>
-                        <h4 className="text-base font-bold text-[#14211D]">
-                          {item.commodity} ({item.totalQuantity} {item.unit})
-                        </h4>
-                        <span className="text-xs text-[#566861]">
-                          {item.chamber} • Grade {item.grade}
-                        </span>
-                      </div>
+                          <div>
+                            <h4 className="text-base font-bold text-[#14211D]">
+                              {item.commodity} ({item.totalQuantity} {item.unit})
+                            </h4>
+                            <span className="text-xs text-[#566861]">
+                              {item.chamber} • Grade {item.grade}
+                            </span>
+                          </div>
 
-                      <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#566861]">Available to Trade:</span>
-                          <span className={`font-bold ${item.availableQuantity > 0 ? 'text-[#10B981]' : 'text-[#566861]'}`}>
-                            {item.availableQuantity} {item.unit}
-                          </span>
+                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#566861]">Available to Trade:</span>
+                              <span className={`font-bold ${item.availableQuantity > 0 ? 'text-[#10B981]' : 'text-[#566861]'}`}>
+                                {item.availableQuantity} {item.unit}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#566861]">Locked / Listed:</span>
+                              <span className={`font-bold ${item.lockedQuantity > 0 ? 'text-[#D97706]' : 'text-[#566861]'}`}>
+                                {item.lockedQuantity || 0} {item.unit}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#566861]">Locked / Listed:</span>
-                          <span className={`font-bold ${item.lockedQuantity > 0 ? 'text-[#D97706]' : 'text-[#566861]'}`}>
-                            {item.lockedQuantity || 0} {item.unit}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
-                      <span className="text-xs text-[#566861] truncate">
-                        Assay: {item.assayedQuality?.moisture || 'Standard'}
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {item.availableQuantity === 0 && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleOpenDispatchConfirm(item)}
-                            className="text-[11px] font-semibold py-1.5 px-2 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 cursor-pointer"
-                            title="Issue gate pass & clear lot"
-                          >
-                            Mark Dispatched
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setSelectedReceipt(item)}
-                          icon={ArrowRight}
-                          iconPosition="right"
-                          className="text-xs font-bold py-1.5 px-3 cursor-pointer"
-                        >
-                          View Receipt
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+                        <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
+                          <span className="text-xs text-[#566861] truncate">
+                            Assay: {item.assayedQuality?.moisture || 'Standard'}
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {item.availableQuantity === 0 && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleOpenDispatchConfirm(item)}
+                                className="text-[11px] font-semibold py-1.5 px-2 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 cursor-pointer"
+                                title="Issue gate pass & clear lot"
+                              >
+                                Mark Dispatched
+                              </Button>
+                            )}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setSelectedReceipt(item)}
+                              icon={ArrowRight}
+                              iconPosition="right"
+                              className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                            >
+                              View Receipt
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {paginatedStoredLots.map((item) => (
+                      <WarehouseBatchRow
+                        key={item.id}
+                        item={item}
+                        isDispatched={false}
+                        onView={(b) => setSelectedReceipt(b)}
+                        onDispatch={(b) => handleOpenDispatchConfirm(b)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  totalItems={filteredStoredLots.length}
+                  pageSize={pageSize}
+                />
               </div>
             ) : (
               <div className="p-12 text-center bg-white rounded-3xl border border-[#E5EDE8] space-y-3">
@@ -641,6 +690,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     setStatusFilter('active');
                     setCommodityFilter('all');
                     setChamberFilter('all');
+                    setCurrentPage(1);
                   }}
                   icon={RotateCcw}
                   iconPosition="left"
@@ -665,67 +715,94 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                   Permanently archived warehouse receipts that have completed dispatch & gate exit
                 </p>
               </div>
-              <Badge variant="emerald" size="sm">
-                {filteredDispatchedLots.length} Dispatched Lots
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Badge variant="emerald" size="sm">
+                  {filteredDispatchedLots.length} Dispatched Lots
+                </Badge>
+                <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              </div>
             </div>
 
             {filteredDispatchedLots.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredDispatchedLots.map((item) => (
-                  <Card key={item.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between opacity-95">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] font-extrabold text-[10px] uppercase">
-                          ✓ Gate Exit Verified
-                        </span>
-                        <span className="text-xs text-[#566861]">
-                          {item.receiptNumber}
-                        </span>
-                      </div>
+              <div className="space-y-6">
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {paginatedDispatchedLots.map((item) => (
+                      <Card key={item.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between opacity-95">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] font-extrabold text-[10px] uppercase">
+                              ✓ Gate Exit Verified
+                            </span>
+                            <span className="text-xs text-[#566861]">
+                              {item.receiptNumber}
+                            </span>
+                          </div>
 
-                      <div>
-                        <h4 className="text-base font-bold text-[#14211D]">
-                          {item.commodity} ({item.totalQuantity} {item.unit})
-                        </h4>
-                        <span className="text-xs text-[#566861]">
-                          Depositor: <strong>{item.farmerName}</strong> • {item.chamber}
-                        </span>
-                      </div>
+                          <div>
+                            <h4 className="text-base font-bold text-[#14211D]">
+                              {item.commodity} ({item.totalQuantity} {item.unit})
+                            </h4>
+                            <span className="text-xs text-[#566861]">
+                              Depositor: <strong>{item.farmerName}</strong> • {item.chamber}
+                            </span>
+                          </div>
 
-                      <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#566861]">Dispatch Quantity:</span>
-                          <span className="font-bold text-[#0B3326]">{item.totalQuantity} {item.unit}</span>
+                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#566861]">Dispatch Quantity:</span>
+                              <span className="font-bold text-[#0B3326]">{item.totalQuantity} {item.unit}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#566861]">Storage Status:</span>
+                              <span className="font-bold text-[#10B981]">Released / Outbound Completed</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#566861]">Storage Status:</span>
-                          <span className="font-bold text-[#10B981]">Released / Outbound Completed</span>
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between">
-                      <span className="text-[11px] text-[#566861]">
-                        {new Date(item.updatedAt || item.depositedAt).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </span>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setSelectedReceipt(item)}
-                        icon={ArrowRight}
-                        iconPosition="right"
-                        className="text-xs font-bold py-1.5"
-                      >
-                        Audit Receipt
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+                        <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between">
+                          <span className="text-[11px] text-[#566861]">
+                            {new Date(item.updatedAt || item.depositedAt).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setSelectedReceipt(item)}
+                            icon={ArrowRight}
+                            iconPosition="right"
+                            className="text-xs font-bold py-1.5"
+                          >
+                            Audit Receipt
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {paginatedDispatchedLots.map((item) => (
+                      <WarehouseBatchRow
+                        key={item.id}
+                        item={item}
+                        isDispatched={true}
+                        onView={(b) => setSelectedReceipt(b)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                <Pagination
+                  currentPage={dispatchedPage}
+                  totalPages={totalDispatchedPages}
+                  onPageChange={setDispatchedPage}
+                  totalItems={filteredDispatchedLots.length}
+                  pageSize={pageSize}
+                />
               </div>
             ) : (
               <div className="p-12 text-center bg-white rounded-3xl border border-[#E5EDE8] space-y-3">

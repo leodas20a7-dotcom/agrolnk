@@ -4,9 +4,12 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import FinancingCard from '../../components/financing/FinancingCard';
+import FinancingRow from '../../components/financing/FinancingRow';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import FinancingStatusBadge from '../../components/financing/FinancingStatusBadge';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
   CreditCard,
   Landmark,
@@ -62,6 +65,16 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
 
   const totalPurchaseVolume = safeOrders.reduce(
     (sum, o) => sum + (Number(o.totalAmount) || 0), 0
+  );
+
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+
+  const totalPages = Math.ceil(safeRequests.length / pageSize) || 1;
+  const paginatedRequests = safeRequests.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
   return (
@@ -252,7 +265,7 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
 
         {/* Section 2: Active Financing Requests */}
         <div className="space-y-4 pt-4 border-t border-[#E5EDE8]">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-[#0B3326] font-heading">
                 Trade Credit Applications & Facilities ({financingRequests.length})
@@ -261,18 +274,44 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
                 Underwriting progress and credit limits for your transactions
               </p>
             </div>
+
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
 
           {financingRequests.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {financingRequests.map((request) => (
-                <FinancingCard
-                  key={request.id}
-                  request={request}
-                  viewerRole="buyer"
-                  onView={(item) => setSelectedRequestForReview(item)}
-                />
-              ))}
+            <div className="space-y-6">
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {paginatedRequests.map((request) => (
+                    <FinancingCard
+                      key={request.id}
+                      request={request}
+                      viewerRole="buyer"
+                      onView={(item) => setSelectedRequestForReview(item)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {paginatedRequests.map((request) => (
+                    <FinancingRow
+                      key={request.id}
+                      request={request}
+                      viewerRole="buyer"
+                      onView={(item) => setSelectedRequestForReview(item)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={safeRequests.length}
+                pageSize={pageSize}
+              />
             </div>
           ) : (
             <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">

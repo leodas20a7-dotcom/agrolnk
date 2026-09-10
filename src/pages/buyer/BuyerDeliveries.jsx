@@ -4,8 +4,11 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import DeliveryCard from '../../components/delivery/DeliveryCard';
+import DeliveryRow from '../../components/delivery/DeliveryRow';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import DeliveryStatusBadge from '../../components/delivery/DeliveryStatusBadge';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
   Truck,
   ArrowLeft,
@@ -59,6 +62,16 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
 
   const completedDeliveries = safeDeliveries.filter(
     (d) => d.status === 'completed'
+  );
+
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+
+  const totalPages = Math.ceil(safeDeliveries.length / pageSize) || 1;
+  const paginatedDeliveries = safeDeliveries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
   const handleConfirmDirect = (delivery) => {
@@ -212,7 +225,7 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
 
         {/* Section 2: Inbound Shipments Grid */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-[#0B3326] font-heading">
                 Inbound Shipments & Consignments ({deliveries.length})
@@ -221,19 +234,45 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
                 Real-time tracking of consignments from origin farmgate to your hub
               </p>
             </div>
+
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
 
           {deliveries.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {deliveries.map((item) => (
-                <DeliveryCard
-                  key={item.id}
-                  delivery={item}
-                  viewerRole="buyer"
-                  onView={(d) => setSelectedDeliveryForDetail(d)}
-                  onConfirmReceipt={(d) => handleConfirmDirect(d)}
-                />
-              ))}
+            <div className="space-y-6">
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryCard
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="buyer"
+                      onView={(d) => setSelectedDeliveryForDetail(d)}
+                      onConfirmReceipt={(d) => handleConfirmDirect(d)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryRow
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="buyer"
+                      onView={(d) => setSelectedDeliveryForDetail(d)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={safeDeliveries.length}
+                pageSize={pageSize}
+              />
             </div>
           ) : (
             <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">

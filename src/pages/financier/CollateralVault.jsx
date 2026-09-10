@@ -3,6 +3,9 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
+import Pagination from '../../components/ui/Pagination';
+import CollateralRow from '../../components/financing/CollateralRow';
 import {
   Building2,
   ShieldCheck,
@@ -27,6 +30,9 @@ export default function CollateralVault({ currentUser, onNavigate }) {
   const [inventory, setInventory] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   useEffect(() => {
     let isMounted = true;
@@ -49,6 +55,10 @@ export default function CollateralVault({ currentUser, onNavigate }) {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const safeInventory = Array.isArray(inventory) ? inventory : [];
 
@@ -133,9 +143,9 @@ export default function CollateralVault({ currentUser, onNavigate }) {
           </Card>
         </div>
 
-        {/* Search Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E5EDE8] shadow-xs">
-          <div className="relative">
+        {/* Search Bar & View Mode */}
+        <div className="bg-white p-4 rounded-2xl border border-[#E5EDE8] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 text-[#566861] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -145,93 +155,139 @@ export default function CollateralVault({ currentUser, onNavigate }) {
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
             />
           </div>
+
+          <div className="flex items-center justify-between w-full sm:w-auto gap-3 shrink-0">
+            <span className="text-[11px] text-[#566861]">
+              Showing <b>{filteredInventory.length}</b> collateral lots
+            </span>
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
         </div>
 
-        {/* Collateral Items Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredInventory.map((item) => (
-            <Card
-              key={item.id}
-              hoverEffect
-              className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-extrabold text-sm text-[#0B3326] block">
-                      {item.receiptNumber}
-                    </span>
-                    <span className="text-xs text-[#566861]">
-                      Owner: <b>{item.farmerName}</b>
-                    </span>
-                  </div>
-                  <Badge variant="emerald" size="sm">
-                    WDRA Certified
-                  </Badge>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#566861]">Commodity:</span>
-                    <span className="font-bold text-[#14211D]">
-                      {item.commodity} ({item.variety})
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#566861]">Quantity Stored:</span>
-                    <span className="font-bold text-[#0B3326]">
-                      {item.totalQuantity} {item.unit}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
-                    <span className="text-[#566861]">Assayed Valuation:</span>
-                    <span className="font-extrabold text-[#0B3326]">
-                      ₹{Number(item.estimatedValue || 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Lab Assay Metrics */}
-                {item.assayedQuality && (
-                  <div className="p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/20 space-y-1 text-xs">
-                    <div className="flex items-center gap-1.5 font-bold text-[#0B3326] text-[11px]">
-                      <FileCheck className="w-3.5 h-3.5 text-[#10B981]" />
-                      <span>{item.assayedQuality.assayStatus || 'NABL Certified Grade A'}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1 text-[11px] text-[#566861] pt-1">
-                      <span>Moisture: <b>{item.assayedQuality.moisture || '11.5%'}</b></span>
-                      <span>Purity: <b>{item.assayedQuality.purity || '99.4%'}</b></span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="text-xs text-[#566861] space-y-0.5">
-                  <div className="flex items-center gap-1">
-                    <Building2 className="w-3.5 h-3.5 text-[#10B981]" />
-                    <span>{item.warehouseName}</span>
-                  </div>
-                  <span className="block text-[11px] pl-4">{item.chamber}</span>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between text-xs">
-                <span className="text-[#10B981] font-bold flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Institutional Lien Ready</span>
-                </span>
-
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onNavigate('financier-underwriting')}
-                  className="font-bold text-xs"
+        {/* Collateral Items List */}
+        {filteredInventory.length === 0 ? (
+          <Card className="p-12 bg-white border border-[#E5EDE8] text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-[#0B3326] font-heading">
+              No collateral records found
+            </h3>
+            <p className="text-xs text-[#566861] max-w-sm mx-auto">
+              Try adjusting your search criteria.
+            </p>
+          </Card>
+        ) : viewMode === 'row' ? (
+          <div className="space-y-3">
+            {filteredInventory
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((item) => (
+                <CollateralRow
+                  key={item.id}
+                  item={item}
+                  onOfferAdvance={() => onNavigate('financier-underwriting')}
+                />
+              ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredInventory
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((item) => (
+                <Card
+                  key={item.id}
+                  hoverEffect
+                  className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between"
                 >
-                  Offer Advance
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="font-extrabold text-sm text-[#0B3326] block">
+                          {item.receiptNumber}
+                        </span>
+                        <span className="text-xs text-[#566861]">
+                          Owner: <b>{item.farmerName}</b>
+                        </span>
+                      </div>
+                      <Badge variant="emerald" size="sm">
+                        WDRA Certified
+                      </Badge>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#566861]">Commodity:</span>
+                        <span className="font-bold text-[#14211D]">
+                          {item.commodity} ({item.variety})
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#566861]">Quantity Stored:</span>
+                        <span className="font-bold text-[#0B3326]">
+                          {item.totalQuantity} {item.unit}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
+                        <span className="text-[#566861]">Assayed Valuation:</span>
+                        <span className="font-extrabold text-[#0B3326]">
+                          ₹{Number(item.estimatedValue || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Lab Assay Metrics */}
+                    {item.assayedQuality && (
+                      <div className="p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/20 space-y-1 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-[#0B3326] text-[11px]">
+                          <FileCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                          <span>{item.assayedQuality.assayStatus || 'NABL Certified Grade A'}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 text-[11px] text-[#566861] pt-1">
+                          <span>Moisture: <b>{item.assayedQuality.moisture || '11.5%'}</b></span>
+                          <span>Purity: <b>{item.assayedQuality.purity || '99.4%'}</b></span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-xs text-[#566861] space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <Building2 className="w-3.5 h-3.5 text-[#10B981]" />
+                        <span>{item.warehouseName}</span>
+                      </div>
+                      <span className="block text-[11px] pl-4">{item.chamber}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between text-xs">
+                    <span className="text-[#10B981] font-bold flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Institutional Lien Ready</span>
+                    </span>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onNavigate('financier-underwriting')}
+                      className="font-bold text-xs"
+                    >
+                      Offer Advance
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {filteredInventory.length > pageSize && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(filteredInventory.length / pageSize)}
+            onPageChange={setCurrentPage}
+            totalItems={filteredInventory.length}
+            pageSize={pageSize}
+          />
+        )}
 
       </div>
     </DashboardLayout>

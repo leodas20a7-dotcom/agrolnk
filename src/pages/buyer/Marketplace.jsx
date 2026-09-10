@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import MarketplaceCard from '../../components/buyer/MarketplaceCard';
+import MarketplaceRow from '../../components/buyer/MarketplaceRow';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
 import SearchableSelect from '../../components/ui/SearchableSelect';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
   Search,
   Filter,
@@ -26,6 +29,9 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const [selectedLocation, setSelectedLocation] = useState(navState?.initialLocation || 'All');
   const [sortBy, setSortBy] = useState('latest');
   const [availableCommodities, setAvailableCommodities] = useState(() => ['All', ...getPlatformCommodities()]);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   useEffect(() => {
     let isMounted = true;
@@ -87,6 +93,11 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
     return matchesSearch && matchesCommodity && matchesGrade && matchesLocation;
   });
 
+  // Reset to page 1 on filter/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCommodity, selectedGrade, selectedLocation, sortBy]);
+
   // Sort listings
   const sortedListings = [...filteredListings].sort((a, b) => {
     if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
@@ -94,12 +105,20 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
+  // Pagination calculation
+  const totalPages = Math.ceil(sortedListings.length / pageSize) || 1;
+  const paginatedListings = sortedListings.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedCommodity('All');
     setSelectedGrade('All');
     setSelectedLocation('All');
     setSortBy('latest');
+    setCurrentPage(1);
   };
 
   return (
@@ -231,7 +250,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
         </Card>
 
         {/* Results Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-[#0B3326] font-heading">
               Available Lots
@@ -241,28 +260,57 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
             </Badge>
           </div>
 
-          {(selectedCommodity !== 'All' || selectedGrade !== 'All' || selectedLocation !== 'All' || searchQuery !== '') && (
-            <button
-              onClick={resetFilters}
-              className="text-xs font-semibold text-[#10B981] hover:text-[#0B3326] flex items-center gap-1 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {(selectedCommodity !== 'All' || selectedGrade !== 'All' || selectedLocation !== 'All' || searchQuery !== '') && (
+              <button
+                onClick={resetFilters}
+                className="text-xs font-semibold text-[#10B981] hover:text-[#0B3326] flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
+              </button>
+            )}
+
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
         </div>
 
-        {/* Listings Grid */}
+        {/* Listings Content */}
         {sortedListings.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedListings.map((item) => (
-              <MarketplaceCard
-                key={item.id}
-                listing={item}
-                onSelect={(lot) =>
-                  onNavigate('buyer-listing-detail', { listing: lot })
-                }
-              />
-            ))}
+          <div className="space-y-6">
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {paginatedListings.map((item) => (
+                  <MarketplaceCard
+                    key={item.id}
+                    listing={item}
+                    onSelect={(lot) =>
+                      onNavigate('buyer-listing-detail', { listing: lot })
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {paginatedListings.map((item) => (
+                  <MarketplaceRow
+                    key={item.id}
+                    listing={item}
+                    onSelect={(lot) =>
+                      onNavigate('buyer-listing-detail', { listing: lot })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={sortedListings.length}
+              pageSize={pageSize}
+            />
           </div>
         ) : (
           <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">

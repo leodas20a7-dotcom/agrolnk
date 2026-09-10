@@ -8,10 +8,14 @@ export default function DeliveryRow({
   delivery,
   viewerRole = 'farmer',
   onView,
+  onAccept,
   onAcceptPrice,
   onDeclinePrice,
+  onConfirmReceipt,
 }) {
   const isPriceOffered = delivery.status === 'price_offered';
+  const isAvailableJob = delivery.status === 'transport_requested';
+  const isTransporter = viewerRole === 'transporter';
 
   const pickupStr = typeof delivery.pickupLocation === 'object'
     ? `${delivery.pickupLocation?.district || 'Salem'}, ${delivery.pickupLocation?.state || 'Tamil Nadu'}`
@@ -85,15 +89,41 @@ export default function DeliveryRow({
           </Button>
         )}
 
+        {isTransporter && isAvailableJob && onAccept && (
+          <Button
+            variant="accent"
+            size="sm"
+            onClick={() => onAccept(delivery)}
+            icon={Truck}
+            iconPosition="left"
+            className="text-xs font-bold py-1.5 px-3 shadow-xs cursor-pointer"
+          >
+            Quote & Accept
+          </Button>
+        )}
+
+        {onConfirmReceipt && delivery.status === 'delivered' && (
+          <Button
+            variant="accent"
+            size="sm"
+            onClick={() => onConfirmReceipt(delivery)}
+            icon={Check}
+            iconPosition="left"
+            className="text-xs font-bold py-1.5 px-3 shadow-xs cursor-pointer"
+          >
+            Confirm Receipt
+          </Button>
+        )}
+
         <Button
-          variant="secondary"
+          variant={isTransporter ? 'primary' : 'secondary'}
           size="sm"
           onClick={() => onView(delivery)}
           icon={ArrowRight}
           iconPosition="right"
           className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] cursor-pointer"
         >
-          Track Trip
+          {isTransporter ? 'Manage Trip' : 'Track Trip'}
         </Button>
       </div>
     </div>

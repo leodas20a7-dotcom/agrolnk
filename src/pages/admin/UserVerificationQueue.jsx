@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
+import Pagination from '../../components/ui/Pagination';
 
 export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -44,6 +45,8 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'custom'
   const [customDate, setCustomDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem('agrolnk_admin_kyc_viewmode') || 'rows';
@@ -173,12 +176,17 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     return matchesTab && matchesRole && matchesSearch && matchesDate;
   });
 
-  // Always show most recent first
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     const timeA = new Date(a.submittedAt || a.created_at || a.createdAt || a.updated_at || 0).getTime();
     const timeB = new Date(b.submittedAt || b.created_at || b.createdAt || b.updated_at || 0).getTime();
     return timeB - timeA;
   });
+
+  const totalPages = Math.ceil(sortedUsers.length / pageSize) || 1;
+  const paginatedUsers = sortedUsers.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const getRoleIcon = (role) => {
     switch (role) {
@@ -236,7 +244,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
             {/* Tab Filter */}
             <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
               <button
-                onClick={() => setActiveTab('pending')}
+                onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'pending'
                     ? 'bg-amber-600 text-white shadow-xs'
@@ -246,7 +254,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 Pending ({pendingCount})
               </button>
               <button
-                onClick={() => setActiveTab('verified')}
+                onClick={() => { setActiveTab('verified'); setCurrentPage(1); }}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'verified'
                     ? 'bg-[#0B3326] text-white shadow-xs'
@@ -256,7 +264,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 Verified ({verifiedCount})
               </button>
               <button
-                onClick={() => setActiveTab('all')}
+                onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'all'
                     ? 'bg-[#0B3326] text-white shadow-xs'
@@ -275,7 +283,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               </div>
               <select
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1); }}
                 className="bg-white border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-[#10B981] cursor-pointer"
               >
                 <option value="all">All Dates</option>
@@ -289,7 +297,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 <input
                   type="date"
                   value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
+                  onChange={(e) => { setCustomDate(e.target.value); setCurrentPage(1); }}
                   className="bg-white border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#10B981] cursor-pointer"
                 />
               )}
@@ -334,7 +342,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 placeholder="Search user, email or entity..."
                 className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
               />
@@ -353,253 +361,256 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               All participants matching this filter have been processed.
             </p>
           </div>
-        ) : viewMode === 'grid' ? (
-          /* ================= GRID VIEW ================= */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sortedUsers.map((item) => {
-              const RoleIcon = getRoleIcon(item.role);
-              const isVerified = item.verificationStatus === 'verified';
-              const isPending = item.verificationStatus === 'pending' || item.verificationStatus === 'action_required';
+        ) : (
+          <div className="space-y-6">
+            {viewMode === 'grid' ? (
+              /* ================= GRID VIEW ================= */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {paginatedUsers.map((item) => {
+                  const RoleIcon = getRoleIcon(item.role);
+                  const isVerified = item.verificationStatus === 'verified';
+                  const isPending = item.verificationStatus === 'pending' || item.verificationStatus === 'action_required';
 
-              return (
-                <div
-                  key={item.id}
-                  className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs space-y-4 hover:border-[#10B981]/40 transition-colors"
-                >
-                  {/* Top: Avatar, Name, Role & Status Badge */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold text-sm shrink-0">
-                        {item.name ? item.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-[#0B3326]">
-                            {item.name}
-                          </h3>
-                          {item.pendingChanges ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
-                              ⚡ Revision Request
-                            </span>
-                          ) : isVerified ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                              ✓ Verified
-                            </span>
-                          ) : isPending ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                              Pending
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="text-xs text-[#566861] block">
-                          {item.orgName || item.email} &bull; <span className="capitalize font-semibold text-[#0B3326]">{item.role}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right space-y-0.5">
-                      <span className="text-[11px] font-medium text-[#0B3326] flex items-center justify-end gap-1">
-                        <Clock className="w-3 h-3 text-[#10B981]" />
-                        {formatRequestDateTime(item.submittedAt || item.created_at)}
-                      </span>
-                      <span className="text-[10px] text-[#566861] block">
-                        {item.district ? `${item.district}, ${item.state || 'India'}` : 'Registered User'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Submitted Documents Box with Direct "View Document" button */}
-                  <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[#0B3326] text-[11px] uppercase tracking-wider">
-                        Submitted Documents
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedUserForDocs(item)}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981] hover:text-[#0B3326] hover:underline cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> View Details
-                      </button>
-                    </div>
-
-                    {item.documents && item.documents.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {item.documents.map((doc, idx) => (
-                          <div 
-                            key={idx} 
-                            onClick={() => setInspectingDoc({ doc, user: item })}
-                            className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] transition-all cursor-pointer group"
-                          >
-                            <span className="text-[#566861] group-hover:text-[#0B3326] flex items-center gap-1.5 font-medium">
-                              <FileText className="w-3.5 h-3.5 text-[#10B981]" />
-                              {doc.type}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-semibold text-[#0B3326]">
-                                {doc.number || 'Submitted'}
-                              </span>
-                              <span
-                                className="p-1 text-[#566861] group-hover:text-[#10B981] rounded"
-                                title="Inspect Document"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[#566861] text-[11px] italic block">
-                        Initial profile created. Awaiting first document submission.
-                      </span>
-                    )}
-
-                    {item.phone && (
-                      <div className="pt-1 border-t border-[#E5EDE8] flex items-center justify-between text-[11px] text-[#566861]">
-                        <span>Phone: {item.phone}</span>
-                        <span>Email: {item.email}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action Buttons: View Docs / Approve / Reject */}
-                  <div className="flex items-center justify-between pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedUserForDocs(item)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs space-y-4 hover:border-[#10B981]/40 transition-colors"
                     >
-                      <Eye className="w-3.5 h-3.5 text-[#10B981]" /> View Details
-                    </button>
+                      {/* Top: Avatar, Name, Role & Status Badge */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold text-sm shrink-0">
+                            {item.name ? item.name.charAt(0).toUpperCase() : 'U'}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-sm font-bold text-[#0B3326]">
+                                {item.name}
+                              </h3>
+                              {item.pendingChanges ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
+                                  ⚡ Revision Request
+                                </span>
+                              ) : isVerified ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  ✓ Verified
+                                </span>
+                              ) : isPending ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                  Pending
+                                </span>
+                              ) : null}
+                            </div>
+                            <span className="text-xs text-[#566861] block">
+                              {item.orgName || item.email} &bull; <span className="capitalize font-semibold text-[#0B3326]">{item.role}</span>
+                            </span>
+                          </div>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      {isPending ? (
-                        <>
+                        <div className="text-right space-y-0.5">
+                          <span className="text-[11px] font-medium text-[#0B3326] flex items-center justify-end gap-1">
+                            <Clock className="w-3 h-3 text-[#10B981]" />
+                            {formatRequestDateTime(item.submittedAt || item.created_at)}
+                          </span>
+                          <span className="text-[10px] text-[#566861] block">
+                            {item.district ? `${item.district}, ${item.state || 'India'}` : 'Registered User'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Submitted Documents Box with Direct "View Document" button */}
+                      <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#0B3326] text-[11px] uppercase tracking-wider">
+                            Submitted Documents
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedUserForDocs(item)}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981] hover:text-[#0B3326] hover:underline cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View Details
+                          </button>
+                        </div>
+
+                        {item.documents && item.documents.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {item.documents.map((doc, idx) => (
+                              <div 
+                                key={idx} 
+                                onClick={() => setInspectingDoc({ doc, user: item })}
+                                className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] transition-all cursor-pointer group"
+                              >
+                                <span className="text-[#566861] group-hover:text-[#0B3326] flex items-center gap-1.5 font-medium">
+                                  <FileText className="w-3.5 h-3.5 text-[#10B981]" />
+                                  {doc.type}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-semibold text-[#0B3326]">
+                                    {doc.number || 'Submitted'}
+                                  </span>
+                                  <span
+                                    className="p-1 text-[#566861] group-hover:text-[#10B981] rounded"
+                                    title="Inspect Document"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#566861] italic">No document numbers uploaded</span>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-between pt-2 border-t border-[#E5EDE8]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserForDocs(item)}
+                          className="text-xs font-semibold text-[#566861] hover:text-[#0B3326] flex items-center gap-1 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-[#10B981]" /> Full Dossier
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          {isPending ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleReject(item.id, item.name)}
+                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleApprove(item.id, item.name)}
+                                className="px-3.5 py-1.5 rounded-lg bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-2xs cursor-pointer transition-colors flex items-center gap-1.5"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
+                                <span>Approve</span>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleReject(item.id, item.name)}
+                              className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
+                            >
+                              Revoke
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ================= ROW-WISE / LIST VIEW ================= */
+              <div className="space-y-3">
+                {paginatedUsers.map((item) => {
+                  const RoleIcon = getRoleIcon(item.role);
+                  const isVerified = item.verificationStatus === 'verified';
+                  const isPending = item.verificationStatus === 'pending' || item.verificationStatus === 'action_required';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      {/* Left: User Identity & Details */}
+                      <div className="flex items-start sm:items-center gap-3.5 min-w-[240px]">
+                        <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-extrabold text-base shrink-0 shadow-2xs">
+                          {item.name ? item.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm font-bold text-[#0B3326]">
+                              {item.name}
+                            </h3>
+                            {item.pendingChanges ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
+                                ⚡ Revision Request
+                              </span>
+                            ) : isVerified ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                ✓ Verified
+                              </span>
+                            ) : isPending ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                Pending
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-[#0B3326]">{item.orgName || item.email}</span>
+                            <span>&bull;</span>
+                            <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-md text-[11px]">{item.role}</span>
+                            <span>&bull;</span>
+                            <span className="text-[11px] text-[#566861] flex items-center gap-1 font-medium">
+                              <Clock className="w-3 h-3 text-[#10B981]" />
+                              {formatRequestDateTime(item.submittedAt || item.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Quick Actions */}
+                      <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E5EDE8] shrink-0 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserForDocs(item)}
+                          className="px-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-[#10B981]" />
+                          <span>Details</span>
+                        </button>
+
+                        {isPending ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleReject(item.id, item.name)}
+                              className="px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(item.id, item.name)}
+                              className="px-4 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
+                              <span>Approve</span>
+                            </button>
+                          </>
+                        ) : (
                           <button
                             type="button"
                             onClick={() => handleReject(item.id, item.name)}
-                            className="px-3.5 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
+                            className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
                           >
-                            Reject
+                            Revoke
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(item.id, item.name)}
-                            className="px-4 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
-                            Approve
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleReject(item.id, item.name)}
-                          className="px-3 py-1 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
-                        >
-                          Revoke
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* ================= ROW-WISE / LIST VIEW ================= */
-          <div className="space-y-3">
-            {sortedUsers.map((item) => {
-              const RoleIcon = getRoleIcon(item.role);
-              const isVerified = item.verificationStatus === 'verified';
-              const isPending = item.verificationStatus === 'pending' || item.verificationStatus === 'action_required';
-
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  {/* Left: User Identity & Details */}
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-[240px]">
-                    <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-extrabold text-base shrink-0 shadow-2xs">
-                      {item.name ? item.name.charAt(0).toUpperCase() : 'U'}
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-bold text-[#0B3326]">
-                          {item.name}
-                        </h3>
-                        {item.pendingChanges ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
-                            ⚡ Revision Request
-                          </span>
-                        ) : isVerified ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            ✓ Verified
-                          </span>
-                        ) : isPending ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                            Pending
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-[#0B3326]">{item.orgName || item.email}</span>
-                        <span>&bull;</span>
-                        <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-md text-[11px]">{item.role}</span>
-                        <span>&bull;</span>
-                        <span className="text-[11px] text-[#566861] flex items-center gap-1 font-medium">
-                          <Clock className="w-3 h-3 text-[#10B981]" />
-                          {formatRequestDateTime(item.submittedAt || item.created_at)}
-                        </span>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            )}
 
-                  {/* Right: Quick Actions */}
-                  <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E5EDE8] shrink-0 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedUserForDocs(item)}
-                      className="px-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-[#10B981]" />
-                      <span>Details</span>
-                    </button>
-
-                    {isPending ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleReject(item.id, item.name)}
-                          className="px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
-                        >
-                          Reject
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleApprove(item.id, item.name)}
-                          className="px-4 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
-                          <span>Approve</span>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleReject(item.id, item.name)}
-                        className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
-                      >
-                        Revoke
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={sortedUsers.length}
+              pageSize={pageSize}
+            />
           </div>
         )}
 

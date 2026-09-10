@@ -12,6 +12,7 @@ export default function FinancingRow({
   const isApproved = request.status === 'approved';
   const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
+  const isFinancier = viewerRole === 'financier';
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
@@ -29,9 +30,20 @@ export default function FinancingRow({
             <Badge variant="dark" size="sm">
               {request.orderNumber || (request.orderId ? `#${request.orderId}` : 'Escrow')}
             </Badge>
+            {isFinancier && request.applicantRole && (
+              <Badge variant={request.applicantRole === 'farmer' ? 'emerald' : 'blue'} size="sm">
+                <span className="capitalize">{request.applicantRole}</span>
+              </Badge>
+            )}
           </div>
 
           <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
+            {isFinancier && request.applicantName && (
+              <>
+                <span className="font-bold text-[#14211D]">{request.applicantName}</span>
+                <span>&bull;</span>
+              </>
+            )}
             <span className="font-bold text-[#14211D]">{request.commodity || 'Produce Lot'}</span>
             <span>&bull;</span>
             <span className="text-[#0B3326] font-medium">{request.purposeLabel || 'Working Capital'}</span>
@@ -67,14 +79,14 @@ export default function FinancingRow({
         <FinancingStatusBadge status={request.status} size="sm" />
 
         <Button
-          variant="secondary"
+          variant={isFinancier ? (request.status === 'approved' ? 'secondary' : 'accent') : 'secondary'}
           size="sm"
           onClick={() => onView(request)}
           icon={ArrowRight}
           iconPosition="right"
-          className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] cursor-pointer"
+          className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
         >
-          View Details
+          {isFinancier ? (request.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve') : 'View Details'}
         </Button>
       </div>
     </div>

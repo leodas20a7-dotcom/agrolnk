@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import Pagination from '../../components/ui/Pagination';
 import {
   Receipt,
   Download,
@@ -27,6 +28,8 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
   const [disbursements, setDisbursements] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   useEffect(() => {
     let isMounted = true;
@@ -43,6 +46,10 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const filteredDisbursements = disbursements.filter(
     (d) =>
@@ -173,74 +180,95 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5EDE8]">
-                {filteredDisbursements.map((d) => (
-                  <tr key={d.id} className="hover:bg-[#F2FBF6]/50 transition-colors">
-                    <td className="p-4">
-                      <span className="font-extrabold text-[#0B3326] block">
-                        {d.refNumber}
-                      </span>
-                      <span className="text-[10px] text-[#566861]">
-                        {new Date(d.disbursedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <span className="font-bold text-[#14211D] block">
-                        {d.applicantName}
-                      </span>
-                      <span className="text-[10px] text-[#10B981]">
-                        Linked: {d.requestNumber}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <span className="font-extrabold text-[#0B3326] text-sm">
-                        ₹{d.amount.toLocaleString('en-IN')}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <span className="font-bold text-[#14211D] block">
-                        {d.interestRate}% / month
-                      </span>
-                      <span className="text-[10px] text-[#566861]">
-                        {d.tenorDays} Days
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <span className="font-bold text-[#0B3326] block">
-                        ₹{d.expectedReturn.toLocaleString('en-IN')}
-                      </span>
-                      <span className="text-[10px] text-[#566861]">
-                        Due {new Date(d.maturityDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <span className="font-mono text-[11px] text-[#14211D] block font-bold">
-                        {d.bankUtr}
-                      </span>
-                      <span className="text-[10px] text-[#10B981] flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3" />
-                        <span>{d.escrowLienId}</span>
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <Badge
-                        variant={d.status === 'settled' ? 'emerald' : 'amber'}
-                        size="sm"
-                      >
-                        {d.status === 'settled' ? 'Settled & Realized' : 'Active Facility'}
-                      </Badge>
+                {filteredDisbursements.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="p-8 text-center text-xs text-[#566861]">
+                      No disbursement transactions found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredDisbursements
+                    .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                    .map((d) => (
+                      <tr key={d.id} className="hover:bg-[#F2FBF6]/50 transition-colors">
+                        <td className="p-4">
+                          <span className="font-extrabold text-[#0B3326] block">
+                            {d.refNumber}
+                          </span>
+                          <span className="text-[10px] text-[#566861]">
+                            {new Date(d.disbursedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <span className="font-bold text-[#14211D] block">
+                            {d.applicantName}
+                          </span>
+                          <span className="text-[10px] text-[#10B981]">
+                            Linked: {d.requestNumber}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <span className="font-extrabold text-[#0B3326] text-sm">
+                            ₹{d.amount.toLocaleString('en-IN')}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <span className="font-bold text-[#14211D] block">
+                            {d.interestRate}% / month
+                          </span>
+                          <span className="text-[10px] text-[#566861]">
+                            {d.tenorDays} Days
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <span className="font-bold text-[#0B3326] block">
+                            ₹{d.expectedReturn.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[10px] text-[#566861]">
+                            Due {new Date(d.maturityDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <span className="font-mono text-[11px] text-[#14211D] block font-bold">
+                            {d.bankUtr}
+                          </span>
+                          <span className="text-[10px] text-[#10B981] flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>{d.escrowLienId}</span>
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <Badge
+                            variant={d.status === 'settled' ? 'emerald' : 'amber'}
+                            size="sm"
+                          >
+                            {d.status === 'settled' ? 'Settled & Realized' : 'Active Facility'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
+
+        {/* Pagination */}
+        {filteredDisbursements.length > pageSize && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(filteredDisbursements.length / pageSize)}
+            onPageChange={setCurrentPage}
+            totalItems={filteredDisbursements.length}
+            pageSize={pageSize}
+          />
+        )}
 
       </div>
     </DashboardLayout>

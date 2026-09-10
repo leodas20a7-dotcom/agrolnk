@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import OrderCard from '../../components/orders/OrderCard';
+import OrderRow from '../../components/orders/OrderRow';
 import OrderTimeline from '../../components/orders/OrderTimeline';
 import OrderSummary from '../../components/orders/OrderSummary';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
@@ -81,6 +84,15 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
     },
   ];
 
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
   const filteredOrders = safeOrders.filter((o) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return o.status === 'pending' || o.status === 'order_placed';
@@ -90,6 +102,12 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
       return o.status === 'completed';
     return true;
   });
+
+  const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleConfirmOrderReceipt = async (orderOrDelivery) => {
     const orderKey = orderOrDelivery?.id || orderOrDelivery?.orderNumber;
@@ -160,46 +178,74 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-                  isActive
-                    ? 'bg-[#0B3326] text-white shadow-xs'
-                    : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+        {/* Filter Tabs & View Mode Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5EDE8] pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                     isActive
-                      ? 'bg-[#10B981] text-white'
-                      : 'bg-[#F8FAF8] text-[#566861]'
+                      ? 'bg-[#0B3326] text-white shadow-xs'
+                      : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
                   }`}
                 >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      isActive
+                        ? 'bg-[#10B981] text-white'
+                        : 'bg-[#F8FAF8] text-[#566861]'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
         </div>
 
-        {/* Orders List Grid */}
+        {/* Orders List Content */}
         {filteredOrders.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {filteredOrders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                viewerRole="buyer"
-                onView={(item) => setSelectedOrder(item)}
-              />
-            ))}
+          <div className="space-y-6">
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {paginatedOrders.map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    viewerRole="buyer"
+                    onView={(item) => setSelectedOrder(item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {paginatedOrders.map((order) => (
+                  <OrderRow
+                    key={order.id}
+                    order={order}
+                    viewerRole="buyer"
+                    onView={(item) => setSelectedOrder(item)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredOrders.length}
+              pageSize={pageSize}
+            />
           </div>
         ) : (
           <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">

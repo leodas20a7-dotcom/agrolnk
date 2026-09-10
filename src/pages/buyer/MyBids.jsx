@@ -3,6 +3,9 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import Pagination from '../../components/ui/Pagination';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
+import BidRow from '../../components/auction/BidRow';
 import {
   Gavel,
   ArrowLeft,
@@ -22,6 +25,9 @@ export default function MyBids({ currentUser, onNavigate }) {
   const user = currentUser || { id: 'usr_buyer_02', name: 'Ananya Agro Foods', role: 'buyer' };
   const [bids, setBids] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   useEffect(() => {
     let isMounted = true;
@@ -60,6 +66,11 @@ export default function MyBids({ currentUser, onNavigate }) {
     },
   ];
 
+  // Reset to page 1 when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
   const filteredBids = safeBids.filter((b) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'won') return b.isWinner;
@@ -68,6 +79,12 @@ export default function MyBids({ currentUser, onNavigate }) {
       return (!b.isLeading && b.auction?.status === 'live') || b.isOutbid;
     return true;
   });
+
+  const totalPages = Math.ceil(filteredBids.length / pageSize) || 1;
+  const paginatedBids = filteredBids.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
@@ -102,153 +119,180 @@ export default function MyBids({ currentUser, onNavigate }) {
           </Button>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-                  isActive
-                    ? 'bg-[#0B3326] text-white shadow-xs'
-                    : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+        {/* Filter Tabs & View Mode Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5EDE8] pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                     isActive
-                      ? 'bg-[#10B981] text-white'
-                      : 'bg-[#F8FAF8] text-[#566861]'
+                      ? 'bg-[#0B3326] text-white shadow-xs'
+                      : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
                   }`}
                 >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      isActive
+                        ? 'bg-[#10B981] text-white'
+                        : 'bg-[#F8FAF8] text-[#566861]'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
         </div>
 
         {/* Bids List */}
         {filteredBids.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredBids.map((b) => {
-              const lot = b.auction || { commodity: 'Commodity Lot', grade: 'A', quantity: 500, unit: 'kg' };
-              const isLive = lot.status === 'live';
-              const isWon = b.isWinner;
-              const isReserveFailed = lot.status === 'reserve_not_met';
-              const isLost = lot.status === 'completed' && !isWon;
+          <div className="space-y-6">
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {paginatedBids.map((b) => {
+                  const lot = b.auction || { commodity: 'Commodity Lot', grade: 'A', quantity: 500, unit: 'kg' };
+                  const isLive = lot.status === 'live';
+                  const isWon = b.isWinner;
+                  const isReserveFailed = lot.status === 'reserve_not_met';
+                  const isLost = lot.status === 'completed' && !isWon;
 
-              return (
-                <Card
-                  key={b.id}
-                  hoverEffect
-                  className={`p-6 bg-white border shadow-xs space-y-4 text-left transition-all ${
-                    isWon
-                      ? 'border-[#10B981] bg-gradient-to-b from-[#F2FBF6] to-white'
-                      : 'border-[#E5EDE8]'
-                  }`}
-                >
-                  {/* Top Header & Status Badges */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-base font-bold text-[#0B3326] font-heading">
-                        {lot.commodity}
-                      </h4>
-                      <Badge variant="dark" size="sm">
-                        Grade {lot.grade}
-                      </Badge>
-                    </div>
+                  return (
+                    <Card
+                      key={b.id}
+                      hoverEffect
+                      className={`p-6 bg-white border shadow-xs space-y-4 text-left transition-all ${
+                        isWon
+                          ? 'border-[#10B981] bg-gradient-to-b from-[#F2FBF6] to-white'
+                          : 'border-[#E5EDE8]'
+                      }`}
+                    >
+                      {/* Top Header & Status Badges */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-base font-bold text-[#0B3326] font-heading">
+                            {lot.commodity}
+                          </h4>
+                          <Badge variant="dark" size="sm">
+                            Grade {lot.grade}
+                          </Badge>
+                        </div>
 
-                    {isWon && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#10B981] text-white text-xs font-bold shadow-2xs">
-                        <Trophy className="w-3.5 h-3.5" /> 🏆 Won
-                      </span>
-                    )}
+                        {isWon && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#10B981] text-white text-xs font-bold shadow-2xs">
+                            <Trophy className="w-3.5 h-3.5" /> 🏆 Won
+                          </span>
+                        )}
 
-                    {isLive && b.isLeading && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EBF5F0] text-[#10B981] text-xs font-bold border border-[#10B981]/30">
-                        <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" /> Leading
-                      </span>
-                    )}
+                        {isLive && b.isLeading && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EBF5F0] text-[#10B981] text-xs font-bold border border-[#10B981]/30">
+                            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" /> Leading
+                          </span>
+                        )}
 
-                    {isLive && !b.isLeading && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold border border-red-200">
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" /> Outbid
-                      </span>
-                    )}
+                        {isLive && !b.isLeading && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold border border-red-200">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" /> Outbid
+                          </span>
+                        )}
 
-                    {isLost && (
-                      <Badge variant="dark" size="sm">
-                        Outbid / Concluded
-                      </Badge>
-                    )}
+                        {isLost && (
+                          <Badge variant="dark" size="sm">
+                            Outbid / Concluded
+                          </Badge>
+                        )}
 
-                    {isReserveFailed && (
-                      <Badge variant="amber" size="sm">
-                        Reserve Not Met
-                      </Badge>
-                    )}
-                  </div>
+                        {isReserveFailed && (
+                          <Badge variant="amber" size="sm">
+                            Reserve Not Met
+                          </Badge>
+                        )}
+                      </div>
 
-                  {/* Pricing Comparison Matrix */}
-                  <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
-                    <div>
-                      <span className="text-[10px] text-[#566861] block font-medium">
-                        Your Submitted Bid
-                      </span>
-                      <span className="text-lg font-extrabold text-[#14211D] font-heading">
-                        ₹{b.amount} / {lot.unit}
-                      </span>
-                    </div>
+                      {/* Pricing Comparison Matrix */}
+                      <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-medium">
+                            Your Submitted Bid
+                          </span>
+                          <span className="text-lg font-extrabold text-[#14211D] font-heading">
+                            ₹{b.amount} / {lot.unit}
+                          </span>
+                        </div>
 
-                    <div>
-                      <span className="text-[10px] text-[#566861] block font-medium">
-                        {isLive ? 'Current Highest Bid' : 'Final Closing Price'}
-                      </span>
-                      <span className="text-lg font-extrabold text-[#0B3326] font-heading">
-                        ₹{b.currentHighestBid} / {lot.unit}
-                      </span>
-                    </div>
-                  </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-medium">
+                            {isLive ? 'Current Highest Bid' : 'Final Closing Price'}
+                          </span>
+                          <span className="text-lg font-extrabold text-[#0B3326] font-heading">
+                            ₹{b.currentHighestBid} / {lot.unit}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Action Link Footer */}
-                  <div className="pt-2 flex items-center justify-between border-t border-[#E5EDE8]">
-                    <span className="text-xs text-[#566861]">
-                      Lot: <strong>{lot.quantity} {lot.unit}</strong>
-                    </span>
+                      {/* Action Link Footer */}
+                      <div className="pt-2 flex items-center justify-between border-t border-[#E5EDE8]">
+                        <span className="text-xs text-[#566861]">
+                          Lot: <strong>{lot.quantity} {lot.unit}</strong>
+                        </span>
 
-                    {isWon ? (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => onNavigate('buyer-orders')}
-                        icon={ShoppingBag}
-                        iconPosition="left"
-                        className="text-xs font-bold"
-                      >
-                        View Order
-                      </Button>
-                    ) : (
-                      <Button
-                        variant={b.isLeading && isLive ? 'secondary' : 'accent'}
-                        size="sm"
-                        onClick={() =>
-                          onNavigate('auction-room', { auctionId: b.auctionId, auction: b.auction })
-                        }
-                        icon={ArrowRight}
-                        iconPosition="right"
-                        className="text-xs font-bold"
-                      >
-                        {isLive ? (b.isLeading ? 'View Auction' : 'Increase Bid') : 'View Result'}
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
+                        {isWon ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => onNavigate('buyer-orders')}
+                            icon={ShoppingBag}
+                            iconPosition="left"
+                            className="text-xs font-bold"
+                          >
+                            View Order
+                          </Button>
+                        ) : (
+                          <Button
+                            variant={b.isLeading && isLive ? 'secondary' : 'accent'}
+                            size="sm"
+                            onClick={() =>
+                              onNavigate('auction-room', { auctionId: b.auctionId, auction: b.auction })
+                            }
+                            icon={ArrowRight}
+                            iconPosition="right"
+                            className="text-xs font-bold"
+                          >
+                            {isLive ? (b.isLeading ? 'View Auction' : 'Increase Bid') : 'View Result'}
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {paginatedBids.map((b) => (
+                  <BidRow
+                    key={b.id}
+                    bid={b}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredBids.length}
+              pageSize={pageSize}
+            />
           </div>
         ) : (
           <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">

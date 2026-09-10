@@ -3,6 +3,9 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import ViewModeToggle from '../../components/ui/ViewModeToggle';
+import Pagination from '../../components/ui/Pagination';
+import FinancingRow from '../../components/financing/FinancingRow';
 import InstitutionalUnderwriteModal from '../../components/financing/InstitutionalUnderwriteModal';
 import {
   Landmark,
@@ -34,6 +37,9 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('pending'); // 'all' | 'pending' | 'approved' | 'rejected'
   const [selectedCommodity, setSelectedCommodity] = useState('all');
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
+  const [viewMode, setViewMode] = useState('grid');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   const loadRequests = async () => {
     try {
@@ -47,6 +53,10 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   useEffect(() => {
     loadRequests();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedRoleFilter, selectedStatusFilter, selectedCommodity]);
 
   const commodities = ['all', ...new Set(requests.map((r) => r.commodity?.split(' ')[0] || r.commodity))];
 
@@ -181,13 +191,16 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
               </button>
             </div>
 
-            <span className="text-[11px] text-[#566861]">
-              Showing <b>{filteredRequests.length}</b> applications
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-[#566861]">
+                Showing <b>{filteredRequests.length}</b> applications
+              </span>
+              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            </div>
           </div>
         </div>
 
-        {/* Requests Grid */}
+        {/* Requests List */}
         {filteredRequests.length === 0 ? (
           <Card className="p-12 bg-white border border-[#E5EDE8] text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto">
@@ -200,122 +213,148 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
               Try adjusting your search keywords or switching filter criteria.
             </p>
           </Card>
+        ) : viewMode === 'row' ? (
+          <div className="space-y-3">
+            {filteredRequests
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((req) => (
+                <FinancingRow
+                  key={req.id}
+                  request={req}
+                  viewerRole="financier"
+                  onView={() => setSelectedRequestForReview(req)}
+                />
+              ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {filteredRequests.map((req) => {
-              const ltv = Number(((req.requestedAmount / req.transactionValue) * 100).toFixed(1));
+            {filteredRequests
+              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              .map((req) => {
+                const ltv = Number(((req.requestedAmount / req.transactionValue) * 100).toFixed(1));
 
-              return (
-                <Card
-                  key={req.id}
-                  hoverEffect
-                  className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-5 flex flex-col justify-between"
-                >
-                  <div className="space-y-4">
-                    {/* Card Top */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-sm text-[#0B3326]">
-                            {req.requestNumber}
+                return (
+                  <Card
+                    key={req.id}
+                    hoverEffect
+                    className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-5 flex flex-col justify-between"
+                  >
+                    <div className="space-y-4">
+                      {/* Card Top */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-[#0B3326]">
+                              {req.requestNumber}
+                            </span>
+                            <span className="text-xs text-[#566861]">• Order {req.orderNumber}</span>
+                          </div>
+                          <h3 className="text-base font-bold text-[#14211D]">
+                            {req.applicantName}
+                          </h3>
+                          <span className="text-xs text-[#566861] flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-[#10B981]" />
+                            <span>{req.applicantLocation || 'Tamil Nadu'}</span>
                           </span>
-                          <span className="text-xs text-[#566861]">• Order {req.orderNumber}</span>
                         </div>
-                        <h3 className="text-base font-bold text-[#14211D]">
-                          {req.applicantName}
-                        </h3>
-                        <span className="text-xs text-[#566861] flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-[#10B981]" />
-                          <span>{req.applicantLocation || 'Tamil Nadu'}</span>
+
+                        <div className="flex flex-col items-end gap-1.5">
+                          <Badge
+                            variant={req.applicantRole === 'farmer' ? 'emerald' : 'blue'}
+                            size="sm"
+                          >
+                            <span className="capitalize">{req.applicantRole}</span>
+                          </Badge>
+                          <Badge
+                            variant={
+                              req.status === 'approved'
+                                ? 'emerald'
+                                : req.status === 'rejected'
+                                ? 'rose'
+                                : 'amber'
+                            }
+                            size="sm"
+                          >
+                            <span className="capitalize">{req.status.replace('_', ' ')}</span>
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Financial Metrics Box */}
+                      <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#566861]">Commodity Lot:</span>
+                          <span className="font-bold text-[#14211D]">
+                            {req.commodity} ({req.grade})
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#566861]">Underlying Trade Value:</span>
+                          <span className="font-bold text-[#14211D]">
+                            ₹{req.transactionValue.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-[#E5EDE8]">
+                          <span className="text-[#0B3326] font-bold">Requested Advance:</span>
+                          <span className="text-sm font-extrabold text-[#0B3326]">
+                            ₹{req.requestedAmount.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#566861]">LTV Collateral Ratio:</span>
+                          <span className="font-bold text-[#10B981]">{ltv}%</span>
+                        </div>
+                      </div>
+
+                      {/* Collateral & Credit Badge */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#566861]">
+                        <span className="flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                          <span>Credit Score: <b className="text-[#10B981]">{req.creditScore || 780}</b></span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-[#10B981]" />
+                          <span>{req.collateralType || 'Escrow Lien'}</span>
                         </span>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1.5">
-                        <Badge
-                          variant={req.applicantRole === 'farmer' ? 'emerald' : 'blue'}
-                          size="sm"
-                        >
-                          <span className="capitalize">{req.applicantRole}</span>
-                        </Badge>
-                        <Badge
-                          variant={
-                            req.status === 'approved'
-                              ? 'emerald'
-                              : req.status === 'rejected'
-                              ? 'rose'
-                              : 'amber'
-                          }
-                          size="sm"
-                        >
-                          <span className="capitalize">{req.status.replace('_', ' ')}</span>
-                        </Badge>
-                      </div>
+                      {req.notes && (
+                        <p className="text-xs text-[#566861] italic bg-[#F8FAF8] p-2.5 rounded-xl border border-[#E5EDE8]">
+                          "{req.notes}"
+                        </p>
+                      )}
                     </div>
 
-                    {/* Financial Metrics Box */}
-                    <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[#566861]">Commodity Lot:</span>
-                        <span className="font-bold text-[#14211D]">
-                          {req.commodity} ({req.grade})
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[#566861]">Underlying Trade Value:</span>
-                        <span className="font-bold text-[#14211D]">
-                          ₹{req.transactionValue.toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-[#E5EDE8]">
-                        <span className="text-[#0B3326] font-bold">Requested Advance:</span>
-                        <span className="text-sm font-extrabold text-[#0B3326]">
-                          ₹{req.requestedAmount.toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[#566861]">LTV Collateral Ratio:</span>
-                        <span className="font-bold text-[#10B981]">{ltv}%</span>
-                      </div>
-                    </div>
-
-                    {/* Collateral & Credit Badge */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#566861]">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                        <span>Credit Score: <b className="text-[#10B981]">{req.creditScore || 780}</b></span>
+                    {/* Card Actions */}
+                    <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-[#566861]">
+                        Proposed Rate: <b>{req.interestRate || 0.85}% / mo</b>
                       </span>
-                      <span className="flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-[#10B981]" />
-                        <span>{req.collateralType || 'Escrow Lien'}</span>
-                      </span>
+
+                      <Button
+                        variant={req.status === 'approved' ? 'secondary' : 'accent'}
+                        size="sm"
+                        onClick={() => setSelectedRequestForReview(req)}
+                        className="font-bold text-xs cursor-pointer"
+                      >
+                        {req.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve'}
+                      </Button>
                     </div>
-
-                    {req.notes && (
-                      <p className="text-xs text-[#566861] italic bg-[#F8FAF8] p-2.5 rounded-xl border border-[#E5EDE8]">
-                        "{req.notes}"
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Card Actions */}
-                  <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-[#566861]">
-                      Proposed Rate: <b>{req.interestRate || 0.85}% / mo</b>
-                    </span>
-
-                    <Button
-                      variant={req.status === 'approved' ? 'secondary' : 'accent'}
-                      size="sm"
-                      onClick={() => setSelectedRequestForReview(req)}
-                      className="font-bold text-xs cursor-pointer"
-                    >
-                      {req.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve'}
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
+                  </Card>
+                );
+              })}
           </div>
+        )}
+
+        {/* Pagination */}
+        {filteredRequests.length > pageSize && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(filteredRequests.length / pageSize)}
+            onPageChange={setCurrentPage}
+            totalItems={filteredRequests.length}
+            pageSize={pageSize}
+          />
         )}
 
       </div>
