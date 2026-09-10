@@ -379,26 +379,26 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-[#F8FAF8] flex flex-col">
       {/* Top Navbar */}
-      <header className="bg-white border-b border-[#E5EDE8] sticky top-0 z-40 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-16 flex items-center justify-between gap-4">
+      <header className="bg-white border-b border-[#E5EDE8] sticky top-0 z-40 shadow-xs max-w-full overflow-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="h-16 flex items-center justify-between gap-2 sm:gap-4">
             
             {/* 1. Left: Brand Logo & Desk Indicator */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 onClick={() => onNavigate('landing')}
-                className="flex items-center gap-2.5 group focus:outline-none cursor-pointer"
+                className="flex items-center gap-2 sm:gap-2.5 group focus:outline-none cursor-pointer min-w-0"
               >
                 <img
                   src={logoImg}
                   alt="Agrolnk Logo"
-                  className="w-9 h-9 object-contain rounded-xl bg-white border border-[#E5EDE8] p-0.5 shadow-xs"
+                  className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl bg-white border border-[#E5EDE8] p-0.5 shadow-xs shrink-0"
                 />
-                <div className="text-left">
-                  <span className="text-lg font-bold text-[#0B3326] font-heading leading-none block">
+                <div className="text-left min-w-0">
+                  <span className="text-base sm:text-lg font-bold text-[#0B3326] font-heading leading-none block">
                     Agrolnk
                   </span>
-                  <span className="text-[10px] text-[#10B981] font-semibold uppercase tracking-wider block mt-0.5">
+                  <span className="text-[9px] sm:text-[10px] text-[#10B981] font-semibold uppercase tracking-wider block mt-0.5 truncate max-w-[110px] sm:max-w-none">
                     {currentRoleConfig.title}
                   </span>
                 </div>
@@ -483,11 +483,13 @@ export default function DashboardLayout({
             </nav>
 
             {/* 3. Right: Role Pill, Verification Status, User Avatar & Sign Out */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
               {/* Role Badge */}
-              <Badge variant={currentRoleConfig.badge} size="sm" dot={true}>
-                <span className="capitalize font-bold">{user.role}</span>
-              </Badge>
+              <div className="hidden xs:inline-flex">
+                <Badge variant={currentRoleConfig.badge} size="sm" dot={true}>
+                  <span className="capitalize font-bold">{user.role}</span>
+                </Badge>
+              </div>
 
               {/* KYC Verification Badge Pill (for non-admin users) */}
               {user.role !== 'admin' && (
@@ -510,9 +512,9 @@ export default function DashboardLayout({
                 type="button"
                 onClick={() => setIsProfileModalOpen(true)}
                 title="Click to edit Profile, Address, District & Auto-Fill Defaults"
-                className="flex items-center gap-2 pl-2 border-l border-[#E5EDE8] hover:bg-[#F2FBF6] p-1.5 rounded-2xl transition-all cursor-pointer group"
+                className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-[#E5EDE8] hover:bg-[#F2FBF6] p-1 sm:p-1.5 rounded-2xl transition-all cursor-pointer group"
               >
-                <div className="w-8 h-8 rounded-full bg-[#0B3326] text-white flex items-center justify-center text-xs font-bold shadow-xs group-hover:ring-2 group-hover:ring-[#10B981] group-hover:scale-105 transition-all">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0B3326] text-white flex items-center justify-center text-xs font-bold shadow-xs group-hover:ring-2 group-hover:ring-[#10B981] group-hover:scale-105 transition-all">
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div className="text-left leading-tight hidden xl:block">
@@ -532,9 +534,9 @@ export default function DashboardLayout({
                 onClick={handleSignOut}
                 icon={LogOut}
                 iconPosition="right"
-                className="text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                className="hidden sm:inline-flex text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer"
               >
-                <span className="hidden sm:inline">Sign Out</span>
+                <span>Sign Out</span>
               </Button>
 
               {/* Mobile Menu Toggle Button (only when subnav groups exist) */}
@@ -542,7 +544,7 @@ export default function DashboardLayout({
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="lg:hidden p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] cursor-pointer"
+                  className="lg:hidden p-1.5 sm:p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] cursor-pointer"
                 >
                   {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
@@ -598,6 +600,17 @@ export default function DashboardLayout({
                   </div>
                 );
               })}
+
+              <div className="pt-2 border-t border-[#E5EDE8]">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             </div>
           )}
 

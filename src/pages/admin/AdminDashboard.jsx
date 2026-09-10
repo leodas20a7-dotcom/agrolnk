@@ -72,14 +72,14 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
       <div className="space-y-6 text-left max-w-7xl mx-auto">
         
         {/* Simple & Clean Header Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-2xl bg-[#0B3326] text-white shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-7 rounded-2xl bg-[#0B3326] text-white shadow-sm">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30">
                 Platform Admin
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-heading">
+            <h1 className="text-xl sm:text-3xl font-bold font-heading">
               Admin Overview
             </h1>
             <p className="text-xs sm:text-sm text-[#DCFCE7]/80 mt-1">
@@ -87,7 +87,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
               size="sm"
