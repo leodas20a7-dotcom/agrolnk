@@ -101,6 +101,18 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
   const availableKg = inventoryList.reduce((sum, i) => sum + (Number(i.availableQuantity) || 0), 0);
   const totalValuation = inventoryList.reduce((sum, i) => sum + (Number(i.estimatedValue) || 0), 0);
 
+  const totalInventoryPages = Math.ceil(inventoryList.length / ITEMS_PER_PAGE) || 1;
+  const paginatedInventory = inventoryList.slice(
+    (inventoryPage - 1) * ITEMS_PER_PAGE,
+    inventoryPage * ITEMS_PER_PAGE
+  );
+
+  const totalWarehousesPages = Math.ceil(warehousesList.length / ITEMS_PER_PAGE) || 1;
+  const paginatedWarehouses = warehousesList.slice(
+    (warehousesPage - 1) * ITEMS_PER_PAGE,
+    warehousesPage * ITEMS_PER_PAGE
+  );
+
   const handleDepositSuccess = (newReceipt) => {
     loadData();
     setSelectedInventoryForDetail(newReceipt);
