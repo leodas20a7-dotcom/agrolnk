@@ -379,7 +379,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-[#F8FAF8] flex flex-col">
       {/* Top Navbar */}
-      <header className="bg-white border-b border-[#E5EDE8] sticky top-0 z-40 shadow-xs max-w-full overflow-hidden">
+      <header className="bg-white border-b border-[#E5EDE8] sticky top-0 z-40 shadow-xs max-w-full">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="h-16 flex items-center justify-between gap-2 sm:gap-4">
             
