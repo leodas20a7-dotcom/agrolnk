@@ -29,24 +29,23 @@ import {
   acceptDeliveryJob
 } from '../../utils/deliveries';
 import { getTimeGreeting } from '../../utils/greeting';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function TransporterDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
-    id: 'usr_transporter_04',
-    name: 'Vetri Logistics & Transport',
+    name: 'Kisan Logistics Fleet',
     role: 'transporter',
-    vehicleType: '14ft Eicher Truck (4 Tonne)',
-    vehicleNumber: 'TN 28 AB 4092',
-    phone: '+91 94433 77889',
+    id: 'usr_trans_01',
+    email: 'logistics@agrolnk.com',
   };
 
-  const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'all'
   const [deliveries, setDeliveries] = useState([]);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'all'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
+  const [viewMode, setViewMode] = useState('grid');
   const [stats, setStats] = useState({
-    availableJobs: 0,
+    totalEarnings: 0,
     activeDeliveries: 0,
     completedTrips: 0,
     totalTonnes: 0,
@@ -54,7 +53,10 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [quotingDelivery, setQuotingDelivery] = useState(null);
 
-  const loadData = async () => {
+  const loadData = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Loading Freight Corridors & GPS Telemetry...', 'Fetching available dispatch loads & in-transit routes...');
+    }
     try {
       const [all, computedStats] = await Promise.all([
         getDeliveries(),
@@ -64,11 +66,18 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
       setStats(computedStats);
     } catch (err) {
       console.error('Error loading transporter data:', err);
+    } finally {
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    return () => {
+      hideGlobalLoader();
+    };
   }, [user.id]);
 
   const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];

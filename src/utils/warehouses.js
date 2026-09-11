@@ -649,6 +649,8 @@ export function getWarehouseProfile(userId, userEmail) {
   }
 }
 
+export const getWarehouseOperatorProfile = getWarehouseProfile;
+
 /**
  * Save or update warehouse profile:
  * - Operational fields (websiteUrl, phone) reflect immediately.

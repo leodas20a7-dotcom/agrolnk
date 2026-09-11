@@ -28,15 +28,17 @@ import {
   getFarmerDeliveries,
   getDeliveryForOrder,
   acceptTransportPrice,
-  declineTransportPrice
+  declineTransportPrice,
 } from '../../utils/deliveries';
 import { initiateRazorpayTransportCheckout } from '../../utils/razorpayRouteClient';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerDeliveries({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
 
   const [orders, setOrders] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'completed' | 'all'
   const [ordersPage, setOrdersPage] = useState(1);
   const [deliveriesPage, setDeliveriesPage] = useState(1);
   const [viewMode, setViewMode] = useState(() => {
@@ -61,7 +63,10 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
 
   const ITEMS_PER_PAGE = 6;
 
-  const loadData = async () => {
+  const loadData = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Loading Active Dispatch Schedules...', 'Fetching GPS freight milestones & verified transporter bids...');
+    }
     try {
       const [farmerOrders, farmerDeliveries] = await Promise.all([
         getFarmerOrders(user.id),
@@ -71,11 +76,18 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
       setDeliveries(farmerDeliveries || []);
     } catch (err) {
       console.error('Error loading farmer deliveries:', err);
+    } finally {
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    return () => {
+      hideGlobalLoader();
+    };
   }, [user.id]);
 
   const handleAcceptPrice = async (delivery) => {

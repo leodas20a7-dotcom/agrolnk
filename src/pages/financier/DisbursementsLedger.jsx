@@ -17,6 +17,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { getDisbursements } from '../../utils/financing';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function DisbursementsLedger({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -33,17 +34,21 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
+    showGlobalLoader('Loading Institutional Settlement Ledger...', 'Auditing banking UTRs, yield payouts & legal liens...');
     const loadDisb = async () => {
       try {
         const data = await getDisbursements();
         if (isMounted) setDisbursements(data || []);
       } catch (err) {
         console.error('Error loading disbursements:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     loadDisb();
     return () => {
       isMounted = false;
+      hideGlobalLoader();
     };
   }, []);
 

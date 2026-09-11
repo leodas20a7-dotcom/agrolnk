@@ -18,6 +18,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { getFarmerListings } from '../../utils/listings';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyListings({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', role: 'farmer' };
@@ -46,10 +47,13 @@ export default function MyListings({ currentUser, onNavigate }) {
     let isMounted = true;
     const fetchListings = async () => {
       try {
+        showGlobalLoader('Loading Harvest Lots...', 'Fetching your active marketplace listings & spot prices...');
         const data = await getFarmerListings(user.id);
         if (isMounted) setListings(data || []);
       } catch (err) {
         console.error('Error fetching farmer listings:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     fetchListings();

@@ -9,6 +9,7 @@ import { formatINR } from '../../utils/commission';
 import InspectionStatusBadge from '../../components/inspection/InspectionStatusBadge';
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function InspectionDisputes({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -26,7 +27,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
   const [arbitrationNotes, setArbitrationNotes] = useState('');
   const [filter, setFilter] = useState('all'); // all, requested, disputed, passed
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 6;
+  const pageSize = 5;
 
   // Inspector form states
   const [inspectorName, setInspectorName] = useState('');
@@ -36,32 +37,39 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
   const [inspectionFee, setInspectionFee] = useState('500');
   const [assayNotes, setAssayNotes] = useState('');
 
-  const loadInspections = async () => {
+  const loadInspections = async (showFlash = false) => {
     setIsLoading(true);
+    if (showFlash) {
+      showGlobalLoader('Accessing Quality Dispute Desk...', 'Fetching certified assay reports & arbitration cases...');
+    }
     try {
       const list = await getInspectionRecords();
-      setInspections(list);
+      setInspections(list || []);
     } catch (err) {
       console.error('Error loading inspections:', err);
     } finally {
       setIsLoading(false);
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    loadInspections();
+    loadInspections(true);
 
     const unsubscribe = subscribeToInspections(() => {
-      loadInspections();
+      loadInspections(false);
     });
 
     const handleLocalUpdate = () => {
-      loadInspections();
+      loadInspections(false);
     };
     window.addEventListener('agrolnk_inspections_updated', handleLocalUpdate);
     window.addEventListener('storage', handleLocalUpdate);
 
     return () => {
+      hideGlobalLoader();
       unsubscribe?.();
       window.removeEventListener('agrolnk_inspections_updated', handleLocalUpdate);
       window.removeEventListener('storage', handleLocalUpdate);

@@ -38,6 +38,7 @@ import {
   getWarehouses,
   getWarehouseNotifications
 } from '../../utils/warehouses';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerInventory({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -77,6 +78,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
 
   const loadData = async () => {
     try {
+      showGlobalLoader('Accessing WDRA Digital Vault...', 'Retrieving electronic negotiable warehouse receipts (e-NWR)...');
       const [inv, whs] = await Promise.all([
         getFarmerInventory(user.id),
         getWarehouses(),
@@ -86,6 +88,8 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
       setNotifications(getWarehouseNotifications(user.id, 'farmer'));
     } catch (err) {
       console.error('Error loading inventory:', err);
+    } finally {
+      hideGlobalLoader();
     }
   };
 

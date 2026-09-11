@@ -31,6 +31,7 @@ import {
 import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import Pagination from '../../components/ui/Pagination';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -65,26 +66,34 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     } catch {}
   };
 
-  const loadKYC = async () => {
+  const loadKYC = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Loading KYC Verification Queue...', 'Auditing identity documents & WDRA accreditations...');
+    }
     try {
       const data = await getAllKYCUsers();
       setKycUsers(data || []);
     } catch (err) {
       console.error('Failed to load KYC users:', err);
+    } finally {
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    loadKYC();
+    loadKYC(true);
 
     const handleUpdate = () => {
-      loadKYC();
+      loadKYC(false);
     };
 
     window.addEventListener('agrolnk_kyc_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     return () => {
+      hideGlobalLoader();
       window.removeEventListener('agrolnk_kyc_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { getBuyerOrders, confirmOrderReceipt } from '../../utils/orders';
 import { confirmBuyerReceipt } from '../../utils/deliveries';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Ananya Agro Foods', id: 'usr_buyer_02', role: 'buyer' };
@@ -46,7 +47,10 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   // In-order inspection modal
   const [orderForInspection, setOrderForInspection] = useState(null);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Loading Procurement Agreements...', 'Fetching order contracts & delivery OTP milestones...');
+    }
     try {
       const data = await getBuyerOrders(user.id);
       setOrders(data || []);
@@ -56,11 +60,18 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
       }
     } catch (err) {
       console.error('Error fetching buyer orders:', err);
+    } finally {
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(true);
+    return () => {
+      hideGlobalLoader();
+    };
   }, [user.id]);
 
   const safeOrders = Array.isArray(orders) ? orders : [];

@@ -18,6 +18,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { getActiveMarketplaceListings, getPlatformCommodities, fetchRemoteCommodities } from '../../utils/listings';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function Marketplace({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Ananya Agro', role: 'buyer' };
@@ -35,6 +36,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
 
   useEffect(() => {
     let isMounted = true;
+    showGlobalLoader('Loading Verified Produce Lots...', 'Fetching active farmgate commodities & assay parameters...');
     const fetchListings = async () => {
       try {
         const [activeLots, fetchedCommodities] = await Promise.all([
@@ -49,6 +51,8 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
         }
       } catch (err) {
         console.error('Error fetching marketplace listings:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     fetchListings();
@@ -62,6 +66,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
 
     return () => {
       isMounted = false;
+      hideGlobalLoader();
       window.removeEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
     };
   }, []);

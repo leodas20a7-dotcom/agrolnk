@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { getFarmerOrders } from '../../utils/orders';
 import { getFarmerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -57,6 +58,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
 
   const loadData = async () => {
     try {
+      showGlobalLoader('Loading Agri-Credit Facility...', 'Calculating pre-harvest working capital & credit lines...');
       const [orderData, requestData] = await Promise.all([
         getFarmerOrders(user.id),
         getFarmerFinancingRequests(user.id),
@@ -65,6 +67,8 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
       setFinancingRequests(requestData || []);
     } catch (err) {
       console.error('Error loading farmer financing:', err);
+    } finally {
+      hideGlobalLoader();
     }
   };
 

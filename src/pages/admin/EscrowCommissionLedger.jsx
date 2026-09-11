@@ -22,6 +22,7 @@ import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
 import Pagination from '../../components/ui/Pagination';
 import { Zap } from 'lucide-react';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -40,11 +41,18 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
-    getOrders().then((data) => {
-      if (isMounted) setOrders(data || []);
-    });
+    showGlobalLoader('Auditing Escrow & Take-Rate Ledgers...', 'Fetching live escrow vaults and trade commissions...');
+    getOrders()
+      .then((data) => {
+        if (isMounted) setOrders(data || []);
+      })
+      .finally(() => {
+        hideGlobalLoader();
+      });
+
     return () => {
       isMounted = false;
+      hideGlobalLoader();
     };
   }, []);
 

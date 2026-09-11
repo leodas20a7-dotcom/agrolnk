@@ -20,6 +20,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { getUserBids } from '../../utils/auctions';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyBids({ currentUser, onNavigate }) {
   const user = currentUser || { id: 'usr_buyer_02', name: 'Ananya Agro Foods', role: 'buyer' };
@@ -33,10 +34,13 @@ export default function MyBids({ currentUser, onNavigate }) {
     let isMounted = true;
     const fetchBids = async () => {
       try {
+        showGlobalLoader('Loading Bid Positions...', 'Calculating spread, lead standing & escrow locks...');
         const data = await getUserBids(user.id);
         if (isMounted) setBids(data || []);
       } catch (err) {
         console.error('Error fetching user bids:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     fetchBids();

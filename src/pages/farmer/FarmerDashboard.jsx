@@ -27,6 +27,7 @@ import { getFarmerFinancingRequests } from '../../utils/financing';
 import { getFarmerDeliveries } from '../../utils/deliveries';
 import { getFarmerInventory } from '../../utils/warehouses';
 import { getTimeGreeting } from '../../utils/greeting';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -39,6 +40,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
+    showGlobalLoader('Opening Farm Operations Desk...', 'Fetching active harvest lots, bids & dispatch schedules...');
     const loadAll = async () => {
       try {
         const [listingData, orderData, auctionData, financingData, deliveryData, invData] = await Promise.all([
@@ -60,12 +62,15 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
         }
       } catch (err) {
         console.error('Failed to load farmer dashboard data:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
 
     loadAll();
     return () => {
       isMounted = false;
+      hideGlobalLoader();
     };
   }, [user.id]);
 

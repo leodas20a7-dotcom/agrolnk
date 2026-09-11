@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Ananya Agro Foods', id: 'usr_buyer_02', role: 'buyer' };
@@ -37,6 +38,7 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
 
   const loadData = async () => {
     try {
+      showGlobalLoader('Loading Trade Credit Facility...', 'Evaluating working capital lines & PO financing status...');
       const [orderData, requestData] = await Promise.all([
         getBuyerOrders(user.id),
         getBuyerFinancingRequests(user.id),
@@ -45,6 +47,8 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
       setFinancingRequests(requestData || []);
     } catch (err) {
       console.error('Error loading buyer financing:', err);
+    } finally {
+      hideGlobalLoader();
     }
   };
 

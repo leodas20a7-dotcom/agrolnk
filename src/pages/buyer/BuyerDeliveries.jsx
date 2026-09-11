@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerDeliveries, confirmBuyerReceipt } from '../../utils/deliveries';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerDeliveries({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Ananya Agro Foods', id: 'usr_buyer_02', role: 'buyer' };
@@ -35,6 +36,7 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
 
   const loadData = async () => {
     try {
+      showGlobalLoader('Tracking Inbound Cargo...', 'Connecting to live GPS telematics & carrier waybills...');
       const [buyerOrders, buyerDeliveries] = await Promise.all([
         getBuyerOrders(user.id),
         getBuyerDeliveries(user.id),
@@ -43,6 +45,8 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
       setDeliveries(buyerDeliveries || []);
     } catch (err) {
       console.error('Error loading buyer deliveries:', err);
+    } finally {
+      hideGlobalLoader();
     }
   };
 

@@ -27,6 +27,7 @@ import {
   Trophy
 } from 'lucide-react';
 import { getFarmerAuctions } from '../../utils/auctions';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -68,10 +69,13 @@ export default function MyAuctions({ currentUser, onNavigate }) {
     let isMounted = true;
     const loadAuctions = async () => {
       try {
+        showGlobalLoader('Loading Live Commodity Auctions...', 'Syncing real-time bids & tick books...');
         const data = await getFarmerAuctions(user.id);
         if (isMounted) setAuctions(data || []);
       } catch (err) {
         console.error('Error fetching farmer auctions:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     loadAuctions();

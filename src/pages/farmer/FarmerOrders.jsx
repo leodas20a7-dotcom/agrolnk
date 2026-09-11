@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { getFarmerOrders, updateOrderStatus } from '../../utils/orders';
 import { getDeliveryForOrder } from '../../utils/deliveries';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerOrders({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -65,7 +66,10 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   const [orderForSelfTransport, setOrderForSelfTransport] = useState(null);
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Loading Procurement Inquiries...', 'Fetching incoming purchase agreements & delivery milestones...');
+    }
     try {
       const data = await getFarmerOrders(user.id);
       setOrders(data || []);
@@ -79,11 +83,18 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
       }
     } catch (err) {
       console.error('Error fetching farmer orders:', err);
+    } finally {
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(true);
+    return () => {
+      hideGlobalLoader();
+    };
   }, [user.id]);
 
   useEffect(() => {

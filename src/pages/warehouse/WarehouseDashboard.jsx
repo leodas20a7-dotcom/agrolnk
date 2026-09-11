@@ -10,6 +10,7 @@ import WarehouseSetupModal from '../../components/warehouse/WarehouseSetupModal'
 import WarehouseBatchRow from '../../components/warehouse/WarehouseBatchRow';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import {
   Building2,
   Package,
@@ -33,7 +34,12 @@ import {
   RotateCcw,
   CheckCircle,
   FileSpreadsheet,
-  Eye
+  Eye,
+  Check,
+  LogOut,
+  X,
+  RefreshCw,
+  QrCode
 } from 'lucide-react';
 import {
   getWarehouseOperatorStats,
@@ -41,6 +47,7 @@ import {
   getWarehouseById,
   getWarehouseReceipts,
   getWarehouseProfile,
+  getWarehouseOperatorProfile,
   dispatchProduceFromWarehouse,
 } from '../../utils/warehouses';
 
@@ -72,9 +79,12 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [commodityFilter, setCommodityFilter] = useState('all');
   const [chamberFilter, setChamberFilter] = useState('all');
 
-  const loadData = async () => {
+  const loadData = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Connecting to WDRA Certified Hubs...', 'Loading live telemetry, storage lots & e-NWR registries...');
+    }
     try {
-      const storedProfile = getWarehouseProfile(user.id, user.email);
+      const storedProfile = (await getWarehouseOperatorProfile(user.id || user.email)) || getWarehouseProfile(user.id, user.email);
       setProfile(storedProfile);
 
       // Auto-open setup if new warehouse user hasn't configured their facility
@@ -90,11 +100,18 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
       setInventory(inv || []);
     } catch (err) {
       console.error('Error loading warehouse data:', err);
+    } finally {
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    return () => {
+      hideGlobalLoader();
+    };
   }, [user.id, user.email]);
 
   const safeInventory = Array.isArray(inventory) ? inventory : [];

@@ -22,6 +22,7 @@ import {
 import { getAdminMetrics } from '../../utils/admin';
 import { formatINR } from '../../utils/commission';
 import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function AdminDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -50,10 +51,16 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
+    showGlobalLoader('Opening Executive Command Center...', 'Aggregating live platform metrics & escrow locks...');
+
     const fetchMetrics = () => {
-      getAdminMetrics().then((data) => {
-        if (isMounted && data) setMetrics(data);
-      });
+      return getAdminMetrics()
+        .then((data) => {
+          if (isMounted && data) setMetrics(data);
+        })
+        .finally(() => {
+          hideGlobalLoader();
+        });
     };
 
     fetchMetrics();
@@ -62,6 +69,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
     return () => {
       isMounted = false;
+      hideGlobalLoader();
       window.removeEventListener('agrolnk_kyc_updated', fetchMetrics);
       window.removeEventListener('storage', fetchMetrics);
     };

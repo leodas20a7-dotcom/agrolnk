@@ -23,6 +23,7 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import { getFinancingRequests } from '../../utils/financing';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -41,17 +42,27 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
-  const loadRequests = async () => {
+  const loadRequests = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Auditing Credit Assessment Desk...', 'Evaluating LTV collateral, NABL assays & term-sheets...');
+    }
     try {
       const data = await getFinancingRequests();
       setRequests(data || []);
     } catch (err) {
       console.error('Error loading requests:', err);
+    } finally {
+      if (showFlash) {
+        hideGlobalLoader();
+      }
     }
   };
 
   useEffect(() => {
-    loadRequests();
+    loadRequests(true);
+    return () => {
+      hideGlobalLoader();
+    };
   }, []);
 
   useEffect(() => {

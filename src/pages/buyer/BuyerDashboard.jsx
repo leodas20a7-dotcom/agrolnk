@@ -26,6 +26,7 @@ import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests } from '../../utils/financing';
 import { getBuyerDeliveries } from '../../utils/deliveries';
 import { getTimeGreeting } from '../../utils/greeting';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerDashboard({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Ananya Agro', id: 'usr_buyer_02', role: 'buyer' };
@@ -52,6 +53,7 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
+    showGlobalLoader('Opening Buyer Command Center...', 'Loading verified produce lots, live bids & shipments...');
     const loadAll = async () => {
       try {
         const [activeLots, auctions, orderData, financingData, deliveryData] = await Promise.all([
@@ -71,12 +73,15 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
         }
       } catch (err) {
         console.error('Error loading buyer dashboard:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
 
     loadAll();
     return () => {
       isMounted = false;
+      hideGlobalLoader();
     };
   }, [user.id]);
 

@@ -51,6 +51,7 @@ import InspectionDisputes from './pages/admin/InspectionDisputes';
 import ProtectedRoute from './components/ProtectedRoute';
 import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
 import ErrorBoundary from './components/ui/ErrorBoundary';
+import { LoadingProvider, showGlobalLoader, hideGlobalLoader } from './context/LoadingContext';
 import { getCurrentUser } from './utils/auth';
 
 const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
@@ -191,23 +192,24 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [currentPage, setCurrentPage] = useState(() => getInitialPage());
   const [navState, setNavState] = useState({});
-  const [isFlashLoading, setIsFlashLoading] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState('Synchronizing Agrolnk...');
 
   // Initial app load flash curtain to hide blank flashes
   useEffect(() => {
+    showGlobalLoader('Synchronizing Agrolnk...', 'Connecting to decentralized commodity network...');
     const timer = setTimeout(() => {
-      setIsFlashLoading(false);
+      hideGlobalLoader();
     }, 350);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      hideGlobalLoader();
+    };
   }, []);
 
   const triggerFlashTransition = (targetPage) => {
     const msg = PAGE_MESSAGES[targetPage] || 'Loading Agrolnk...';
-    setLoadingMessage(msg);
-    setIsFlashLoading(true);
+    showGlobalLoader(msg, 'Fetching verified records from network...');
     setTimeout(() => {
-      setIsFlashLoading(false);
+      hideGlobalLoader();
     }, 280);
   };
 
@@ -266,9 +268,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
-        {/* Global Flash Loading Screen to cover all data delays */}
-        {isFlashLoading && <FlashLoadingScreen message={loadingMessage} />}
+      <LoadingProvider>
+        <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
       {/* 1. Public Landing Page */}
       {currentPage === 'landing' && (
         <Landing
@@ -585,6 +586,7 @@ export default function App() {
         </ProtectedRoute>
       )}
       </div>
+      </LoadingProvider>
     </ErrorBoundary>
   );
 }

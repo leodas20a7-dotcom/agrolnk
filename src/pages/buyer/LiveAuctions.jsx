@@ -23,6 +23,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { getAuctions } from '../../utils/auctions';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function LiveAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { id: 'usr_buyer_02', name: 'Ananya Agro Foods', role: 'buyer' };
@@ -35,10 +36,13 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
     let isMounted = true;
     const fetchAuctions = async () => {
       try {
+        showGlobalLoader('Streaming Live Floor Bids...', 'Connecting to commodity trading desks & real-time tickers...');
         const data = await getAuctions();
         if (isMounted) setAuctions(data || []);
       } catch (err) {
         console.error('Error fetching auctions:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     fetchAuctions();

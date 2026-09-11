@@ -19,6 +19,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { getInventory, getWarehouses } from '../../utils/warehouses';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function CollateralVault({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -36,6 +37,7 @@ export default function CollateralVault({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
+    showGlobalLoader('Connecting to Crop Collateral Vault...', 'Verifying stored produce lots & WDRA accreditations...');
     const loadVault = async () => {
       try {
         const [inv, wh] = await Promise.all([
@@ -48,11 +50,14 @@ export default function CollateralVault({ currentUser, onNavigate }) {
         }
       } catch (err) {
         console.error('Error loading collateral vault:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     loadVault();
     return () => {
       isMounted = false;
+      hideGlobalLoader();
     };
   }, []);
 
