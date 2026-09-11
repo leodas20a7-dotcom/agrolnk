@@ -71,6 +71,13 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
 
   const commodities = ['all', ...new Set(requests.map((r) => r.commodity?.split(' ')[0] || r.commodity))];
 
+  const roleScopedRequests = requests.filter((r) => {
+    return selectedRoleFilter === 'all' || r.applicantRole === selectedRoleFilter;
+  });
+
+  const farmerCount = requests.filter((r) => r.applicantRole === 'farmer').length;
+  const buyerCount = requests.filter((r) => r.applicantRole === 'buyer').length;
+
   const filteredRequests = requests.filter((r) => {
     const matchesSearch =
       r.applicantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -141,7 +148,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                All Roles
+                All Roles ({requests.length})
               </button>
               <button
                 onClick={() => setSelectedRoleFilter('farmer')}
@@ -151,7 +158,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                Farmers
+                Farmers ({farmerCount})
               </button>
               <button
                 onClick={() => setSelectedRoleFilter('buyer')}
@@ -161,7 +168,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                Buyers
+                Buyers ({buyerCount})
               </button>
             </div>
           </div>
@@ -178,7 +185,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Pending & Under Review ({requests.filter((r) => r.status === 'pending' || r.status === 'under_review').length})
+                Pending & Under Review ({roleScopedRequests.filter((r) => r.status === 'pending' || r.status === 'under_review').length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('approved')}
@@ -188,7 +195,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Approved ({requests.filter((r) => r.status === 'approved').length})
+                Approved ({roleScopedRequests.filter((r) => r.status === 'approved').length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('all')}
@@ -198,7 +205,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                All Records ({requests.length})
+                All Records ({roleScopedRequests.length})
               </button>
             </div>
 
