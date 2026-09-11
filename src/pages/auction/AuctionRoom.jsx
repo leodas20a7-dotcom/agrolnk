@@ -31,6 +31,7 @@ import {
   placeBid,
   finalizeAuction
 } from '../../utils/auctions';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   const user = currentUser || { id: 'usr_buyer_02', name: 'Ananya Agro Foods', role: 'buyer' };
@@ -47,6 +48,7 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
 
   const fetchAuctionData = async () => {
     try {
+      showGlobalLoader('Entering Live Auction Arena...', 'Connecting to live ticker book & reserve price vault...');
       let lot = await getAuctionById(auctionId);
       if (lot) {
         // Check if endsAt has expired in real time
@@ -60,6 +62,8 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
       }
     } catch (err) {
       console.error('Error fetching auction data:', err);
+    } finally {
+      hideGlobalLoader();
     }
   };
 

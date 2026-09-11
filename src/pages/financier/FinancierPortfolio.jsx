@@ -19,6 +19,7 @@ import {
   Receipt
 } from 'lucide-react';
 import { getFinancingRequests, getDisbursements } from '../../utils/financing';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FinancierPortfolio({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -36,6 +37,7 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
     let isMounted = true;
     const loadAll = async () => {
       try {
+        showGlobalLoader('Loading Credit Portfolio...', 'Calculating live repayment schedules & interest yields...');
         const [all, allDisb] = await Promise.all([
           getFinancingRequests(),
           getDisbursements(),
@@ -46,6 +48,8 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
         }
       } catch (err) {
         console.error('Error loading financier portfolio:', err);
+      } finally {
+        hideGlobalLoader();
       }
     };
     loadAll();
