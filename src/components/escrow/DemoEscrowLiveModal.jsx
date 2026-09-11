@@ -154,22 +154,22 @@ export default function DemoEscrowLiveModal({ isOpen, onClose }) {
         )}
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center">
-              <Landmark className="w-5 h-5 text-[#34D399]" />
+        <div className="flex items-center justify-between p-4 sm:p-6 pb-3 sm:pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10 gap-2 sm:gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center shrink-0">
+              <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-[#34D399]" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="text-sm sm:text-xl font-extrabold text-[#0B3326] font-heading truncate">
                   Nodal Settlement & Escrow Gateway Simulator
                 </h3>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
+                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-pulse"></span>
                   Sandbox Simulator Mode
                 </span>
               </div>
-              <p className="text-xs text-[#566861] mt-0.5">
+              <p className="text-[10px] sm:text-xs text-[#566861] mt-0.5 truncate">
                 {ESCROW_NODAL_ACCOUNT.bankName} • Visualizer & Webhook Bus (Isolated from Live Database)
               </p>
             </div>
@@ -177,9 +177,9 @@ export default function DemoEscrowLiveModal({ isOpen, onClose }) {
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 

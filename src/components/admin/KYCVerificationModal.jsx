@@ -68,13 +68,13 @@ export default function KYCVerificationModal({
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center">
-              <RoleIcon className="w-5 h-5 text-[#34D399]" />
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center font-bold text-sm sm:text-base shrink-0">
+              {user.name.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="text-base sm:text-xl font-extrabold text-[#0B3326] font-heading truncate">
                   {user.name}
                 </h3>
                 <Badge
@@ -87,11 +87,12 @@ export default function KYCVerificationModal({
                   }
                   size="sm"
                   dot={user.verificationStatus === 'pending'}
+                  className="shrink-0"
                 >
                   <span className="capitalize">{user.verificationStatus}</span>
                 </Badge>
               </div>
-              <span className="text-xs text-[#566861]">
+              <span className="text-[10px] sm:text-xs text-[#566861] block truncate">
                 {user.orgName || 'Trading Participant'} • {user.district ? `${user.district}, ` : ''}{user.state}
               </span>
             </div>
@@ -99,9 +100,9 @@ export default function KYCVerificationModal({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 

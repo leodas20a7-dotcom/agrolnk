@@ -80,29 +80,29 @@ export default function DocumentViewerModal({
         }`}
       >
         {/* Top Control Bar */}
-        <div className="bg-[#0B3326] text-white p-4 sm:px-6 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-[#14624A] text-[#34D399]">
-              <ShieldCheck className="w-5 h-5" />
+        <div className="bg-[#0B3326] text-white p-3 sm:p-4 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+            <div className="p-1.5 sm:p-2 rounded-xl bg-[#14624A] text-[#34D399] shrink-0">
+              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm sm:text-base text-white truncate max-w-[260px] sm:max-w-md">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="font-bold text-xs sm:text-base text-white truncate">
                   {docType}
                 </h3>
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-[#14624A] text-[#34D399] text-[10px] font-bold uppercase tracking-wider">
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-[#14624A] text-[#34D399] text-[10px] font-bold uppercase tracking-wider shrink-0">
                   Verifiable Credential
                 </span>
               </div>
-              <p className="text-xs text-[#DCFCE7]/80">
+              <p className="text-[10px] sm:text-xs text-[#DCFCE7]/80 truncate">
                 Holder: <strong>{user?.name || 'Registered User'}</strong> &bull; {user?.orgName || user?.role || 'Agrolnk Participant'}
               </p>
             </div>
           </div>
 
           {/* Action Toolbar */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="hidden sm:flex items-center bg-[#14624A] rounded-xl p-1 text-xs">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div className="hidden md:flex items-center bg-[#14624A] rounded-xl p-1 text-xs">
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.max(z - 15, 70))}
@@ -134,27 +134,27 @@ export default function DocumentViewerModal({
               type="button"
               onClick={handlePrint}
               title="Print / Save PDF"
-              className="p-2 rounded-xl bg-[#14624A] hover:bg-[#1A775B] text-[#DCFCE7] transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-[#14624A] hover:bg-[#1A775B] text-[#DCFCE7] transition-colors cursor-pointer shrink-0"
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
               type="button"
               onClick={() => setIsFullscreen(!isFullscreen)}
               title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-              className="p-2 rounded-xl bg-[#14624A] hover:bg-[#1A775B] text-[#DCFCE7] transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-[#14624A] hover:bg-[#1A775B] text-[#DCFCE7] transition-colors cursor-pointer shrink-0"
             >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             <button
               type="button"
               onClick={onClose}
               title="Close Document"
-              className="p-2 rounded-xl bg-red-900/60 hover:bg-red-800 text-white transition-colors cursor-pointer ml-1"
+              className="p-1.5 sm:p-2 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer shrink-0 shadow-xs"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
