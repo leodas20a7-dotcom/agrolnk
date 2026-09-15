@@ -4,6 +4,7 @@ import MarketplaceCard from '../../components/buyer/MarketplaceCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import {
   Search,
   ShoppingBag,
@@ -18,7 +19,10 @@ import {
   Truck,
   MapPin,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  AlertCircle,
+  FileCheck
 } from 'lucide-react';
 import { getActiveMarketplaceListings } from '../../utils/listings';
 import { getLiveAuctions } from '../../utils/auctions';
@@ -37,7 +41,43 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
   const [deliveries, setDeliveries] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('All');
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const sliderRef = useRef(null);
+
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => {
+    try {
+      const stored = localStorage.getItem('agrolnkUser');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.kycStatus) return parsed.kycStatus;
+        if (parsed?.verificationStatus) return parsed.verificationStatus;
+      }
+    } catch {}
+    return user?.kycStatus || user?.verificationStatus || 'pending';
+  });
+
+  const isVerified = currentKycStatus === 'verified';
+
+  useEffect(() => {
+    const handleKycUpdate = () => {
+      try {
+        const stored = localStorage.getItem('agrolnkUser');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.kycStatus) {
+            setCurrentKycStatus(parsed.kycStatus);
+          } else if (parsed?.verificationStatus) {
+            setCurrentKycStatus(parsed.verificationStatus);
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    };
+  }, []);
 
   const scrollLeft = () => {
     if (sliderRef.current) {
@@ -218,6 +258,66 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
           </div>
         </div>
 
+        {/* Buyer KYC / Business Verification Alert Banner */}
+        {!isVerified && (
+          <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+            currentKycStatus === 'pending'
+              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+              : currentKycStatus === 'rejected'
+              ? 'bg-red-50 border-red-200 text-red-950'
+              : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+          }`}>
+            <div className="flex items-start gap-3.5 max-w-3xl">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                currentKycStatus === 'pending'
+                  ? 'bg-amber-100 text-amber-800'
+                  : currentKycStatus === 'rejected'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-emerald-100 text-[#0B3326]'
+              }`}>
+                {currentKycStatus === 'pending' ? (
+                  <Clock className="w-5 h-5" />
+                ) : currentKycStatus === 'rejected' ? (
+                  <AlertCircle className="w-5 h-5" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold">
+                    {currentKycStatus === 'pending'
+                      ? 'Buyer KYC Verification Under Review'
+                      : currentKycStatus === 'rejected'
+                      ? 'Buyer Verification Documents Rejected'
+                      : 'Mandatory Buyer GSTIN / Trade Identity Verification Required'}
+                  </h3>
+                  <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
+                    {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
+                  </Badge>
+                </div>
+                <p className="text-xs opacity-90 leading-relaxed">
+                  {currentKycStatus === 'pending'
+                    ? 'Your GSTIN, trade license, or identity proof is under review by Agrolnk Admin. Institutional trade credit and high-volume procurement limits will be unlocked once approved.'
+                    : currentKycStatus === 'rejected'
+                    ? 'Your previously submitted business documents did not meet verification criteria. Please re-upload a valid GSTIN certificate, PAN, or commercial registration.'
+                    : 'To unlock instant trade financing, high-volume bulk orders, and guaranteed escrow settlements, submit your GSTIN or business identity documents for verification.'}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
+              size="sm"
+              onClick={() => setIsVerificationModalOpen(true)}
+              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
+            >
+              <FileCheck className="w-4 h-4 mr-1.5" />
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : 'Complete Verification'}
+            </Button>
+          </div>
+        )}
+
         {/* Live Auctions Banner Callout */}
         <Card className="p-6 bg-gradient-to-r from-[#FEF3C7]/80 to-[#F2FBF6] border border-[#FDE68A] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3.5">
@@ -392,6 +492,20 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
         </div>
 
       </div>
+
+      {/* Verification Required Modal */}
+      {isVerificationModalOpen && (
+        <VerificationRequiredModal
+          isOpen={isVerificationModalOpen}
+          currentUser={user}
+          actionName="unlock high-volume procurement and trade credit"
+          onClose={() => setIsVerificationModalOpen(false)}
+          onSuccess={() => {
+            setIsVerificationModalOpen(false);
+            setCurrentKycStatus('pending');
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }

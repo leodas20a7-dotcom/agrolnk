@@ -66,7 +66,7 @@ export async function getOrders() {
  */
 export async function getBuyerOrders(buyerId) {
   try {
-    if (!buyerId) return await getOrders();
+    if (!buyerId) return [];
 
     const { data, error } = await supabase
       .from('orders')
@@ -91,7 +91,7 @@ export async function getBuyerOrders(buyerId) {
  */
 export async function getFarmerOrders(farmerId) {
   try {
-    if (!farmerId) return await getOrders();
+    if (!farmerId) return [];
 
     const { data, error } = await supabase
       .from('orders')
@@ -138,7 +138,7 @@ export async function createOrder(orderData) {
       listing_id: orderData.listingId || null,
       auction_id: orderData.auctionId || null,
       buyer_id: orderData.buyerId || null,
-      buyer_name: orderData.buyerName || 'Ananya Agro Foods',
+      buyer_name: orderData.buyerName || 'Buyer',
       farmer_id: orderData.farmerId || null,
       farmer_name: orderData.farmerName || 'Sakthi Vel',
       commodity: orderData.commodity || 'Tomato',

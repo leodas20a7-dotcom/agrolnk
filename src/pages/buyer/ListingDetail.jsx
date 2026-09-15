@@ -81,8 +81,8 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
     try {
       const order = await createOrder({
         ...orderPayload,
-        buyerId: user.id || 'usr_buyer_02',
-        buyerName: user.name || 'Ananya Agro Foods',
+        buyerId: user.id || '',
+        buyerName: user.name || 'Buyer',
       });
 
       // Deduct quantity from live listing

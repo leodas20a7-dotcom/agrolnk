@@ -172,7 +172,7 @@ export async function getDeliveries() {
  */
 export async function getFarmerDeliveries(farmerId) {
   try {
-    if (!farmerId) return await getDeliveries();
+    if (!farmerId) return [];
 
     const { data, error } = await supabase
       .from('deliveries')
@@ -207,7 +207,7 @@ export async function getFarmerDeliveries(farmerId) {
  */
 export async function getBuyerDeliveries(buyerId) {
   try {
-    if (!buyerId) return await getDeliveries();
+    if (!buyerId) return [];
 
     const { data, error } = await supabase
       .from('deliveries')
@@ -379,7 +379,7 @@ export async function createDelivery(deliveryData) {
       farmer_id: deliveryData.farmerId || null,
       farmer_name: deliveryData.farmerName || 'Sakthi Vel',
       buyer_id: deliveryData.buyerId || null,
-      buyer_name: deliveryData.buyerName || 'Ananya Agro Foods',
+      buyer_name: deliveryData.buyerName || 'Buyer',
       transporter_id: deliveryData.transporterId || null,
       transporter_name: deliveryData.transporterName || null,
       commodity: deliveryData.commodity || 'Tomato',
@@ -467,7 +467,7 @@ export async function createOrUpdateSelfTransport(order, vehicleInfo) {
       farmer_id: order.farmerId || null,
       farmer_name: order.farmerName || 'Sakthi Vel',
       buyer_id: order.buyerId || null,
-      buyer_name: order.buyerName || 'Ananya Agro Foods',
+      buyer_name: order.buyerName || 'Buyer',
       transporter_id: null,
       transporter_name: 'Farmer Direct Transport',
       vehicle_number: vehicleNum,

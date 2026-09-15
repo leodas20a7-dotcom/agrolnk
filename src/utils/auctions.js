@@ -214,8 +214,8 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
         {
           id: bidId,
           auction_id: auctionId,
-          bidder_id: bidderId || 'usr_buyer_02',
-          bidder_name: bidderName || 'Buyer Partner',
+          bidder_id: bidderId || '',
+          bidder_name: bidderName || 'Buyer',
           bid_amount: numAmount,
           created_at: new Date().toISOString(),
         },

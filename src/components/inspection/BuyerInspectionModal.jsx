@@ -53,7 +53,7 @@ export default function BuyerInspectionModal({
       const created = await requestQualityInspection({
         orderId: orderKey,
         orderNumber: orderKey,
-        buyerId: buyerUser?.id || order.buyerId || 'usr_buyer_02',
+        buyerId: buyerUser?.id || order.buyerId || '',
         buyerName: buyerUser?.name || order.buyerName || 'Procurement Buyer',
         sellerName: order.farmerName || 'Verified Producer',
         commodity: order.commodity,

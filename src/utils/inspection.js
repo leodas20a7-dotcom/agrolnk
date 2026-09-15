@@ -175,7 +175,7 @@ export async function requestQualityInspection(data) {
     reportNumber: generateReportNum(),
     orderId: data.orderId || data.orderNumber || data.id || `ORD-${Date.now()}`,
     orderNumber: data.orderNumber || data.orderId || `ORD-${Date.now()}`,
-    buyerId: data.buyerId || 'usr_buyer_02',
+    buyerId: data.buyerId || '',
     buyerName: data.buyerName || 'Procurement Buyer',
     sellerName: data.sellerName || data.farmerName || 'Verified Producer',
     cropName: data.cropName || data.commodity || 'Farmgate Produce',
