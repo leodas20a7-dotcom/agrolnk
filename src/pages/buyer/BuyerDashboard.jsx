@@ -258,50 +258,50 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
           </div>
         </div>
 
-        {/* Buyer KYC / Business Verification Alert Banner */}
+        {/* Buyer KYC / Trade Identity Alert Banner */}
         {!isVerified && (
-          <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          <div className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
             currentKycStatus === 'pending'
-              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+              ? 'bg-amber-50/80 border-amber-200/80 text-amber-950'
               : currentKycStatus === 'rejected'
-              ? 'bg-red-50 border-red-200 text-red-950'
-              : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+              ? 'bg-red-50/80 border-red-200/80 text-red-950'
+              : 'bg-blue-50/70 border-blue-200 text-blue-950'
           }`}>
-            <div className="flex items-start gap-3.5 max-w-3xl">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 currentKycStatus === 'pending'
                   ? 'bg-amber-100 text-amber-800'
                   : currentKycStatus === 'rejected'
                   ? 'bg-red-100 text-red-700'
-                  : 'bg-emerald-100 text-[#0B3326]'
+                  : 'bg-blue-100 text-[#0B3326]'
               }`}>
                 {currentKycStatus === 'pending' ? (
-                  <Clock className="w-5 h-5" />
+                  <Clock className="w-4 h-4" />
                 ) : currentKycStatus === 'rejected' ? (
-                  <AlertCircle className="w-5 h-5" />
+                  <AlertCircle className="w-4 h-4" />
                 ) : (
-                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
                 )}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold">
+                  <span className="text-xs sm:text-sm font-bold">
                     {currentKycStatus === 'pending'
-                      ? 'Buyer KYC Verification Under Review'
+                      ? 'KYC Verification Under Review'
                       : currentKycStatus === 'rejected'
-                      ? 'Buyer Verification Documents Rejected'
-                      : 'Mandatory Buyer GSTIN / Trade Identity Verification Required'}
-                  </h3>
-                  <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
+                      ? 'KYC Documents Rejected'
+                      : 'KYC Verification Required'}
+                  </span>
+                  <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'blue'} size="sm">
                     {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
                   </Badge>
                 </div>
-                <p className="text-xs opacity-90 leading-relaxed">
+                <p className="text-xs text-[#566861]">
                   {currentKycStatus === 'pending'
-                    ? 'Your GSTIN, trade license, or identity proof is under review by Agrolnk Admin. Institutional trade credit and high-volume procurement limits will be unlocked once approved.'
+                    ? 'Documents are under review. Trade credit and bulk procurement will activate once approved.'
                     : currentKycStatus === 'rejected'
-                    ? 'Your previously submitted business documents did not meet verification criteria. Please re-upload a valid GSTIN certificate, PAN, or commercial registration.'
-                    : 'To unlock instant trade financing, high-volume bulk orders, and guaranteed escrow settlements, submit your GSTIN or business identity documents for verification.'}
+                    ? 'Please review and re-submit your business verification documents.'
+                    : 'Complete trade identity verification to unlock trade financing and bulk contracts.'}
                 </p>
               </div>
             </div>
@@ -310,10 +310,10 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
               variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
               size="sm"
               onClick={() => setIsVerificationModalOpen(true)}
-              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
+              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
-              <FileCheck className="w-4 h-4 mr-1.5" />
-              {currentKycStatus === 'pending' ? 'View Submitted Proof' : 'Complete Verification'}
+              <FileCheck className="w-3.5 h-3.5 mr-1.5" />
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
             </Button>
           </div>
         )}

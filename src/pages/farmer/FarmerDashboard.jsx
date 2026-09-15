@@ -200,15 +200,15 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
 
         {/* Farmer KYC / Identity & Land Record Alert Banner */}
         {!isVerified && (
-          <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          <div className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
             currentKycStatus === 'pending'
-              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+              ? 'bg-amber-50/80 border-amber-200/80 text-amber-950'
               : currentKycStatus === 'rejected'
-              ? 'bg-red-50 border-red-200 text-red-950'
+              ? 'bg-red-50/80 border-red-200/80 text-red-950'
               : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
           }`}>
-            <div className="flex items-start gap-3.5 max-w-3xl">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 currentKycStatus === 'pending'
                   ? 'bg-amber-100 text-amber-800'
                   : currentKycStatus === 'rejected'
@@ -216,32 +216,32 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                   : 'bg-emerald-100 text-[#0B3326]'
               }`}>
                 {currentKycStatus === 'pending' ? (
-                  <Clock className="w-5 h-5" />
+                  <Clock className="w-4 h-4" />
                 ) : currentKycStatus === 'rejected' ? (
-                  <AlertCircle className="w-5 h-5" />
+                  <AlertCircle className="w-4 h-4" />
                 ) : (
-                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
                 )}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold">
+                  <span className="text-xs sm:text-sm font-bold">
                     {currentKycStatus === 'pending'
-                      ? 'Farmer KYC Verification Under Review'
+                      ? 'KYC Verification Under Review'
                       : currentKycStatus === 'rejected'
-                      ? 'Farmer Verification Documents Rejected'
-                      : 'Mandatory Farmer Identity / Land Verification Required'}
-                  </h3>
+                      ? 'KYC Documents Rejected'
+                      : 'KYC Verification Required'}
+                  </span>
                   <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
                     {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
                   </Badge>
                 </div>
-                <p className="text-xs opacity-90 leading-relaxed">
+                <p className="text-xs text-[#566861]">
                   {currentKycStatus === 'pending'
-                    ? 'Your Aadhaar, Farmer ID, or land record credentials are under review by Agrolnk Admin. Live marketplace listing and automated bank escrow payouts will be activated once approved.'
+                    ? 'Documents are under review. Full features will activate once approved.'
                     : currentKycStatus === 'rejected'
-                    ? 'Your previously submitted documents did not meet requirements. Please submit a valid Aadhaar, PM-Kisan ID, or Land Ownership document.'
-                    : 'To list direct harvest lots, access institutional storage loan advances, and receive guaranteed escrow payouts, submit your farmer identity credentials.'}
+                    ? 'Please review and re-submit your verification documents.'
+                    : 'Complete identity verification to unlock marketplace listing and escrow.'}
                 </p>
               </div>
             </div>
@@ -250,10 +250,10 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
               size="sm"
               onClick={() => setIsVerificationModalOpen(true)}
-              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
+              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
-              <FileCheck className="w-4 h-4 mr-1.5" />
-              {currentKycStatus === 'pending' ? 'View Submitted Proof' : 'Complete Verification'}
+              <FileCheck className="w-3.5 h-3.5 mr-1.5" />
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
             </Button>
           </div>
         )}
