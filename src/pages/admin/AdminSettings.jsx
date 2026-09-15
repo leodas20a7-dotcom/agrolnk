@@ -68,6 +68,10 @@ export default function AdminSettings({ currentUser, onNavigate }) {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isDeleteUserModalOpen, setIsDeleteUserModalOpen] = useState(false);
   const [isResetChatModalOpen, setIsResetChatModalOpen] = useState(false);
+  const [isResetDraftsModalOpen, setIsResetDraftsModalOpen] = useState(false);
+  const [isGlobalFactoryResetModalOpen, setIsGlobalFactoryResetModalOpen] = useState(false);
+  const [chatResetConfirmed, setChatResetConfirmed] = useState(false);
+  const [draftResetConfirmed, setDraftResetConfirmed] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
@@ -248,12 +252,52 @@ export default function AdminSettings({ currentUser, onNavigate }) {
       showGlobalLoader('Resetting Chat Database...', 'Wiping all message logs and active threads across system...');
       await clearAllChatHistory();
       setIsResetChatModalOpen(false);
+      setChatResetConfirmed(false);
       setActionSuccess('All AgroLnk chat history has been permanently wiped and reset to factory clean state.');
       setTimeout(() => setActionSuccess(''), 5000);
       const updatedDiag = await getChatDiagnostics();
       setChatDiag(updatedDiag);
     } catch (err) {
       console.error('Chat wipe error:', err);
+      setActionError('Failed to reset chat database. Please try again.');
+    } finally {
+      hideGlobalLoader();
+    }
+  };
+
+  // Drafts & Local Cache Reset Actions
+  const handleConfirmResetDrafts = async () => {
+    try {
+      showGlobalLoader('Resetting Drafts & Cache...', 'Clearing unpublished produce drafts and session buffers...');
+      await resetPlatformDemoData();
+      setIsResetDraftsModalOpen(false);
+      setDraftResetConfirmed(false);
+      setActionSuccess('All unpublished produce drafts and local platform caches have been cleared.');
+      setTimeout(() => setActionSuccess(''), 5000);
+    } catch (err) {
+      console.error('Draft reset error:', err);
+      setActionError('Failed to clear drafts. Please try again.');
+    } finally {
+      hideGlobalLoader();
+    }
+  };
+
+  // Complete Global Factory Reset Action
+  const handleConfirmGlobalFactoryReset = async () => {
+    try {
+      showGlobalLoader('Executing Global Factory Reset...', 'Purging chats, drafts, and system ephemeral caches...');
+      await clearAllChatHistory();
+      await resetPlatformDemoData();
+      setIsGlobalFactoryResetModalOpen(false);
+      setChatResetConfirmed(false);
+      setDraftResetConfirmed(false);
+      setActionSuccess('Platform Factory Reset complete: Chat histories, produce drafts, and session caches are cleanly reset.');
+      setTimeout(() => setActionSuccess(''), 6000);
+      const updatedDiag = await getChatDiagnostics();
+      setChatDiag(updatedDiag);
+    } catch (err) {
+      console.error('Global factory reset error:', err);
+      setActionError('Global factory reset encountered an issue. Please try again.');
     } finally {
       hideGlobalLoader();
     }
@@ -733,39 +777,89 @@ export default function AdminSettings({ currentUser, onNavigate }) {
         {/* TAB 3: System Health & Cache */}
         {activeTab === 'platform' && (
           <div className="space-y-6">
+            
+            {/* Card 1: Unpublished Drafts & Local Storage Cache */}
             <Card className="p-6 bg-white border border-[#E5EDE8] text-left space-y-4 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                    Platform Storage & Local Cache Controls
-                  </h3>
-                  <p className="text-xs text-[#566861]">
-                    Clear uncommitted listing drafts and synchronize mock session caches.
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                      Produce Listing Drafts & Form Buffers
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#566861] max-w-2xl">
+                    Safely purges any unpublished produce listing drafts (`agrolnk_draft_listing_*`) and clears temporary wizard progress without touching user accounts, published lots, or escrow contracts.
                   </p>
                 </div>
-              </div>
 
-              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-[#0B3326] block">Unpublished Drafts & Ephemeral State</span>
-                  <span className="text-[11px] text-[#566861]">
-                    Cleans up temporary produce drafts, draft counters, and unread event emitters.
-                  </span>
-                </div>
                 <Button
                   variant="secondary"
-                  size="sm"
+                  size="md"
                   onClick={() => {
-                    resetPlatformDemoData();
-                    setActionSuccess('Ephemeral platform caches cleared successfully.');
-                    setTimeout(() => setActionSuccess(''), 3000);
+                    setDraftResetConfirmed(false);
+                    setIsResetDraftsModalOpen(true);
                   }}
-                  className="text-xs font-bold cursor-pointer shrink-0"
+                  icon={RefreshCw}
+                  iconPosition="left"
+                  className="text-xs font-bold border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 cursor-pointer shrink-0"
                 >
-                  Reset Temporary Cache
+                  Reset Produce Drafts
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#E5EDE8] text-xs">
+                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                  <span className="font-bold text-[#0B3326] block">Farmer Drafts</span>
+                  <span className="text-[11px] text-[#566861]">Uncommitted produce assays & step forms</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                  <span className="font-bold text-[#0B3326] block">Local Sync State</span>
+                  <span className="text-[11px] text-[#566861]">Temporary filter state & draft triggers</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                  <span className="font-bold text-emerald-700 block">✓ Safe Action</span>
+                  <span className="text-[11px] text-[#566861]">Active accounts & live lots remain intact</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Card 2: Full Platform Factory Reset (Unified) */}
+            <Card className="p-6 bg-gradient-to-r from-red-50/70 via-rose-50/40 to-white border border-red-200 text-left space-y-4 shadow-xs">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-red-950 font-heading">
+                      Complete Platform Factory Reset (Drafts + Chat + Cache)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-red-900 max-w-2xl">
+                    Executes a complete system cleanup: wipes all active chat histories in local cache and Supabase, deletes all listing drafts, and resets all unread badge counters to zero.
+                  </p>
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => {
+                    setChatResetConfirmed(false);
+                    setDraftResetConfirmed(false);
+                    setIsGlobalFactoryResetModalOpen(true);
+                  }}
+                  icon={Trash2}
+                  iconPosition="left"
+                  className="bg-red-700 hover:bg-red-800 border-red-800 text-white font-bold text-xs py-2.5 px-4 shadow-md shadow-red-700/20 cursor-pointer shrink-0"
+                >
+                  Global Factory Reset
                 </Button>
               </div>
             </Card>
+
           </div>
         )}
 
@@ -1059,32 +1153,276 @@ export default function AdminSettings({ currentUser, onNavigate }) {
       {/* MODAL 4: Factory Reset All Chat Modal */}
       <Modal
         isOpen={isResetChatModalOpen}
-        onClose={() => setIsResetChatModalOpen(false)}
-        title="Factory Reset All Chat History?"
-        subtitle="Irreversible Communication Purge"
+        onClose={() => {
+          setIsResetChatModalOpen(false);
+          setChatResetConfirmed(false);
+        }}
+        title="Confirm Factory Reset of Chat History"
+        subtitle="Permanent purge of messaging logs across local cache and Supabase"
         icon={AlertTriangle}
         iconColor="text-red-600"
         iconBg="bg-red-100"
         maxWidth="max-w-lg"
       >
         <div className="space-y-4 text-left">
-          <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-1">
-            <span className="font-bold block">⚠️ Warning: Permanent Purge</span>
+          
+          {/* Warning Banner */}
+          <div className="p-4 rounded-2xl bg-red-50/90 border border-red-200 text-xs text-red-950 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-red-900">
+              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+              <span>Permanent Administrative Action</span>
+            </div>
             <p className="text-[11px] text-red-800 leading-relaxed">
-              This will permanently delete all {chatDiag.localMessageCount} messages across all {chatDiag.threadCount} conversation threads from both the Supabase database and local storage. Unread counters and open chats will immediately reset to zero.
+              This operation will permanently purge all live chat records and thread logs. Once executed, previous conversations between farmers, wholesale buyers, warehouse managers, and transporters cannot be restored.
             </p>
           </div>
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#E5EDE8]">
-            <Button variant="secondary" size="md" onClick={() => setIsResetChatModalOpen(false)}>
+
+          {/* Diagnostic Metrics to be cleared */}
+          <div className="grid grid-cols-3 gap-2.5 text-center">
+            <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <span className="text-[10px] text-[#566861] block font-semibold">Active Threads</span>
+              <span className="text-base font-extrabold text-[#0B3326] font-heading">{chatDiag.threadCount}</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <span className="text-[10px] text-[#566861] block font-semibold">Local Messages</span>
+              <span className="text-base font-extrabold text-[#0B3326] font-heading">{chatDiag.localMessageCount}</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <span className="text-[10px] text-[#566861] block font-semibold">Database Rows</span>
+              <span className="text-base font-extrabold text-[#0B3326] font-heading">{chatDiag.dbMessageCount}</span>
+            </div>
+          </div>
+
+          {/* Scope Checklist */}
+          <div className="p-3 rounded-2xl bg-[#FAFBF9] border border-[#E5EDE8] space-y-2 text-xs">
+            <span className="font-bold text-[#0B3326] block text-[11px] uppercase tracking-wider">What this will do:</span>
+            <ul className="space-y-1.5 text-[11px] text-[#566861]">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0 mt-0.5" />
+                <span>Wipes all conversation histories from local device storage & Supabase <code className="bg-[#E5EDE8] px-1 rounded text-[#0B3326]">chat_messages</code> table.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0 mt-0.5" />
+                <span>Resets all global unread badge counters across all open sessions to 0.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#10B981] shrink-0 mt-0.5" />
+                <span><strong>User accounts, KYC verifications, escrow orders & contracts are 100% safe.</strong></span>
+              </li>
+            </ul>
+          </div>
+
+          {/* User Confirmation Checkbox */}
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50/50 border border-red-200/80 cursor-pointer hover:bg-red-50 transition-colors">
+            <input
+              type="checkbox"
+              checked={chatResetConfirmed}
+              onChange={(e) => setChatResetConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <span className="text-xs text-red-950 font-semibold select-none">
+              I understand that this action is irreversible and will permanently delete all chat history.
+            </span>
+          </label>
+
+          {/* Action Buttons */}
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-end gap-2 border-t border-[#E5EDE8]">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => {
+                setIsResetChatModalOpen(false);
+                setChatResetConfirmed(false);
+              }}
+              className="w-full sm:w-auto"
+            >
+              Cancel / Keep Chat Data
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              disabled={!chatResetConfirmed}
+              onClick={handleConfirmResetAllChat}
+              icon={Trash2}
+              iconPosition="left"
+              className={`w-full sm:w-auto font-bold py-2.5 px-5 cursor-pointer shadow-md transition-all ${
+                chatResetConfirmed
+                  ? 'bg-red-700 hover:bg-red-800 border-red-800 text-white shadow-red-700/20'
+                  : 'bg-red-300 border-red-300 text-white/80 cursor-not-allowed opacity-60'
+              }`}
+            >
+              Confirm Factory Reset
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL 5: Reset Produce Drafts Modal */}
+      <Modal
+        isOpen={isResetDraftsModalOpen}
+        onClose={() => {
+          setIsResetDraftsModalOpen(false);
+          setDraftResetConfirmed(false);
+        }}
+        title="Confirm Reset of Produce Drafts & Ephemeral Cache"
+        subtitle="Safe cleanup of uncommitted listing forms and browser session buffers"
+        icon={RefreshCw}
+        iconColor="text-amber-600"
+        iconBg="bg-amber-100"
+        maxWidth="max-w-lg"
+      >
+        <div className="space-y-4 text-left">
+          
+          <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-amber-900">
+              <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Temporary Draft Cleanup</span>
+            </div>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              This will remove any unfinished produce drafts (`agrolnk_draft_listing_*`) saved locally on this browser. It refreshes form wizard step counters and resets test sync events.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#FAFBF9] border border-[#E5EDE8] space-y-2 text-xs">
+            <span className="font-bold text-[#0B3326] block text-[11px] uppercase tracking-wider">Scope Summary:</span>
+            <ul className="space-y-1.5 text-[11px] text-[#566861]">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <span>Clears all unpublished farmer produce drafts saved in local storage.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <span>Resets temporary step-by-step form wizards and mock broadcast caches.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#10B981] shrink-0 mt-0.5" />
+                <span><strong>Active produce listings, verified KYC users, and live auction rooms remain untouched.</strong></span>
+              </li>
+            </ul>
+          </div>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/50 border border-amber-200 cursor-pointer hover:bg-amber-50 transition-colors">
+            <input
+              type="checkbox"
+              checked={draftResetConfirmed}
+              onChange={(e) => setDraftResetConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+            />
+            <span className="text-xs text-amber-950 font-semibold select-none">
+              I confirm clearing all uncommitted produce drafts and local buffers.
+            </span>
+          </label>
+
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-end gap-2 border-t border-[#E5EDE8]">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => {
+                setIsResetDraftsModalOpen(false);
+                setDraftResetConfirmed(false);
+              }}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
             <Button
               variant="primary"
               size="md"
-              onClick={handleConfirmResetAllChat}
-              className="bg-red-700 hover:bg-red-800 border-red-800 text-white font-bold py-2.5 px-5 cursor-pointer shadow-md"
+              disabled={!draftResetConfirmed}
+              onClick={handleConfirmResetDrafts}
+              icon={RefreshCw}
+              iconPosition="left"
+              className={`w-full sm:w-auto font-bold py-2.5 px-5 cursor-pointer shadow-md transition-all ${
+                draftResetConfirmed
+                  ? 'bg-amber-600 hover:bg-amber-700 border-amber-700 text-white'
+                  : 'bg-amber-300 border-amber-300 text-white/80 cursor-not-allowed opacity-60'
+              }`}
             >
-              Yes, Purge & Factory Reset Chat
+              Confirm & Clear Drafts
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL 6: Global Factory Reset Modal (Drafts + Chat + Cache) */}
+      <Modal
+        isOpen={isGlobalFactoryResetModalOpen}
+        onClose={() => {
+          setIsGlobalFactoryResetModalOpen(false);
+          setChatResetConfirmed(false);
+          setDraftResetConfirmed(false);
+        }}
+        title="Complete Platform Factory Reset"
+        subtitle="Unified purge of chat histories, draft listings, and ephemeral cache"
+        icon={ShieldAlert}
+        iconColor="text-red-600"
+        iconBg="bg-red-100"
+        maxWidth="max-w-lg"
+      >
+        <div className="space-y-4 text-left">
+          <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-950 space-y-1.5">
+            <span className="font-bold block text-red-900">⚠️ Complete Communication & Draft Reset</span>
+            <p className="text-[11px] text-red-800 leading-relaxed">
+              This will simultaneously execute a <strong>Chat Factory Reset</strong> (purging all {chatDiag.localMessageCount} messages across {chatDiag.threadCount} threads) and a <strong>Drafts Reset</strong> (clearing all uncommitted produce listings).
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#FAFBF9] border border-[#E5EDE8] space-y-2 text-xs">
+            <span className="font-bold text-[#0B3326] block text-[11px] uppercase tracking-wider">All Actions Performed:</span>
+            <ul className="space-y-1.5 text-[11px] text-[#566861]">
+              <li className="flex items-start gap-2">
+                <Trash2 className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                <span>Purges all chat histories across local storage and remote database.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Trash2 className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                <span>Clears all unpublished produce drafts and session buffers.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0 mt-0.5" />
+                <span>Resets unread chat badges to zero for all participants.</span>
+              </li>
+            </ul>
+          </div>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50/60 border border-red-200 cursor-pointer hover:bg-red-50 transition-colors">
+            <input
+              type="checkbox"
+              checked={chatResetConfirmed}
+              onChange={(e) => setChatResetConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <span className="text-xs text-red-950 font-semibold select-none">
+              I authorize full system factory reset of chat records and unpublished drafts.
+            </span>
+          </label>
+
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-end gap-2 border-t border-[#E5EDE8]">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => {
+                setIsGlobalFactoryResetModalOpen(false);
+                setChatResetConfirmed(false);
+              }}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              disabled={!chatResetConfirmed}
+              onClick={handleConfirmGlobalFactoryReset}
+              icon={Trash2}
+              iconPosition="left"
+              className={`w-full sm:w-auto font-bold py-2.5 px-5 cursor-pointer shadow-md transition-all ${
+                chatResetConfirmed
+                  ? 'bg-red-700 hover:bg-red-800 border-red-800 text-white shadow-red-700/20'
+                  : 'bg-red-300 border-red-300 text-white/80 cursor-not-allowed opacity-60'
+              }`}
+            >
+              Execute Global Reset
             </Button>
           </div>
         </div>
