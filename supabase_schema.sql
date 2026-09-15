@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     name TEXT NOT NULL,
     email TEXT UNIQUE,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('farmer', 'buyer', 'transporter', 'warehouse', 'financier')),
+    role TEXT NOT NULL CHECK (role IN ('farmer', 'buyer', 'transporter', 'warehouse', 'financier', 'admin')),
     company_name TEXT,
     state TEXT,
     district TEXT,
@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure admin role is permitted in existing deployments
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('farmer', 'buyer', 'transporter', 'warehouse', 'financier', 'admin'));
 
 -- ============================================================================
 -- 2. DIRECT SPOT MARKET LISTINGS
@@ -288,11 +292,17 @@ CREATE TABLE IF NOT EXISTS public.inspections (
 );
 
 -- Ensure newly added columns exist for existing deployments
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS admin_verified_by TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS admin_verification_status TEXT DEFAULT 'pending';
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS admin_call_notes TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS admin_verified_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS inspection_fee NUMERIC DEFAULT 500;
 ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_status TEXT DEFAULT 'unpaid';
 ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_paid_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_payment_id TEXT;
 ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS fee_payment_method TEXT;
+ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS dispute_reason TEXT;
+ALTER TABLE public.inspections ADD COLUMN IF NOT EXISTS arbitration JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE public.warehouse_receipts ADD COLUMN IF NOT EXISTS last_rent_paid_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.warehouse_receipts ADD COLUMN IF NOT EXISTS storage_fee_monthly NUMERIC DEFAULT 0;
 
@@ -314,6 +324,9 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 
 -- Ensure is_read column exists for existing tables
 ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
+
+-- Enable Realtime publication for chat messages
+ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
 
 -- ============================================================================
 -- 10. ROW LEVEL SECURITY (RLS) POLICIES
