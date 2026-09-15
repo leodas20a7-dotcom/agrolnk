@@ -72,7 +72,7 @@ export default function ReceiptDetailModal({
                 Beneficiary Depositor (Owner)
               </span>
               <span className="text-base font-extrabold text-[#0B3326] font-heading">
-                {inventory.farmerName || 'Sakthi Vel'}
+                {inventory.farmerName || 'Depositor / Farmer'}
               </span>
             </div>
 

@@ -11,9 +11,9 @@ export default function ListFromInventoryModal({
   onSuccess,
 }) {
   const [saleType, setSaleType] = useState('direct'); // 'direct' | 'auction'
-  const [quantity, setQuantity] = useState(String(inventory?.availableQuantity || 500));
-  const [pricePerUnit, setPricePerUnit] = useState('45');
-  const [reservePrice, setReservePrice] = useState('48');
+  const [quantity, setQuantity] = useState(String(inventory?.availableQuantity || ''));
+  const [pricePerUnit, setPricePerUnit] = useState('');
+  const [reservePrice, setReservePrice] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 

@@ -234,21 +234,21 @@ export async function getWarehouseReceipts() {
  */
 export async function getFarmerInventory(farmerId) {
   const all = await getWarehouseReceipts();
-  if (!farmerId) return all;
-  return all.filter((r) => !r.farmerId || r.farmerId === farmerId || farmerId.includes('farmer'));
+  if (!farmerId) return [];
+  return all.filter((r) => r.farmerId === farmerId);
 }
 
 /**
  * Get warehouse operator stats & receipts
  */
-export async function getWarehouseOperatorStats(warehouseId) {
+export async function getWarehouseOperatorStats(warehouseId, profile = null) {
   try {
-    const receipts = await getWarehouseReceipts();
+    const receipts = await getWarehouseInventory(warehouseId);
     const activeReceipts = receipts.filter((r) => r.status === 'stored' || r.status === 'partially_listed');
     const totalValuation = activeReceipts.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
     const totalStoredKg = activeReceipts.reduce((sum, r) => sum + (r.totalQuantity || 0), 0);
-    const totalStoredTonnes = totalStoredKg / 1000;
-    const capacityTonnes = 5000;
+    const totalStoredTonnes = Number((totalStoredKg / 1000).toFixed(1));
+    const capacityTonnes = profile?.totalCapacityTonnes ? Number(profile.totalCapacityTonnes) : 2000;
     const computedOccupancy = capacityTonnes > 0 ? Number(((totalStoredTonnes / capacityTonnes) * 100).toFixed(1)) : 0;
 
     return {
@@ -259,10 +259,10 @@ export async function getWarehouseOperatorStats(warehouseId) {
       releaseOrders: 0,
       occupancyPercentage: computedOccupancy,
       warehouse: {
-        id: warehouseId || 'wh_salem_01',
-        name: 'Salem Agri Cold Storage Hub',
-        capacity: '5,000 MT',
-        location: 'Salem, Tamil Nadu',
+        id: warehouseId || '',
+        name: profile?.companyName || profile?.warehouseName || 'Agri Storage Hub',
+        capacity: `${capacityTonnes.toLocaleString('en-IN')} MT`,
+        location: profile?.district ? `${profile.district}, ${profile.state || ''}` : 'Location Pending',
       },
     };
   } catch (err) {
@@ -271,6 +271,7 @@ export async function getWarehouseOperatorStats(warehouseId) {
       activeReceipts: 0,
       totalValuation: '₹0',
       totalStoredKg: 0,
+      totalStoredTonnes: 0,
       releaseOrders: 0,
       occupancyPercentage: 0,
     };
@@ -300,12 +301,12 @@ export async function createWarehouseReceipt(receiptData) {
   const newReceipt = {
     id: generateId(),
     receiptNumber: generateReceiptNum(),
-    farmerId: receiptData.farmerId || 'usr_farmer_01',
-    farmerName: receiptData.farmerName || 'Sakthi Vel',
-    warehouseId: receiptData.warehouseId || 'wh_salem_01',
-    warehouseName: receiptData.warehouseName || 'Salem Agri Cold Storage Hub',
-    chamber: receiptData.chamber || 'Chamber A1 (Dry)',
-    commodity: receiptData.commodity || 'Tomato',
+    farmerId: receiptData.farmerId || '',
+    farmerName: receiptData.farmerName || 'Depositor / Farmer',
+    warehouseId: receiptData.warehouseId || '',
+    warehouseName: receiptData.warehouseName || 'Agri Storage Facility',
+    chamber: receiptData.chamber || 'General Storage Chamber',
+    commodity: receiptData.commodity || 'Agri Produce',
     variety: receiptData.variety || 'Standard',
     grade: receiptData.grade || 'A',
     totalQuantity: totalQty,
@@ -624,8 +625,8 @@ export async function dispatchProduceFromWarehouse(receiptId, dispatchData = {})
 
 export async function getWarehouseInventory(warehouseId) {
   const all = await getWarehouseReceipts();
-  if (!warehouseId) return all;
-  return all.filter((r) => !r.warehouseId || r.warehouseId === warehouseId || warehouseId.includes('wh_salem') || warehouseId.includes('warehouse'));
+  if (!warehouseId) return [];
+  return all.filter((r) => r.warehouseId === warehouseId);
 }
 
 const WAREHOUSE_PROFILES_KEY = 'agrolnk_warehouse_profiles';

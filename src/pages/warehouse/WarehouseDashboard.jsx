@@ -92,9 +92,10 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         setIsSetupModalOpen(true);
       }
 
+      const operatorWarehouseId = user.id || storedProfile?.id || storedProfile?.userId;
       const [computedStats, inv] = await Promise.all([
-        getWarehouseOperatorStats(user.id),
-        getWarehouseReceipts(),
+        getWarehouseOperatorStats(operatorWarehouseId, storedProfile),
+        getWarehouseInventory(operatorWarehouseId),
       ]);
       setStats(computedStats);
       setInventory(inv || []);
