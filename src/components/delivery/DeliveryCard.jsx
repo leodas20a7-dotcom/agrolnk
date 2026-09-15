@@ -33,6 +33,7 @@ export default function DeliveryCard({
   const isDelivered = delivery.status === 'delivered';
   const isTransporter = viewerRole === 'transporter';
   const isFarmer = viewerRole === 'farmer';
+  const isBuyer = viewerRole === 'buyer';
 
   const pickupStr = typeof delivery.pickupLocation === 'object'
     ? `${delivery.pickupLocation?.district || 'Salem'}, ${delivery.pickupLocation?.state || 'Tamil Nadu'}`

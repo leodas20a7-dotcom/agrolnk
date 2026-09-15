@@ -16,6 +16,8 @@ export default function DeliveryRow({
   const isPriceOffered = delivery.status === 'price_offered';
   const isAvailableJob = delivery.status === 'transport_requested';
   const isTransporter = viewerRole === 'transporter';
+  const isFarmer = viewerRole === 'farmer';
+  const isBuyer = viewerRole === 'buyer';
 
   const pickupStr = typeof delivery.pickupLocation === 'object'
     ? `${delivery.pickupLocation?.district || 'Salem'}, ${delivery.pickupLocation?.state || 'Tamil Nadu'}`
