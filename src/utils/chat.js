@@ -2,11 +2,11 @@
 // Requirement: Users can communicate while phone numbers, emails, domain fragments, 
 // spelled-out words, and split-message contact exchanges are strictly detected and protected.
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js';
 
 const CHAT_STORAGE_KEY = 'agrolnk_chat_threads_v4';
 
-// Comprehensive multilingual number words (English, Hindi/Hinglish, Tamil/Tanglish)
+// Comprehensive multilingual number words (English, Hindi/Hinglish, Tamil/Tanglish, Kannada, Telugu)
 const NUMBER_WORDS_MAP = {
   // English
   'zero': '0', 'oh': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
@@ -22,7 +22,11 @@ const NUMBER_WORDS_MAP = {
   'poojiyam': '0', 'suzhyam': '0', 'ondru': '1', 'onnu': '1', 'irandu': '2',
   'rendu': '2', 'moondru': '3', 'moonu': '3', 'naangu': '4', 'naalu': '4',
   'aindhu': '5', 'anchu': '5', 'anju': '5', 'aaru': '6', 'ezhu': '7',
-  'yezhu': '7', 'ettu': '8', 'onbadhu': '9', 'ombodhu': '9', 'pathu': '10'
+  'yezhu': '7', 'ettu': '8', 'onbadhu': '9', 'ombodhu': '9', 'pathu': '10',
+
+  // Kannada & Telugu transliterations
+  'okati': '1', 'moodu': '3', 'nalugu': '4', 'aidu': '5', 'edu': '7', 'enimidi': '8', 'tommidi': '9', 'padi': '10',
+  'ondu': '1', 'eradu': '2', 'mooru': '3', 'nalku': '4', 'elu': '7', 'entu': '8', 'ombattu': '9', 'hattu': '10'
 };
 
 const MULTIPLIERS = {
@@ -42,10 +46,14 @@ const CONTACT_INTENT_KEYWORDS = [
   'call me', 'call us', 'call', 'contact me', 'whatsapp', 'watsapp',
   'watsap', 'whatsap', 'ping me', 'reach me', 'ph no', 'phone no',
   'phone number', 'mob no', 'mobile no', 'mobile number', 'gpay',
-  'phonepe', 'paytm', 'dial', 'ring me', 'msg me', 'dm me'
+  'phonepe', 'paytm', 'dial', 'ring me', 'msg me', 'dm me',
+  'share my contact', 'share my number', 'share contact', 'share number',
+  'send my number', 'send my contact', 'give my number', 'give my contact',
+  'my contact number', 'my phone number', 'my mobile number', 'my whatsapp',
+  'share no', 'send no', 'give no', 'contact number', 'phone num', 'cell no'
 ];
 
-const COMMODITY_WHITELIST_REGEX = /\b(kg|kgs|quintal|quintals|ton|tons|tonnes|mt|₹|rs|inr|\/kg|\/quintal|\/ton|bags|crates|acre|acres|grade\s+[a-c]|lot\s+\d+|moisture|order\s*#?|agm-\d+)\b/i;
+const COMMODITY_WHITELIST_REGEX = /\b(kg|kgs|quintal|quintals|ton|tons|tonnes|mt|₹|rs|inr|\/kg|\/quintal|\/ton|bags|crates|acre|acres|grade\s+[a-c]|lot\s+#?\d+|moisture|order\s*#?|agm-\d+)\b/i;
 
 /**
  * Expand multi-word multipliers like "double nine" -> "99", "triple eight" -> "888"
@@ -119,56 +127,68 @@ export function maskSensitivePII(text) {
     }
   }
 
-  // 2. Check for Spelled-Out Number Sequences (e.g. "eight nine two four three two double nine four")
+  // 2. High-Density Spelled-Out Numbers or Digit Fragments (e.g. "nine two three", "three four", "2 three")
+  if (!isTradeContext(text)) {
+    const words = lower.split(/\s+/).filter(Boolean);
+    if (words.length > 0) {
+      let numCount = 0;
+      for (const w of words) {
+        const cleanW = w.replace(/[^a-z0-9]/g, '');
+        if (NUMBER_WORDS_MAP[cleanW] || /^\d+$/.test(cleanW)) {
+          numCount++;
+        }
+      }
+      // If 50% or more of the words are number words/digits in a non-trade message:
+      if ((numCount >= 2 && (numCount / words.length) >= 0.5) || (words.length === 1 && (NUMBER_WORDS_MAP[words[0]] || /^\d{3,}$/.test(words[0])))) {
+        return '[Protected Number Fragment]';
+      }
+    }
+  }
+
+  // 3. Check for Spelled-Out Number Sequences
   const numberWordCount = countNumberWords(text);
-  if (numberWordCount >= 6 && !isTradeContext(text)) {
+  if (numberWordCount >= 4 && !isTradeContext(text)) {
     return '[Protected Contact - Spelled-Out Number Detected]';
   }
 
-  // 3. Normalize word-numbers and multipliers to test converted phone strings
+  // 4. Contact Intent Keywords (e.g. "wait I share my contact number", "share my number", "call me at...")
+  const hasContactIntent = CONTACT_INTENT_KEYWORDS.some(kw => lower.includes(kw));
+  if (hasContactIntent && !isTradeContext(text)) {
+    return '[Protected Contact Intent - Please Use AgroLnk Escrow Chat]';
+  }
+
+  // 5. Normalize word-numbers and multipliers to test converted phone strings
   const normalized = normalizeWordNumbers(masked);
   const normalizedDigitsOnly = normalized.replace(/\D/g, '');
   if ((normalizedDigitsOnly.length === 10 || (normalizedDigitsOnly.length > 10 && /^[6-9]/.test(normalizedDigitsOnly.slice(-10)))) && !isTradeContext(text)) {
-    // If normalized string forms a 10-digit mobile number, mask it
-    if (numberWordCount >= 4) {
-      return '[Protected Contact - Spelled-Out Number Detected]';
-    }
+    return '[Protected Contact - Phone Number Detected]';
   }
 
-  // 4. Contact Intent Keywords + Numbers (e.g. "call me at ...", "whatsapp ...", "ph no 98...")
-  const hasContactIntent = CONTACT_INTENT_KEYWORDS.some(kw => lower.includes(kw));
-  if (hasContactIntent && !isTradeContext(text)) {
-    const digitsInMessage = normalized.replace(/\D/g, '');
-    if (digitsInMessage.length >= 4 || numberWordCount >= 3) {
-      return '[Protected Contact - Direct Contact Request Blocked]';
-    }
-  }
-
-  // 5. Normalize spaced or separated numbers (e.g. "9 8 7 5 5 6 7 8 9 0", "9-8-7-5-5-6-7-8-9-0", "9.8.7.5.5")
+  // 6. Normalize spaced or separated numbers (e.g. "9 8 7 5 5 6 7 8 9 0", "9-8-7-5-5-6-7-8-9-0", "9.8.7.5.5")
   const separatedPhoneRegex = /(?:\+?91[\s.-]?)?([6-9])[\s.-]*(\d)[\s.-]*(\d)[\s.-]*(\d)[\s.-]*(\d)[\s.-]*(\d)[\s.-]*(\d)[\s.-]*(\d)[\s.-]*(\d)[\s.-]*(\d)/g;
   masked = masked.replace(separatedPhoneRegex, (_m, p1, p2, _p3, _p4, _p5, _p6, _p7, _p8, p9, p10) => {
     return `${p1}${p2}*** ***${p9}${p10} [Protected Phone]`;
   });
 
-  // 6. Mask standard 10-digit Indian numbers (e.g. 9840123456, +91 9840123456)
+  // 7. Mask standard 10-digit Indian numbers (e.g. 9840123456, +91 9840123456)
   const phoneRegex = /(\+?91[\s-]?)?([6-9]\d{2})[\s-]?(\d{3})[\s-]?(\d{4})/g;
   masked = masked.replace(phoneRegex, (_match, p1, p2, _p3, p4) => {
     return `${p1 || ''}${p2}*** ***${p4.slice(-2)} [Protected Phone]`;
   });
 
-  // 7. Mask 5-to-9 consecutive standalone digits if sent without commodity context (e.g. "98755", "67890")
+  // 8. Mask 4-to-9 consecutive standalone digits if sent without commodity context (e.g. "98755", "67890", "9842")
   if (!isTradeContext(masked)) {
-    const splitChunkRegex = /\b\d{5,9}\b/g;
+    const splitChunkRegex = /\b\d{4,9}\b/g;
     masked = masked.replace(splitChunkRegex, (match) => {
       return `${match.slice(0, 2)}*** [Protected Fragment]`;
     });
   }
 
-  // 8. Mask email addresses (e.g. user@gmail.com -> u***@gmail.com)
+  // 9. Mask email addresses (e.g. user@gmail.com -> u***@gmail.com)
   const emailRegex = /([a-zA-Z0-9_.+-]+)\s*(@|at|\(at\))\s*([a-zA-Z0-9-]+\s*(\.|\(dot\)|dot)\s*[a-zA-Z0-9-.]+)/gi;
   masked = masked.replace(emailRegex, '[Protected Email]');
 
-  // 9. Mask Bank Account & IFSC mentions
+  // 10. Mask Bank Account & IFSC mentions
   const ifscRegex = /\b[A-Z]{4}0[A-Z0-9]{6}\b/g;
   masked = masked.replace(ifscRegex, 'IFSC: ****0123 [Escrow Protected]');
 
@@ -177,13 +197,13 @@ export function maskSensitivePII(text) {
 
 /**
  * Multi-Message Sliding Window Anti-Circumvention with Retroactive Fragment Redaction
- * Stitches together the last 6 messages from the same sender to catch split digits (e.g. "789" -> "8766" -> "987" -> "88")
+ * Stitches together recent non-trade numeric messages in a thread to catch split sequences
  */
 export function inspectSlidingWindowForEvasion(historyMessages, currentSenderId, newText) {
-  // Collect non-system messages from this sender in recent history (up to 6 messages)
+  // Collect non-system messages in recent history (up to 8 messages)
   const recentFromSender = (historyMessages || [])
-    .filter(m => m.senderId === currentSenderId && !m.isSystem)
-    .slice(-6);
+    .filter(m => m && !m.isSystem && (m.senderId === currentSenderId || !currentSenderId))
+    .slice(-8);
 
   // Extract non-commodity text chunks from recent messages plus newText
   const pastNonTradeFragments = [];
@@ -194,7 +214,7 @@ export function inspectSlidingWindowForEvasion(historyMessages, currentSenderId,
     if (!isTradeContext(raw)) {
       const normalizedPast = normalizeWordNumbers(raw);
       const digitsOnly = normalizedPast.replace(/\D/g, '');
-      if (digitsOnly.length >= 2 && digitsOnly.length <= 9) {
+      if (digitsOnly.length >= 2) {
         pastNonTradeFragments.push(digitsOnly);
         pastFragmentMessageIds.push(m.id);
       }
@@ -209,10 +229,9 @@ export function inspectSlidingWindowForEvasion(historyMessages, currentSenderId,
   let evasionDetected = false;
   let evasionType = null;
 
-  // Check 1: Did accumulated non-trade digit fragments reach a phone number length (10-12 digits)?
-  if (allAccumulatedDigits.length >= 10 && allAccumulatedDigits.length <= 13) {
-    const hasValidPhonePrefix = /[6-9]\d{9}/.test(allAccumulatedDigits);
-    if (hasValidPhonePrefix || allAccumulatedDigits.length === 10) {
+  // Check 1: Did accumulated non-trade digit fragments reach >= 6 digits or 10-digit phone progression?
+  if (allAccumulatedDigits.length >= 6 && allAccumulatedDigits.length <= 15) {
+    if (pastNonTradeFragments.length >= 1 || allAccumulatedDigits.length >= 10) {
       evasionDetected = true;
       evasionType = 'phone_split';
     }
