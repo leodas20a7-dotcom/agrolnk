@@ -189,8 +189,8 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     try {
       if (saleType === 'auction') {
         await createAuction({
-          farmerId: user.id || 'usr_farmer_01',
-          farmerName: user.name || 'Sakthi Vel',
+          farmerId: user.id || '',
+          farmerName: user.name || 'Farmer',
           commodity: formData.commodity,
           variety: formData.variety || 'Standard Lot',
           grade: formData.grade,
@@ -206,8 +206,8 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
         onNavigate('farmer-my-auctions');
       } else {
         await createListing({
-          farmerId: user.id || 'usr_farmer_01',
-          farmerName: user.name || 'Sakthi Vel',
+          farmerId: user.id || '',
+          farmerName: user.name || 'Farmer',
           commodity: formData.commodity,
           variety: formData.variety || 'Standard Lot',
           grade: formData.grade,

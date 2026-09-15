@@ -82,7 +82,7 @@ export async function getLiveAuctions() {
  */
 export async function getFarmerAuctions(farmerId) {
   try {
-    if (!farmerId) return await getAuctions();
+    if (!farmerId) return [];
 
     const { data, error } = await supabase
       .from('auctions')
@@ -275,7 +275,7 @@ export async function createAuction(auctionData) {
     const dbRow = {
       id: generateId(),
       farmer_id: auctionData.farmerId || null,
-      farmer_name: auctionData.farmerName || 'Sakthi Vel',
+      farmer_name: auctionData.farmerName || 'Farmer',
       commodity: auctionData.commodity || 'Tomato',
       variety: auctionData.variety || 'Standard Lot',
       grade: auctionData.grade || 'A',

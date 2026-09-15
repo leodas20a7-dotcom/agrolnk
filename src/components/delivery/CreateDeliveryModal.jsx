@@ -11,8 +11,8 @@ export default function CreateDeliveryModal({
   onSuccess,
 }) {
   const user = currentUser || {
-    id: 'usr_farmer_01',
-    name: 'Sakthi Vel',
+    id: '',
+    name: 'Farmer',
     role: 'farmer',
   };
 

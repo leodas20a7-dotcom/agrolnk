@@ -247,7 +247,7 @@ export async function getListings() {
  */
 export async function getFarmerListings(farmerId) {
   try {
-    if (!farmerId) return await getListings();
+    if (!farmerId) return [];
 
     const { data, error } = await supabase
       .from('listings')
@@ -312,7 +312,7 @@ export async function createListing(listingData) {
     const dbRow = {
       id: generateId(),
       farmer_id: listingData.farmerId || null,
-      farmer_name: listingData.farmerName || 'Sakthi Vel',
+      farmer_name: listingData.farmerName || 'Farmer',
       commodity: listingData.commodity || 'Tomato',
       variety: listingData.variety || 'Standard Lot',
       grade: listingData.grade || 'A',

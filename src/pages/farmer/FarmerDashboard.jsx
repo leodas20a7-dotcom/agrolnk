@@ -5,6 +5,7 @@ import ListingCard from '../../components/farmer/ListingCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import {
   Sprout,
   Plus,
@@ -18,7 +19,13 @@ import {
   Landmark,
   Truck,
   Building2,
-  Award
+  Award,
+  Settings,
+  Lock,
+  Check,
+  Clock,
+  AlertCircle,
+  FileCheck
 } from 'lucide-react';
 import { getFarmerListings } from '../../utils/listings';
 import { getFarmerOrders } from '../../utils/orders';
@@ -30,7 +37,6 @@ import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
 import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
-import { Settings, Lock, Check } from 'lucide-react';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -41,7 +47,43 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const [deliveries, setDeliveries] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
+
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => {
+    try {
+      const stored = localStorage.getItem('agrolnkUser');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.kycStatus) return parsed.kycStatus;
+        if (parsed?.verificationStatus) return parsed.verificationStatus;
+      }
+    } catch {}
+    return user?.kycStatus || user?.verificationStatus || 'pending';
+  });
+
+  const isVerified = currentKycStatus === 'verified';
+
+  useEffect(() => {
+    const handleKycUpdate = () => {
+      try {
+        const stored = localStorage.getItem('agrolnkUser');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.kycStatus) {
+            setCurrentKycStatus(parsed.kycStatus);
+          } else if (parsed?.verificationStatus) {
+            setCurrentKycStatus(parsed.verificationStatus);
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    };
+  }, []);
 
   // Listen to bank details updates
   useEffect(() => {
@@ -155,6 +197,66 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             </Button>
           </div>
         </div>
+
+        {/* Farmer KYC / Identity & Land Record Alert Banner */}
+        {!isVerified && (
+          <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+            currentKycStatus === 'pending'
+              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+              : currentKycStatus === 'rejected'
+              ? 'bg-red-50 border-red-200 text-red-950'
+              : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+          }`}>
+            <div className="flex items-start gap-3.5 max-w-3xl">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                currentKycStatus === 'pending'
+                  ? 'bg-amber-100 text-amber-800'
+                  : currentKycStatus === 'rejected'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-emerald-100 text-[#0B3326]'
+              }`}>
+                {currentKycStatus === 'pending' ? (
+                  <Clock className="w-5 h-5" />
+                ) : currentKycStatus === 'rejected' ? (
+                  <AlertCircle className="w-5 h-5" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold">
+                    {currentKycStatus === 'pending'
+                      ? 'Farmer KYC Verification Under Review'
+                      : currentKycStatus === 'rejected'
+                      ? 'Farmer Verification Documents Rejected'
+                      : 'Mandatory Farmer Identity / Land Verification Required'}
+                  </h3>
+                  <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
+                    {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
+                  </Badge>
+                </div>
+                <p className="text-xs opacity-90 leading-relaxed">
+                  {currentKycStatus === 'pending'
+                    ? 'Your Aadhaar, Farmer ID, or land record credentials are under review by Agrolnk Admin. Live marketplace listing and automated bank escrow payouts will be activated once approved.'
+                    : currentKycStatus === 'rejected'
+                    ? 'Your previously submitted documents did not meet requirements. Please submit a valid Aadhaar, PM-Kisan ID, or Land Ownership document.'
+                    : 'To list direct harvest lots, access institutional storage loan advances, and receive guaranteed escrow payouts, submit your farmer identity credentials.'}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
+              size="sm"
+              onClick={() => setIsVerificationModalOpen(true)}
+              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
+            >
+              <FileCheck className="w-4 h-4 mr-1.5" />
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : 'Complete Verification'}
+            </Button>
+          </div>
+        )}
 
         {/* Four Overview Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -374,6 +476,20 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             setBankDetails(updated);
           }}
         />
+
+        {/* Verification Required Modal */}
+        {isVerificationModalOpen && (
+          <VerificationRequiredModal
+            isOpen={isVerificationModalOpen}
+            currentUser={user}
+            actionName="list harvest produce and receive escrow payouts"
+            onClose={() => setIsVerificationModalOpen(false)}
+            onSuccess={() => {
+              setIsVerificationModalOpen(false);
+              setCurrentKycStatus('pending');
+            }}
+          />
+        )}
 
       </div>
     </DashboardLayout>

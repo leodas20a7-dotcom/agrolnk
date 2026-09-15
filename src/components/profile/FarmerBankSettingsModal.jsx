@@ -35,8 +35,8 @@ export default function FarmerBankSettingsModal({
   onSaved,
 }) {
   const activeUser = currentUser || getCurrentUser() || {
-    id: 'usr_farmer_01',
-    name: 'Sakthi Vel',
+    id: '',
+    name: 'Farmer',
     role: 'farmer'
   };
 
