@@ -78,7 +78,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
         if (parsed?.kycStatus) return parsed.kycStatus;
         if (parsed?.verificationStatus) return parsed.verificationStatus;
       }
-    } catch {}
+    } catch { }
     return user?.kycStatus || user?.verificationStatus || 'pending';
   });
 
@@ -96,7 +96,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             setCurrentKycStatus(parsed.verificationStatus);
           }
         }
-      } catch {}
+      } catch { }
     };
 
     const handleFleetUpdate = (e) => {
@@ -220,7 +220,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
-        
+
         {/* Top Header Banner */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
           <div className="space-y-1.5 max-w-2xl">
@@ -260,21 +260,19 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
         {/* KYC Verification Alert Banner */}
         {!isVerified && (
-          <div className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-            currentKycStatus === 'pending'
-              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
-              : currentKycStatus === 'rejected'
+          <div className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${currentKycStatus === 'pending'
+            ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+            : currentKycStatus === 'rejected'
               ? 'bg-red-50 border-red-200 text-red-950'
               : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-          }`}>
+            }`}>
             <div className="flex items-start gap-3.5 max-w-3xl">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                currentKycStatus === 'pending'
-                  ? 'bg-amber-100 text-amber-800'
-                  : currentKycStatus === 'rejected'
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${currentKycStatus === 'pending'
+                ? 'bg-amber-100 text-amber-800'
+                : currentKycStatus === 'rejected'
                   ? 'bg-red-100 text-red-700'
                   : 'bg-emerald-100 text-[#0B3326]'
-              }`}>
+                }`}>
                 {currentKycStatus === 'pending' ? (
                   <Clock className="w-5 h-5" />
                 ) : currentKycStatus === 'rejected' ? (
@@ -289,8 +287,8 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                     {currentKycStatus === 'pending'
                       ? 'Transporter KYC Verification Under Review'
                       : currentKycStatus === 'rejected'
-                      ? 'Transporter KYC Documents Rejected'
-                      : 'Mandatory Transporter KYC Verification Required'}
+                        ? 'Transporter KYC Documents Rejected'
+                        : 'Mandatory Transporter KYC Verification Required'}
                   </h3>
                   <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
                     {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
@@ -300,8 +298,8 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                   {currentKycStatus === 'pending'
                     ? 'Your commercial driving credentials & vehicle documents are under review by Agrolnk Admin. Freight quoting and job acceptance will be unlocked once approved.'
                     : currentKycStatus === 'rejected'
-                    ? 'Your previously submitted documents did not meet requirements. Please re-upload a valid Commercial Driving License (DL) or Vehicle RC.'
-                    : 'To maintain farmgate freight safety and receive automated escrow payments, submit your Commercial Driving License (DL) or Vehicle RC for Admin approval.'}
+                      ? 'Your previously submitted documents did not meet requirements. Please re-upload a valid Commercial Driving License (DL) or Vehicle RC.'
+                      : 'To maintain farmgate freight safety and receive automated escrow payments, submit your Commercial Driving License (DL) or Vehicle RC for Admin approval.'}
                 </p>
               </div>
             </div>
@@ -320,7 +318,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
         {/* 4 Core Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          
+
           {/* Available Jobs */}
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
@@ -408,8 +406,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                 onClick={handleAddNewVehicle}
                 className="cursor-pointer shadow-xs"
               >
-                <PlusCircle className="w-4 h-4 mr-1.5" />
-                Register New Truck
+                ✛ Add Truck
               </Button>
             ) : (
               <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
@@ -424,19 +421,17 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-                    isActive
-                      ? 'bg-[#0B3326] text-white shadow-xs'
-                      : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-                  }`}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${isActive
+                    ? 'bg-[#0B3326] text-white shadow-xs'
+                    : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
+                    }`}
                 >
                   <span>{tab.label}</span>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      isActive
-                        ? 'bg-[#10B981] text-white'
-                        : 'bg-[#F8FAF8] text-[#566861]'
-                    }`}
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive
+                      ? 'bg-[#10B981] text-white'
+                      : 'bg-[#F8FAF8] text-[#566861]'
+                      }`}
                   >
                     {tab.count}
                   </span>
@@ -480,8 +475,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                     onClick={handleAddNewVehicle}
                     className="cursor-pointer"
                   >
-                    <PlusCircle className="w-4 h-4 mr-1.5" />
-                    Register Your First Vehicle
+                    ✛ Add Truck
                   </Button>
                 </div>
               </Card>
