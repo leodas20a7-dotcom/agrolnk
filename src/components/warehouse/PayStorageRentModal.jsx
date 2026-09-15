@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   CreditCard,
@@ -24,14 +24,21 @@ export default function PayStorageRentModal({
   onClose,
   onSuccess,
 }) {
-  if (!isOpen || !inventory) return null;
-
-  const dues = calculateStorageRentalDues(inventory);
   const [extendedDays, setExtendedDays] = useState(30);
   const [paymentMode, setPaymentMode] = useState('razorpay'); // 'razorpay' | 'auto_escrow'
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
 
+  useEffect(() => {
+    if (isOpen && inventory) {
+      setExtendedDays(30);
+      setPaymentMode('razorpay');
+      setIsProcessing(false);
+      setPaymentSuccess(null);
+    }
+  }, [isOpen, inventory]);
+
+  const dues = inventory ? calculateStorageRentalDues(inventory) : null;
   const monthlyRate = dues?.monthlyRate || 350;
   const calculatedPayAmount = Math.round((monthlyRate / 30) * extendedDays);
 
@@ -80,6 +87,8 @@ export default function PayStorageRentModal({
       setIsProcessing(false);
     }
   };
+
+  if (!isOpen || !inventory) return null;
 
   return (
     <div

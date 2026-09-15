@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Phone,
@@ -33,21 +33,6 @@ export default function AdminCallVerificationModal({
   adminUser,
   onSuccess,
 }) {
-  if (!isOpen || !order) return null;
-
-  const fin = calculateOrderFinancials(order.totalAmount || 0);
-  const farmerBank = getUserBankDetails(order.farmerId) || {
-    bankName: order.payoutBankName || 'State Bank of India',
-    accountNumber: order.payoutAccountNumber || '38291048211',
-    ifscCode: order.payoutIfsc || 'SBIN0004921',
-    accountHolderName: order.farmerName || 'Sakthi Vel',
-    upiId: 'sakthivel@oksbi',
-  };
-
-  const buyerPhone = order.buyerPhone || '+91 98840 55667';
-  const buyerCompany = order.buyerCompany || order.buyerName || 'Ananya Agro Foods Pvt Ltd';
-
-  // Verification Checklist State
   const [checks, setChecks] = useState({
     spokeWithBuyer: true,
     weightSlipVerified: true,
@@ -55,14 +40,40 @@ export default function AdminCallVerificationModal({
     packagingIntact: true,
   });
 
-  const [callNotes, setCallNotes] = useState(
-    `Spoke with ${order.buyerName || 'Buyer'}. Confirmed receipt of ${order.quantity} ${order.unit} ${order.commodity} (${order.grade || 'A'} Grade). Produce quality & weight slips verified in good order. Approved for instant escrow release.`
-  );
-
+  const [callNotes, setCallNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDisputing, setIsDisputing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successData, setSuccessData] = useState(null);
+
+  useEffect(() => {
+    if (order) {
+      setChecks({
+        spokeWithBuyer: true,
+        weightSlipVerified: true,
+        qualityAssayMatches: true,
+        packagingIntact: true,
+      });
+      setCallNotes(
+        `Spoke with ${order.buyerName || 'Buyer'}. Confirmed receipt of ${order.quantity || ''} ${order.unit || 'MT'} ${order.commodity || ''} (${order.grade || 'A'} Grade). Produce quality & weight slips verified in good order. Approved for instant escrow release.`
+      );
+      setErrorMsg('');
+      setSuccessData(null);
+    }
+  }, [order, isOpen]);
+
+  const activeOrder = order || {};
+  const fin = calculateOrderFinancials(activeOrder.totalAmount || 0);
+  const farmerBank = getUserBankDetails(activeOrder.farmerId) || {
+    bankName: activeOrder.payoutBankName || 'State Bank of India',
+    accountNumber: activeOrder.payoutAccountNumber || '38291048211',
+    ifscCode: activeOrder.payoutIfsc || 'SBIN0004921',
+    accountHolderName: activeOrder.farmerName || 'Sakthi Vel',
+    upiId: 'sakthivel@oksbi',
+  };
+
+  const buyerPhone = activeOrder.buyerPhone || '+91 98840 55667';
+  const buyerCompany = activeOrder.buyerCompany || activeOrder.buyerName || 'Ananya Agro Foods Pvt Ltd';
 
   const toggleCheck = (key) => {
     setChecks((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -118,6 +129,8 @@ export default function AdminCallVerificationModal({
       setIsDisputing(false);
     }
   };
+
+  if (!isOpen || !order) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">

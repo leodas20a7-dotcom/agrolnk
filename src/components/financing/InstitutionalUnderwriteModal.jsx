@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -23,19 +23,28 @@ export default function InstitutionalUnderwriteModal({
   request,
   onUpdated,
 }) {
-  if (!request) return null;
-
-  const [approvedAmount, setApprovedAmount] = useState(
-    request.approvedAmount || request.requestedAmount || 50000
-  );
-  const [interestRate, setInterestRate] = useState(request.interestRate || 0.85);
-  const [tenorDays, setTenorDays] = useState(request.tenorDays || 30);
-  const [riskRating, setRiskRating] = useState(request.riskRating || 'Low (Tier 1)');
-  const [reviewNotes, setReviewNotes] = useState(request.notes || '');
+  const [approvedAmount, setApprovedAmount] = useState(50000);
+  const [interestRate, setInterestRate] = useState(0.85);
+  const [tenorDays, setTenorDays] = useState(30);
+  const [riskRating, setRiskRating] = useState('Low (Tier 1)');
+  const [reviewNotes, setReviewNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState(null);
 
-  const totalValue = request.transactionValue || approvedAmount;
+  useEffect(() => {
+    if (request) {
+      setApprovedAmount(request.approvedAmount || request.requestedAmount || 50000);
+      setInterestRate(request.interestRate || 0.85);
+      setTenorDays(request.tenorDays || 30);
+      setRiskRating(request.riskRating || 'Low (Tier 1)');
+      setReviewNotes(request.notes || '');
+      setActionSuccess(null);
+      setIsSubmitting(false);
+    }
+  }, [request, isOpen]);
+
+  const activeRequest = request || {};
+  const totalValue = activeRequest.transactionValue || approvedAmount || 1;
   const ltv = Number(((approvedAmount / totalValue) * 100).toFixed(1));
   const estimatedInterestReturn = Math.round(
     approvedAmount * (interestRate / 100) * (tenorDays / 30)
@@ -79,6 +88,8 @@ export default function InstitutionalUnderwriteModal({
       setIsSubmitting(false);
     }, 1200);
   };
+
+  if (!request) return null;
 
   return (
     <Modal

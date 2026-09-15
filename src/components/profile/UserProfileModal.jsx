@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   User,
@@ -31,8 +31,6 @@ export default function UserProfileModal({
   currentUser,
   onProfileUpdated,
 }) {
-  if (!isOpen) return null;
-
   const user = currentUser || {};
   const existingBank = getUserBankDetails(user.id) || {};
 
@@ -64,6 +62,39 @@ export default function UserProfileModal({
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (isOpen && currentUser) {
+      const curUser = currentUser || {};
+      const curBank = getUserBankDetails(curUser.id) || {};
+      const legDist = (curUser.district === 'Salem' || curUser.district === 'HQ Operations') && !curUser.address && !curUser.pincode;
+      const legState = (curUser.state === 'Tamil Nadu' || curUser.state === 'Central Command') && !curUser.address && !curUser.pincode;
+      const legBank = (curBank.bankName === 'State Bank of India' || curUser.bankName === 'State Bank of India') && !curBank.accountNumber && !curUser.bankAccount;
+      const legIfsc = (curBank.ifscCode === 'SBIN0004921' || curUser.bankIfsc === 'SBIN0004921') && !curBank.accountNumber && !curUser.bankAccount;
+
+      const code = legIfsc ? '' : (curBank.ifscCode || curUser.bankIfsc || '');
+      setFormData({
+        name: curUser.name || '',
+        email: curUser.email || '',
+        phone: curUser.phone || '',
+        farmName: curUser.farmName || curUser.orgName || curUser.companyName || '',
+        address: curUser.address || '',
+        district: legDist ? '' : (curUser.district || ''),
+        state: legState ? '' : (curUser.state || ''),
+        pincode: curUser.pincode || '',
+        landmark: curUser.landmark || '',
+        bankName: legBank ? '' : (curBank.bankName || curUser.bankName || ''),
+        accountHolderName: curBank.accountHolderName || curUser.name || '',
+        accountNumber: curBank.accountNumber || curUser.bankAccount || '',
+        ifscCode: code,
+        upiId: curBank.upiId || curUser.upiId || '',
+        accountType: curBank.accountType || 'savings',
+      });
+      setResolvedIfsc(code ? resolveIfscCode(code) : null);
+      setSuccessMessage('');
+      setErrorMessage('');
+    }
+  }, [isOpen, currentUser]);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({
@@ -155,6 +186,8 @@ export default function UserProfileModal({
     'Bihar',
     'West Bengal',
   ];
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
