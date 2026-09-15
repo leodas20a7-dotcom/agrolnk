@@ -1,38 +1,47 @@
 import React from 'react';
-import { Check, Clock, Truck, ShieldCheck, PackageCheck, AlertCircle } from 'lucide-react';
+import { Check, Clock, Truck, ShieldCheck, PackageCheck, PhoneCall, AlertCircle } from 'lucide-react';
 
 export default function OrderTimeline({ currentStatus = 'pending', className = '' }) {
   const steps = [
     {
       id: 'order_placed',
-      title: 'Order Placed',
-      desc: 'Buyer created order & escrow payment is locked',
+      title: 'Order Placed (Escrow Funded)',
+      desc: 'Buyer deposited 100% trade funds into RBI Nodal Escrow Trust',
       icon: Clock,
     },
     {
       id: 'in_transit',
-      title: 'Confirmed & In Transit',
-      desc: 'Farmer accepted agreement & produce is dispatched',
+      title: 'Dispatched & In Transit',
+      desc: 'Carrier picked up produce; live freight manifest tracked',
       icon: Truck,
     },
     {
       id: 'delivered',
-      title: 'Delivered',
-      desc: 'Consignment arrived at buyer destination facility',
+      title: 'Consignment Arrived',
+      desc: 'Produce delivered at buyer facility awaiting inspection',
       icon: PackageCheck,
     },
     {
+      id: 'admin_verification',
+      title: 'Admin Buyer Call & Quality Audit',
+      desc: 'AgroLnk operations calls buyer to verify satisfaction & weight slips',
+      icon: PhoneCall,
+    },
+    {
       id: 'completed',
-      title: 'Completed & Settled',
-      desc: 'Buyer verified receipt & escrow funds released to farmer',
+      title: 'Settled & Bank Disbursed',
+      desc: 'Admin released escrow: Instant payout credited to farmer bank account with UTR',
       icon: ShieldCheck,
     },
   ];
 
-  const statusOrder = ['order_placed', 'in_transit', 'delivered', 'completed'];
-  const normalizedStatus = currentStatus === 'pending' ? 'order_placed' : currentStatus;
-  const currentIndex = Math.max(0, statusOrder.indexOf(normalizedStatus));
-  const isAllCompleted = normalizedStatus === 'completed';
+  const statusOrder = ['order_placed', 'in_transit', 'delivered', 'admin_verification', 'completed'];
+  let mappedStatus = currentStatus === 'pending' ? 'order_placed' : currentStatus;
+  if (mappedStatus === 'delivered') {
+    mappedStatus = 'admin_verification';
+  }
+  const currentIndex = Math.max(0, statusOrder.indexOf(mappedStatus));
+  const isAllCompleted = currentStatus === 'completed';
 
   return (
     <div className={`space-y-6 ${className}`}>

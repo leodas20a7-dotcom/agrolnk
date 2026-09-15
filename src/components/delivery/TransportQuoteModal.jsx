@@ -1,5 +1,19 @@
-import React, { useState, useMemo } from 'react';
-import { X, Truck, MapPin, Calculator, ShieldCheck, ArrowRight, AlertCircle, User, Phone, CheckCircle2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  X,
+  Truck,
+  MapPin,
+  Calculator,
+  ShieldCheck,
+  ArrowRight,
+  AlertCircle,
+  User,
+  Phone,
+  CheckCircle2,
+  PlusCircle,
+  Star,
+  Check
+} from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import {
@@ -8,6 +22,8 @@ import {
   submitTransportQuote,
   VEHICLE_TARIFF_RATES
 } from '../../utils/deliveries';
+import { getTransporterFleet } from '../../utils/fleet';
+import AddEditVehicleModal from '../transporter/AddEditVehicleModal';
 
 export default function TransportQuoteModal({
   delivery,
@@ -40,6 +56,7 @@ export default function TransportQuoteModal({
     return calculateEstimatedFare(delivery?.quantity, distanceKm);
   }, [delivery?.quantity, distanceKm]);
 
+  const [savedFleet, setSavedFleet] = useState([]);
   const [selectedVehicleKey, setSelectedVehicleKey] = useState(defaultFareInfo.vehicleKey || 'medium_lcv');
   const [freightAmount, setFreightAmount] = useState(
     delivery?.freightAmount || defaultFareInfo.estimatedFare || ''
@@ -49,6 +66,46 @@ export default function TransportQuoteModal({
   const [driverPhone, setDriverPhone] = useState(currentUser?.phone || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isAddTruckModalOpen, setIsAddTruckModalOpen] = useState(false);
+
+  // Load saved fleet vehicles
+  useEffect(() => {
+    let isMounted = true;
+    getTransporterFleet(user.id, user.email).then((fleet) => {
+      if (isMounted && Array.isArray(fleet) && fleet.length > 0) {
+        setSavedFleet(fleet);
+        const primary = fleet.find((v) => v.isPrimary) || fleet[0];
+        if (primary && !vehicleNumber) {
+          setVehicleNumber(primary.vehicleNumber || '');
+          if (primary.driverName) setDriverName(primary.driverName);
+          if (primary.driverPhone) setDriverPhone(primary.driverPhone);
+          if (primary.vehicleCategory && VEHICLE_TARIFF_RATES[primary.vehicleCategory]) {
+            setSelectedVehicleKey(primary.vehicleCategory);
+            const updatedFare = calculateEstimatedFare(delivery?.quantity, distanceKm, primary.vehicleCategory);
+            if (!delivery?.freightAmount) {
+              setFreightAmount(updatedFare.estimatedFare);
+            }
+          }
+        }
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [user.id, user.email, distanceKm, delivery?.quantity, delivery?.freightAmount]);
+
+  // When a fleet vehicle is clicked to assign
+  const handleSelectFleetVehicle = (veh) => {
+    setVehicleNumber(veh.vehicleNumber || '');
+    if (veh.driverName) setDriverName(veh.driverName);
+    if (veh.driverPhone) setDriverPhone(veh.driverPhone);
+    const catKey = veh.vehicleCategory || 'medium_lcv';
+    if (VEHICLE_TARIFF_RATES[catKey]) {
+      setSelectedVehicleKey(catKey);
+      const updatedFare = calculateEstimatedFare(delivery?.quantity, distanceKm, catKey);
+      setFreightAmount(updatedFare.estimatedFare);
+    }
+  };
 
   // Re-calculate suggested fare when vehicle category changes
   const handleVehicleChange = (newKey) => {
@@ -57,8 +114,14 @@ export default function TransportQuoteModal({
     setFreightAmount(updated.estimatedFare);
   };
 
+  const isVerified = currentUser?.kycStatus === 'verified' || currentUser?.verificationStatus === 'verified';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isVerified) {
+      setError('Admin KYC verification is mandatory before quoting on freight loads.');
+      return;
+    }
     if (!freightAmount || Number(freightAmount) <= 0) {
       setError('Please enter a valid transport quote price.');
       return;
@@ -151,10 +214,72 @@ export default function TransportQuoteModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           
+          {/* Quick Fleet Vehicle Selector (1-Click Auto-Fill) */}
+          <div className="space-y-2 p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-[#10B981]" />
+                <span>Select from Your Fleet (1-Click Fill)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsAddTruckModalOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#10B981] hover:text-[#0B3326] cursor-pointer"
+              >
+                <PlusCircle className="w-3.5 h-3.5" /> + Register Truck
+              </button>
+            </div>
+
+            {savedFleet.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-0.5">
+                {savedFleet.map((v) => {
+                  const isCurrentChosen =
+                    vehicleNumber.trim().toUpperCase() ===
+                    (v.vehicleNumber || '').trim().toUpperCase();
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => handleSelectFleetVehicle(v)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                        isCurrentChosen
+                          ? 'bg-[#EBF5F0] border-[#10B981] text-[#0B3326] ring-2 ring-[#10B981]/20 font-bold'
+                          : 'bg-white border-[#E5EDE8] text-[#566861] hover:bg-[#F2FBF6]'
+                      }`}
+                    >
+                      <div className="truncate pr-1">
+                        <span className="text-xs font-mono font-bold block text-[#14211D]">
+                          {v.vehicleNumber}
+                        </span>
+                        <span className="text-[10px] text-[#566861] truncate block">
+                          {v.vehicleType?.split('(')[0] || 'Truck'} • {v.driverName || 'Driver'}
+                        </span>
+                      </div>
+                      {isCurrentChosen && (
+                        <Check className="w-4 h-4 text-[#10B981] shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-xs text-[#566861] py-1 flex items-center justify-between">
+                <span>No saved vehicles in fleet yet.</span>
+                <button
+                  type="button"
+                  onClick={() => setIsAddTruckModalOpen(true)}
+                  className="text-[#10B981] font-semibold hover:underline cursor-pointer"
+                >
+                  Register Truck & Driver
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Vehicle Category Selector */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-              Select Vehicle Class
+              Vehicle Class & Tariff
             </label>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(VEHICLE_TARIFF_RATES).map(([key, v]) => {
@@ -211,19 +336,19 @@ export default function TransportQuoteModal({
           </div>
 
           {/* Vehicle Reg & Driver Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                Vehicle Plate Number
+                Vehicle Plate
               </label>
-              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                <Truck className="w-4 h-4 text-[#10B981] shrink-0" />
+              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                <Truck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                 <input
                   type="text"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
-                  placeholder="E.g. TN 28 AB 4092"
-                  className="w-full text-xs font-bold text-[#14211D] bg-transparent focus:outline-none uppercase"
+                  placeholder="TN 28 AB 4092"
+                  className="w-full text-xs font-mono font-bold text-[#14211D] bg-transparent focus:outline-none uppercase tracking-wide"
                   required
                 />
               </div>
@@ -231,16 +356,33 @@ export default function TransportQuoteModal({
 
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                Driver Contact Phone
+                Driver Name
               </label>
-              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                <Phone className="w-4 h-4 text-[#10B981] shrink-0" />
+              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                <User className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <input
+                  type="text"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="M. Murugan"
+                  className="w-full text-xs font-semibold text-[#14211D] bg-transparent focus:outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
+                Driver Phone
+              </label>
+              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                <Phone className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                 <input
                   type="text"
                   value={driverPhone}
                   onChange={(e) => setDriverPhone(e.target.value)}
-                  placeholder="+91 94433 77889"
-                  className="w-full text-xs font-bold text-[#14211D] bg-transparent focus:outline-none"
+                  placeholder="94433 77889"
+                  className="w-full text-xs font-mono font-semibold text-[#14211D] bg-transparent focus:outline-none"
                   required
                 />
               </div>
@@ -290,6 +432,22 @@ export default function TransportQuoteModal({
         </form>
 
       </div>
+
+      {/* Quick Add Vehicle Modal within Quote Flow */}
+      {isAddTruckModalOpen && (
+        <AddEditVehicleModal
+          isOpen={isAddTruckModalOpen}
+          currentUser={user}
+          onClose={() => setIsAddTruckModalOpen(false)}
+          onSuccess={(updatedFleet, newVehicle) => {
+            setSavedFleet(updatedFleet);
+            if (newVehicle) {
+              handleSelectFleetVehicle(newVehicle);
+            }
+            setIsAddTruckModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

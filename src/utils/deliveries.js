@@ -698,7 +698,7 @@ export async function getTransporterStats(transporterId) {
   try {
     const all = await getDeliveries();
     const availableJobs = all.filter((d) => d.status === 'transport_requested');
-    const myDeliveries = all.filter((d) => d.transporterId === transporterId || (d.status !== 'transport_requested' && !d.transporterId));
+    const myDeliveries = all.filter((d) => d.transporterId === transporterId);
     const activeDeliveries = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'in_transit');
     const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed');
     const totalTonnes = completedTrips.reduce((sum, d) => sum + (Number(d.quantity) || 0) / 1000, 0);

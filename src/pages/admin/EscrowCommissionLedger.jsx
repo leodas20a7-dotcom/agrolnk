@@ -20,8 +20,9 @@ import {
 import { getOrders } from '../../utils/orders';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
+import AdminCallVerificationModal from '../../components/admin/AdminCallVerificationModal';
 import Pagination from '../../components/ui/Pagination';
-import { Zap } from 'lucide-react';
+import { Zap, PhoneCall, Phone, UserCheck, ShieldAlert } from 'lucide-react';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
@@ -33,11 +34,18 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
   const [orders, setOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'locked' | 'released'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending_call' | 'locked' | 'released'
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [isEscrowModalOpen, setIsEscrowModalOpen] = useState(false);
+  const [orderForVerification, setOrderForVerification] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
+
+  const loadData = () => {
+    getOrders().then((data) => {
+      setOrders(data || []);
+    });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -50,9 +58,18 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
         hideGlobalLoader();
       });
 
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('agrolnk_order_updated', handleUpdate);
+    window.addEventListener('agrolnk_escrow_updated', handleUpdate);
+
     return () => {
       isMounted = false;
       hideGlobalLoader();
+      window.removeEventListener('agrolnk_order_updated', handleUpdate);
+      window.removeEventListener('agrolnk_escrow_updated', handleUpdate);
     };
   }, []);
 
@@ -216,6 +233,65 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
         </div>
 
+        {/* Section: Pending Admin Call Verification & Escrow Clearance Queue */}
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-[#FEF3C7]/90 via-[#F2FBF6] to-white border border-[#FDE68A] shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-[#92400E]">
+              <PhoneCall className="w-5 h-5" />
+              <div>
+                <h3 className="text-base font-bold font-heading text-[#92400E]">
+                  Admin Supervised Escrow: Buyer Call & Payout Clearance Desk
+                </h3>
+                <p className="text-xs text-[#566861] mt-0.5">
+                  Call buyer post-delivery to confirm produce satisfaction, then 1-click release funds to farmer bank account with instant UTR.
+                </p>
+              </div>
+            </div>
+            <Badge variant="amber" size="md">
+              Supervised Tripartite Model
+            </Badge>
+          </div>
+
+          {/* Quick Cards of Pending / Active Escrow Consignments */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ledgerItems.filter(i => i.escrowState === 'locked' || i.status === 'delivered').slice(0, 3).map((item) => (
+              <div
+                key={item.id}
+                className="p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981] transition-all space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[#0B3326]">{item.orderNumber}</span>
+                  <Badge variant={item.status === 'delivered' ? 'amber' : 'blue'} size="sm">
+                    {item.status === 'delivered' ? 'Arrived (Call Buyer)' : 'Locked in Escrow'}
+                  </Badge>
+                </div>
+
+                <div className="text-xs space-y-0.5">
+                  <div className="font-bold text-[#14211D]">{item.commodity} ({item.quantity} {item.unit})</div>
+                  <div className="text-[#566861]">Buyer: <strong>{item.buyerName}</strong></div>
+                  <div className="text-[#566861]">Producer: <strong>{item.farmerName}</strong></div>
+                </div>
+
+                <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-[#10B981]">
+                    {formatINR(item.netSellerReceivable)}
+                  </span>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    icon={PhoneCall}
+                    iconPosition="left"
+                    onClick={() => setOrderForVerification(item)}
+                    className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                  >
+                    Call & Release
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Filter Controls Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -259,7 +335,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                     <th className="py-3.5 px-4 text-[#10B981]">Seller Received (-0.25%)</th>
                     <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
                     <th className="py-3.5 px-4">Escrow Status</th>
-                    <th className="py-3.5 px-4 text-right">Counterparties</th>
+                    <th className="py-3.5 px-4 text-center">Admin Verification & Payout</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5EDE8]">
@@ -300,13 +376,34 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                           size="sm"
                           dot={item.escrowState === 'locked'}
                         >
-                          <span className="capitalize">{item.escrowState}</span>
+                          <span className="capitalize">{item.escrowState === 'released' ? 'Settled (Released)' : 'Locked in Escrow'}</span>
                         </Badge>
                       </td>
 
-                      <td className="py-3.5 px-4 text-right text-[11px]">
-                        <span className="font-medium text-[#14211D] block">{item.buyerName}</span>
-                        <span className="text-[#566861]">Seller: {item.farmerName}</span>
+                      <td className="py-3.5 px-4 text-center">
+                        {item.escrowState === 'released' ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
+                            </span>
+                            {item.bankUtr && (
+                              <span className="font-mono text-[10px] text-[#566861] block">
+                                UTR: {item.bankUtr}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            icon={PhoneCall}
+                            iconPosition="left"
+                            onClick={() => setOrderForVerification(item)}
+                            className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                          >
+                            Call Buyer & Release
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -324,6 +421,17 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             pageSize={pageSize}
           />
         </div>
+
+        {/* Admin Call Verification & Escrow Release Modal */}
+        <AdminCallVerificationModal
+          isOpen={!!orderForVerification}
+          onClose={() => setOrderForVerification(null)}
+          order={orderForVerification}
+          adminUser={user}
+          onSuccess={() => {
+            loadData();
+          }}
+        />
 
         {/* Demo Live Escrow Gateway API & Simulator Modal */}
         <DemoEscrowLiveModal

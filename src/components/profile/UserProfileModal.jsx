@@ -16,6 +16,14 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import SearchableSelect from '../ui/SearchableSelect';
 import { updateUserProfile } from '../../utils/auth';
+import {
+  getUserBankDetails,
+  saveUserBankDetails,
+  resolveIfscCode,
+  POPULAR_BANKS,
+  maskAccountNumber
+} from '../../utils/bankDetails';
+import { Landmark, CreditCard, Lock } from 'lucide-react';
 
 export default function UserProfileModal({
   isOpen,
@@ -26,6 +34,7 @@ export default function UserProfileModal({
   if (!isOpen) return null;
 
   const user = currentUser || {};
+  const existingBank = getUserBankDetails(user.id) || {};
 
   const [formData, setFormData] = useState({
     name: user.name || '',
@@ -37,8 +46,15 @@ export default function UserProfileModal({
     state: user.state || 'Tamil Nadu',
     pincode: user.pincode || '',
     landmark: user.landmark || '',
+    bankName: existingBank.bankName || user.bankName || 'State Bank of India',
+    accountHolderName: existingBank.accountHolderName || user.name || '',
+    accountNumber: existingBank.accountNumber || user.bankAccount || '',
+    ifscCode: existingBank.ifscCode || user.bankIfsc || 'SBIN0004921',
+    upiId: existingBank.upiId || user.upiId || '',
+    accountType: existingBank.accountType || 'savings',
   });
 
+  const [resolvedIfsc, setResolvedIfsc] = useState(() => resolveIfscCode(formData.ifscCode));
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -48,6 +64,19 @@ export default function UserProfileModal({
       ...prev,
       [field]: value,
     }));
+    if (field === 'ifscCode') {
+      const clean = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
+      setFormData(prev => ({ ...prev, ifscCode: clean }));
+      if (clean.length >= 4) {
+        const info = resolveIfscCode(clean);
+        setResolvedIfsc(info);
+        if (info?.bankName && info.isValidFormat) {
+          setFormData(prev => ({ ...prev, bankName: info.bankName }));
+        }
+      } else {
+        setResolvedIfsc(null);
+      }
+    }
     if (successMessage) setSuccessMessage('');
     if (errorMessage) setErrorMessage('');
   };
@@ -75,7 +104,19 @@ export default function UserProfileModal({
         landmark: formData.landmark.trim(),
       });
 
-      setSuccessMessage('Profile saved successfully! Form auto-fill is now updated.');
+      // Save Bank Details if provided
+      if (formData.accountNumber && formData.ifscCode) {
+        await saveUserBankDetails(user.id, {
+          accountHolderName: formData.accountHolderName || formData.name,
+          bankName: formData.bankName,
+          accountNumber: formData.accountNumber,
+          ifscCode: formData.ifscCode,
+          accountType: formData.accountType,
+          upiId: formData.upiId,
+        });
+      }
+
+      setSuccessMessage('Profile & Bank Payout settings saved successfully!');
       if (onProfileUpdated) {
         onProfileUpdated(updatedUser);
       }
@@ -311,6 +352,78 @@ export default function UserProfileModal({
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Bank Account & Escrow Payout Details */}
+          <div className="space-y-3 pt-3 border-t border-[#E5EDE8]">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
+                <Landmark className="w-3.5 h-3.5 text-[#10B981]" /> Escrow Payout Bank Account
+              </h4>
+              <span className="text-[10px] text-[#10B981] font-bold bg-[#EBF5F0] px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Lock className="w-2.5 h-2.5" /> RBI Nodal Direct Payout
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-xs font-bold text-[#14211D] mb-1">
+                  Bank Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankName}
+                  onChange={(e) => handleChange('bankName', e.target.value)}
+                  placeholder="e.g. State Bank of India"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#14211D] mb-1">
+                  Account Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.accountNumber}
+                  onChange={(e) => handleChange('accountNumber', e.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 38291048211"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] font-mono text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#14211D] mb-1">
+                  IFSC Code
+                </label>
+                <input
+                  type="text"
+                  value={formData.ifscCode}
+                  onChange={(e) => handleChange('ifscCode', e.target.value)}
+                  placeholder="e.g. SBIN0004921"
+                  maxLength={11}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] font-mono uppercase text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
+                {resolvedIfsc && (
+                  <span className="text-[10px] text-[#10B981] font-semibold block mt-0.5">
+                    ✓ {resolvedIfsc.bankName} ({resolvedIfsc.branch})
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#14211D] mb-1">
+                  UPI ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.upiId}
+                  onChange={(e) => handleChange('upiId', e.target.value.toLowerCase().trim())}
+                  placeholder="e.g. sakthivel@oksbi"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
               </div>
             </div>
           </div>

@@ -28,6 +28,9 @@ import { getFarmerDeliveries } from '../../utils/deliveries';
 import { getFarmerInventory } from '../../utils/warehouses';
 import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
+import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
+import { Settings, Lock, Check } from 'lucide-react';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
@@ -37,6 +40,21 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const [financingRequests, setFinancingRequests] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
+
+  // Listen to bank details updates
+  useEffect(() => {
+    const handleBankUpdate = () => {
+      setBankDetails(getUserBankDetails(user.id));
+    };
+    window.addEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+    window.addEventListener('storage', handleBankUpdate);
+    return () => {
+      window.removeEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+      window.removeEventListener('storage', handleBankUpdate);
+    };
+  }, [user.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -201,6 +219,56 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           </div>
         </div>
 
+        {/* Bank Account & Escrow Settlement Settings Card */}
+        <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs relative overflow-hidden">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div className="flex items-start sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shadow-xs shrink-0">
+                <Landmark className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                    Escrow Payout Bank Account
+                  </h3>
+                  <Badge variant="emerald" size="sm">
+                    {bankDetails?.accountNumber ? 'Linked & Verified' : 'Action Required'}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#566861]">
+                  <span>
+                    Bank: <strong className="text-[#14211D]">{bankDetails?.bankName || 'State Bank of India'}</strong>
+                  </span>
+                  <span>
+                    A/C: <strong className="font-mono text-[#14211D]">{bankDetails?.accountNumber ? maskAccountNumber(bankDetails.accountNumber) : 'Not Linked'}</strong>
+                  </span>
+                  <span>
+                    IFSC: <strong className="font-mono text-[#10B981]">{bankDetails?.ifscCode || 'SBIN0004921'}</strong>
+                  </span>
+                  {bankDetails?.upiId && (
+                    <span>
+                      UPI: <strong className="text-[#14211D]">{bankDetails.upiId}</strong>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={Settings}
+                iconPosition="left"
+                onClick={() => setIsBankModalOpen(true)}
+                className="text-xs font-bold border-[#E5EDE8] bg-[#F8FAF8] hover:bg-[#EBF5F0] hover:text-[#0B3326] cursor-pointer"
+              >
+                Manage Payout Bank
+              </Button>
+            </div>
+          </div>
+        </Card>
+
         {/* Certified Warehouse & Storage Callout Card */}
         <Card className="p-6 bg-gradient-to-r from-[#EBF5F0] via-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3.5">
@@ -296,6 +364,16 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             </Card>
           )}
         </div>
+
+        {/* Farmer Bank Account & Settlement Settings Modal */}
+        <FarmerBankSettingsModal
+          isOpen={isBankModalOpen}
+          onClose={() => setIsBankModalOpen(false)}
+          currentUser={user}
+          onSaved={(updated) => {
+            setBankDetails(updated);
+          }}
+        />
 
       </div>
     </DashboardLayout>

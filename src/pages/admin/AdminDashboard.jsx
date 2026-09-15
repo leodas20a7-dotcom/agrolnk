@@ -124,7 +124,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               onClick={() => onNavigate('admin-escrow')}
               className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer"
             >
-              Escrow Ledger
+              📞 Buyer Calls & Escrow ({metrics.activeEscrowOrdersCount})
             </Button>
           </div>
         </div>
@@ -232,10 +232,10 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               <ArrowRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-1 transition-all" />
             </div>
             <h3 className="text-sm font-bold text-[#0B3326]">
-              Escrow & Fee Split Ledger
+              Buyer Call & Escrow Release Desk
             </h3>
             <p className="text-xs text-[#566861] mt-1">
-              View live trade escrows and 0.50% platform earnings.
+              Verify delivered produce with buyer by phone & 1-click disburse to farmer bank account.
             </p>
           </button>
 

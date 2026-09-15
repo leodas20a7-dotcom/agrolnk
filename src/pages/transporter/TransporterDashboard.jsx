@@ -7,6 +7,9 @@ import DeliveryCard from '../../components/delivery/DeliveryCard';
 import DeliveryRow from '../../components/delivery/DeliveryRow';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import TransportQuoteModal from '../../components/delivery/TransportQuoteModal';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import AddEditVehicleModal from '../../components/transporter/AddEditVehicleModal';
+import FleetVehicleCard from '../../components/transporter/FleetVehicleCard';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
@@ -19,7 +22,11 @@ import {
   TrendingUp,
   ShieldCheck,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  FileCheck,
+  ArrowRight,
+  PlusCircle,
+  Settings2
 } from 'lucide-react';
 import {
   getDeliveries,
@@ -28,6 +35,11 @@ import {
   getTransporterStats,
   acceptDeliveryJob
 } from '../../utils/deliveries';
+import {
+  getTransporterFleet,
+  deleteFleetVehicle,
+  setPrimaryVehicle
+} from '../../utils/fleet';
 import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
@@ -40,7 +52,8 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   };
 
   const [deliveries, setDeliveries] = useState([]);
-  const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'all'
+  const [fleetVehicles, setFleetVehicles] = useState([]);
+  const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'fleet' | 'all'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
   const [viewMode, setViewMode] = useState('grid');
@@ -52,18 +65,69 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   });
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [quotingDelivery, setQuotingDelivery] = useState(null);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
+
+  // Dynamic KYC Status state
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => {
+    try {
+      const stored = localStorage.getItem('agrolnkUser');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.kycStatus) return parsed.kycStatus;
+        if (parsed?.verificationStatus) return parsed.verificationStatus;
+      }
+    } catch {}
+    return user?.kycStatus || user?.verificationStatus || 'pending';
+  });
+
+  const isVerified = currentKycStatus === 'verified';
+
+  useEffect(() => {
+    const handleKycUpdate = () => {
+      try {
+        const stored = localStorage.getItem('agrolnkUser');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.kycStatus) {
+            setCurrentKycStatus(parsed.kycStatus);
+          } else if (parsed?.verificationStatus) {
+            setCurrentKycStatus(parsed.verificationStatus);
+          }
+        }
+      } catch {}
+    };
+
+    const handleFleetUpdate = (e) => {
+      if (e?.detail?.fleet) {
+        setFleetVehicles(e.detail.fleet);
+      } else {
+        getTransporterFleet(user.id, user.email).then(setFleetVehicles);
+      }
+    };
+
+    window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    window.addEventListener('agrolnk_fleet_updated', handleFleetUpdate);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', handleKycUpdate);
+      window.removeEventListener('agrolnk_fleet_updated', handleFleetUpdate);
+    };
+  }, [user.id, user.email]);
 
   const loadData = async (showFlash = false) => {
     if (showFlash) {
-      showGlobalLoader('Loading Freight Corridors & GPS Telemetry...', 'Fetching available dispatch loads & in-transit routes...');
+      showGlobalLoader('Loading Freight Corridors & Fleet Telemetry...', 'Fetching available dispatch loads & fleet assets...');
     }
     try {
-      const [all, computedStats] = await Promise.all([
+      const [all, computedStats, fleet] = await Promise.all([
         getDeliveries(),
         getTransporterStats(user.id),
+        getTransporterFleet(user.id, user.email),
       ]);
       setDeliveries(all || []);
       setStats(computedStats);
+      setFleetVehicles(fleet || []);
     } catch (err) {
       console.error('Error loading transporter data:', err);
     } finally {
@@ -85,14 +149,19 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   const availableJobs = safeDeliveries.filter(
     (d) => d.status === 'transport_requested' || (d.status === 'price_offered' && d.transporterId === user.id)
   );
-  const myDeliveries = safeDeliveries.filter((d) => d.transporterId === user.id || (d.status !== 'transport_requested' && d.status !== 'price_offered' && !d.transporterId));
+  // Strictly match this transporter's ID so unassigned demo orders are not falsely attributed
+  const myDeliveries = safeDeliveries.filter((d) => d.transporterId === user.id);
   const activeTrips = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'picked_up' || d.status === 'in_transit');
   const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed');
+
+  const primaryVehicle =
+    fleetVehicles.find((v) => v.isPrimary) || fleetVehicles[0] || null;
 
   const tabs = [
     { id: 'available', label: 'Available Freight Jobs', count: availableJobs.length },
     { id: 'active', label: 'My Active Trips', count: activeTrips.length },
     { id: 'completed', label: 'Completed Deliveries', count: completedTrips.length },
+    { id: 'fleet', label: 'My Vehicle Fleet', count: fleetVehicles.length },
     { id: 'all', label: 'All Manifests', count: safeDeliveries.length },
   ];
 
@@ -112,7 +181,41 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   );
 
   const handleStartQuote = (delivery) => {
+    if (!isVerified) {
+      setIsVerificationModalOpen(true);
+      return;
+    }
     setQuotingDelivery(delivery);
+  };
+
+  const handleAddNewVehicle = () => {
+    setEditingVehicle(null);
+    setIsVehicleModalOpen(true);
+  };
+
+  const handleEditVehicle = (veh) => {
+    setEditingVehicle(veh);
+    setIsVehicleModalOpen(true);
+  };
+
+  const handleDeleteVehicle = async (vehicleId) => {
+    if (window.confirm('Are you sure you want to remove this vehicle from your fleet?')) {
+      try {
+        const updated = await deleteFleetVehicle(user.id, user.email, vehicleId);
+        setFleetVehicles(updated);
+      } catch (err) {
+        console.error('Failed to delete vehicle:', err);
+      }
+    }
+  };
+
+  const handleSetPrimary = async (vehicleId) => {
+    try {
+      const updated = await setPrimaryVehicle(user.id, user.email, vehicleId);
+      setFleetVehicles(updated);
+    } catch (err) {
+      console.error('Failed to set primary vehicle:', err);
+    }
   };
 
   return (
@@ -133,16 +236,88 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-right shrink-0">
-            <span className="text-white/80 block">Active Vehicle</span>
-            <span className="font-bold text-[#34D399] block text-sm">
-              {user.vehicleNumber || 'TN 28 AB 4092'}
-            </span>
-            <span className="text-[11px] text-white/70 block">
-              {user.vehicleType || '14ft Eicher Truck'}
-            </span>
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-right shrink-0 flex flex-col justify-between items-end gap-1.5 min-w-[190px]">
+            <div>
+              <span className="text-white/80 block text-[11px]">Active Dispatch Vehicle</span>
+              <span className="font-bold text-[#34D399] block text-sm font-mono tracking-wider">
+                {primaryVehicle ? primaryVehicle.vehicleNumber : (user.vehicleNumber || (isVerified ? 'No Truck Registered' : 'KYC Pending'))}
+              </span>
+              <span className="text-[11px] text-white/70 block">
+                {primaryVehicle ? primaryVehicle.vehicleType : (user.vehicleType || 'Click Manage to Add Truck')}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('fleet');
+                window.scrollTo({ top: 380, behavior: 'smooth' });
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#34D399] hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+            >
+              <Settings2 className="w-3 h-3" /> Manage Fleet ({fleetVehicles.length})
+            </button>
           </div>
         </div>
+
+        {/* KYC Verification Alert Banner */}
+        {!isVerified && (
+          <div className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+            currentKycStatus === 'pending'
+              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+              : currentKycStatus === 'rejected'
+              ? 'bg-red-50 border-red-200 text-red-950'
+              : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+          }`}>
+            <div className="flex items-start gap-3.5 max-w-3xl">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                currentKycStatus === 'pending'
+                  ? 'bg-amber-100 text-amber-800'
+                  : currentKycStatus === 'rejected'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-emerald-100 text-[#0B3326]'
+              }`}>
+                {currentKycStatus === 'pending' ? (
+                  <Clock className="w-5 h-5" />
+                ) : currentKycStatus === 'rejected' ? (
+                  <AlertCircle className="w-5 h-5" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold">
+                    {currentKycStatus === 'pending'
+                      ? 'Transporter KYC Verification Under Review'
+                      : currentKycStatus === 'rejected'
+                      ? 'Transporter KYC Documents Rejected'
+                      : 'Mandatory Transporter KYC Verification Required'}
+                  </h3>
+                  <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
+                    {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
+                  </Badge>
+                </div>
+                <p className="text-xs opacity-90 leading-relaxed">
+                  {currentKycStatus === 'pending'
+                    ? 'Your commercial driving credentials & vehicle documents are under review by Agrolnk Admin. Freight quoting and job acceptance will be unlocked once approved.'
+                    : currentKycStatus === 'rejected'
+                    ? 'Your previously submitted documents did not meet requirements. Please re-upload a valid Commercial Driving License (DL) or Vehicle RC.'
+                    : 'To maintain farmgate freight safety and receive automated escrow payments, submit your Commercial Driving License (DL) or Vehicle RC for Admin approval.'}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
+              size="sm"
+              onClick={() => setIsVerificationModalOpen(true)}
+              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
+            >
+              <FileCheck className="w-4 h-4 mr-1.5" />
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : 'Complete Verification'}
+            </Button>
+          </div>
+        )}
 
         {/* 4 Core Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -213,19 +388,33 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
         </div>
 
-        {/* Deliveries & Jobs Management */}
+        {/* Deliveries & Fleet Management Hub */}
         <div className="space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                Logistics Dispatch Hub
+                {activeTab === 'fleet' ? 'Fleet & Asset Dispatch Center' : 'Logistics Dispatch Hub'}
               </h2>
               <p className="text-xs text-[#566861]">
-                Accept new delivery jobs and manage live trip milestones
+                {activeTab === 'fleet'
+                  ? 'Manage registered commercial trucks, capacities, and assigned drivers'
+                  : 'Accept new delivery jobs and manage live trip milestones'}
               </p>
             </div>
 
-            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            {activeTab === 'fleet' ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAddNewVehicle}
+                className="cursor-pointer shadow-xs"
+              >
+                <PlusCircle className="w-4 h-4 mr-1.5" />
+                Register New Truck
+              </Button>
+            ) : (
+              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            )}
           </div>
 
           {/* Filter Tabs */}
@@ -257,56 +446,99 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             })}
           </div>
 
-          {/* Deliveries List / Grid Content */}
-          {filteredDeliveries.length > 0 ? (
-            <div className="space-y-6">
-              {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {paginatedDeliveries.map((item) => (
-                    <DeliveryCard
-                      key={item.id}
-                      delivery={item}
-                      viewerRole="transporter"
-                      onView={(d) => setSelectedDelivery(d)}
-                      onAccept={(d) => handleStartQuote(d)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {paginatedDeliveries.map((item) => (
-                    <DeliveryRow
-                      key={item.id}
-                      delivery={item}
-                      viewerRole="transporter"
-                      onView={(d) => setSelectedDelivery(d)}
-                      onAccept={(d) => handleStartQuote(d)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Pagination Controls */}
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={filteredDeliveries.length}
-                pageSize={pageSize}
-              />
-            </div>
-          ) : (
-            <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
-                <Truck className="w-6 h-6 text-[#10B981]" />
+          {/* Active Tab Content */}
+          {activeTab === 'fleet' ? (
+            /* FLEET MANAGEMENT TAB CONTENT */
+            fleetVehicles.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {fleetVehicles.map((veh) => (
+                  <FleetVehicleCard
+                    key={veh.id}
+                    vehicle={veh}
+                    onEdit={handleEditVehicle}
+                    onDelete={handleDeleteVehicle}
+                    onSetPrimary={handleSetPrimary}
+                  />
+                ))}
               </div>
-              <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                No {activeTab} delivery manifests found
-              </h3>
-              <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                When farmers arrange transport for confirmed orders, new freight jobs will appear here for bidding and acceptance.
-              </p>
-            </Card>
+            ) : (
+              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto shadow-xs">
+                  <Truck className="w-7 h-7 text-[#10B981]" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                    No Vehicles in Fleet Yet
+                  </h3>
+                  <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                    Add your trucks and drivers once to assign them with a single click when submitting freight quotes.
+                  </p>
+                </div>
+                <div>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleAddNewVehicle}
+                    className="cursor-pointer"
+                  >
+                    <PlusCircle className="w-4 h-4 mr-1.5" />
+                    Register Your First Vehicle
+                  </Button>
+                </div>
+              </Card>
+            )
+          ) : (
+            /* DELIVERIES TABS CONTENT */
+            filteredDeliveries.length > 0 ? (
+              <div className="space-y-6">
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {paginatedDeliveries.map((item) => (
+                      <DeliveryCard
+                        key={item.id}
+                        delivery={item}
+                        viewerRole="transporter"
+                        onView={(d) => setSelectedDelivery(d)}
+                        onAccept={(d) => handleStartQuote(d)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {paginatedDeliveries.map((item) => (
+                      <DeliveryRow
+                        key={item.id}
+                        delivery={item}
+                        viewerRole="transporter"
+                        onView={(d) => setSelectedDelivery(d)}
+                        onAccept={(d) => handleStartQuote(d)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  totalItems={filteredDeliveries.length}
+                  pageSize={pageSize}
+                />
+              </div>
+            ) : (
+              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
+                  <Truck className="w-6 h-6 text-[#10B981]" />
+                </div>
+                <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                  No {activeTab} delivery manifests found
+                </h3>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  When farmers arrange transport for confirmed orders, new freight jobs will appear here for bidding and acceptance.
+                </p>
+              </Card>
+            )
           )}
         </div>
 
@@ -332,6 +564,36 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
           currentUser={user}
           onClose={() => setSelectedDelivery(null)}
           onStatusUpdated={() => loadData()}
+        />
+      )}
+
+      {/* Transporter KYC Verification Modal */}
+      {isVerificationModalOpen && (
+        <VerificationRequiredModal
+          isOpen={isVerificationModalOpen}
+          currentUser={user}
+          actionName="submit freight quotes and accept dispatch loads"
+          onClose={() => setIsVerificationModalOpen(false)}
+          onSuccess={() => {
+            setIsVerificationModalOpen(false);
+            setCurrentKycStatus('pending');
+          }}
+        />
+      )}
+
+      {/* Fleet Vehicle Add / Edit Modal */}
+      {isVehicleModalOpen && (
+        <AddEditVehicleModal
+          isOpen={isVehicleModalOpen}
+          currentUser={user}
+          vehicle={editingVehicle}
+          onClose={() => {
+            setIsVehicleModalOpen(false);
+            setEditingVehicle(null);
+          }}
+          onSuccess={(updatedFleet) => {
+            setFleetVehicles(updatedFleet);
+          }}
         />
       )}
     </DashboardLayout>

@@ -26,6 +26,12 @@ export default function VerificationRequiredModal({
 
   const getDocHelperText = () => {
     switch (docType) {
+      case 'Commercial Driving License (DL)':
+        return 'Format: State code + DL number (e.g. TN28 20180001234)';
+      case 'Vehicle Registration Certificate (RC)':
+        return 'Format: State code + Series + 4 digits (e.g. TN 28 AB 4092)';
+      case 'All India / State Goods Transport Permit':
+        return 'Format: Goods Carriage Permit number (e.g. TN/PERMIT/2024/991)';
       case 'Aadhaar / Identity Document':
         return 'Format: Exactly 12 digits (e.g. 1234 5678 9012)';
       case 'GSTIN Registration Certificate':
@@ -39,6 +45,12 @@ export default function VerificationRequiredModal({
 
   const getPlaceholder = () => {
     switch (docType) {
+      case 'Commercial Driving License (DL)':
+        return 'e.g. TN28 20180001234';
+      case 'Vehicle Registration Certificate (RC)':
+        return 'e.g. TN 28 AB 4092';
+      case 'All India / State Goods Transport Permit':
+        return 'e.g. TN/PERMIT/2024/991';
       case 'Aadhaar / Identity Document':
         return '12 digit Aadhaar number';
       case 'GSTIN Registration Certificate':
@@ -82,6 +94,16 @@ export default function VerificationRequiredModal({
     // 1. Validate Document Number
     if (!cleanNum) {
       errors.docNumber = 'Document / ID Number is required.';
+    } else if (docType === 'Commercial Driving License (DL)') {
+      const cleanDl = cleanNum.replace(/[\s-]/g, '');
+      if (cleanDl.length < 9 || cleanDl.length > 20) {
+        errors.docNumber = 'Please enter a valid Driving License number (9 to 20 characters).';
+      }
+    } else if (docType === 'Vehicle Registration Certificate (RC)') {
+      const cleanRc = cleanNum.replace(/[\s-]/g, '').toUpperCase();
+      if (!/^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$/.test(cleanRc)) {
+        errors.docNumber = 'Please enter a valid Vehicle RC number (e.g. TN 28 AB 4092).';
+      }
     } else if (docType === 'Aadhaar / Identity Document') {
       const digitsOnly = cleanNum.replace(/[\s-]/g, '');
       if (!/^\d{12}$/.test(digitsOnly)) {
@@ -328,6 +350,9 @@ export default function VerificationRequiredModal({
               </label>
               <SearchableSelect
                 options={[
+                  { value: 'Commercial Driving License (DL)', label: 'Commercial Driving License (DL)' },
+                  { value: 'Vehicle Registration Certificate (RC)', label: 'Vehicle Registration Certificate (RC)' },
+                  { value: 'All India / State Goods Transport Permit', label: 'Goods Carriage / Transport Permit' },
                   { value: 'Aadhaar / Identity Document', label: 'Aadhaar / Government ID' },
                   { value: 'GSTIN Registration Certificate', label: 'GSTIN Certificate' },
                   { value: 'PAN Card (Business / Personal)', label: 'PAN Card' },

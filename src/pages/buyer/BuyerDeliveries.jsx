@@ -182,24 +182,24 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
 
         </div>
 
-        {/* Section 1: Delivered Consignments Requiring Confirmation */}
+        {/* Section 1: Delivered Consignments Requiring Verification */}
         {awaitingConfirmationDeliveries.length > 0 && (
           <div className="p-6 rounded-3xl bg-gradient-to-r from-[#FEF3C7]/90 via-[#F2FBF6] to-white border border-[#FDE68A] shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-[#92400E]">
               <AlertCircle className="w-5 h-5" />
               <h3 className="text-base font-bold font-heading">
-                Action Required: Confirm Produce Receipt
+                Consignment Arrived: AgroLnk Verification & Escrow Clearance
               </h3>
             </div>
             <p className="text-xs text-[#566861]">
-              The following produce shipments have arrived at your facility. Please verify quality and confirm receipt to release final escrow payment to the producer.
+              The following produce shipments have arrived at your facility. Our AgroLnk operations desk will call you to verify produce grade, weight slips, and handover before releasing payment to the producer. You can also directly sign-off below to expedite payout.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {awaitingConfirmationDeliveries.map((delivery) => (
                 <div
                   key={delivery.id}
-                  className="p-4 rounded-2xl bg-white border border-[#E5EDE8] flex items-center justify-between gap-3 shadow-xs"
+                  className="p-4 rounded-2xl bg-white border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
                 >
                   <div>
                     <div className="flex items-center gap-2">
@@ -213,6 +213,9 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
                     <span className="text-xs text-[#566861] block mt-0.5">
                       Carrier: {delivery.transporterName || 'Freight Partner'} • {delivery.vehicleNumber || ''}
                     </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#D97706] font-semibold mt-1">
+                      📞 Pending Admin Call Confirmation
+                    </span>
                   </div>
 
                   <Button
@@ -223,7 +226,7 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
                     iconPosition="left"
                     className="text-xs font-bold py-2 shadow-xs cursor-pointer shrink-0"
                   >
-                    Confirm Receipt
+                    Quick Sign-Off (All Good)
                   </Button>
                 </div>
               ))}
