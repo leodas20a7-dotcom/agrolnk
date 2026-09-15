@@ -28,7 +28,7 @@ import { getBuyerDeliveries, confirmBuyerReceipt } from '../../utils/deliveries'
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerDeliveries({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Ananya Agro Foods', id: 'usr_buyer_02', role: 'buyer' };
+  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
 
   const [orders, setOrders] = useState([]);
   const [deliveries, setDeliveries] = useState([]);

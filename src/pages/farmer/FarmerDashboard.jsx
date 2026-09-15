@@ -33,7 +33,7 @@ import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettings
 import { Settings, Lock, Check } from 'lucide-react';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   const [listings, setListings] = useState([]);
   const [orders, setOrders] = useState([]);
   const [auctions, setAuctions] = useState([]);

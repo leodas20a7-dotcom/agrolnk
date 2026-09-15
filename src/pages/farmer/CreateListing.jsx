@@ -27,7 +27,7 @@ import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
 
   const initialSource = navState?.editListing || navState?.initialData;
 
@@ -45,7 +45,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     startingBid: initialSource?.startingBid ? String(initialSource.startingBid) : '',
     reservePrice: initialSource?.reservePrice ? String(initialSource.reservePrice) : '',
     durationMinutes: initialSource?.durationMinutes ? String(initialSource.durationMinutes) : '1440',
-    state: initialSource?.state || user?.state || 'Tamil Nadu',
+    state: initialSource?.state || user?.state || '',
     district: initialSource?.district || user?.district || '',
     village: initialSource?.village || user?.address || '',
     harvestDate: initialSource?.harvestDate || new Date().toISOString().split('T')[0],

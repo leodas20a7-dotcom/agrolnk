@@ -21,7 +21,7 @@ import { getActiveMarketplaceListings, getPlatformCommodities, fetchRemoteCommod
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function Marketplace({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Ananya Agro', role: 'buyer' };
+  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
   const [allListings, setAllListings] = useState([]);
   
   const [searchQuery, setSearchQuery] = useState(navState?.initialQuery || '');

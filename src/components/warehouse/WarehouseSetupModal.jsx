@@ -68,7 +68,7 @@ export default function WarehouseSetupModal({
   currentUser,
   onProfileSaved,
 }) {
-  const user = currentUser || { id: 'usr_wh_01', name: 'Sundar', email: 'sundar@gmail.com' };
+  const user = currentUser || { id: '', name: 'Warehouse Operator', email: '' };
 
   const [companyName, setCompanyName] = useState('');
   const [totalCapacityTonnes, setTotalCapacityTonnes] = useState('');
@@ -82,8 +82,8 @@ export default function WarehouseSetupModal({
 
   // Selected storage types and individual capacities
   const [selectedTypes, setSelectedTypes] = useState({
-    cold_multichamber: { enabled: true, capacity: 1200, temp: '2°C - 8°C' },
-    dry_silos: { enabled: true, capacity: 800, temp: 'Ambient (24°C)' },
+    cold_multichamber: { enabled: true, capacity: 1000, temp: '2°C - 8°C' },
+    dry_silos: { enabled: false, capacity: 500, temp: 'Ambient (24°C)' },
     ca_storage: { enabled: false, capacity: 500, temp: '0°C - 2°C (CA)' },
     open_plinth: { enabled: false, capacity: 500, temp: 'Ventilated Ambient' },
     deep_freeze: { enabled: false, capacity: 300, temp: '-18°C' },
@@ -108,14 +108,14 @@ export default function WarehouseSetupModal({
       const existing = getWarehouseProfile(user.id, user.email);
       if (existing) {
         setCompanyName(existing.companyName || existing.warehouseName || '');
-        setTotalCapacityTonnes(String(existing.totalCapacityTonnes || 2000));
+        setTotalCapacityTonnes(existing.totalCapacityTonnes ? String(existing.totalCapacityTonnes) : '');
         setWebsiteUrl(existing.websiteUrl || '');
         setWdraCode(existing.wdraCode || '');
         setGstin(existing.gstin || '');
         setAddress(existing.address || '');
-        setDistrict(existing.district || 'Salem');
-        setState(existing.state || 'Tamil Nadu');
-        setPincode(existing.pincode || '636004');
+        setDistrict(existing.district || user.district || '');
+        setState(existing.state || user.state || '');
+        setPincode(existing.pincode || '');
 
         if (existing.storageTypesConfig) {
           setSelectedTypes(existing.storageTypesConfig);

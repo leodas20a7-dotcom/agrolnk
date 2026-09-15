@@ -30,7 +30,7 @@ import { getFarmerAuctions } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyAuctions({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   const [auctions, setAuctions] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);

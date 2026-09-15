@@ -17,17 +17,17 @@ import {
 import { createListing } from '../../utils/listings';
 
 export default function ListingPreview({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Sakthi Vel', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   const listingData = navState?.listingData || {
     commodity: 'Tomato',
-    variety: 'Hybrid Shivam',
+    variety: 'Standard Grade',
     grade: 'A',
-    quantity: 500,
+    quantity: 100,
     unit: 'kg',
-    price: 42,
-    state: 'Tamil Nadu',
-    district: 'Salem',
-    village: 'Attur Mandi',
+    price: 30,
+    state: '',
+    district: '',
+    village: '',
     saleType: 'direct',
     images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'],
   };
@@ -41,8 +41,8 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
     try {
       createListing({
         ...listingData,
-        farmerId: user.id || 'usr_farmer_01',
-        farmerName: user.name || 'Sakthi Vel',
+        farmerId: user.id,
+        farmerName: user.name || 'Farmer Account',
       });
       setTimeout(() => {
         onNavigate('farmer-my-listings');

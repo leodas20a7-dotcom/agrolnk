@@ -21,7 +21,7 @@ import { getFarmerListings } from '../../utils/listings';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyListings({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Sakthi Vel', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);

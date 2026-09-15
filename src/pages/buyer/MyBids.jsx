@@ -23,7 +23,7 @@ import { getUserBids } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyBids({ currentUser, onNavigate }) {
-  const user = currentUser || { id: 'usr_buyer_02', name: 'Ananya Agro Foods', role: 'buyer' };
+  const user = currentUser || { id: '', name: 'Buyer', role: 'buyer' };
   const [bids, setBids] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'

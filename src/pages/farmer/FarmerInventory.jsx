@@ -41,7 +41,7 @@ import {
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerInventory({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'warehouses'
   const [inventoryList, setInventoryList] = useState([]);

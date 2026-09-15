@@ -34,7 +34,7 @@ import { initiateRazorpayTransportCheckout } from '../../utils/razorpayRouteClie
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerDeliveries({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
 
   const [orders, setOrders] = useState([]);
   const [deliveries, setDeliveries] = useState([]);

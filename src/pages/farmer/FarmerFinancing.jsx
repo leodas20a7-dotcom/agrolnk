@@ -27,8 +27,8 @@ import { getFarmerOrders } from '../../utils/orders';
 import { getFarmerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
-export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+export default function FarmerFinancing({ currentUser, onNavigate }) {
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   
   const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);

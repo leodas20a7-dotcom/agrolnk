@@ -26,20 +26,20 @@ import { deductListingQuantity, COMMODITY_IMAGES } from '../../utils/listings';
 import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
 
 export default function ListingDetail({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Ananya Agro', id: 'usr_buyer_02', role: 'buyer' };
+  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
   const listing = navState?.listing || {
-    id: 'lot_demo_01',
+    id: '',
     commodity: 'Tomato',
-    variety: 'Hybrid Shivam',
+    variety: 'Standard Lot',
     grade: 'A',
-    quantity: 500,
+    quantity: 100,
     unit: 'kg',
-    price: 42,
-    state: 'Tamil Nadu',
-    district: 'Salem',
-    village: 'Attur Mandi',
+    price: 30,
+    state: '',
+    district: '',
+    village: '',
     saleType: 'direct',
-    farmerName: 'Sakthi Vel',
+    farmerName: 'Verified Producer',
     images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'],
   };
 

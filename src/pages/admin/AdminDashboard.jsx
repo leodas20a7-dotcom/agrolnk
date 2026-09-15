@@ -32,20 +32,20 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   };
 
   const [metrics, setMetrics] = useState({
-    totalGMV: 1540000,
-    totalOrdersCount: 18,
-    completedOrdersCount: 12,
-    totalCommissionsEarned: 7700,
-    buyerCommissions: 3850,
-    sellerCommissions: 3850,
-    totalEscrowLocked: 420000,
-    activeEscrowOrdersCount: 6,
-    pendingKYCCount: 2,
-    verifiedKYCCount: 3,
-    totalKYCUsers: 5,
-    totalFinancingDeployed: 285000,
-    activeDeliveriesCount: 4,
-    storedWarehouseTonnes: 12.5,
+    totalGMV: 0,
+    totalOrdersCount: 0,
+    completedOrdersCount: 0,
+    totalCommissionsEarned: 0,
+    buyerCommissions: 0,
+    sellerCommissions: 0,
+    totalEscrowLocked: 0,
+    activeEscrowOrdersCount: 0,
+    pendingKYCCount: 0,
+    verifiedKYCCount: 0,
+    totalKYCUsers: 0,
+    totalFinancingDeployed: 0,
+    activeDeliveriesCount: 0,
+    storedWarehouseTonnes: 0,
   });
   const [isEscrowModalOpen, setIsEscrowModalOpen] = useState(false);
 

@@ -32,7 +32,7 @@ import { confirmBuyerReceipt } from '../../utils/deliveries';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerOrders({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Ananya Agro Foods', id: 'usr_buyer_02', role: 'buyer' };
+  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(navState?.newOrder || null);

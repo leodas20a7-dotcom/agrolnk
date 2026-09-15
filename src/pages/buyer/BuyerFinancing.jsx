@@ -27,7 +27,7 @@ import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../ut
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Ananya Agro Foods', id: 'usr_buyer_02', role: 'buyer' };
+  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
 
   const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);

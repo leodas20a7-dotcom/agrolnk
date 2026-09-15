@@ -34,7 +34,7 @@ import {
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function AuctionRoom({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { id: 'usr_buyer_02', name: 'Ananya Agro Foods', role: 'buyer' };
+  const user = currentUser || { id: '', name: 'Trader / Buyer', role: 'buyer' };
   const auctionId = navState?.auctionId || navState?.auction?.id || 'auc_demo_01';
 
   const [auction, setAuction] = useState(null);

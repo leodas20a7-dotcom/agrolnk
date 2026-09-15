@@ -53,9 +53,9 @@ import {
 
 export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
-    id: 'usr_warehouse_05',
-    name: 'Sundar',
-    email: 'sundar@gmail.com',
+    id: '',
+    name: 'Warehouse Operator',
+    email: '',
     role: 'warehouse',
   };
 
@@ -93,7 +93,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
       }
 
       const [computedStats, inv] = await Promise.all([
-        getWarehouseOperatorStats(user.id || 'wh_salem_01'),
+        getWarehouseOperatorStats(user.id),
         getWarehouseReceipts(),
       ]);
       setStats(computedStats);
@@ -134,8 +134,10 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
     : 'Pending Facility Setup & KYC Submission';
 
   const facilityAddress = isSetupCompleted && profile?.address 
-    ? `${profile.address}, ${profile.district || 'Salem'} - ${profile.pincode || '636004'}`
-    : `${user.district || 'Salem'}, ${user.state || 'Tamil Nadu'} (Address not verified)`;
+    ? `${profile.address}${profile.district ? `, ${profile.district}` : ''}${profile.pincode ? ` - ${profile.pincode}` : ''}`
+    : user.district
+    ? `${user.district}${user.state ? `, ${user.state}` : ''} (Address not verified)`
+    : 'Facility Location Pending Configuration';
 
   // Dynamic chambers list from user's configured storage types
   const chambersList = isSetupCompleted && profile?.storageTypes && profile.storageTypes.length > 0

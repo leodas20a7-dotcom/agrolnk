@@ -41,9 +41,9 @@ export default function DashboardLayout({
   currentPage,
 }) {
   const [activeUser, setActiveUser] = useState(() => currentUser || getCurrentUser() || {
-    id: 'usr_guest',
-    name: 'Sakthi Vel',
-    email: 'farmer@agrolnk.com',
+    id: '',
+    name: '',
+    email: '',
     role: 'farmer',
   });
 

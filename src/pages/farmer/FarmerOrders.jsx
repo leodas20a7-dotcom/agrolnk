@@ -32,7 +32,7 @@ import { getDeliveryForOrder } from '../../utils/deliveries';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerOrders({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);

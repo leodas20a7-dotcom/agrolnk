@@ -21,7 +21,7 @@ import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Sakthi Vel', id: 'usr_farmer_01', role: 'farmer' };
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
 
   const [formData, setFormData] = useState({
     commodity: '',
@@ -150,8 +150,8 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     try {
       await createAuction({
         ...formData,
-        farmerId: user.id || 'usr_farmer_01',
-        farmerName: user.name || 'Sakthi Vel',
+        farmerId: user.id,
+        farmerName: user.name || 'Farmer Account',
       });
 
       onNavigate('farmer-my-auctions');

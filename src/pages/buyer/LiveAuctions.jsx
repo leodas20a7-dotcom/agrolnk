@@ -26,7 +26,7 @@ import { getAuctions } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function LiveAuctions({ currentUser, onNavigate }) {
-  const user = currentUser || { id: 'usr_buyer_02', name: 'Ananya Agro Foods', role: 'buyer' };
+  const user = currentUser || { id: '', name: 'Buyer', role: 'buyer' };
   const [auctions, setAuctions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('live'); // 'live' | 'ended'

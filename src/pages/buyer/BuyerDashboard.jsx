@@ -29,7 +29,7 @@ import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function BuyerDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Ananya Agro', id: 'usr_buyer_02', role: 'buyer' };
+  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
   const [listings, setListings] = useState([]);
   const [liveAuctions, setLiveAuctions] = useState([]);
   const [orders, setOrders] = useState([]);
