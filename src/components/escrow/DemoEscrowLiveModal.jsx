@@ -481,12 +481,12 @@ export default function DemoEscrowLiveModal({ isOpen, onClose }) {
 
                   <Button
                     onClick={handleTestRelease}
-                    variant="secondary"
+                    variant="primary"
                     size="sm"
                     icon={CheckCircle2}
                     iconPosition="left"
                     disabled={isSimulating || (telemetry?.totalLockedInEscrow || 0) === 0}
-                    className="w-full justify-center bg-[#0B3326] text-white hover:bg-[#0A261D] cursor-pointer font-bold"
+                    className="w-full justify-center cursor-pointer font-bold"
                   >
                     {isSimulating ? 'Verifying OTP...' : '🔓 Verify OTP & Disburse to Farmer'}
                   </Button>
