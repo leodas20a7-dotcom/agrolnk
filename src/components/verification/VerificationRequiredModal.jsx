@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { ShieldCheck, X, FileText, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
+import { ShieldCheck, X, FileText, CheckCircle2, AlertCircle, Upload, Sparkles, Package } from 'lucide-react';
 import Button from '../ui/Button';
 import SearchableSelect from '../ui/SearchableSelect';
 import { supabase } from '../../lib/supabase';
+import { getListingDraft } from '../../utils/listings';
 
 export default function VerificationRequiredModal({
   isOpen,
   onClose,
   currentUser,
   actionName = 'post listings or trade',
+  draftProduce = null,
   onSuccess,
 }) {
   const [docType, setDocType] = useState('Aadhaar / Identity Document');
@@ -320,8 +322,21 @@ export default function VerificationRequiredModal({
             <p className="text-xs text-[#566861] max-w-xs mx-auto">
               Your {fileFormat} file and verified credentials have been submitted to Admin. You will receive the Verified Badge once approved.
             </p>
+
+            {(draftProduce || (currentUser?.id && getListingDraft(currentUser.id))) && (
+              <div className="p-3.5 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/40 text-left space-y-1.5 animate-in fade-in">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
+                  <Sparkles className="w-4 h-4 text-[#10B981]" />
+                  <span>Produce Draft Safely Preserved!</span>
+                </div>
+                <p className="text-[11px] text-[#2D5A47] leading-relaxed">
+                  Your listing draft for <strong className="text-[#0B3326]">{(draftProduce?.commodity || getListingDraft(currentUser?.id)?.formData?.commodity || 'Produce Lot')} ({(draftProduce?.quantity || getListingDraft(currentUser?.id)?.formData?.quantity || '')} {(draftProduce?.unit || getListingDraft(currentUser?.id)?.formData?.unit || 'kg')})</strong> has been saved. As soon as Admin approves your verification, you can publish it in 1 click without re-entering any data.
+                </p>
+              </div>
+            )}
+
             <div className="pt-2">
-              <Button variant="primary" size="md" onClick={onClose} className="w-full">
+              <Button variant="primary" size="md" onClick={onClose} className="w-full cursor-pointer">
                 Got It, Thanks
               </Button>
             </div>

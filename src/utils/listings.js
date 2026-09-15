@@ -399,3 +399,58 @@ export async function getListingById(id) {
     return null;
   }
 }
+
+const LISTING_DRAFT_PREFIX = 'agrolnk_draft_listing_';
+
+/**
+ * Save produce listing draft to local storage
+ */
+export function saveListingDraft(userId, draftData) {
+  if (!userId || !draftData) return;
+  try {
+    const key = `${LISTING_DRAFT_PREFIX}${userId}`;
+    const payload = {
+      ...draftData,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_listing_draft_updated', { detail: payload }));
+    }
+  } catch (err) {
+    console.warn('Failed to save listing draft:', err);
+  }
+}
+
+/**
+ * Retrieve saved produce listing draft for a user
+ */
+export function getListingDraft(userId) {
+  if (!userId) return null;
+  try {
+    const key = `${LISTING_DRAFT_PREFIX}${userId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clear saved produce listing draft
+ */
+export function clearListingDraft(userId) {
+  if (!userId) return;
+  try {
+    const key = `${LISTING_DRAFT_PREFIX}${userId}`;
+    localStorage.removeItem(key);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_listing_draft_updated', { detail: null }));
+    }
+  } catch (err) {
+    console.warn('Failed to clear listing draft:', err);
+  }
+}
+

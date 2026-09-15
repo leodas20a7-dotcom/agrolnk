@@ -19,7 +19,7 @@ import {
   Calendar,
   Building2
 } from 'lucide-react';
-import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
+import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities, saveListingDraft, getListingDraft, clearListingDraft } from '../../utils/listings';
 import { createAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
@@ -30,6 +30,10 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
 
   const initialSource = navState?.editListing || navState?.initialData;
+  const [existingDraft, setExistingDraft] = useState(() => {
+    if (initialSource) return null;
+    return getListingDraft(user.id);
+  });
 
   // 5 Progressive Compact Steps
   const [currentStep, setCurrentStep] = useState(1);
@@ -56,6 +60,17 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+
+  // Auto-save draft when fields are filled
+  React.useEffect(() => {
+    if (user?.id && (formData.commodity || formData.quantity || formData.price || formData.startingBid)) {
+      saveListingDraft(user.id, {
+        formData,
+        saleType,
+        currentStep,
+      });
+    }
+  }, [formData, saleType, currentStep, user?.id]);
 
   // Dynamic platform commodities state
   const [commodities, setCommodities] = useState(() => getPlatformCommodities());
@@ -174,12 +189,26 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     }
   };
 
+  const handleResumeDraft = (draft) => {
+    if (!draft) return;
+    if (draft.formData) setFormData(draft.formData);
+    if (draft.saleType) setSaleType(draft.saleType);
+    if (draft.currentStep) setCurrentStep(Math.max(draft.currentStep, 5));
+    setExistingDraft(null);
+  };
+
+  const handleDiscardDraft = () => {
+    clearListingDraft(user.id);
+    setExistingDraft(null);
+  };
+
   const handlePublishListing = async () => {
     setError('');
 
     // Check verification status before publishing
     const verified = await isUserVerified(user.id);
     if (!verified && user.kycStatus !== 'verified') {
+      saveListingDraft(user.id, { formData, saleType, currentStep: 5 });
       setIsVerificationModalOpen(true);
       return;
     }
@@ -203,6 +232,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           district: formData.district,
           images: formData.images,
         });
+        clearListingDraft(user.id);
         onNavigate('farmer-my-auctions');
       } else {
         await createListing({
@@ -222,6 +252,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           images: formData.images,
           saleType: 'direct',
         });
+        clearListingDraft(user.id);
         onNavigate('farmer-my-listings');
       }
     } catch (err) {
@@ -242,6 +273,48 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="max-w-4xl mx-auto space-y-5 text-left">
+        
+        {/* Saved Draft Resume Notification Banner */}
+        {existingDraft && existingDraft.formData?.commodity && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#EBF5F0] via-[#F2FBF6] to-white border border-[#10B981] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-[#0B3326]">
+                    Unpublished Produce Draft Found
+                  </h4>
+                  <Badge variant="emerald" size="sm">Saved Draft</Badge>
+                </div>
+                <p className="text-xs text-[#2D5A47] mt-0.5">
+                  <strong>{existingDraft.formData.commodity}</strong> ({existingDraft.formData.quantity || 0} {existingDraft.formData.unit || 'kg'} • ₹{Number(existingDraft.formData.quantity || 0) * Number(existingDraft.formData.price || 0)}) was saved during your previous session.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#566861] hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                Discard
+              </button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleResumeDraft(existingDraft)}
+                icon={ArrowRight}
+                iconPosition="right"
+                className="text-xs font-bold py-1.5 px-3.5 cursor-pointer shadow-xs"
+              >
+                Resume & Review
+              </Button>
+            </div>
+          </div>
+        )}
         
         {/* Sleek Smart Header with Back, Centered Progress Pills & Next Button */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs flex items-center justify-between gap-3">
@@ -804,6 +877,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
         onClose={() => setIsVerificationModalOpen(false)}
         currentUser={user}
         actionName="publish farmgate lots or auctions"
+        draftProduce={{ ...formData, saleType }}
         onSuccess={() => {
           setIsVerificationModalOpen(false);
         }}

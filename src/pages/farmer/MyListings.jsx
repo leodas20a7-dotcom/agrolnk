@@ -17,7 +17,7 @@ import {
   Sparkles,
   ShoppingBag
 } from 'lucide-react';
-import { getFarmerListings } from '../../utils/listings';
+import { getFarmerListings, getListingDraft, clearListingDraft } from '../../utils/listings';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyListings({ currentUser, onNavigate }) {
@@ -26,6 +26,7 @@ export default function MyListings({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedListing, setSelectedListing] = useState(null);
+  const [savedDraft, setSavedDraft] = useState(() => getListingDraft(user.id));
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem('agrolnk_farmer_listings_viewmode') || 'rows';
@@ -57,25 +58,53 @@ export default function MyListings({ currentUser, onNavigate }) {
       }
     };
     fetchListings();
+
+    const handleDraftUpdate = () => {
+      setSavedDraft(getListingDraft(user.id));
+    };
+    window.addEventListener('agrolnk_listing_draft_updated', handleDraftUpdate);
     return () => {
       isMounted = false;
+      window.removeEventListener('agrolnk_listing_draft_updated', handleDraftUpdate);
     };
   }, [user.id]);
 
   const safeListings = Array.isArray(listings) ? listings : [];
 
+  // Convert local draft into displayable listing if exists
+  const localDraftItem = savedDraft?.formData?.commodity ? {
+    id: 'draft_local',
+    commodity: savedDraft.formData.commodity,
+    variety: savedDraft.formData.variety || 'Draft Lot',
+    grade: savedDraft.formData.grade || 'A',
+    quantity: Number(savedDraft.formData.quantity || 0),
+    unit: savedDraft.formData.unit || 'kg',
+    price: Number(savedDraft.formData.price || 0),
+    totalAmount: Number(savedDraft.formData.quantity || 0) * Number(savedDraft.formData.price || 0),
+    state: savedDraft.formData.state || '',
+    district: savedDraft.formData.district || '',
+    images: savedDraft.formData.images || [],
+    status: 'draft',
+    isLocalDraft: true,
+    rawDraft: savedDraft,
+  } : null;
+
+  const allDisplayableListings = localDraftItem 
+    ? [localDraftItem, ...safeListings.filter(l => l.id !== 'draft_local')] 
+    : safeListings;
+
   const isListingActive = (l) => (l.status === 'active' || !l.status) && Number(l.quantity) > 0;
   const isListingSold = (l) => l.status === 'sold' || Number(l.quantity) <= 0;
 
   const tabs = [
-    { id: 'all', label: 'All Listings', count: safeListings.length },
+    { id: 'all', label: 'All Listings', count: allDisplayableListings.length },
     {
       id: 'active',
       label: 'Active',
-      count: safeListings.filter(isListingActive).length,
+      count: allDisplayableListings.filter(isListingActive).length,
     },
-    { id: 'sold', label: 'Sold Out', count: safeListings.filter(isListingSold).length },
-    { id: 'drafts', label: 'Drafts', count: safeListings.filter((l) => l.status === 'draft').length },
+    { id: 'sold', label: 'Sold Out', count: allDisplayableListings.filter(isListingSold).length },
+    { id: 'drafts', label: 'Drafts', count: allDisplayableListings.filter((l) => l.status === 'draft').length },
   ];
 
   const handleTabChange = (tabId) => {
@@ -83,7 +112,7 @@ export default function MyListings({ currentUser, onNavigate }) {
     setCurrentPage(1);
   };
 
-  const filteredListings = safeListings.filter((item) => {
+  const filteredListings = allDisplayableListings.filter((item) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'active') return isListingActive(item);
     if (activeTab === 'sold') return isListingSold(item);
@@ -129,6 +158,46 @@ export default function MyListings({ currentUser, onNavigate }) {
             List New Produce
           </Button>
         </div>
+
+        {/* Top Notification if Unpublished Draft Exists */}
+        {savedDraft?.formData?.commodity && (
+          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#EBF5F0] via-[#F2FBF6] to-white border border-[#10B981] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-bold text-[#0B3326]">
+                    You have an unpublished draft: {savedDraft.formData.commodity}
+                  </h3>
+                  <Badge variant="emerald" size="sm">Draft Saved</Badge>
+                </div>
+                <p className="text-xs text-[#2D5A47] mt-0.5">
+                  {savedDraft.formData.quantity || 0} {savedDraft.formData.unit || 'kg'} • ₹{(Number(savedDraft.formData.quantity || 0) * Number(savedDraft.formData.price || 0)).toLocaleString('en-IN')} • Ready to review and publish to live exchange.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => clearListingDraft(user.id)}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#566861] hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                Discard
+              </button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => onNavigate('farmer-create-listing', { initialData: savedDraft.formData })}
+                className="text-xs font-bold py-2 px-4 shadow-xs cursor-pointer"
+              >
+                Finish & Publish
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Filter Tabs & View Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-[#E5EDE8]">
