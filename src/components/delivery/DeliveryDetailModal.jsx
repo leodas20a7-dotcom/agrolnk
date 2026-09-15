@@ -48,6 +48,11 @@ export default function DeliveryDetailModal({
   const isTransporter = viewerRole === 'transporter';
   const isFarmer = viewerRole === 'farmer';
   const isBuyer = viewerRole === 'buyer';
+  const isAssignedTransporter =
+    isTransporter &&
+    (!currentDelivery.transporterId ||
+      currentDelivery.transporterId === currentUser?.id ||
+      currentUser?.role === 'admin');
 
   const pickupStr = typeof currentDelivery.pickupLocation === 'object'
     ? `${currentDelivery.pickupLocation?.address || ''}, ${currentDelivery.pickupLocation?.district || 'Salem'}, ${currentDelivery.pickupLocation?.state || 'Tamil Nadu'}`
@@ -368,7 +373,7 @@ export default function DeliveryDetailModal({
                 </Button>
               )}
 
-              {currentDelivery.status === 'assigned' && (
+              {isAssignedTransporter && currentDelivery.status === 'assigned' && (
                 <Button
                   variant="accent"
                   size="md"
@@ -382,7 +387,7 @@ export default function DeliveryDetailModal({
                 </Button>
               )}
 
-              {currentDelivery.status === 'picked_up' && (
+              {isAssignedTransporter && currentDelivery.status === 'picked_up' && (
                 <Button
                   variant="accent"
                   size="md"
@@ -396,7 +401,7 @@ export default function DeliveryDetailModal({
                 </Button>
               )}
 
-              {currentDelivery.status === 'in_transit' && (
+              {isAssignedTransporter && currentDelivery.status === 'in_transit' && (
                 <Button
                   variant="accent"
                   size="md"
@@ -408,6 +413,12 @@ export default function DeliveryDetailModal({
                 >
                   {isUpdating ? 'Confirming Drop-off...' : 'Mark as Delivered'}
                 </Button>
+              )}
+
+              {!isAssignedTransporter && currentDelivery.status !== 'transport_requested' && currentDelivery.status !== 'delivered' && currentDelivery.status !== 'completed' && (
+                <Badge variant="dark" size="md">
+                  Assigned Carrier: {currentDelivery.transporterName || 'External Transporter'}
+                </Badge>
               )}
 
               {currentDelivery.status === 'delivered' && (

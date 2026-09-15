@@ -116,14 +116,22 @@ export default function DeliveryRow({
         )}
 
         <Button
-          variant={isTransporter ? 'primary' : 'secondary'}
+          variant={isTransporter && !isAvailableJob ? 'primary' : 'secondary'}
           size="sm"
           onClick={() => onView(delivery)}
           icon={ArrowRight}
           iconPosition="right"
           className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] cursor-pointer"
         >
-          {isTransporter ? 'Manage Trip' : 'Track Trip'}
+          {isFarmer
+            ? 'View Details'
+            : isBuyer
+            ? 'Track Trip'
+            : isTransporter && (delivery.status === 'assigned' || delivery.status === 'picked_up' || delivery.status === 'in_transit')
+            ? 'Manage Trip'
+            : isAvailableJob
+            ? 'View Route'
+            : 'View Details'}
         </Button>
       </div>
     </div>

@@ -162,14 +162,13 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
     { id: 'active', label: 'My Active Trips', count: activeTrips.length },
     { id: 'completed', label: 'Completed Deliveries', count: completedTrips.length },
     { id: 'fleet', label: 'My Vehicle Fleet', count: fleetVehicles.length },
-    { id: 'all', label: 'All Manifests', count: safeDeliveries.length },
   ];
 
   const getFilteredList = () => {
     if (activeTab === 'available') return availableJobs;
     if (activeTab === 'active') return activeTrips;
     if (activeTab === 'completed') return completedTrips;
-    return safeDeliveries;
+    return availableJobs;
   };
 
   const filteredDeliveries = getFilteredList();

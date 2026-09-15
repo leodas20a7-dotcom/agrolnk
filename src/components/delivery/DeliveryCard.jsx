@@ -266,14 +266,22 @@ export default function DeliveryCard({
           {/* View Details Button */}
           {(!isFarmer || !isPriceOffered) && (
             <Button
-              variant={isTransporter ? 'primary' : 'secondary'}
+              variant={isTransporter && !isAvailableJob ? 'primary' : 'secondary'}
               size="sm"
               onClick={() => onView(delivery)}
               icon={ArrowRight}
               iconPosition="right"
               className="text-xs font-bold py-2 cursor-pointer"
             >
-              {isTransporter ? 'Manage Trip' : 'View Details'}
+              {isFarmer
+                ? 'View Details'
+                : isBuyer
+                ? 'Track Trip'
+                : isTransporter && (delivery.status === 'assigned' || delivery.status === 'picked_up' || delivery.status === 'in_transit')
+                ? 'Manage Trip'
+                : isAvailableJob
+                ? 'View Route'
+                : 'View Details'}
             </Button>
           )}
         </div>
