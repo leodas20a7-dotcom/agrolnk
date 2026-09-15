@@ -8,119 +8,28 @@ import { BUYER_COMMISSION_RATE, SELLER_COMMISSION_RATE } from './commission';
 
 const ADMIN_KYC_STORAGE_KEY = 'agrolnk_admin_kyc_registry';
 
-// Seed Initial KYC Verification Registry
-const INITIAL_KYC_USERS = [
-  {
-    id: 'usr_farmer_01',
-    name: 'Sakthi Vel',
-    role: 'farmer',
-    email: 'sakthivel@agrolnk.com',
-    phone: '+91 94432 11223',
-    state: 'Tamil Nadu',
-    district: 'Salem',
-    orgName: 'Vel Organic Farms',
-    verificationStatus: 'verified', // 'pending' | 'verified' | 'rejected' | 'action_required'
-    submittedAt: '2026-09-01T10:30:00.000Z',
-    verifiedAt: '2026-09-01T14:15:00.000Z',
-    verifiedBy: 'AgroLnk Admin (Govind)',
-    documents: [
-      { type: 'Aadhaar Card', number: 'XXXX-XXXX-4921', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600' },
-      { type: 'Kissan Credit Passbook / Land Record', number: 'TN-SLM-84920', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600' },
-      { type: 'Bank Account Cancelled Cheque', number: 'SBIN0004921', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=600' },
-    ],
-    auditNotes: 'Verified landholding of 12 acres in Attur, Salem. Bank IFSC verified with SBI.',
-  },
-  {
-    id: 'usr_buyer_02',
-    name: 'Ananya Agro Foods',
-    role: 'buyer',
-    email: 'procurement@ananyaagro.com',
-    phone: '+91 98840 55667',
-    state: 'Tamil Nadu',
-    district: 'Chennai',
-    orgName: 'Ananya Agro Foods Pvt Ltd',
-    verificationStatus: 'verified',
-    submittedAt: '2026-09-02T11:00:00.000Z',
-    verifiedAt: '2026-09-02T15:30:00.000Z',
-    verifiedBy: 'AgroLnk Admin (Govind)',
-    documents: [
-      { type: 'GSTIN Registration Certificate', number: '33AAACA1122P1Z5', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600' },
-      { type: 'FSSAI Wholesale Trading License', number: '10018042000849', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600' },
-      { type: 'Company PAN Card', number: 'AAACA1122P', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=600' },
-    ],
-    auditNotes: 'GSTIN active on GST portal. FSSAI Central license verified valid till 2028.',
-  },
-  {
-    id: 'usr_transporter_03',
-    name: 'Vetri Logistics',
-    role: 'transporter',
-    email: 'dispatch@vetrilogistics.com',
-    phone: '+91 94433 77889',
-    state: 'Tamil Nadu',
-    district: 'Namakkal',
-    orgName: 'Vetri Transport Fleet Ltd',
-    verificationStatus: 'pending',
-    submittedAt: '2026-09-04T09:20:00.000Z',
-    verifiedAt: null,
-    verifiedBy: null,
-    documents: [
-      { type: 'All-India National Goods Carriage Permit', number: 'TN-28-NP-2024-9182', status: 'pending', fileUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600' },
-      { type: 'Commercial Vehicle Fitness & Insurance', number: 'TN 28 AB 4092', status: 'pending', fileUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600' },
-      { type: 'Driver Commercial Badge / DL', number: 'DL-TN28-2012004921', status: 'pending', fileUrl: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=600' },
-    ],
-    auditNotes: 'Submitted fleet of 14 multi-axle refrigerated trucks. Awaiting National Permit verification.',
-  },
-  {
-    id: 'usr_warehouse_04',
-    name: 'Salem Agro Cold Storage',
-    role: 'warehouse',
-    email: 'operations@salemcoldchain.in',
-    phone: '+91 97890 22334',
-    state: 'Tamil Nadu',
-    district: 'Salem',
-    orgName: 'Salem Agro Cold Hub & Silos',
-    verificationStatus: 'pending',
-    submittedAt: '2026-09-04T14:45:00.000Z',
-    verifiedAt: null,
-    verifiedBy: null,
-    documents: [
-      { type: 'WDRA Accreditation Certificate', number: 'WDRA-TN-SLM-2023-084', status: 'pending', fileUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600' },
-      { type: 'NABL Certified Lab Testing License', number: 'NABL-TC-8492', status: 'pending', fileUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600' },
-      { type: 'Warehouse Insurance Policy (Fire & Spoilage)', number: 'OIC-AGR-9482910', status: 'pending', fileUrl: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=600' },
-    ],
-    auditNotes: 'WDRA 5000 MT capacity cold chamber. Telemetry inspection report uploaded.',
-  },
-  {
-    id: 'usr_financier_05',
-    name: 'Kisan Capital Partners',
-    role: 'financier',
-    email: 'creditdesk@kisancapital.com',
-    phone: '+91 98400 99112',
-    state: 'Tamil Nadu',
-    district: 'Chennai',
-    orgName: 'Kisan Capital NBFC Ltd',
-    verificationStatus: 'verified',
-    submittedAt: '2026-08-28T09:00:00.000Z',
-    verifiedAt: '2026-08-28T12:00:00.000Z',
-    verifiedBy: 'AgroLnk Compliance Board',
-    documents: [
-      { type: 'RBI NBFC Registration Certificate', number: 'RBI-NBFC-ND-SI-49218', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600' },
-      { type: 'Board Trade Finance Authorization Resolution', number: 'KCP-BR-2026-01', status: 'verified', fileUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600' },
-    ],
-    auditNotes: 'RBI Grade-A NBFC with platform earmarked liquidity pool of ₹1,00,00,000.',
-  },
-];
+// Seed Initial KYC Verification Registry (Empty for production)
+const INITIAL_KYC_USERS = [];
 
 function getStoredKYC() {
   try {
     const raw = localStorage.getItem(ADMIN_KYC_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(ADMIN_KYC_STORAGE_KEY, JSON.stringify(INITIAL_KYC_USERS));
-      return INITIAL_KYC_USERS;
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Filter out dummy sample users from previous sessions
+    return parsed.filter(
+      (u) =>
+        u.id !== 'usr_farmer_01' &&
+        u.id !== 'usr_buyer_02' &&
+        u.id !== 'usr_transporter_03' &&
+        u.id !== 'usr_warehouse_04' &&
+        u.id !== 'usr_financier_05'
+    );
   } catch {
-    return INITIAL_KYC_USERS;
+    return [];
   }
 }
 
@@ -188,10 +97,8 @@ export async function getAllKYCUsers() {
           submittedAt: p.created_at || new Date().toISOString(),
           verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || new Date().toISOString()) : null,
           verifiedBy: dbKycStatus === 'verified' ? 'Admin' : null,
-          documents: meta.documents || [
-            { type: 'Aadhaar / Identity Document', number: 'Uploaded Document', status: dbKycStatus, fileName: 'Identity_Proof.pdf', format: 'PDF', fileUrl: '' }
-          ],
-          auditNotes: meta.auditNotes || `Registered ${p.role}. Awaiting KYC verification.`,
+          documents: meta.documents || [],
+          auditNotes: meta.auditNotes || `Registered ${p.role}. Awaiting KYC document submission.`,
         });
       }
     });

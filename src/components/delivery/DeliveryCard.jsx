@@ -138,10 +138,10 @@ export default function DeliveryCard({
             <div className="flex items-center justify-between bg-white/10 p-3 rounded-xl border border-white/15">
               <div>
                 <span className="text-xs font-semibold text-white/90 block">
-                  {delivery.transporterName || 'Vetri Logistics'}
+                  {delivery.transporterName || 'Commercial Transporter'}
                 </span>
                 <span className="text-[11px] text-white/70 block">
-                  {delivery.vehicleType || '14ft Eicher'} ({delivery.vehicleNumber || 'TN 28 AB 4092'})
+                  {delivery.vehicleType || 'Freight Carrier'}{delivery.vehicleNumber ? ` (${delivery.vehicleNumber})` : ''}
                 </span>
               </div>
 

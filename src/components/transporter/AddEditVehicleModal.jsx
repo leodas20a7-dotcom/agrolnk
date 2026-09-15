@@ -184,7 +184,7 @@ export default function AddEditVehicleModal({
               <span className="flex items-center gap-1">
                 Vehicle Registration Plate <span className="text-red-500 font-bold">*</span>
               </span>
-              <span className="text-[11px] text-[#566861]">e.g. TN 28 AB 4092</span>
+              <span className="text-[11px] text-[#566861]">Format: State + Digits + Series (e.g. TN01AB1234)</span>
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-[#1E3A8A] text-white font-mono font-bold text-[10px] px-1.5 py-0.5 rounded">
@@ -194,7 +194,7 @@ export default function AddEditVehicleModal({
                 type="text"
                 value={vehicleNumber}
                 onChange={handleVehicleNumberChange}
-                placeholder="TN 28 AB 4092"
+                placeholder="Enter Registration Plate"
                 maxLength={16}
                 className={`w-full pl-14 pr-3 py-2.5 rounded-xl text-sm font-mono font-bold tracking-wider uppercase border focus:outline-none transition-all ${
                   fieldErrors.vehicleNumber

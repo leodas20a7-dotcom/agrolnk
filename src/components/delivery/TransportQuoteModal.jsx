@@ -32,12 +32,12 @@ export default function TransportQuoteModal({
   onSuccess,
 }) {
   const user = currentUser || {
-    id: 'usr_transporter_04',
-    name: 'Vetri Logistics & Transport',
+    id: 'usr_transporter',
+    name: 'Commercial Transporter',
     role: 'transporter',
-    vehicleType: '14ft Eicher Truck (4 Tonne)',
-    vehicleNumber: 'TN 28 AB 4092',
-    phone: '+91 94433 77889',
+    vehicleType: '',
+    vehicleNumber: '',
+    phone: '',
   };
 
   const pickupDistrict = typeof delivery?.pickupLocation === 'object'
@@ -347,7 +347,7 @@ export default function TransportQuoteModal({
                   type="text"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
-                  placeholder="TN 28 AB 4092"
+                  placeholder="e.g. TN 01 AB 1234"
                   className="w-full text-xs font-mono font-bold text-[#14211D] bg-transparent focus:outline-none uppercase tracking-wide"
                   required
                 />
@@ -364,7 +364,7 @@ export default function TransportQuoteModal({
                   type="text"
                   value={driverName}
                   onChange={(e) => setDriverName(e.target.value)}
-                  placeholder="M. Murugan"
+                  placeholder="Driver Full Name"
                   className="w-full text-xs font-semibold text-[#14211D] bg-transparent focus:outline-none"
                   required
                 />

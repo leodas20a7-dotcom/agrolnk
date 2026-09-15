@@ -262,7 +262,7 @@ export default function DeliveryDetailModal({
                   {currentDelivery.transporterName}
                 </span>
                 <span className="text-[11px] text-[#10B981] font-semibold">
-                  {currentDelivery.vehicleType || 'Commercial Freight'} • {currentDelivery.vehicleNumber || 'TN 28 AB 4092'}
+                  {currentDelivery.vehicleType || 'Commercial Freight'}{currentDelivery.vehicleNumber ? ` • ${currentDelivery.vehicleNumber}` : ''}
                 </span>
               </div>
 
@@ -272,7 +272,7 @@ export default function DeliveryDetailModal({
                 </span>
                 <span className="font-bold text-[#14211D] block mt-0.5 flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5 text-[#10B981]" />
-                  {currentDelivery.driverPhone || currentDelivery.driverContact || '+91 94433 77889'}
+                  {currentDelivery.driverPhone || currentDelivery.driverContact || 'Direct Contact on Dispatch'}
                 </span>
                 <span className="text-[11px] text-[#566861]">
                   GPS Geofence Verified

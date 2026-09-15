@@ -513,11 +513,11 @@ export async function submitTransportQuote(deliveryId, quoteData) {
       .from('deliveries')
       .update({
         transporter_id: quoteData.transporterId || null,
-        transporter_name: quoteData.transporterName || 'Vetri Logistics & Transport',
-        vehicle_type: quoteData.vehicleType || '14ft Eicher Truck',
-        vehicle_number: (quoteData.vehicleNumber || 'TN 28 AB 4092').trim().toUpperCase(),
-        driver_name: quoteData.driverName || 'M. Murugan',
-        driver_phone: quoteData.driverPhone || '+91 94433 77889',
+        transporter_name: quoteData.transporterName || 'Commercial Transporter',
+        vehicle_type: quoteData.vehicleType || 'Commercial Freight Carrier',
+        vehicle_number: (quoteData.vehicleNumber || '').trim().toUpperCase(),
+        driver_name: quoteData.driverName || 'Driver',
+        driver_phone: quoteData.driverPhone || '',
         freight_amount: Number(quoteData.freightAmount) || 2400,
         estimated_distance_km: Number(quoteData.distanceKm) || 150,
         status: 'price_offered',
@@ -604,11 +604,11 @@ export async function acceptDelivery(deliveryId, transporterInfo) {
       .from('deliveries')
       .update({
         transporter_id: transporterInfo.id || null,
-        transporter_name: transporterInfo.name || 'Vetri Logistics',
-        vehicle_type: transporterInfo.vehicleType || '14ft Eicher Truck',
-        vehicle_number: transporterInfo.vehicleNumber || 'TN 28 AB 4092',
-        driver_name: transporterInfo.driverName || 'M. Murugan',
-        driver_phone: transporterInfo.driverPhone || '+91 94433 77889',
+        transporter_name: transporterInfo.name || 'Commercial Transporter',
+        vehicle_type: transporterInfo.vehicleType || 'Commercial Freight Carrier',
+        vehicle_number: (transporterInfo.vehicleNumber || '').trim().toUpperCase(),
+        driver_name: transporterInfo.driverName || 'Driver',
+        driver_phone: transporterInfo.driverPhone || '',
         status: 'assigned',
         updated_at: new Date().toISOString(),
       })

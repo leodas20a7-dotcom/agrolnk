@@ -64,10 +64,7 @@ export async function registerUser({ name, phone, email, role, state, district, 
           submittedAt: new Date().toISOString(),
           verifiedAt: null,
           verifiedBy: null,
-          documents: [
-            { type: 'Identity / Aadhaar / PAN', number: 'Pending Submission', status: 'pending', fileUrl: '' },
-            { type: 'Trade / Business License', number: 'Pending Submission', status: 'pending', fileUrl: '' }
-          ],
+          documents: [],
           auditNotes: 'Newly registered participant. Awaiting document submission & admin verification.',
         });
         localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
@@ -162,25 +159,7 @@ export async function loginUser({ email, password }) {
     }
 
     if (!profile) {
-      // Fallback demo logins if running in preview/sandbox
-      const roleMatch = ['farmer', 'buyer', 'financier', 'transporter', 'warehouse'].find(r => normalizedEmail.includes(r));
-      if (roleMatch) {
-        const demoUser = {
-          id: `usr_demo_${roleMatch}`,
-          name: `${roleMatch.charAt(0).toUpperCase() + roleMatch.slice(1)} Operator`,
-          email: normalizedEmail,
-          phone: '9876543210',
-          role: roleMatch,
-          state: 'Tamil Nadu',
-          district: 'Salem',
-          companyName: `${roleMatch.charAt(0).toUpperCase() + roleMatch.slice(1)} Enterprise`,
-          kycStatus: 'verified',
-          createdAt: new Date().toISOString(),
-        };
-        setCurrentUser(demoUser);
-        return demoUser;
-      }
-      throw new Error("We couldn't find an account with this email. Please check your credentials or create an account.");
+      throw new Error("We couldn't find an account with this email. Please register or check your email address.");
     }
 
     const userObj = {

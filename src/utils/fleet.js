@@ -50,25 +50,6 @@ export const VEHICLE_CATEGORIES = [
 ];
 
 /**
- * Seed initial mock vehicle for demo accounts if empty
- */
-const DEFAULT_DEMO_FLEET = [
-  {
-    id: 'veh_demo_01',
-    vehicleNumber: 'TN 28 AB 4092',
-    vehicleCategory: 'medium_lcv',
-    vehicleType: 'Medium LCV (14ft Eicher Truck)',
-    capacityKg: 5000,
-    capacityDisplay: '5.0 MT',
-    driverName: 'M. Murugan',
-    driverPhone: '9443377889',
-    isPrimary: true,
-    status: 'available', // 'available' | 'on_trip' | 'maintenance'
-    createdAt: new Date().toISOString(),
-  },
-];
-
-/**
  * Get all fleet vehicles for a transporter
  */
 export async function getTransporterFleet(transporterId, userEmail) {
@@ -99,15 +80,9 @@ export async function getTransporterFleet(transporterId, userEmail) {
       }
     }
 
-    // 3. Fallback to local or demo fleet
+    // 3. Return local or empty array
     if (localFleet && Array.isArray(localFleet)) {
       return localFleet;
-    }
-
-    // For demo/sample transporter account, seed 1 default vehicle
-    if (identifier === 'usr_trans_01' || identifier === 'logistics@agrolnk.com') {
-      localStorage.setItem(storageKey, JSON.stringify(DEFAULT_DEMO_FLEET));
-      return DEFAULT_DEMO_FLEET;
     }
 
     return [];
