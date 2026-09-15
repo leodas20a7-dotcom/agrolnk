@@ -36,25 +36,31 @@ export default function UserProfileModal({
   const user = currentUser || {};
   const existingBank = getUserBankDetails(user.id) || {};
 
+  // Disregard legacy hardcoded seed defaults if no real address or account exists
+  const isLegacyDemoDistrict = (user.district === 'Salem' || user.district === 'HQ Operations') && !user.address && !user.pincode;
+  const isLegacyDemoState = (user.state === 'Tamil Nadu' || user.state === 'Central Command') && !user.address && !user.pincode;
+  const isLegacyDemoBank = (existingBank.bankName === 'State Bank of India' || user.bankName === 'State Bank of India') && !existingBank.accountNumber && !user.bankAccount;
+  const isLegacyDemoIfsc = (existingBank.ifscCode === 'SBIN0004921' || user.bankIfsc === 'SBIN0004921') && !existingBank.accountNumber && !user.bankAccount;
+
   const [formData, setFormData] = useState({
     name: user.name || '',
     email: user.email || '',
     phone: user.phone || '',
     farmName: user.farmName || user.orgName || user.companyName || '',
     address: user.address || '',
-    district: user.district || 'Salem',
-    state: user.state || 'Tamil Nadu',
+    district: isLegacyDemoDistrict ? '' : (user.district || ''),
+    state: isLegacyDemoState ? '' : (user.state || ''),
     pincode: user.pincode || '',
     landmark: user.landmark || '',
-    bankName: existingBank.bankName || user.bankName || 'State Bank of India',
+    bankName: isLegacyDemoBank ? '' : (existingBank.bankName || user.bankName || ''),
     accountHolderName: existingBank.accountHolderName || user.name || '',
     accountNumber: existingBank.accountNumber || user.bankAccount || '',
-    ifscCode: existingBank.ifscCode || user.bankIfsc || 'SBIN0004921',
+    ifscCode: isLegacyDemoIfsc ? '' : (existingBank.ifscCode || user.bankIfsc || ''),
     upiId: existingBank.upiId || user.upiId || '',
     accountType: existingBank.accountType || 'savings',
   });
 
-  const [resolvedIfsc, setResolvedIfsc] = useState(() => resolveIfscCode(formData.ifscCode));
+  const [resolvedIfsc, setResolvedIfsc] = useState(() => (formData.ifscCode ? resolveIfscCode(formData.ifscCode) : null));
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');

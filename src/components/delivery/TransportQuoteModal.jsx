@@ -61,9 +61,9 @@ export default function TransportQuoteModal({
   const [freightAmount, setFreightAmount] = useState(
     delivery?.freightAmount || defaultFareInfo.estimatedFare || ''
   );
-  const [vehicleNumber, setVehicleNumber] = useState(currentUser?.vehicleNumber || '');
-  const [driverName, setDriverName] = useState(currentUser?.driverName || currentUser?.name || '');
-  const [driverPhone, setDriverPhone] = useState(currentUser?.phone || '');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isAddTruckModalOpen, setIsAddTruckModalOpen] = useState(false);

@@ -12,8 +12,8 @@ export default function SelfTransportModal({
   onSuccess,
 }) {
   const [vehicleNumber, setVehicleNumber] = useState('');
-  const [driverName, setDriverName] = useState(currentUser?.name || 'Self / Farmer Dispatch');
-  const [driverPhone, setDriverPhone] = useState(currentUser?.phone || '');
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
   const [dispatchTime, setDispatchTime] = useState('Immediate (Today)');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');

@@ -34,51 +34,8 @@ export const KNOWN_IFSC_DATA = {
   'IDIB000A045': { bankName: 'Indian Bank', branch: 'Dharmapuri Bazaar', district: 'Dharmapuri', state: 'Tamil Nadu', city: 'Dharmapuri' },
 };
 
-// Seed Defaults for Demo Accounts
-const DEFAULT_DEMO_BANK_PROFILES = {
-  'usr_farmer_01': {
-    userId: 'usr_farmer_01',
-    accountHolderName: 'Sakthi Vel',
-    bankName: 'State Bank of India',
-    accountNumber: '38291048211',
-    ifscCode: 'SBIN0004921',
-    accountType: 'savings', // 'savings' | 'current' | 'kcc'
-    branchName: 'Attur Main Branch, Salem',
-    upiId: 'sakthivel@oksbi',
-    verificationStatus: 'verified', // 'pending' | 'verified' | 'failed'
-    isPrimary: true,
-    verifiedAt: '2026-09-01T10:00:00.000Z',
-    updatedAt: new Date().toISOString(),
-  },
-  'usr_farmer_sakthi': {
-    userId: 'usr_farmer_sakthi',
-    accountHolderName: 'Sakthi Vel',
-    bankName: 'State Bank of India',
-    accountNumber: '38291048211',
-    ifscCode: 'SBIN0004921',
-    accountType: 'savings',
-    branchName: 'Attur Main Branch, Salem',
-    upiId: 'sakthivel@oksbi',
-    verificationStatus: 'verified',
-    isPrimary: true,
-    verifiedAt: '2026-09-01T10:00:00.000Z',
-    updatedAt: new Date().toISOString(),
-  },
-  'usr_transporter_03': {
-    userId: 'usr_transporter_03',
-    accountHolderName: 'Vetri Logistics & Transport',
-    bankName: 'HDFC Bank',
-    accountNumber: '50200048291045',
-    ifscCode: 'HDFC0000128',
-    accountType: 'current',
-    branchName: 'Anna Nagar West, Chennai',
-    upiId: 'vetridispatch@okhdfcbank',
-    verificationStatus: 'verified',
-    isPrimary: true,
-    verifiedAt: '2026-09-02T11:00:00.000Z',
-    updatedAt: new Date().toISOString(),
-  }
-};
+// Seed Defaults for Demo Accounts (Empty for production)
+const DEFAULT_DEMO_BANK_PROFILES = {};
 
 /**
  * Retrieve local bank registry
@@ -87,12 +44,16 @@ function getStoredBankRegistry() {
   try {
     const raw = localStorage.getItem(BANK_REGISTRY_KEY);
     if (!raw) {
-      localStorage.setItem(BANK_REGISTRY_KEY, JSON.stringify(DEFAULT_DEMO_BANK_PROFILES));
-      return DEFAULT_DEMO_BANK_PROFILES;
+      return {};
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    delete parsed['usr_farmer_01'];
+    delete parsed['usr_farmer_sakthi'];
+    delete parsed['usr_transporter_03'];
+    return parsed;
   } catch {
-    return DEFAULT_DEMO_BANK_PROFILES;
+    return {};
   }
 }
 
@@ -157,7 +118,9 @@ export function resolveIfscCode(ifsc = '') {
  */
 export function getUserBankDetails(userId) {
   const current = getCurrentUser();
-  const targetId = userId || current?.id || 'usr_farmer_01';
+  const targetId = userId || current?.id;
+  if (!targetId) return null;
+
   const registry = getStoredBankRegistry();
 
   if (registry[targetId]) {
@@ -168,22 +131,17 @@ export function getUserBankDetails(userId) {
   if (current && (current.bankAccount || current.bankAccountNumber)) {
     return {
       userId: targetId,
-      accountHolderName: current.bankAccountHolder || current.name || 'Account Holder',
-      bankName: current.bankName || 'State Bank of India',
-      accountNumber: current.bankAccount || current.bankAccountNumber || '38291048211',
-      ifscCode: current.ifscCode || current.bankIfsc || 'SBIN0004921',
+      accountHolderName: current.bankAccountHolder || current.name || '',
+      bankName: current.bankName || '',
+      accountNumber: current.bankAccount || current.bankAccountNumber || '',
+      ifscCode: current.ifscCode || current.bankIfsc || '',
       accountType: current.bankAccountType || 'savings',
-      branchName: current.bankBranch || 'Attur Main Branch, Salem',
+      branchName: current.bankBranch || '',
       upiId: current.upiId || '',
       verificationStatus: 'verified',
       isPrimary: true,
       updatedAt: new Date().toISOString(),
     };
-  }
-
-  // Default fallback for farmer accounts in demo mode
-  if (targetId.includes('farmer') || current?.role === 'farmer') {
-    return DEFAULT_DEMO_BANK_PROFILES['usr_farmer_01'];
   }
 
   return null;
@@ -194,19 +152,19 @@ export function getUserBankDetails(userId) {
  */
 export async function saveUserBankDetails(userId, bankData) {
   const current = getCurrentUser();
-  const targetId = userId || current?.id || 'usr_farmer_01';
+  const targetId = userId || current?.id;
   const registry = getStoredBankRegistry();
 
   const ifscInfo = resolveIfscCode(bankData.ifscCode);
 
   const cleanRecord = {
     userId: targetId,
-    accountHolderName: (bankData.accountHolderName || current?.name || 'Producer Account').trim(),
-    bankName: (bankData.bankName || ifscInfo?.bankName || 'State Bank of India').trim(),
+    accountHolderName: (bankData.accountHolderName || current?.name || '').trim(),
+    bankName: (bankData.bankName || ifscInfo?.bankName || '').trim(),
     accountNumber: (bankData.accountNumber || '').trim().replace(/\s+/g, ''),
     ifscCode: (bankData.ifscCode || '').trim().toUpperCase(),
     accountType: bankData.accountType || 'savings',
-    branchName: bankData.branchName || ifscInfo?.branch || 'Main Agri Branch',
+    branchName: bankData.branchName || ifscInfo?.branch || '',
     upiId: (bankData.upiId || '').trim(),
     verificationStatus: 'verified',
     isPrimary: true,
@@ -290,8 +248,8 @@ export async function simulatePennyDropVerification(bankData) {
       resolve({
         success: true,
         referenceId: `PENNY_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-        registeredName: bankData.accountHolderName || 'VERIFIED PRODUCER',
-        bankName: bankData.bankName || 'State Bank of India',
+        registeredName: bankData.accountHolderName || 'VERIFIED BENEFICIARY',
+        bankName: bankData.bankName || 'Verified Scheduled Bank',
         amountCredited: '₹1.00 (Test Verification Escrow)',
         status: 'IMPS_SUCCESS_MATCHED',
         message: `Penny drop verification successful. Beneficiary "${bankData.accountHolderName}" verified with bank records.`,

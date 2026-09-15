@@ -45,7 +45,7 @@ export default function PayStorageRentModal({
           amount: calculatedPayAmount,
           method: 'Agrolnk Escrow Balance Deduction',
           extendedDays,
-          paidBy: currentUser?.name || 'Sakthi Vel',
+          paidBy: currentUser?.name || 'Authorized Account',
         });
         setIsProcessing(false);
         setPaymentSuccess(res.payment);
@@ -58,13 +58,13 @@ export default function PayStorageRentModal({
         inventory,
         amount: calculatedPayAmount,
         extendedDays,
-        farmerUser: currentUser || { name: 'Sakthi Vel', role: 'farmer' },
+        farmerUser: currentUser || { name: 'Authorized Account', role: 'farmer' },
         onSuccess: async (rzpRes) => {
           const res = await payStorageRent(inventory.id, {
             amount: calculatedPayAmount,
             method: `Razorpay Online / UPI (${rzpRes.razorpay_payment_id})`,
             extendedDays,
-            paidBy: currentUser?.name || 'Sakthi Vel',
+            paidBy: currentUser?.name || 'Authorized Account',
           });
           setIsProcessing(false);
           setPaymentSuccess(res.payment);

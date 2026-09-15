@@ -48,8 +48,8 @@ export default function AddEditVehicleModal({
       setVehicleNumber('');
       setSelectedCategoryKey('medium_lcv');
       setCustomCapacity('');
-      setDriverName(currentUser?.name || '');
-      setDriverPhone(currentUser?.phone || '');
+      setDriverName('');
+      setDriverPhone('');
       setIsPrimary(false);
       setStatus('available');
     }

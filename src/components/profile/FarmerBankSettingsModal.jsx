@@ -41,14 +41,14 @@ export default function FarmerBankSettingsModal({
   };
 
   const [formData, setFormData] = useState({
-    accountHolderName: activeUser.name || 'Sakthi Vel',
-    bankName: 'State Bank of India',
-    accountNumber: '38291048211',
-    confirmAccountNumber: '38291048211',
-    ifscCode: 'SBIN0004921',
+    accountHolderName: activeUser.name || '',
+    bankName: '',
+    accountNumber: '',
+    confirmAccountNumber: '',
+    ifscCode: '',
     accountType: 'savings',
-    branchName: 'Attur Main Branch, Salem',
-    upiId: 'sakthivel@oksbi',
+    branchName: '',
+    upiId: '',
   });
 
   const [resolvedIfsc, setResolvedIfsc] = useState(null);
@@ -65,22 +65,28 @@ export default function FarmerBankSettingsModal({
       if (existing) {
         setFormData({
           accountHolderName: existing.accountHolderName || activeUser.name || '',
-          bankName: existing.bankName || 'State Bank of India',
+          bankName: existing.bankName || '',
           accountNumber: existing.accountNumber || '',
           confirmAccountNumber: existing.accountNumber || '',
-          ifscCode: existing.ifscCode || 'SBIN0004921',
+          ifscCode: existing.ifscCode || '',
           accountType: existing.accountType || 'savings',
-          branchName: existing.branchName || 'Attur Main Branch, Salem',
+          branchName: existing.branchName || '',
           upiId: existing.upiId || '',
         });
         if (existing.ifscCode) {
           setResolvedIfsc(resolveIfscCode(existing.ifscCode));
         }
       } else {
-        setFormData(prev => ({
-          ...prev,
+        setFormData({
           accountHolderName: activeUser.name || '',
-        }));
+          bankName: '',
+          accountNumber: '',
+          confirmAccountNumber: '',
+          ifscCode: '',
+          accountType: 'savings',
+          branchName: '',
+          upiId: '',
+        });
       }
       setPennyResult(null);
       setErrorMsg('');
@@ -234,7 +240,7 @@ export default function FarmerBankSettingsModal({
                   Beneficiary Payout Link
                 </span>
                 <span className="text-xs text-white/70">
-                  {formData.bankName || 'State Bank of India'}
+                  {formData.bankName || 'Not configured'}
                 </span>
               </div>
               <div className="text-lg sm:text-xl font-mono font-extrabold tracking-widest text-white mt-2">
@@ -250,13 +256,13 @@ export default function FarmerBankSettingsModal({
             <div>
               <span className="text-[10px] text-white/60 block uppercase font-medium">Account Holder</span>
               <span className="font-bold text-white tracking-wide">
-                {formData.accountHolderName || activeUser.name || 'Account Holder'}
+                {formData.accountHolderName || activeUser.name || '—'}
               </span>
             </div>
             <div>
               <span className="text-[10px] text-white/60 block uppercase font-medium">IFSC Code</span>
               <span className="font-mono font-bold text-[#34D399]">
-                {formData.ifscCode || 'SBIN0004921'}
+                {formData.ifscCode || '—'}
               </span>
             </div>
             <div>

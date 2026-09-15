@@ -237,13 +237,13 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#566861]">
                   <span>
-                    Bank: <strong className="text-[#14211D]">{bankDetails?.bankName || 'State Bank of India'}</strong>
+                    Bank: <strong className="text-[#14211D]">{bankDetails?.bankName || 'Not configured'}</strong>
                   </span>
                   <span>
                     A/C: <strong className="font-mono text-[#14211D]">{bankDetails?.accountNumber ? maskAccountNumber(bankDetails.accountNumber) : 'Not Linked'}</strong>
                   </span>
                   <span>
-                    IFSC: <strong className="font-mono text-[#10B981]">{bankDetails?.ifscCode || 'SBIN0004921'}</strong>
+                    IFSC: <strong className="font-mono text-[#10B981]">{bankDetails?.ifscCode || '—'}</strong>
                   </span>
                   {bankDetails?.upiId && (
                     <span>
