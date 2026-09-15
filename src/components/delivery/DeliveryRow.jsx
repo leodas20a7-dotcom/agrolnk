@@ -123,7 +123,7 @@ export default function DeliveryRow({
           onClick={() => onView(delivery)}
           icon={ArrowRight}
           iconPosition="right"
-          className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] cursor-pointer"
+          className="text-xs font-bold py-2 cursor-pointer"
         >
           {isFarmer
             ? 'View Details'
