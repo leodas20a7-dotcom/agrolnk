@@ -60,7 +60,7 @@ export async function getFinancingRequests() {
  */
 export async function getFarmerFinancingRequests(farmerId) {
   try {
-    if (!farmerId) return await getFinancingRequests();
+    if (!farmerId) return [];
 
     const { data, error } = await supabase
       .from('financing_requests')
@@ -85,7 +85,7 @@ export async function getFarmerFinancingRequests(farmerId) {
  */
 export async function getBuyerFinancingRequests(buyerId) {
   try {
-    if (!buyerId) return await getFinancingRequests();
+    if (!buyerId) return [];
 
     const { data, error } = await supabase
       .from('financing_requests')

@@ -23,9 +23,10 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 
 export default function FinancierPortfolio({ currentUser, onNavigate }) {
   const user = currentUser || {
-    name: 'Kisan Capital Partners',
+    name: 'Financial Institution',
     role: 'financier',
-    email: 'financier@agrolnk.com',
+    id: '',
+    email: '',
   };
 
   const [activeLoans, setActiveLoans] = useState([]);

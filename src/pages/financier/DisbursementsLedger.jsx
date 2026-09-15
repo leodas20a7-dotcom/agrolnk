@@ -21,9 +21,10 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 
 export default function DisbursementsLedger({ currentUser, onNavigate }) {
   const user = currentUser || {
-    name: 'Kisan Capital Partners',
+    name: 'Financial Institution',
     role: 'financier',
-    email: 'financier@agrolnk.com',
+    id: '',
+    email: '',
   };
 
   const [disbursements, setDisbursements] = useState([]);
