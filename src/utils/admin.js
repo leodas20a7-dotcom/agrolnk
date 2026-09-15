@@ -278,3 +278,204 @@ export async function getAdminMetrics() {
     };
   }
 }
+
+/**
+ * Create a new user in Supabase profiles & local registry from Admin Settings
+ */
+export async function createAdminUser(userData) {
+  const userId = userData.id || `usr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const kycStatus = userData.verificationStatus || userData.kycStatus || 'pending';
+  const role = userData.role || 'farmer';
+  const name = userData.name || 'New User';
+  const email = userData.email || `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@agrolnk.local`;
+  const phone = userData.phone || '9876543210';
+  const state = userData.state || 'Tamil Nadu';
+  const district = userData.district || 'Salem';
+  const companyName = userData.orgName || userData.companyName || userData.farmName || `${name} Agri`;
+
+  const newRecord = {
+    id: userId,
+    name,
+    role,
+    email,
+    phone,
+    state,
+    district,
+    orgName: companyName,
+    company_name: companyName,
+    verificationStatus: kycStatus,
+    submittedAt: new Date().toISOString(),
+    verifiedAt: kycStatus === 'verified' ? new Date().toISOString() : null,
+    verifiedBy: kycStatus === 'verified' ? 'AgroLnk Platform Administrator' : null,
+    documents: [
+      {
+        type: 'Aadhaar / Identity Document',
+        number: '1234 5678 9012',
+        fileName: 'identity_doc.pdf',
+        format: 'PDF',
+        fileSize: '1.2 MB',
+        status: kycStatus,
+        fileUrl: '',
+      },
+    ],
+    auditNotes: `Account created directly via Admin Command Center.`,
+  };
+
+  // 1. Save to local KYC registry
+  const localList = getStoredKYC();
+  localList.unshift(newRecord);
+  saveStoredKYC(localList);
+
+  // 2. Insert into Supabase profiles table
+  try {
+    const { error } = await supabase.from('profiles').upsert({
+      id: userId,
+      name,
+      email,
+      role,
+      phone,
+      state,
+      district,
+      company_name: companyName,
+      kyc_status: kycStatus,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) console.warn('Supabase profile create notice:', error.message);
+  } catch (err) {
+    console.warn('Supabase profile create exception:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+  }
+
+  return newRecord;
+}
+
+/**
+ * Update an existing user in Supabase profiles & local registry
+ */
+export async function updateAdminUser(userId, updates) {
+  if (!userId) return null;
+
+  // 1. Update local registry
+  const localList = getStoredKYC();
+  const index = localList.findIndex((u) => u.id === userId || u.email === userId);
+  let updatedRecord = null;
+
+  if (index >= 0) {
+    localList[index] = {
+      ...localList[index],
+      ...updates,
+      verificationStatus: updates.verificationStatus || updates.kycStatus || localList[index].verificationStatus,
+      orgName: updates.companyName || updates.orgName || localList[index].orgName,
+    };
+    updatedRecord = localList[index];
+    saveStoredKYC(localList);
+  }
+
+  // 2. Update Supabase profiles table
+  try {
+    const dbUpdate = {
+      updated_at: new Date().toISOString(),
+    };
+    if (updates.name !== undefined) dbUpdate.name = updates.name;
+    if (updates.email !== undefined) dbUpdate.email = updates.email;
+    if (updates.role !== undefined) dbUpdate.role = updates.role;
+    if (updates.phone !== undefined) dbUpdate.phone = updates.phone;
+    if (updates.state !== undefined) dbUpdate.state = updates.state;
+    if (updates.district !== undefined) dbUpdate.district = updates.district;
+    if (updates.companyName || updates.orgName) dbUpdate.company_name = updates.companyName || updates.orgName;
+    if (updates.verificationStatus || updates.kycStatus) dbUpdate.kyc_status = updates.verificationStatus || updates.kycStatus;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(dbUpdate)
+      .eq('id', userId);
+
+    if (error) console.warn('Supabase profile update notice:', error.message);
+  } catch (err) {
+    console.warn('Supabase profile update exception:', err);
+  }
+
+  // Sync current active session if updating active user
+  try {
+    const rawUser = localStorage.getItem('agrolnkUser');
+    if (rawUser) {
+      const parsed = JSON.parse(rawUser);
+      if (parsed.id === userId || parsed.email === userId) {
+        const mergedUser = {
+          ...parsed,
+          ...updates,
+          kycStatus: updates.verificationStatus || updates.kycStatus || parsed.kycStatus,
+        };
+        localStorage.setItem('agrolnkUser', JSON.stringify(mergedUser));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: mergedUser }));
+        }
+      }
+    }
+  } catch (_e) {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+  }
+
+  return updatedRecord || updates;
+}
+
+/**
+ * Delete a user from Supabase profiles & local registry
+ */
+export async function deleteAdminUser(userId) {
+  if (!userId) return false;
+
+  // 1. Remove from local KYC registry
+  const localList = getStoredKYC().filter((u) => u.id !== userId && u.email !== userId);
+  saveStoredKYC(localList);
+
+  // 2. Remove from Supabase profiles table
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+    if (error) console.warn('Supabase profile delete notice:', error.message);
+  } catch (err) {
+    console.warn('Supabase profile delete exception:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+  }
+
+  return true;
+}
+
+/**
+ * Platform Factory Reset / Demo Data Reset: Clears cached drafts, unread badges, and non-essential caches
+ */
+export function resetPlatformDemoData() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('agrolnk_draft_') || key.startsWith('agrolnk_privacy_') || key.includes('unread'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    }
+  } catch (err) {
+    console.warn('Reset platform demo data notice:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_listing_draft_updated', { detail: null }));
+    window.dispatchEvent(new CustomEvent('agrolnk_chat_unread_update', { detail: { count: 0 } }));
+  }
+
+  return { success: true };
+}
+

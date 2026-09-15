@@ -1029,3 +1029,104 @@ export function openDirectChat({ partnerId, partnerName, partnerRole = 'Warehous
     );
   }
 }
+
+
+/**
+ * Get chat diagnostics & counts for Admin Settings
+ */
+export async function getChatDiagnostics() {
+  const localThreads = getStoredThreads();
+  const threadKeys = Object.keys(localThreads);
+  let totalLocalMessages = 0;
+  threadKeys.forEach((key) => {
+    if (Array.isArray(localThreads[key])) {
+      totalLocalMessages += localThreads[key].length;
+    }
+  });
+
+  let totalDbMessages = totalLocalMessages;
+  try {
+    const { count, error } = await supabase
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true });
+    if (!error && typeof count === 'number') {
+      totalDbMessages = count;
+    }
+  } catch (err) {
+    console.warn('Supabase message count notice:', err);
+  }
+
+  return {
+    threadCount: threadKeys.length,
+    localMessageCount: totalLocalMessages,
+    dbMessageCount: totalDbMessages,
+    threads: threadKeys.map((k) => ({
+      threadKey: k,
+      messageCount: Array.isArray(localThreads[k]) ? localThreads[k].length : 0,
+      lastMessage: Array.isArray(localThreads[k]) && localThreads[k].length > 0 ? localThreads[k][localThreads[k].length - 1] : null,
+    })),
+  };
+}
+
+/**
+ * Clear a specific conversation thread (Factory Reset for single thread)
+ */
+export async function clearThreadHistory(threadKey) {
+  if (!threadKey) return;
+  const threads = getStoredThreads();
+  delete threads[threadKey];
+  saveStoredThreads(threads);
+
+  try {
+    await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('thread_key', threadKey);
+  } catch (err) {
+    console.warn('Supabase single thread delete notice:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_chat_threads_updated', { detail: { clearedThread: threadKey } }));
+    window.dispatchEvent(new CustomEvent('agrolnk_chat_unread_update', { detail: { count: 0 } }));
+  }
+}
+
+/**
+ * Factory Reset All Chat History: Wipes all messages across local storage and Supabase database
+ */
+export async function clearAllChatHistory() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+      localStorage.removeItem('agrolnk_privacy_chat_threads');
+      localStorage.removeItem('agrolnk_privacy_chat_threads_v2');
+      localStorage.removeItem('agrolnk_privacy_chat_threads_v3');
+      localStorage.removeItem('agrolnk_chat_read_status');
+    }
+  } catch (e) {
+    console.warn('Local storage chat purge notice:', e);
+  }
+
+  try {
+    // Delete all rows from Supabase chat_messages table
+    const { error } = await supabase
+      .from('chat_messages')
+      .delete()
+      .neq('id', '___force_delete_all___');
+
+    if (error) {
+      console.warn('Supabase chat messages delete notice:', error.message);
+    }
+  } catch (dbErr) {
+    console.warn('Supabase chat delete exception:', dbErr);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_chat_threads_updated', { detail: { allCleared: true } }));
+    window.dispatchEvent(new CustomEvent('agrolnk_chat_unread_update', { detail: { count: 0 } }));
+  }
+
+  return { success: true, timestamp: new Date().toISOString() };
+}
+

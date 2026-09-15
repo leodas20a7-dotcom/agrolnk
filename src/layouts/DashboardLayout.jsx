@@ -184,6 +184,12 @@ export default function DashboardLayout({
       page: 'admin-disputes',
       icon: Award,
     },
+    {
+      type: 'single',
+      label: 'Settings & Users',
+      page: 'admin-settings',
+      icon: Settings,
+    },
   ];
 
   // Grouped 4-pillar clean navigation

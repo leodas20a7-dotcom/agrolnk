@@ -47,6 +47,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import UserVerificationQueue from './pages/admin/UserVerificationQueue';
 import EscrowCommissionLedger from './pages/admin/EscrowCommissionLedger';
 import InspectionDisputes from './pages/admin/InspectionDisputes';
+import AdminSettings from './pages/admin/AdminSettings';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
@@ -66,6 +67,7 @@ const VALID_ROUTES = new Set([
   'admin-verification',
   'admin-escrow',
   'admin-disputes',
+  'admin-settings',
   // Farmer
   'farmer-dashboard',
   'farmer-create-listing',
@@ -186,6 +188,7 @@ const PAGE_MESSAGES = {
   'admin-verification': 'Loading KYC Verification Queue...',
   'admin-escrow': 'Auditing Escrow & Take-Rate Ledgers...',
   'admin-disputes': 'Accessing Quality Dispute Desk...',
+  'admin-settings': 'Configuring Platform & User Directory...',
 };
 
 export default function App() {
@@ -580,6 +583,15 @@ export default function App() {
       {currentPage === 'admin-disputes' && (
         <ProtectedRoute requiredRole="admin" onNavigate={handleNavigate}>
           <InspectionDisputes
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'admin-settings' && (
+        <ProtectedRoute requiredRole="admin" onNavigate={handleNavigate}>
+          <AdminSettings
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
           />
