@@ -69,7 +69,6 @@ export default function AdminSettings({ currentUser, onNavigate }) {
   const [isDeleteUserModalOpen, setIsDeleteUserModalOpen] = useState(false);
   const [isResetChatModalOpen, setIsResetChatModalOpen] = useState(false);
   const [isResetDraftsModalOpen, setIsResetDraftsModalOpen] = useState(false);
-  const [isGlobalFactoryResetModalOpen, setIsGlobalFactoryResetModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
@@ -273,25 +272,6 @@ export default function AdminSettings({ currentUser, onNavigate }) {
     } catch (err) {
       console.error('Draft reset error:', err);
       setActionError('Failed to clear drafts. Please try again.');
-    } finally {
-      hideGlobalLoader();
-    }
-  };
-
-  // Complete Global Factory Reset Action
-  const handleConfirmGlobalFactoryReset = async () => {
-    try {
-      showGlobalLoader('Executing Global Factory Reset...', 'Purging chats, drafts, and system ephemeral caches...');
-      await clearAllChatHistory();
-      await resetPlatformDemoData();
-      setIsGlobalFactoryResetModalOpen(false);
-      setActionSuccess('Platform Factory Reset complete: Chat histories, produce drafts, and session caches are cleanly reset.');
-      setTimeout(() => setActionSuccess(''), 6000);
-      const updatedDiag = await getChatDiagnostics();
-      setChatDiag(updatedDiag);
-    } catch (err) {
-      console.error('Global factory reset error:', err);
-      setActionError('Global factory reset encountered an issue. Please try again.');
     } finally {
       hideGlobalLoader();
     }
@@ -772,7 +752,7 @@ export default function AdminSettings({ currentUser, onNavigate }) {
         {activeTab === 'platform' && (
           <div className="space-y-6">
             
-            {/* Card 1: Unpublished Drafts & Local Storage Cache */}
+            {/* Unpublished Drafts & Local Storage Cache */}
             <Card className="p-6 bg-white border border-[#E5EDE8] text-left space-y-4 shadow-xs">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
@@ -792,10 +772,7 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                 <Button
                   variant="secondary"
                   size="md"
-                  onClick={() => {
-                    setDraftResetConfirmed(false);
-                    setIsResetDraftsModalOpen(true);
-                  }}
+                  onClick={() => setIsResetDraftsModalOpen(true)}
                   icon={RefreshCw}
                   iconPosition="left"
                   className="text-xs font-bold border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 cursor-pointer shrink-0"
@@ -817,40 +794,6 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                   <span className="font-bold text-emerald-700 block">✓ Safe Action</span>
                   <span className="text-[11px] text-[#566861]">Active accounts & live lots remain intact</span>
                 </div>
-              </div>
-            </Card>
-
-            {/* Card 2: Full Platform Factory Reset (Unified) */}
-            <Card className="p-6 bg-gradient-to-r from-red-50/70 via-rose-50/40 to-white border border-red-200 text-left space-y-4 shadow-xs">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
-                      <AlertTriangle className="w-4 h-4" />
-                    </div>
-                    <h3 className="text-base font-bold text-red-950 font-heading">
-                      Complete Platform Factory Reset (Drafts + Chat + Cache)
-                    </h3>
-                  </div>
-                  <p className="text-xs text-red-900 max-w-2xl">
-                    Executes a complete system cleanup: wipes all active chat histories in local cache and Supabase, deletes all listing drafts, and resets all unread badge counters to zero.
-                  </p>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={() => {
-                    setChatResetConfirmed(false);
-                    setDraftResetConfirmed(false);
-                    setIsGlobalFactoryResetModalOpen(true);
-                  }}
-                  icon={Trash2}
-                  iconPosition="left"
-                  className="bg-red-700 hover:bg-red-800 border-red-800 text-white font-bold text-xs py-2.5 px-4 shadow-md shadow-red-700/20 cursor-pointer shrink-0"
-                >
-                  Global Factory Reset
-                </Button>
               </div>
             </Card>
 
@@ -1213,41 +1156,6 @@ export default function AdminSettings({ currentUser, onNavigate }) {
               className="bg-amber-600 hover:bg-amber-700 border-amber-700 text-white font-bold cursor-pointer shadow-sm"
             >
               Yes, Clear Drafts
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* MODAL 6: Global Factory Reset Modal (Drafts + Chat + Cache) */}
-      <Modal
-        isOpen={isGlobalFactoryResetModalOpen}
-        onClose={() => setIsGlobalFactoryResetModalOpen(false)}
-        title="Factory Reset Platform?"
-        icon={ShieldAlert}
-        iconColor="text-red-600"
-        iconBg="bg-red-100"
-        maxWidth="max-w-sm"
-      >
-        <div className="space-y-4 text-left">
-          <p className="text-sm text-[#14211D]">
-            Are you sure you want to execute a full factory reset of all chat history and produce drafts?
-          </p>
-          <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#E5EDE8]">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setIsGlobalFactoryResetModalOpen(false)}
-              className="font-semibold cursor-pointer"
-            >
-              No, Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handleConfirmGlobalFactoryReset}
-              className="bg-red-600 hover:bg-red-700 border-red-700 text-white font-bold cursor-pointer shadow-sm"
-            >
-              Yes, Reset Everything
             </Button>
           </div>
         </div>
