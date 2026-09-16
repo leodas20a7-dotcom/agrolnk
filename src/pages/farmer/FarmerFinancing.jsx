@@ -79,6 +79,15 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
   const safeRequests = Array.isArray(financingRequests) ? financingRequests : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
 
+  const requestByOrder = React.useMemo(() => {
+    const map = new Map();
+    safeRequests.forEach((req) => {
+      if (req.orderNumber) map.set(req.orderNumber, req);
+      if (req.orderId) map.set(req.orderId, req);
+    });
+    return map;
+  }, [safeRequests]);
+
   // Derived metrics
   const activeRequestsCount = safeRequests.filter(
     (r) => r.status === 'pending' || r.status === 'under_review'
@@ -88,7 +97,13 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
     .filter((r) => r.status === 'approved')
     .reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
 
-  const eligibleOrders = safeOrders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
+  const eligibleOrders = safeOrders.filter(
+    (o) =>
+      o.status !== 'completed' &&
+      o.status !== 'cancelled' &&
+      !requestByOrder.has(o.orderNumber) &&
+      !requestByOrder.has(o.id)
+  );
 
   const totalEligibleValue = eligibleOrders.reduce(
     (sum, o) => sum + (Number(o.totalAmount) || 0), 0
@@ -189,116 +204,79 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
 
         </div>
 
-        {/* Section 1: Eligible Transactions */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                Eligible Transactions for Liquidity
-              </h2>
-              <p className="text-xs text-[#566861]">
-                Request advances up to 85% of order value backed by verified Agrolnk trade agreements
-              </p>
+        {/* Section 1: Eligible Transactions (Only unfinanced orders) */}
+        {eligibleOrders.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+                  Eligible Transactions for Liquidity ({eligibleOrders.length})
+                </h2>
+                <p className="text-xs text-[#566861]">
+                  Request advances up to 85% of order value backed by verified Agrolnk trade agreements
+                </p>
+              </div>
             </div>
-          </div>
 
-          {eligibleOrders.length > 0 ? (
             <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {paginatedEligibleOrders.map((order) => {
-                  const existingRequest = getFinancingRequestForOrder(order.orderNumber);
-
-                  return (
-                    <Card key={order.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="dark" size="sm">
-                            {order.orderNumber}
-                          </Badge>
-                          <span className="text-xs text-[#566861]">
-                            {order.state || 'Tamil Nadu'}
-                          </span>
-                        </div>
-
-                        <div>
-                          <h4 className="text-base font-bold text-[#14211D]">
-                            {order.commodity} ({order.quantity} {order.unit})
-                          </h4>
-                          <p className="text-xs text-[#566861] mt-0.5">
-                            Buyer: {order.buyerName || 'Ananya Agro Foods'}
-                          </p>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
-                          <span className="text-xs text-[#566861] font-medium">Transaction Value:</span>
-                          <span className="text-base font-extrabold text-[#0B3326]">
-                            ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
-                          </span>
-                        </div>
+                {paginatedEligibleOrders.map((order) => (
+                  <Card key={order.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="dark" size="sm">
+                          {order.orderNumber}
+                        </Badge>
+                        <span className="text-xs text-[#566861]">
+                          {order.state || 'Tamil Nadu'}
+                        </span>
                       </div>
 
-                      <div className="pt-2 border-t border-[#E5EDE8]">
-                        {existingRequest ? (
-                          <div className="flex items-center justify-between gap-2">
-                            <FinancingStatusBadge status={existingRequest.status} size="sm" />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setSelectedRequestForReview({
-                                  ...existingRequest,
-                                  commodity: existingRequest.commodity || order.commodity,
-                                  variety: existingRequest.variety || order.variety,
-                                  grade: existingRequest.grade || order.grade || 'A',
-                                  quantity: existingRequest.quantity || order.quantity,
-                                  unit: existingRequest.unit || order.unit || 'kg',
-                                  transactionValue: existingRequest.transactionValue || order.totalAmount,
-                                  requestedAmount: existingRequest.requestedAmount || Math.round((order.totalAmount || 0) * 0.7),
-                                  orderNumber: existingRequest.orderNumber || order.orderNumber,
-                                  orderId: existingRequest.orderId || order.id,
-                                })
-                              }
-                              className="text-xs font-bold text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer"
-                            >
-                              View Status →
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="accent"
-                            size="sm"
-                            onClick={() => setSelectedOrderForFinancing(order)}
-                            icon={Landmark}
-                            iconPosition="left"
-                            className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
-                          >
-                            Request Financing
-                          </Button>
-                        )}
+                      <div>
+                        <h4 className="text-base font-bold text-[#14211D]">
+                          {order.commodity} ({order.quantity} {order.unit})
+                        </h4>
+                        <p className="text-xs text-[#566861] mt-0.5">
+                          Buyer: {order.buyerName || 'Ananya Agro Foods'}
+                        </p>
                       </div>
-                    </Card>
-                  );
-                })}
+
+                      <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
+                        <span className="text-xs text-[#566861] font-medium">Transaction Value:</span>
+                        <span className="text-base font-extrabold text-[#0B3326]">
+                          ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#E5EDE8]">
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        onClick={() => setSelectedOrderForFinancing(order)}
+                        icon={Landmark}
+                        iconPosition="left"
+                        className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
+                      >
+                        Request Financing
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
               </div>
 
-              <Pagination
-                currentPage={ordersPage}
-                totalPages={totalOrdersPages}
-                totalItems={eligibleOrders.length}
-                itemsPerPage={ITEMS_PER_PAGE}
-                onPageChange={setOrdersPage}
-              />
+              {totalOrdersPages > 1 && (
+                <Pagination
+                  currentPage={ordersPage}
+                  totalPages={totalOrdersPages}
+                  onPageChange={setOrdersPage}
+                  totalItems={eligibleOrders.length}
+                  pageSize={ITEMS_PER_PAGE}
+                />
+              )}
             </div>
-          ) : (
-            <Card className="p-8 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
-              <Package className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No eligible orders yet</h4>
-              <p className="text-xs text-[#566861]">
-                When buyers place orders for your commodities, you can apply for instant financing advances here.
-              </p>
-            </Card>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Section 2: Active Financing Requests */}
         <div className="space-y-4 pt-4 border-t border-[#E5EDE8]">

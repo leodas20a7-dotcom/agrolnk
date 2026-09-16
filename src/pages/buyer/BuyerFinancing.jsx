@@ -59,6 +59,26 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
   const safeRequests = Array.isArray(financingRequests) ? financingRequests : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
 
+  const requestByOrder = React.useMemo(() => {
+    const map = new Map();
+    safeRequests.forEach((req) => {
+      if (req.orderNumber) map.set(req.orderNumber, req);
+      if (req.orderId) map.set(req.orderId, req);
+    });
+    return map;
+  }, [safeRequests]);
+
+  const unfinancedOrders = React.useMemo(() => {
+    return safeOrders.filter(
+      (o) =>
+        o.status !== 'completed' &&
+        o.status !== 'cancelled' &&
+        o.paymentMode !== 'trade_credit' &&
+        !requestByOrder.has(o.orderNumber) &&
+        !requestByOrder.has(o.id)
+    );
+  }, [safeOrders, requestByOrder]);
+
   const activeRequestsCount = safeRequests.filter(
     (r) => r.status === 'pending' || r.status === 'under_review'
   ).length;
@@ -176,113 +196,22 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
 
         </div>
 
-        {/* Section 1: Eligible Purchases for Trade Credit */}
+        {/* Active Trade Credit Facilities & Applications (Primary Section) */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                Eligible Purchases for Trade Credit
-              </h2>
-              <p className="text-xs text-[#566861]">
-                Obtain 30-day settlement financing on wholesale produce orders and auction wins
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled').map((order) => {
-              const existingRequest = getFinancingRequestForOrder(order.orderNumber);
-
-              return (
-                <Card key={order.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="dark" size="sm">
-                        {order.orderNumber}
-                      </Badge>
-                      <span className="text-xs text-[#566861]">
-                        {order.commodity?.includes('Auction') ? 'Auction Order' : 'Direct Marketplace'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h4 className="text-base font-bold text-[#14211D]">
-                        {order.commodity}
-                      </h4>
-                      <p className="text-xs text-[#566861] mt-0.5">
-                        Seller: {order.farmerName || 'Verified Producer'} • {order.quantity} {order.unit || 'kg'}
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
-                      <span className="text-xs text-[#566861] font-medium">Purchase Value:</span>
-                      <span className="text-base font-extrabold text-[#0B3326]">
-                        ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#E5EDE8]">
-                    {existingRequest ? (
-                      <div className="flex items-center justify-between gap-2">
-                        <FinancingStatusBadge status={existingRequest.status} size="sm" />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setSelectedRequestForReview({
-                              ...existingRequest,
-                              commodity: existingRequest.commodity || order.commodity,
-                              variety: existingRequest.variety || order.variety,
-                              grade: existingRequest.grade || order.grade || 'A',
-                              quantity: existingRequest.quantity || order.quantity,
-                              unit: existingRequest.unit || order.unit || 'kg',
-                              transactionValue: existingRequest.transactionValue || order.totalAmount,
-                              requestedAmount: existingRequest.requestedAmount || Math.round((order.totalAmount || 0) * 0.7),
-                              orderNumber: existingRequest.orderNumber || order.orderNumber,
-                              orderId: existingRequest.orderId || order.id,
-                            })
-                          }
-                          className="text-xs font-bold text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer"
-                        >
-                          View Status →
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        onClick={() => setSelectedOrderForFinancing(order)}
-                        icon={CreditCard}
-                        iconPosition="left"
-                        className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
-                      >
-                        Request Credit
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Section 2: Active Financing Requests */}
-        <div className="space-y-4 pt-4 border-t border-[#E5EDE8]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                Trade Credit Applications & Facilities ({financingRequests.length})
+                Trade Credit Applications & Facilities ({safeRequests.length})
               </h2>
               <p className="text-xs text-[#566861]">
-                Underwriting progress and credit limits for your transactions
+                Live institutional credit underwriting, status tracking, and repayment limits
               </p>
             </div>
 
             <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
 
-          {financingRequests.length > 0 ? (
+          {safeRequests.length > 0 ? (
             <div className="space-y-6">
               {viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -320,13 +249,73 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
           ) : (
             <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
               <CreditCard className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No credit requests yet</h4>
+              <h4 className="text-sm font-bold text-[#0B3326]">No trade credit applications yet</h4>
               <p className="text-xs text-[#566861]">
-                Select any purchase order above to request eligible trade credit.
+                Select "Trade Credit (NBFC)" at purchase checkout or apply on eligible orders below.
               </p>
             </Card>
           )}
         </div>
+
+        {/* Section 2: Other Eligible Purchases (Only show orders that don't have credit yet) */}
+        {unfinancedOrders.length > 0 && (
+          <div className="space-y-4 pt-6 border-t border-[#E5EDE8]">
+            <div>
+              <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+                Apply Credit on Other Purchases ({unfinancedOrders.length})
+              </h2>
+              <p className="text-xs text-[#566861]">
+                Orders placed via direct escrow that are eligible for 30-day NBFC refinancing
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {unfinancedOrders.map((order) => (
+                <Card key={order.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="dark" size="sm">
+                        {order.orderNumber}
+                      </Badge>
+                      <span className="text-xs text-[#566861]">
+                        {order.commodity?.includes('Auction') ? 'Auction Order' : 'Direct Marketplace'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-bold text-[#14211D]">
+                        {order.commodity}
+                      </h4>
+                      <p className="text-xs text-[#566861] mt-0.5">
+                        Seller: {order.farmerName || 'Verified Producer'} • {order.quantity} {order.unit || 'kg'}
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
+                      <span className="text-xs text-[#566861] font-medium">Purchase Value:</span>
+                      <span className="text-base font-extrabold text-[#0B3326]">
+                        ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#E5EDE8]">
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setSelectedOrderForFinancing(order)}
+                      icon={CreditCard}
+                      iconPosition="left"
+                      className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
+                    >
+                      Request Trade Credit
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
 
