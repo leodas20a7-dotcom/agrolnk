@@ -33,9 +33,35 @@ import {
 } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
+const STORAGE_ACTIVE_AUCTION_KEY = 'agrolnk_active_auction_id';
+
 export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   const user = currentUser || { id: '', name: 'Trader / Buyer', role: 'buyer' };
-  const auctionId = navState?.auctionId || navState?.auction?.id || 'auc_demo_01';
+
+  const [auctionId, setAuctionId] = useState(() => {
+    const rawId = navState?.auctionId || navState?.auction?.id;
+    if (rawId) {
+      try {
+        sessionStorage.setItem(STORAGE_ACTIVE_AUCTION_KEY, rawId);
+      } catch {}
+      return rawId;
+    }
+    try {
+      return sessionStorage.getItem(STORAGE_ACTIVE_AUCTION_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  useEffect(() => {
+    const rawId = navState?.auctionId || navState?.auction?.id;
+    if (rawId) {
+      setAuctionId(rawId);
+      try {
+        sessionStorage.setItem(STORAGE_ACTIVE_AUCTION_KEY, rawId);
+      } catch {}
+    }
+  }, [navState?.auctionId, navState?.auction?.id]);
 
   const [auction, setAuction] = useState(null);
   const [bids, setBids] = useState([]);
@@ -47,6 +73,7 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
   const fetchAuctionData = async () => {
+    if (!auctionId) return;
     try {
       showGlobalLoader('Entering Live Auction Arena...', 'Connecting to live ticker book & reserve price vault...');
       let lot = await getAuctionById(auctionId);
@@ -127,12 +154,41 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   };
 
   const handleAuctionTimeUp = async () => {
+    if (!auction) return;
     await finalizeAuction(auction.id);
     await fetchAuctionData();
   };
 
-  const winningRate = auction.winningBid || auction.currentBid;
-  const totalWinningValuation = auction.quantity * winningRate;
+  if (!auction) {
+    return (
+      <DashboardLayout currentUser={user} onNavigate={onNavigate}>
+        <div className="max-w-xl mx-auto py-16 text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-sm">
+            <Gavel className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+            Auction Floor
+          </h2>
+          <p className="text-xs text-[#566861] max-w-md mx-auto">
+            Connecting to auction lot ticker... If the auction does not load, please return to the live auctions floor.
+          </p>
+          <Button
+            variant="primary"
+            size="md"
+            icon={ArrowLeft}
+            iconPosition="left"
+            onClick={() => onNavigate(isFarmer ? 'farmer-my-auctions' : 'buyer-live-auctions')}
+            className="cursor-pointer font-bold"
+          >
+            Back to Auctions Floor
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const winningRate = auction.winningBid || auction.currentBid || 0;
+  const totalWinningValuation = (auction.quantity || 0) * winningRate;
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>

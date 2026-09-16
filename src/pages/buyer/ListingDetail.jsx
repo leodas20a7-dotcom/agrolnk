@@ -22,33 +22,60 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { createOrder } from '../../utils/orders';
-import { deductListingQuantity, COMMODITY_IMAGES } from '../../utils/listings';
+import { deductListingQuantity, getListingById, COMMODITY_IMAGES } from '../../utils/listings';
 import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
+
+const STORAGE_ACTIVE_LISTING_KEY = 'agrolnk_active_listing_detail';
 
 export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
-  const listing = navState?.listing || {
-    id: '',
-    commodity: 'Tomato',
-    variety: 'Standard Lot',
-    grade: 'A',
-    quantity: 100,
-    unit: 'kg',
-    price: 30,
-    state: '',
-    district: '',
-    village: '',
-    saleType: 'direct',
-    farmerName: 'Verified Producer',
-    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80'],
-  };
 
-  const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
+  const [listing, setListing] = useState(() => {
+    if (navState?.listing) {
+      try {
+        sessionStorage.setItem(STORAGE_ACTIVE_LISTING_KEY, JSON.stringify(navState.listing));
+      } catch {}
+      return navState.listing;
+    }
+    try {
+      const stored = sessionStorage.getItem(STORAGE_ACTIVE_LISTING_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  });
+
+  // Sync navState.listing whenever it changes
+  useEffect(() => {
+    if (navState?.listing) {
+      setListing(navState.listing);
+      try {
+        sessionStorage.setItem(STORAGE_ACTIVE_LISTING_KEY, JSON.stringify(navState.listing));
+      } catch {}
+    }
+  }, [navState?.listing]);
+
+  // If we have a listing ID, refresh its latest details from Supabase
+  useEffect(() => {
+    if (listing?.id) {
+      getListingById(listing.id).then((fresh) => {
+        if (fresh) {
+          setListing(fresh);
+          try {
+            sessionStorage.setItem(STORAGE_ACTIVE_LISTING_KEY, JSON.stringify(fresh));
+          } catch {}
+        }
+      });
+    }
+  }, [listing?.id]);
+
+  const fallbackImg = listing?.commodity && COMMODITY_IMAGES[listing.commodity]
+    ? COMMODITY_IMAGES[listing.commodity]
+    : 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInspectionOpen, setIsInspectionOpen] = useState(false);
   const [existingInspection, setExistingInspection] = useState(null);
-  const estimatedTotal = Number(listing.quantity || 0) * Number(listing.price || 0);
+  const estimatedTotal = Number(listing?.quantity || 0) * Number(listing?.price || 0);
 
   const loadInspection = async () => {
     if (listing?.id) {
@@ -58,7 +85,9 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   };
 
   useEffect(() => {
-    loadInspection();
+    if (listing?.id) {
+      loadInspection();
+    }
 
     const unsubscribe = subscribeToInspections(() => {
       loadInspection();
@@ -78,6 +107,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   }, [listing?.id]);
 
   const handleOrderConfirmed = async (orderPayload) => {
+    if (!listing) return;
     try {
       const order = await createOrder({
         ...orderPayload,
@@ -94,6 +124,34 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
       console.error('Order creation failed:', err);
     }
   };
+
+  if (!listing) {
+    return (
+      <DashboardLayout currentUser={user} onNavigate={onNavigate}>
+        <div className="max-w-xl mx-auto py-16 text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-sm">
+            <ShoppingBag className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+            No Produce Lot Selected
+          </h2>
+          <p className="text-xs text-[#566861] max-w-md mx-auto">
+            Please select an active produce listing from the marketplace to inspect assay reports, pricing, and place procurement orders.
+          </p>
+          <Button
+            variant="primary"
+            size="md"
+            icon={ArrowLeft}
+            iconPosition="left"
+            onClick={() => onNavigate('buyer-marketplace')}
+            className="cursor-pointer font-bold"
+          >
+            Explore Marketplace
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>

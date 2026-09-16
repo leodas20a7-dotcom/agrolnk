@@ -14,29 +14,42 @@ import {
   TrendingUp,
   Sparkles
 } from 'lucide-react';
-import { createListing } from '../../utils/listings';
+import { createListing, COMMODITY_IMAGES } from '../../utils/listings';
+
+const STORAGE_ACTIVE_PREVIEW_KEY = 'agrolnk_active_listing_preview';
 
 export default function ListingPreview({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
-  const listingData = navState?.listingData || {
-    commodity: 'Tomato',
-    variety: 'Standard Grade',
-    grade: 'A',
-    quantity: 100,
-    unit: 'kg',
-    price: 30,
-    state: '',
-    district: '',
-    village: '',
-    saleType: 'direct',
-    images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'],
-  };
+
+  const [listingData, setListingData] = useState(() => {
+    if (navState?.listingData) {
+      try {
+        sessionStorage.setItem(STORAGE_ACTIVE_PREVIEW_KEY, JSON.stringify(navState.listingData));
+      } catch {}
+      return navState.listingData;
+    }
+    try {
+      const stored = sessionStorage.getItem(STORAGE_ACTIVE_PREVIEW_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  });
+
+  React.useEffect(() => {
+    if (navState?.listingData) {
+      setListingData(navState.listingData);
+      try {
+        sessionStorage.setItem(STORAGE_ACTIVE_PREVIEW_KEY, JSON.stringify(navState.listingData));
+      } catch {}
+    }
+  }, [navState?.listingData]);
 
   const [isPublishing, setIsPublishing] = useState(false);
   const estimatedValue =
-    Number(listingData.quantity || 0) * Number(listingData.price || 0);
+    Number(listingData?.quantity || 0) * Number(listingData?.price || 0);
 
   const handlePublish = () => {
+    if (!listingData) return;
     setIsPublishing(true);
     try {
       createListing({
@@ -44,6 +57,9 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
         farmerId: user.id,
         farmerName: user.name || 'Farmer Account',
       });
+      try {
+        sessionStorage.removeItem(STORAGE_ACTIVE_PREVIEW_KEY);
+      } catch {}
       setTimeout(() => {
         onNavigate('farmer-my-listings');
       }, 300);
@@ -52,6 +68,34 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
       setIsPublishing(false);
     }
   };
+
+  if (!listingData) {
+    return (
+      <DashboardLayout currentUser={user} onNavigate={onNavigate}>
+        <div className="max-w-xl mx-auto py-16 text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-sm">
+            <Sparkles className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+            No Listing Draft Found
+          </h2>
+          <p className="text-xs text-[#566861] max-w-md mx-auto">
+            Please fill out the produce listing wizard to review and publish a new commodity lot.
+          </p>
+          <Button
+            variant="primary"
+            size="md"
+            icon={ArrowLeft}
+            iconPosition="left"
+            onClick={() => onNavigate('farmer-create-listing')}
+            className="cursor-pointer font-bold"
+          >
+            Create New Listing
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
