@@ -133,8 +133,52 @@ export async function getOrders() {
 
   const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.orderNumber].filter(Boolean)));
   const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.orderNumber));
+  const combined = [...mergedRemote, ...localOnly];
 
-  return [...mergedRemote, ...localOnly];
+  // Guarantee cross-portal sync: If a trade credit application exists in Supabase with an order number,
+  // ensure the order is present so both buyer and farmer immediately see it
+  try {
+    const { data: finReqs } = await supabase
+      .from('financing_requests')
+      .select('*')
+      .not('order_number', 'is', null);
+
+    if (finReqs && finReqs.length > 0) {
+      const knownOrderNums = new Set(combined.map((o) => o.orderNumber));
+      for (const req of finReqs) {
+        if (req.order_number && !knownOrderNums.has(req.order_number)) {
+          const synth = {
+            id: req.order_id || req.id || generateStandardUuid(),
+            orderNumber: req.order_number,
+            listingId: null,
+            auctionId: null,
+            buyerId: req.applicant_id || null,
+            buyerName: req.applicant_name || 'Buyer',
+            farmerId: null,
+            farmerName: 'Verified Producer',
+            commodity: req.commodity || 'Produce',
+            variety: req.variety || 'Standard',
+            grade: req.grade || 'A',
+            quantity: Number(req.quantity || 1),
+            unit: req.unit || 'kg',
+            pricePerUnit: req.quantity && req.transaction_value ? req.transaction_value / req.quantity : 0,
+            totalAmount: Number(req.transaction_value || req.requested_amount || 0),
+            escrowStatus: req.margin_paid ? 'funded' : 'pending',
+            status: 'order_placed',
+            paymentMode: 'trade_credit',
+            financingRequestId: req.id,
+            financingRequestNumber: req.request_number,
+            createdAt: req.created_at || new Date().toISOString(),
+            updatedAt: req.updated_at || new Date().toISOString(),
+          };
+          combined.push(synth);
+          knownOrderNums.add(req.order_number);
+        }
+      }
+    }
+  } catch {}
+
+  return combined;
 }
 
 /**
@@ -280,7 +324,7 @@ const isUuid = (str) =>
       total_amount: Number(orderData.totalAmount),
       state: orderData.state || '',
       district: orderData.district || '',
-      escrow_status: isTradeCredit ? 'financing_pending' : 'funded',
+      escrow_status: isTradeCredit ? 'pending' : 'funded',
       status: 'order_placed',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

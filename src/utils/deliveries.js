@@ -371,16 +371,20 @@ export async function createDelivery(deliveryData) {
       return `DEL-${num}`;
     };
 
+    const isUuid = (str) =>
+      typeof str === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
     const dbRow = {
       id: generateId(),
       delivery_number: generateDeliveryNum(),
-      order_id: deliveryData.orderId || null,
+      order_id: isUuid(deliveryData.orderId) ? deliveryData.orderId : null,
       order_number: deliveryData.orderNumber || '#AGM-1000',
-      farmer_id: deliveryData.farmerId || null,
+      farmer_id: isUuid(deliveryData.farmerId) ? deliveryData.farmerId : null,
       farmer_name: deliveryData.farmerName || 'Producer',
-      buyer_id: deliveryData.buyerId || null,
+      buyer_id: isUuid(deliveryData.buyerId) ? deliveryData.buyerId : null,
       buyer_name: deliveryData.buyerName || 'Buyer',
-      transporter_id: deliveryData.transporterId || null,
+      transporter_id: isUuid(deliveryData.transporterId) ? deliveryData.transporterId : null,
       transporter_name: deliveryData.transporterName || null,
       commodity: deliveryData.commodity || 'Tomato',
       grade: deliveryData.grade || 'A',
