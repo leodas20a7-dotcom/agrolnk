@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import {
   Sprout,
   Plus,
@@ -48,6 +49,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const [inventory, setInventory] = useState([]);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [inspectingDoc, setInspectingDoc] = useState(null);
   const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
 
   const [currentKycStatus, setCurrentKycStatus] = useState(() => {
@@ -58,11 +60,30 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
         if (parsed?.kycStatus) return parsed.kycStatus;
         if (parsed?.verificationStatus) return parsed.verificationStatus;
       }
-    } catch {}
+    } catch { }
     return user?.kycStatus || user?.verificationStatus || 'pending';
   });
 
   const isVerified = currentKycStatus === 'verified';
+
+  const handleOpenKycAction = () => {
+    if (currentKycStatus === 'pending') {
+      try {
+        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+        const registry = storedRaw ? JSON.parse(storedRaw) : [];
+        const found = registry.find((u) => u.id === user.id || u.email === user.email);
+        if (found?.documents && found.documents.length > 0) {
+          setInspectingDoc(found.documents[0]);
+          return;
+        }
+      } catch { }
+      if (user.documents && user.documents.length > 0) {
+        setInspectingDoc(user.documents[0]);
+        return;
+      }
+    }
+    setIsVerificationModalOpen(true);
+  };
 
   useEffect(() => {
     const handleKycUpdate = () => {
@@ -76,7 +97,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             setCurrentKycStatus(parsed.verificationStatus);
           }
         }
-      } catch {}
+      } catch { }
     };
 
     window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
@@ -148,7 +169,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
-        
+
         {/* Top Professional Marketplace Welcome Card */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2 max-w-2xl">
@@ -200,21 +221,19 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
 
         {/* Farmer KYC / Identity & Land Record Alert Banner */}
         {!isVerified && (
-          <div className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-            currentKycStatus === 'pending'
-              ? 'bg-amber-50/80 border-amber-200/80 text-amber-950'
-              : currentKycStatus === 'rejected'
+          <div className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${currentKycStatus === 'pending'
+            ? 'bg-amber-50/80 border-amber-200/80 text-amber-950'
+            : currentKycStatus === 'rejected'
               ? 'bg-red-50/80 border-red-200/80 text-red-950'
               : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-          }`}>
+            }`}>
             <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                currentKycStatus === 'pending'
-                  ? 'bg-amber-100 text-amber-800'
-                  : currentKycStatus === 'rejected'
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${currentKycStatus === 'pending'
+                ? 'bg-amber-100 text-amber-800'
+                : currentKycStatus === 'rejected'
                   ? 'bg-red-100 text-red-700'
                   : 'bg-emerald-100 text-[#0B3326]'
-              }`}>
+                }`}>
                 {currentKycStatus === 'pending' ? (
                   <Clock className="w-4 h-4" />
                 ) : currentKycStatus === 'rejected' ? (
@@ -229,8 +248,8 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                     {currentKycStatus === 'pending'
                       ? 'KYC Verification Under Review'
                       : currentKycStatus === 'rejected'
-                      ? 'KYC Documents Rejected'
-                      : 'KYC Verification Required'}
+                        ? 'KYC Documents Rejected'
+                        : 'KYC Verification Required'}
                   </span>
                   <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
                     {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
@@ -240,8 +259,8 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                   {currentKycStatus === 'pending'
                     ? 'Documents are under review. Full features will activate once approved.'
                     : currentKycStatus === 'rejected'
-                    ? 'Please review and re-submit your verification documents.'
-                    : 'Complete identity verification to unlock marketplace listing and escrow.'}
+                      ? 'Please review and re-submit your verification documents.'
+                      : 'Complete identity verification to unlock marketplace listing and escrow.'}
                 </p>
               </div>
             </div>
@@ -249,11 +268,10 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             <Button
               variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
               size="sm"
-              onClick={() => setIsVerificationModalOpen(true)}
+              onClick={handleOpenKycAction}
               className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
-              <FileCheck className="w-3.5 h-3.5 mr-1.5" />
-              {currentKycStatus === 'pending' ? 'View Submitted Proof' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
+              {currentKycStatus === 'pending' ? 'View' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
             </Button>
           </div>
         )}
@@ -488,6 +506,16 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               setIsVerificationModalOpen(false);
               setCurrentKycStatus('pending');
             }}
+          />
+        )}
+
+        {/* Farmer Submitted Document Inspection Modal */}
+        {inspectingDoc && (
+          <DocumentViewerModal
+            isOpen={!!inspectingDoc}
+            onClose={() => setInspectingDoc(null)}
+            document={inspectingDoc}
+            user={user}
           />
         )}
 

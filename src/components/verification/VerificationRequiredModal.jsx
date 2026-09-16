@@ -158,10 +158,22 @@ export default function VerificationRequiredModal({
 
     try {
       let publicFileUrl = '';
+      let fileDataUrl = '';
       let formattedFileSize = '1.5 MB';
 
-      // 1. Upload file directly to Supabase Storage 'proof' bucket
+      // 1. Convert file to Data URL as resilient offline/preview fallback
       if (selectedFileObj) {
+        try {
+          fileDataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result || '');
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(selectedFileObj);
+          });
+        } catch (readErr) {
+          console.warn('FileReader notice:', readErr);
+        }
+
         const safeUserId = (currentUser?.id || 'usr').replace(/[^a-zA-Z0-9_-]/g, '_');
         const timestamp = Date.now();
         const safeDocName = selectedFileObj.name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -170,6 +182,7 @@ export default function VerificationRequiredModal({
         const sizeInMb = (selectedFileObj.size / (1024 * 1024)).toFixed(1);
         formattedFileSize = `${sizeInMb} MB`;
 
+        // Upload file to Supabase Storage 'proof' bucket if available
         try {
           const { data: uploadData, error: uploadErr } = await supabase.storage
             .from('proof')
@@ -178,9 +191,7 @@ export default function VerificationRequiredModal({
               upsert: true,
             });
 
-          if (uploadErr) {
-            console.warn('Supabase storage upload notice:', uploadErr);
-          } else {
+          if (!uploadErr && uploadData) {
             const { data: urlData } = supabase.storage
               .from('proof')
               .getPublicUrl(storagePath);
@@ -190,6 +201,8 @@ export default function VerificationRequiredModal({
           console.warn('Storage service upload notice:', storageEx);
         }
       }
+
+      const finalFileUrl = publicFileUrl || fileDataUrl || '';
 
       const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
       const registry = storedRaw ? JSON.parse(storedRaw) : [];
@@ -220,7 +233,7 @@ export default function VerificationRequiredModal({
             format: fileFormat,
             fileSize: formattedFileSize,
             status: 'pending',
-            fileUrl: publicFileUrl,
+            fileUrl: finalFileUrl,
           },
         ],
         auditNotes: `Submitted ${docType} (${docNumber.trim().toUpperCase()}) in ${fileFormat} format for trading verification.`,

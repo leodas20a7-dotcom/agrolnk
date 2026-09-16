@@ -46,15 +46,27 @@ export default function DocumentViewerModal({
     'AGR-KYC-' + Math.floor(100000 + Math.random() * 900000)
   );
 
-  const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.format === 'PDF' || !doc.format;
-  const hasRealImage = doc.fileUrl && !doc.fileUrl.endsWith('.pdf') && (
-    doc.fileUrl.startsWith('data:image') || 
-    doc.fileUrl.startsWith('blob:') || 
-    doc.fileUrl.startsWith('http')
+  const fileUrl = doc.fileUrl || '';
+  const isPdf = Boolean(
+    doc.format === 'PDF' ||
+    doc.fileName?.toLowerCase().endsWith('.pdf') ||
+    (typeof fileUrl === 'string' && (fileUrl.startsWith('data:application/pdf') || fileUrl.toLowerCase().includes('.pdf')))
   );
+  const isImage = !isPdf && Boolean(
+    doc.format === 'IMAGE' ||
+    doc.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif|svg)$/) ||
+    (typeof fileUrl === 'string' && (fileUrl.startsWith('data:image') || fileUrl.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif|svg)/)))
+  );
+  const hasRealFile = Boolean(fileUrl);
 
   const handlePrint = () => {
-    window.print();
+    if (isPdf && fileUrl) {
+      const printWindow = window.open(fileUrl, '_blank');
+      printWindow?.focus();
+      printWindow?.print();
+    } else {
+      window.print();
+    }
   };
 
   const handleCopyId = () => {
@@ -63,7 +75,7 @@ export default function DocumentViewerModal({
     setTimeout(() => setCopiedId(false), 2500);
   };
 
-  // Determine Certificate Theme based on document type
+  // Determine Certificate Theme based on document type (for fallback certificate template)
   const isAadhaar = docType.toLowerCase().includes('aadhaar') || docType.toLowerCase().includes('identity');
   const isWdra = docType.toLowerCase().includes('wdra') || docType.toLowerCase().includes('warehouse');
   const isGst = docType.toLowerCase().includes('gst') || docType.toLowerCase().includes('tax');
@@ -76,7 +88,7 @@ export default function DocumentViewerModal({
         className={`bg-white rounded-3xl w-full shadow-2xl border border-[#E5EDE8] flex flex-col overflow-hidden text-left transition-all ${
           isFullscreen 
             ? 'h-full max-w-none rounded-none' 
-            : 'max-w-3xl max-h-[92vh]'
+            : 'max-w-4xl max-h-[94vh]'
         }`}
       >
         {/* Top Control Bar */}
@@ -91,7 +103,7 @@ export default function DocumentViewerModal({
                   {docType}
                 </h3>
                 <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-[#14624A] text-[#34D399] text-[10px] font-bold uppercase tracking-wider shrink-0">
-                  Verifiable Credential
+                  {hasRealFile ? (isPdf ? 'Attached PDF Document' : 'Attached Scanned Document') : 'Verifiable Credential'}
                 </span>
               </div>
               <p className="text-[10px] sm:text-xs text-[#DCFCE7]/80 truncate">
@@ -102,38 +114,51 @@ export default function DocumentViewerModal({
 
           {/* Action Toolbar */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <div className="hidden md:flex items-center bg-[#14624A] rounded-xl p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setZoomLevel((z) => Math.max(z - 15, 70))}
-                title="Zoom Out"
-                className="p-1 hover:text-[#34D399] cursor-pointer"
+            {isImage && (
+              <div className="hidden md:flex items-center bg-[#14624A] rounded-xl p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel((z) => Math.max(z - 15, 70))}
+                  title="Zoom Out"
+                  className="p-1 hover:text-[#34D399] cursor-pointer"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-1.5 text-[11px] font-mono text-[#34D399]">{zoomLevel}%</span>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel((z) => Math.min(z + 15, 160))}
+                  title="Zoom In"
+                  className="p-1 hover:text-[#34D399] cursor-pointer"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel(100)}
+                  title="Reset Zoom"
+                  className="p-1 border-l border-[#0B3326] ml-1 pl-1.5 hover:text-[#34D399] cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {fileUrl && (
+              <a
+                href={fileUrl}
+                download={doc.fileName || `${docType.replace(/[^a-zA-Z0-9]/g, '_')}.${isPdf ? 'pdf' : 'jpg'}`}
+                title="Download Attached Document"
+                className="p-1.5 sm:p-2 rounded-xl bg-[#14624A] hover:bg-[#1A775B] text-[#DCFCE7] transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1"
               >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span className="px-1.5 text-[11px] font-mono text-[#34D399]">{zoomLevel}%</span>
-              <button
-                type="button"
-                onClick={() => setZoomLevel((z) => Math.min(z + 15, 160))}
-                title="Zoom In"
-                className="p-1 hover:text-[#34D399] cursor-pointer"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoomLevel(100)}
-                title="Reset Zoom"
-                className="p-1 border-l border-[#0B3326] ml-1 pl-1.5 hover:text-[#34D399] cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-              </button>
-            </div>
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </a>
+            )}
 
             <button
               type="button"
               onClick={handlePrint}
-              title="Print / Save PDF"
+              title="Print Document"
               className="p-1.5 sm:p-2 rounded-xl bg-[#14624A] hover:bg-[#1A775B] text-[#DCFCE7] transition-colors cursor-pointer shrink-0"
             >
               <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -160,39 +185,102 @@ export default function DocumentViewerModal({
         </div>
 
         {/* Document Body Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F1F5F3] flex items-start justify-center">
-          <div 
-            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-            className="w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-[#D1DDD6] overflow-hidden transition-transform duration-150 relative text-left my-2"
-          >
-            {/* Real Uploaded Image Rendering if available */}
-            {hasRealImage ? (
-              <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
-                  <span className="text-xs font-bold text-[#0B3326]">
-                    Uploaded Scanned Copy: {doc.fileName || 'document.jpg'}
-                  </span>
-                  {doc.fileUrl && (
-                    <a
-                      href={doc.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#10B981] hover:underline"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" /> Full Resolution
-                    </a>
-                  )}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-[#F1F5F3] flex items-stretch justify-center">
+          {isPdf && hasRealFile ? (
+            /* ================= REAL PDF VIEWER ================= */
+            <div className="w-full flex flex-col space-y-3">
+              {/* Document Banner */}
+              <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#D1DDD6] shadow-xs flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-red-50 text-red-600 font-black text-xs border border-red-200 shrink-0">
+                    PDF
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs sm:text-sm text-[#0B3326] block truncate">
+                      {doc.fileName || 'Attached KYC Document.pdf'}
+                    </span>
+                    <span className="text-[11px] text-[#566861] block">
+                      ID / Ref: <strong className="font-mono text-[#0B3326]">{docNumber}</strong> &bull; {doc.fileSize || 'PDF File'}
+                    </span>
+                  </div>
                 </div>
-                <div className="rounded-xl overflow-hidden border border-[#E5EDE8] bg-slate-900/5 flex items-center justify-center p-2">
-                  <img
-                    src={doc.fileUrl}
-                    alt={docType}
-                    className="max-h-[500px] w-auto object-contain rounded-lg shadow-xs"
-                  />
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-[#EBF5F0] hover:bg-[#D5EFE2] text-[#0B3326] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#10B981]" />
+                    <span>Open in New Tab</span>
+                  </a>
+                  <a
+                    href={fileUrl}
+                    download={doc.fileName || 'Document.pdf'}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#34D399]" />
+                    <span>Download</span>
+                  </a>
                 </div>
               </div>
-            ) : (
-              /* High-Fidelity Official Digital Certificate Renderer */
+
+              {/* Embedded PDF Frame */}
+              <div className="w-full flex-1 min-h-[500px] sm:min-h-[580px] bg-white rounded-2xl overflow-hidden border border-[#D1DDD6] shadow-sm relative">
+                <iframe
+                  src={fileUrl}
+                  className="w-full h-full min-h-[500px] sm:min-h-[580px] border-0"
+                  title={doc.fileName || 'PDF Document Viewer'}
+                />
+              </div>
+            </div>
+          ) : isImage && hasRealFile ? (
+            /* ================= REAL IMAGE VIEWER ================= */
+            <div className="w-full flex flex-col space-y-3">
+              <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#D1DDD6] shadow-xs flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 font-black text-xs border border-blue-200 shrink-0">
+                    IMG
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs sm:text-sm text-[#0B3326] block truncate">
+                      {doc.fileName || 'Attached Scanned Document.jpg'}
+                    </span>
+                    <span className="text-[11px] text-[#566861] block">
+                      ID / Ref: <strong className="font-mono text-[#0B3326]">{docNumber}</strong> &bull; {doc.fileSize || 'Image'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-[#EBF5F0] hover:bg-[#D5EFE2] text-[#0B3326] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#10B981]" />
+                    <span>Full Resolution</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="w-full flex-1 min-h-[450px] bg-white rounded-2xl overflow-auto border border-[#D1DDD6] p-4 flex items-center justify-center shadow-inner">
+                <img
+                  src={fileUrl}
+                  alt={docType}
+                  style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'center center' }}
+                  className="max-h-[600px] w-auto object-contain rounded-lg shadow-sm transition-transform duration-150"
+                />
+              </div>
+            </div>
+          ) : (
+            /* ================= VERIFIABLE DIGITAL CERTIFICATE FALLBACK ================= */
+            <div 
+              style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
+              className="w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-[#D1DDD6] overflow-hidden transition-transform duration-150 relative text-left my-2"
+            >
               <div className="p-6 sm:p-8 space-y-6 relative overflow-hidden bg-gradient-to-b from-[#FAFCFA] to-white">
                 
                 {/* Security Holographic Watermark Stamp */}
@@ -346,8 +434,8 @@ export default function DocumentViewerModal({
                 </div>
 
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Bottom Footer Actions */}
