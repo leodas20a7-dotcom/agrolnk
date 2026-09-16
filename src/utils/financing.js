@@ -47,7 +47,13 @@ function getLocalFinancingRequests() {
 function saveLocalFinancingRequest(item) {
   try {
     const existing = getLocalFinancingRequests();
-    const filtered = existing.filter((r) => r.id !== item.id && r.requestNumber !== item.requestNumber);
+    const filtered = existing.filter(
+      (r) =>
+        r.id !== item.id &&
+        r.requestNumber !== item.requestNumber &&
+        (item.orderNumber ? r.orderNumber !== item.orderNumber : true) &&
+        (item.orderId ? r.orderId !== item.orderId : true)
+    );
     localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify([item, ...filtered]));
   } catch {}
 }
@@ -86,8 +92,8 @@ export async function getFinancingRequests() {
   }
 
   const local = getLocalFinancingRequests();
-  const remoteIds = new Set(remote.map((r) => r.id || r.requestNumber));
-  const merged = [...remote, ...local.filter((l) => !remoteIds.has(l.id) && !remoteIds.has(l.requestNumber))];
+  const remoteIds = new Set(remote.map((r) => r.id || r.requestNumber || r.orderNumber));
+  const merged = [...remote, ...local.filter((l) => !remoteIds.has(l.id) && !remoteIds.has(l.requestNumber) && !remoteIds.has(l.orderNumber))];
   return merged;
 }
 
@@ -118,9 +124,17 @@ export async function getBuyerFinancingRequests(buyerId) {
 }
 
 /**
- * Create a new financing request
+ * Create a new financing request (Strict 1-time per order/lot)
  */
 export async function createFinancingRequest(requestData) {
+  // Prevent duplicate repeat requests for the same order or lot
+  if (requestData.orderNumber || requestData.orderId) {
+    const existing = await getFinancingRequestForOrder(requestData.orderNumber, requestData.orderId);
+    if (existing) {
+      return existing;
+    }
+  }
+
   const reqId = generateStandardUuid();
   const generateReqNum = () => {
     const num = Math.floor(1000 + Math.random() * 9000);
@@ -291,19 +305,25 @@ export async function getDisbursements() {
 /**
  * Get financing request linked to an order
  */
-export async function getFinancingRequestForOrder(orderNumberOrId) {
+export async function getFinancingRequestForOrder(orderNumberOrId, alternateId) {
   try {
-    if (!orderNumberOrId) return null;
+    if (!orderNumberOrId && !alternateId) return null;
     const local = getLocalFinancingRequests();
     const foundLocal = local.find(
-      (r) => r.orderId === orderNumberOrId || r.orderNumber === orderNumberOrId || r.id === orderNumberOrId || r.requestNumber === orderNumberOrId
+      (r) =>
+        (orderNumberOrId && (r.orderId === orderNumberOrId || r.orderNumber === orderNumberOrId || r.id === orderNumberOrId || r.requestNumber === orderNumberOrId)) ||
+        (alternateId && (r.orderId === alternateId || r.orderNumber === alternateId || r.id === alternateId || r.requestNumber === alternateId))
     );
     if (foundLocal) return foundLocal;
+
+    const filters = [];
+    if (orderNumberOrId) filters.push(`order_number.eq.${orderNumberOrId}`, `order_id.eq.${orderNumberOrId}`);
+    if (alternateId) filters.push(`order_number.eq.${alternateId}`, `order_id.eq.${alternateId}`);
 
     const { data, error } = await supabase
       .from('financing_requests')
       .select('*')
-      .or(`order_id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`)
+      .or(filters.join(','))
       .maybeSingle();
 
     if (!error && data) return mapFinancingFromDb(data);

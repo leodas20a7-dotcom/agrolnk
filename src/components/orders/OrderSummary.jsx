@@ -396,62 +396,67 @@ export default function OrderSummary({
           )
         )}
 
-        {/* Transaction-Linked Trade Credit Facility Summary */}
+        {/* Transaction-Linked Trade Credit Facility Breakdown (When order is financed) */}
         {isFinanced && (
-          <div className="p-4 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] space-y-2.5">
-            <div className="flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 text-xs space-y-3">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Landmark className="w-4 h-4 text-blue-600" />
-                <span className="text-xs font-bold text-[#1E40AF]">
-                  Trade Credit Facility ({existingFinancing?.requestNumber || order.financingRequestNumber || '#FIN-CREDIT'})
-                </span>
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                  <Landmark className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="font-bold text-blue-950 block">Trade Credit (NBFC)</span>
+                  <span className="text-[11px] text-blue-700">
+                    Application {existingFinancing?.requestNumber || order.financingRequestNumber || '#FIN-CREDIT'}
+                  </span>
+                </div>
               </div>
+
               {existingFinancing ? (
                 <FinancingStatusBadge status={existingFinancing.status} size="sm" />
               ) : (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
                   Under Review
                 </span>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs bg-white p-3 rounded-xl border border-blue-100">
+            {/* Concise Financial Metrics */}
+            <div className="grid grid-cols-3 gap-2 text-center bg-white p-2.5 rounded-xl border border-blue-100">
               <div>
-                <span className="text-[10px] text-[#566861] block">NBFC Loan (30 Days Net)</span>
-                <span className="font-extrabold text-blue-700 text-sm">
+                <span className="text-[10px] text-[#566861] block font-medium">NBFC Loan</span>
+                <span className="font-extrabold text-blue-700 text-xs block mt-0.5">
                   ₹{financedAmount.toLocaleString('en-IN')}
                 </span>
               </div>
               <div>
-                <span className="text-[10px] text-[#566861] block">Margin Paid</span>
-                <span className="font-bold text-[#0B3326] text-sm">
+                <span className="text-[10px] text-[#566861] block font-medium">Margin Paid</span>
+                <span className="font-extrabold text-[#0B3326] text-xs block mt-0.5">
                   ₹{buyerMargin.toLocaleString('en-IN')}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                {onRequestFinancing && (
-                  <button
-                    type="button"
-                    onClick={() => onRequestFinancing(order)}
-                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer"
-                  >
-                    + Re-Apply
-                  </button>
-                )}
-                {onViewFinancing && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onViewFinancing(existingFinancing || { id: order.financingRequestId, orderNumber: order.orderNumber, applicantRole: 'buyer' })}
-                    icon={ArrowRight}
-                    iconPosition="right"
-                    className="text-xs font-bold border-blue-200 text-blue-900 bg-white hover:bg-blue-50 cursor-pointer"
-                  >
-                    View Credit Desk
-                  </Button>
-                )}
+              <div>
+                <span className="text-[10px] text-[#566861] block font-medium">Repayment</span>
+                <span className="font-bold text-[#14211D] text-xs block mt-0.5">
+                  30 Days Net
+                </span>
               </div>
             </div>
+
+            {onViewFinancing && (
+              <div className="flex justify-end pt-0.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onViewFinancing(existingFinancing || { id: order.financingRequestId, orderNumber: order.orderNumber, applicantRole: 'buyer' })}
+                  icon={ArrowRight}
+                  iconPosition="right"
+                  className="text-xs font-semibold border-blue-200 text-blue-900 bg-white hover:bg-blue-50 cursor-pointer"
+                >
+                  View Credit Desk
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
