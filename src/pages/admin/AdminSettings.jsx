@@ -790,12 +790,12 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                 </div>
 
                 <Button
-                  variant="outline"
+                  variant="danger"
                   size="md"
                   onClick={() => setIsResetTestingModalOpen(true)}
                   icon={RotateCcw}
                   iconPosition="left"
-                  className="text-xs font-bold border-red-400 bg-red-600 text-white hover:bg-red-700 cursor-pointer shrink-0 shadow-sm"
+                  className="cursor-pointer shrink-0 font-bold shadow-md shadow-red-600/20"
                 >
                   Reset All Testing Data
                 </Button>
@@ -819,10 +819,10 @@ export default function AdminSettings({ currentUser, onNavigate }) {
 
             {/* Unpublished Drafts & Local Storage Cache */}
             <Card className="p-6 bg-white border border-[#E5EDE8] text-left space-y-4 shadow-xs">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
                       <Sparkles className="w-4 h-4" />
                     </div>
                     <h3 className="text-base font-bold text-[#0B3326] font-heading">
@@ -835,12 +835,12 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                 </div>
 
                 <Button
-                  variant="secondary"
+                  variant="amber-outline"
                   size="md"
                   onClick={() => setIsResetDraftsModalOpen(true)}
                   icon={RefreshCw}
                   iconPosition="left"
-                  className="text-xs font-bold border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 cursor-pointer shrink-0"
+                  className="cursor-pointer shrink-0"
                 >
                   Reset Produce Drafts
                 </Button>

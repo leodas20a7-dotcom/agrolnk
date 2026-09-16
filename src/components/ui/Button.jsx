@@ -24,6 +24,14 @@ export default function Button({
       'bg-white text-[#14211D] border border-[#E5EDE8] hover:border-[#10B981]/40 hover:bg-[#F2FBF6] focus:ring-[#10B981] shadow-xs',
     outline:
       'bg-transparent border border-[#0B3326]/20 text-[#0B3326] hover:bg-[#0B3326]/5 focus:ring-[#10B981]',
+    danger:
+      'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm hover:shadow-md font-bold border border-red-700',
+    'danger-outline':
+      'bg-white text-red-600 border border-red-300 hover:bg-red-50 hover:border-red-400 focus:ring-red-400 shadow-xs font-semibold',
+    amber:
+      'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400 shadow-sm font-semibold border border-amber-600',
+    'amber-outline':
+      'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 focus:ring-amber-400 shadow-xs font-semibold',
     ghost:
       'bg-transparent text-[#566861] hover:text-[#0B3326] hover:bg-[#EBF5F0]/60 focus:ring-gray-300',
     white:
