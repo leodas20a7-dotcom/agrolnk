@@ -340,15 +340,7 @@ export function markThreadAsRead(threadKey, currentUserId) {
     const readMap = getReadThreadKeys(safeUser);
     const now = Date.now();
     readMap[threadKey] = now;
-    // Also mark normalized variants
     if (threadKey.includes('support')) readMap['agrolnk_support_desk'] = now;
-    if (threadKey.includes('salem')) readMap['chat_partner_wh_salem_01'] = now;
-    if (threadKey.includes('dindigul')) readMap['chat_partner_wh_dindigul_02'] = now;
-    if (threadKey.includes('veerappan')) readMap['direct_maran_veerappan'] = now;
-    if (threadKey.includes('mani')) readMap['direct_maran_mani'] = now;
-    if (threadKey.includes('sakthi')) readMap['direct_maran_sakthivel'] = now;
-    if (threadKey.includes('transporter') || threadKey.includes('vetri')) readMap['chat_partner_usr_transporter_03'] = now;
-    if (threadKey.includes('financier') || threadKey.includes('kisan')) readMap['chat_partner_usr_financier_05'] = now;
 
     localStorage.setItem(`${READ_THREADS_STORAGE_KEY_PREFIX}${safeUser}`, JSON.stringify(readMap));
 
@@ -398,13 +390,6 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
   const lastReadTime =
     readMap[threadKey] ||
     (threadKey.includes('support') ? readMap['agrolnk_support_desk'] : 0) ||
-    (threadKey.includes('salem') ? readMap['chat_partner_wh_salem_01'] : 0) ||
-    (threadKey.includes('dindigul') ? readMap['chat_partner_wh_dindigul_02'] : 0) ||
-    (threadKey.includes('veerappan') ? readMap['direct_maran_veerappan'] : 0) ||
-    (threadKey.includes('mani') ? readMap['direct_maran_mani'] : 0) ||
-    (threadKey.includes('sakthi') ? readMap['direct_maran_sakthivel'] : 0) ||
-    ((threadKey.includes('transporter') || threadKey.includes('vetri')) ? readMap['chat_partner_usr_transporter_03'] : 0) ||
-    ((threadKey.includes('financier') || threadKey.includes('kisan')) ? readMap['chat_partner_usr_financier_05'] : 0) ||
     0;
 
   // Filter messages that are non-system and not sent by the current user
@@ -429,16 +414,7 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
 }
 
 export function getUserChannelKeys(currentUser) {
-  const defaultKeys = [
-    'agrolnk_support_desk',
-    'direct_maran_sakthivel',
-    'direct_maran_veerappan',
-    'direct_maran_mani',
-    'chat_partner_wh_salem_01',
-    'chat_partner_wh_dindigul_02',
-    'chat_partner_usr_transporter_03',
-    'chat_partner_usr_financier_05',
-  ];
+  const defaultKeys = ['agrolnk_support_desk'];
   const threads = getStoredThreads();
   const allStored = Object.keys(threads);
   return Array.from(new Set([...defaultKeys, ...allStored]));
@@ -565,8 +541,6 @@ export function formatChatTimestamp(isoString) {
  * Get verified directory contacts tailored to the current user
  */
 export function getPlatformContacts(user) {
-  const currentRole = user?.role || 'buyer';
-  
   const baseContacts = [
     {
       id: 'contact_support',
@@ -580,79 +554,32 @@ export function getPlatformContacts(user) {
       phoneMask: 'Official Channel',
       initials: 'AL',
     },
-    {
-      id: 'wh_salem_01',
-      threadKey: 'chat_partner_wh_salem_01',
-      name: 'Salem Agri Cold Storage Hub',
-      role: 'Warehouse Operator',
-      category: 'warehouse',
-      facilityName: 'Salem Agri Cold Storage Hub',
-      status: 'WDRA Accredited Facility • 5,000 MT Cold Vault',
-      avatarColor: 'bg-emerald-700 text-white',
-      phoneMask: '+91 98421 *****',
-      initials: 'SL',
-    },
-    {
-      id: 'wh_dindigul_02',
-      threadKey: 'chat_partner_wh_dindigul_02',
-      name: 'Dindigul Central Agri Logistics Park',
-      role: 'Warehouse Operator',
-      category: 'warehouse',
-      facilityName: 'Dindigul Central Agri Logistics Park',
-      status: 'NABARD Approved Modern Silo • 8,000 MT',
-      avatarColor: 'bg-teal-700 text-white',
-      phoneMask: '+91 94432 *****',
-      initials: 'DG',
-    },
-    {
-      id: 'usr_transporter_03',
-      threadKey: 'chat_partner_usr_transporter_03',
-      name: 'Vetri Logistics Fleet',
-      role: 'Transporter',
-      category: 'logistics',
-      status: 'National Goods Carriage • Multi-axle Reefer Fleet',
-      avatarColor: 'bg-amber-600 text-white',
-      phoneMask: '+91 94433 *****',
-      initials: 'VL',
-    },
-    {
-      id: 'usr_financier_05',
-      threadKey: 'chat_partner_usr_financier_05',
-      name: 'Kisan Capital Partners',
-      role: 'Financier',
-      category: 'financier',
-      status: 'Trade Settlement & e-NWR Credit Desk',
-      avatarColor: 'bg-blue-700 text-white',
-      phoneMask: '+91 98400 *****',
-      initials: 'KC',
-    },
   ];
 
-  if (currentRole === 'buyer') {
-    baseContacts.splice(1, 0, {
-      id: 'usr_farmer_sakthi',
-      threadKey: 'direct_maran_sakthivel',
-      name: 'Sakthi Vel (Farmer)',
-      role: 'Farmer',
-      category: 'orders',
-      status: 'Active Supplier • Organic Tomatoes & Basmati Rice',
-      avatarColor: 'bg-emerald-600 text-white',
-      phoneMask: '+91 94432 *****',
-      initials: 'SV',
-    });
-  } else {
-    baseContacts.splice(1, 0, {
-      id: 'usr_buyer_maran',
-      threadKey: 'direct_maran_sakthivel',
-      name: 'Maran (Wholesale Buyer)',
-      role: 'Buyer',
-      category: 'orders',
-      status: 'Procurement Desk • Orders #AGM-6454 & #AGM-2361',
-      avatarColor: 'bg-indigo-600 text-white',
-      phoneMask: '+91 98840 *****',
-      initials: 'MB',
-    });
-  }
+  // Dynamically load other verified users from registry if present
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agrolnk_admin_kyc_registry') : null;
+    if (raw) {
+      const registry = JSON.parse(raw);
+      if (Array.isArray(registry)) {
+        registry.forEach((u) => {
+          if (u.id !== user?.id && u.email !== user?.email && u.role !== 'admin') {
+            baseContacts.push({
+              id: u.id || `usr_${u.email}`,
+              threadKey: `chat_direct_${[user?.id || 'usr', u.id || 'usr'].sort().join('_')}`,
+              name: u.name || 'Verified Partner',
+              role: (u.role || 'Partner').charAt(0).toUpperCase() + (u.role || 'Partner').slice(1),
+              category: u.role === 'farmer' || u.role === 'buyer' ? 'orders' : u.role === 'warehouse' ? 'warehouse' : 'logistics',
+              status: `${u.district || 'Tamil Nadu'} • Verified Agrolnk Partner`,
+              avatarColor: u.role === 'farmer' ? 'bg-emerald-600 text-white' : u.role === 'buyer' ? 'bg-indigo-600 text-white' : 'bg-amber-600 text-white',
+              phoneMask: '+91 ***** *****',
+              initials: (u.name || 'AP').slice(0, 2).toUpperCase(),
+            });
+          }
+        });
+      }
+    }
+  } catch {}
 
   return baseContacts;
 }

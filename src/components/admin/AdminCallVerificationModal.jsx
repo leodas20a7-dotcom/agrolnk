@@ -65,15 +65,15 @@ export default function AdminCallVerificationModal({
   const activeOrder = order || {};
   const fin = calculateOrderFinancials(activeOrder.totalAmount || 0);
   const farmerBank = getUserBankDetails(activeOrder.farmerId) || {
-    bankName: activeOrder.payoutBankName || 'State Bank of India',
-    accountNumber: activeOrder.payoutAccountNumber || '38291048211',
-    ifscCode: activeOrder.payoutIfsc || 'SBIN0004921',
-    accountHolderName: activeOrder.farmerName || 'Sakthi Vel',
-    upiId: 'sakthivel@oksbi',
+    bankName: activeOrder.payoutBankName || 'Bank Account',
+    accountNumber: activeOrder.payoutAccountNumber || '—',
+    ifscCode: activeOrder.payoutIfsc || '—',
+    accountHolderName: activeOrder.farmerName || 'Producer',
+    upiId: '',
   };
 
-  const buyerPhone = activeOrder.buyerPhone || '+91 98840 55667';
-  const buyerCompany = activeOrder.buyerCompany || activeOrder.buyerName || 'Ananya Agro Foods Pvt Ltd';
+  const buyerPhone = activeOrder.buyerPhone || '';
+  const buyerCompany = activeOrder.buyerCompany || activeOrder.buyerName || 'Procurement Buyer';
 
   const toggleCheck = (key) => {
     setChecks((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -255,7 +255,7 @@ export default function AdminCallVerificationModal({
 
                 <div className="space-y-1">
                   <div className="text-sm font-bold text-white">
-                    {farmerBank.accountHolderName || order.farmerName || 'Sakthi Vel'}
+                    {farmerBank.accountHolderName || order.farmerName || 'Producer'}
                   </div>
                   <div className="font-mono text-xs text-white/80">
                     {farmerBank.bankName} • {maskAccountNumber(farmerBank.accountNumber)}

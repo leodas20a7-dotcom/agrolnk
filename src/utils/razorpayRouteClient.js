@@ -183,7 +183,7 @@ export async function initiateRazorpayTransportCheckout({
     description: `Freight Escrow: ${delivery?.commodity || 'Produce'} (${delivery?.quantity || 100} ${delivery?.unit || 'kg'}) - ${delivery?.transporterName || 'Carrier'}`,
     image: '/assets/Logo.jpeg',
     prefill: {
-      name: farmerUser?.name || delivery?.farmerName || 'Sakthi Vel',
+      name: farmerUser?.name || delivery?.farmerName || 'Producer',
       email: farmerUser?.email || 'farmer@agrolnk.com',
       contact: farmerUser?.phone || '9876543210',
     },
@@ -258,7 +258,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
     description: `Storage Rent (+${extendedDays} Days): ${inventory?.commodity || 'Produce'} - ${inventory?.warehouseName || 'Warehouse'}`,
     image: '/assets/Logo.jpeg',
     prefill: {
-      name: farmerUser?.name || inventory?.farmerName || 'Sakthi Vel',
+      name: farmerUser?.name || inventory?.farmerName || 'Producer',
       email: farmerUser?.email || 'farmer@agrolnk.com',
       contact: farmerUser?.phone || '9876543210',
     },

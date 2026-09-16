@@ -84,11 +84,9 @@ export default function PrivacyChatDrawer({
             ? orderContext.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_')
             : orderContext.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
-        const myIdentifier = user.name
-          ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
-          : user.role === 'buyer'
-          ? 'maran'
-          : 'veerappan';
+        const myIdentifier = user.id
+          ? String(user.id).toLowerCase().replace(/[^a-z0-9]/g, '_')
+          : (user.name || user.role || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_');
         const target = getSharedThreadKey(myIdentifier, partnerId);
         setSelectedChannelKey(target);
         setViewMode('conversation');
@@ -118,90 +116,6 @@ export default function PrivacyChatDrawer({
         badgeColor: 'emerald',
         phoneMask: 'Official Support',
         initials: 'AL',
-        unreadCount: 0,
-      },
-      {
-        key: 'direct_maran_sakthivel',
-        title: user.role === 'farmer' ? 'Maran (Wholesale Buyer)' : 'Sakthi Vel (Farmer)',
-        subtitle: 'Fresh Farm Produce • Active Trade Order',
-        role: user.role === 'farmer' ? 'Buyer' : 'Farmer',
-        category: 'orders',
-        icon: Package,
-        avatarBg: user.role === 'farmer' ? 'bg-indigo-600' : 'bg-emerald-600',
-        avatarColor: 'text-white',
-        badgeColor: 'blue',
-        phoneMask: '+91 94432 *****',
-        initials: user.role === 'farmer' ? 'MB' : 'SV',
-        unreadCount: 0,
-      },
-      {
-        key: 'direct_maran_veerappan',
-        title: user.role === 'farmer' ? 'Maran (Wholesale Buyer)' : 'Veerappan (Farmer)',
-        subtitle: 'Order #AGM-6454 • Grade-A Basmati Rice',
-        role: user.role === 'farmer' ? 'Buyer' : 'Farmer',
-        category: 'orders',
-        icon: Package,
-        avatarBg: user.role === 'farmer' ? 'bg-indigo-600' : 'bg-emerald-600',
-        avatarColor: 'text-white',
-        badgeColor: 'blue',
-        phoneMask: '+91 98402 *****',
-        initials: user.role === 'farmer' ? 'MB' : 'VP',
-        unreadCount: 0,
-      },
-      {
-        key: 'chat_partner_wh_salem_01',
-        title: 'Salem Agri Cold Storage Hub',
-        subtitle: 'WDRA Accredited Facility • 5,000 MT Cold Vault',
-        role: 'Warehouse Operator',
-        category: 'warehouses',
-        icon: Building2,
-        avatarBg: 'bg-emerald-700',
-        avatarColor: 'text-white',
-        badgeColor: 'emerald',
-        phoneMask: '+91 98421 88901',
-        initials: 'SL',
-        unreadCount: 0,
-      },
-      {
-        key: 'chat_partner_wh_dindigul_02',
-        title: 'Dindigul Central Agri Logistics Park',
-        subtitle: 'NABARD Approved Modern Silo & Cold Cell',
-        role: 'Warehouse Operator',
-        category: 'warehouses',
-        icon: Building2,
-        avatarBg: 'bg-teal-700',
-        avatarColor: 'text-white',
-        badgeColor: 'emerald',
-        phoneMask: '+91 94432 10982',
-        initials: 'DG',
-        unreadCount: 0,
-      },
-      {
-        key: 'chat_partner_usr_transporter_03',
-        title: 'Vetri Logistics Fleet',
-        subtitle: 'Refrigerated Multi-axle Fleet • Live Dispatch Tracking',
-        role: 'Transporter',
-        category: 'orders',
-        icon: Truck,
-        avatarBg: 'bg-amber-600',
-        avatarColor: 'text-white',
-        badgeColor: 'amber',
-        phoneMask: '+91 94433 77889',
-        initials: 'VL',
-        unreadCount: 0,
-      },
-      {
-        key: 'chat_partner_usr_financier_05',
-        title: 'Kisan Capital Credit Desk',
-        subtitle: 'Trade Settlement & Storage Crop Credit',
-        role: 'Financier',
-        category: 'orders',
-        icon: Landmark,
-        avatarBg: 'bg-blue-700',
-        avatarColor: 'text-white',
-        badgeColor: 'blue',
-        phoneMask: '+91 98400 99112',
-        initials: 'KC',
         unreadCount: 0,
       },
     ];
@@ -254,11 +168,9 @@ export default function PrivacyChatDrawer({
             ? ord.farmerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_')
             : ord.buyerId || partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
-          const myIdentifier = user.name
-            ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
-            : user.role === 'buyer'
-            ? 'maran'
-            : 'veerappan';
+          const myIdentifier = user.id
+            ? String(user.id).toLowerCase().replace(/[^a-z0-9]/g, '_')
+            : (user.name || user.role || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_');
           const sharedKey = getSharedThreadKey(myIdentifier, partnerId);
           const partnerRole = isUserBuyer ? 'Farmer' : 'Buyer';
 

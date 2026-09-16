@@ -253,7 +253,7 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                             {order.orderNumber}
                           </Badge>
                           <span className="text-xs text-[#566861]">
-                            Buyer: {order.buyerName || 'Ananya Agro'}
+                            Buyer: {order.buyerName || 'Buyer'}
                           </span>
                         </div>
 

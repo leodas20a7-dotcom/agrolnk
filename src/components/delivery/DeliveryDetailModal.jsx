@@ -238,7 +238,7 @@ export default function DeliveryDetailModal({
                   {pickupStr}
                 </span>
                 <span className="text-[#566861] text-[11px] block mt-0.5">
-                  Producer: {currentDelivery.farmerName || 'Sakthi Vel'}
+                  Producer: {currentDelivery.farmerName || 'Producer'}
                 </span>
               </div>
 
@@ -250,7 +250,7 @@ export default function DeliveryDetailModal({
                   {destStr}
                 </span>
                 <span className="text-[#566861] text-[11px] block mt-0.5">
-                  Buyer: {currentDelivery.buyerName || 'Ananya Agro Foods'}
+                  Buyer: {currentDelivery.buyerName || 'Buyer'}
                 </span>
               </div>
             </div>
@@ -304,7 +304,7 @@ export default function DeliveryDetailModal({
                   Carrier Price Quote Received
                 </span>
                 <span className="text-xs text-white/80">
-                  {currentDelivery.transporterName || 'Vetri Logistics'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} for this ~{currentDelivery.estimatedDistanceKm || 150} km route.
+                  {currentDelivery.transporterName || 'Carrier'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} for this ~{currentDelivery.estimatedDistanceKm || 150} km route.
                 </span>
               </div>
               <div className="text-right shrink-0">

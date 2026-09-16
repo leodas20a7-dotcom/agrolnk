@@ -323,11 +323,11 @@ export async function adminVerifyAndReleaseOrderEscrow({
     const orderKey = currentOrder?.orderNumber || currentOrder?.id || orderId;
 
     // 1. Fetch beneficiary farmer bank account
-    const farmerBank = getUserBankDetails(currentOrder?.farmerId || 'usr_farmer_01') || {
-      bankName: 'State Bank of India',
-      accountNumber: '38291048211',
-      ifscCode: 'SBIN0004921',
-      accountHolderName: currentOrder?.farmerName || 'Sakthi Vel',
+    const farmerBank = getUserBankDetails(currentOrder?.farmerId) || {
+      bankName: currentOrder?.payoutBankName || 'Bank Account',
+      accountNumber: currentOrder?.payoutAccountNumber || '—',
+      ifscCode: currentOrder?.payoutIfsc || '—',
+      accountHolderName: currentOrder?.farmerName || 'Producer',
     };
 
     // 2. Generate Real-time Banking UTR

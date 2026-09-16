@@ -142,7 +142,7 @@ export default function CreateDeliveryModal({
               </Badge>
             </div>
             <span className="text-xs text-[#566861]">
-              Buyer: <strong>{order?.buyerName || 'Ananya Agro Foods'}</strong>
+              Buyer: <strong>{order?.buyerName || 'Buyer'}</strong>
             </span>
           </div>
 

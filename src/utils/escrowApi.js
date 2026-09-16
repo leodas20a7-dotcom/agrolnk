@@ -123,10 +123,10 @@ export function getLiveEscrowEvents() {
  */
 export async function processLiveEscrowDeposit({
   orderNumber = `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-  commodity = 'Tomato (Hybrid Shivam)',
-  tradeAmount = 4200,
-  buyerName = 'Maran S (Global Agro)',
-  farmerName = 'Veerappan (Verified Producer)',
+  commodity = 'Agricultural Produce',
+  tradeAmount = 0,
+  buyerName = 'Buyer',
+  farmerName = 'Producer',
   paymentMode = 'UPI / Instant Virtual Account',
 }) {
   const fin = calculateOrderFinancials(tradeAmount);

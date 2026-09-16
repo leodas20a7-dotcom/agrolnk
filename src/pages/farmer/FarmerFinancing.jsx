@@ -241,7 +241,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
                           {order.commodity} ({order.quantity} {order.unit})
                         </h4>
                         <p className="text-xs text-[#566861] mt-0.5">
-                          Buyer: {order.buyerName || 'Ananya Agro Foods'}
+                          Buyer: {order.buyerName || 'Buyer'}
                         </p>
                       </div>
 

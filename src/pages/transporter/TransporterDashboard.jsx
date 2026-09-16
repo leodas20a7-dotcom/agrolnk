@@ -47,10 +47,10 @@ import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth'
 
 export default function TransporterDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
-    name: 'Kisan Logistics Fleet',
+    id: '',
+    name: 'Transporter',
+    email: '',
     role: 'transporter',
-    id: 'usr_trans_01',
-    email: 'logistics@agrolnk.com',
   };
 
   const [deliveries, setDeliveries] = useState([]);

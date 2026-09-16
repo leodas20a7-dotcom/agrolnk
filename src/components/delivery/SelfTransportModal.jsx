@@ -102,7 +102,7 @@ export default function SelfTransportModal({
               {order.commodity} ({order.variety || 'Standard'}, Grade {order.grade || 'A'})
             </span>
             <span className="text-[#566861]">
-              Buyer: <strong>{order.buyerName || 'Ananya Agro Foods'}</strong>
+              Buyer: <strong>{order.buyerName || 'Buyer'}</strong>
             </span>
           </div>
           <div className="text-right">

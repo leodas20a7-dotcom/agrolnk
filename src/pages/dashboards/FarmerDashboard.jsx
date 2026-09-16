@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Sakthi', role: 'farmer' };
+  const user = currentUser || { id: '', name: 'Farmer', role: 'farmer' };
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>

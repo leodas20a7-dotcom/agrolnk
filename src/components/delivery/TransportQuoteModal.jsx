@@ -196,7 +196,7 @@ export default function TransportQuoteModal({
                 {delivery.commodity} ({delivery.quantity} {delivery.unit})
               </span>
               <span className="text-xs text-[#566861]">
-                Farmer: {delivery.farmerName || 'Sakthi Vel'} → Buyer: {delivery.buyerName || 'Ananya Agro'}
+                Producer: {delivery.farmerName || 'Producer'} → Buyer: {delivery.buyerName || 'Buyer'}
               </span>
             </div>
 
