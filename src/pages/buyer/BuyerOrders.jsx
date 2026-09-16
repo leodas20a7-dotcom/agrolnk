@@ -346,7 +346,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                     Consignment Arrived at Destination
                   </span>
                   <span className="text-white/80">
-                    Verify quality assay & weight or confirm receipt to complete order and release escrow.
+                    Verify quality assay & weight, then confirm produce receipt. AgroLnk Admin will verify with you and release escrow payout to the farmer.
                   </span>
                 </div>
 
@@ -369,7 +369,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                     iconPosition="left"
                     className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
                   >
-                    Confirm & Release Escrow
+                    Confirm Produce Receipt
                   </Button>
                 </div>
               </div>
