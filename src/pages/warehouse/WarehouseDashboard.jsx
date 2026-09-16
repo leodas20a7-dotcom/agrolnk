@@ -63,7 +63,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'dispatched' | 'chambers'
   const [stats, setStats] = useState(null);
   const [inventory, setInventory] = useState([]);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
   const [dispatchedPage, setDispatchedPage] = useState(1);
   const pageSize = 6;

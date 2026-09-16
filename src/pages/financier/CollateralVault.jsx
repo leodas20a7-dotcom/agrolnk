@@ -32,7 +32,7 @@ export default function CollateralVault({ currentUser, onNavigate }) {
   const [inventory, setInventory] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('grid');
+  const [viewMode, setViewMode] = useState('row');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 

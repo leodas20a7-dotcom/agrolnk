@@ -58,7 +58,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'fleet' | 'all'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
-  const [viewMode, setViewMode] = useState('grid');
+  const [viewMode, setViewMode] = useState('row');
   const [stats, setStats] = useState({
     totalEarnings: 0,
     activeDeliveries: 0,

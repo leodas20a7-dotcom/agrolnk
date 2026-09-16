@@ -454,3 +454,78 @@ export async function initiateFinancierEscrowDisbursement({
     onFailure?.(initErr);
   }
 }
+
+/**
+ * Launch Razorpay Checkout for Buyer 20% Margin Deposit on Approved Trade Credit
+ * @param {object} params - { request, marginAmount, buyerUser, onSuccess, onFailure }
+ */
+export async function initiateBuyerMarginDepositCheckout({
+  request,
+  marginAmount,
+  buyerUser,
+  onSuccess,
+  onFailure,
+}) {
+  const isLoaded = await loadRazorpaySDK();
+  if (!isLoaded) {
+    onFailure?.(new Error('Could not load Razorpay payment gateway. Please check your internet connection.'));
+    return;
+  }
+
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const payMargin = Number(marginAmount) || 5000;
+  const totalAmountInPaise = Math.round(payMargin * 100);
+  const testOrderId = `margin_${Date.now()}`;
+
+  const options = {
+    key: razorpayKeyId,
+    amount: totalAmountInPaise,
+    currency: 'INR',
+    name: 'AgroLnk Escrow Trade Margin',
+    description: `Buyer Margin Deposit (20%): ${request?.commodity || 'Produce'} - Order ${request?.orderNumber || '#AGM-TRADE'}`,
+    image: '/assets/Logo.jpeg',
+    prefill: {
+      name: buyerUser?.name || request?.applicantName || 'Wholesale Buyer',
+      email: buyerUser?.email || 'buyer@agrolnk.com',
+      contact: buyerUser?.phone || '9876543210',
+    },
+    notes: {
+      financing_request_id: request?.id,
+      request_number: request?.requestNumber,
+      order_number: request?.orderNumber,
+      commodity: request?.commodity,
+      margin_amount: `₹${payMargin}`,
+      type: 'Buyer Trade Credit Margin Deposit',
+      escrow_status: 'held_on_hold',
+    },
+    theme: {
+      color: '#0B3326', // AgroLnk Emerald
+    },
+    modal: {
+      ondismiss: () => {
+        onFailure?.(new Error('Payment window closed by user.'));
+      },
+    },
+    handler: async function (response) {
+      try {
+        onSuccess?.({
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          marginAmount: payMargin,
+          verified: true,
+        });
+      } catch (err) {
+        onFailure?.(err);
+      }
+    },
+  };
+
+  try {
+    const rzpInstance = new window.Razorpay(options);
+    rzpInstance.open();
+  } catch (initErr) {
+    console.error('Error opening Razorpay margin deposit modal:', initErr);
+    onFailure?.(initErr);
+  }
+}

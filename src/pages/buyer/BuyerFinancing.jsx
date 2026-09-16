@@ -79,7 +79,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
     (sum, o) => sum + (Number(o.totalAmount) || 0), 0
   );
 
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 

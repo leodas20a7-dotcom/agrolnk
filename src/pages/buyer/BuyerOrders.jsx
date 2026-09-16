@@ -34,7 +34,7 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
   const [orders, setOrders] = useState([]);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('pending');
   const [selectedOrder, setSelectedOrder] = useState(navState?.newOrder || null);
 
   // In-order financing modals
@@ -95,7 +95,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
     },
   ];
 
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
@@ -269,7 +269,16 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
             <p className="text-xs text-[#566861] max-w-sm mx-auto">
               Browse available produce lots in the marketplace and place your first direct order.
             </p>
-            <div className="pt-2">
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              {activeTab !== 'all' && (
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setActiveTab('all')}
+                >
+                  View All Orders
+                </Button>
+              )}
               <Button
                 variant="primary"
                 size="md"

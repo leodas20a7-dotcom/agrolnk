@@ -34,7 +34,7 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 export default function FarmerOrders({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   const [orders, setOrders] = useState([]);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('pending');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState(() => {
     try {

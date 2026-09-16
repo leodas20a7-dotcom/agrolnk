@@ -68,7 +68,7 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
     (d) => d.status === 'completed'
   );
 
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 

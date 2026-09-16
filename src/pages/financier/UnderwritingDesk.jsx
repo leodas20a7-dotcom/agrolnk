@@ -39,7 +39,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('pending'); // 'all' | 'pending' | 'approved' | 'rejected'
   const [selectedCommodity, setSelectedCommodity] = useState('all');
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
-  const [viewMode, setViewMode] = useState('grid');
+  const [viewMode, setViewMode] = useState('row');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
