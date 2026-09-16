@@ -94,13 +94,14 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   const handleTradeCreditFinancing = async () => {
     setIsSubmitting(true);
     try {
-      const generatedOrderNum = `#ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+      const generatedOrderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const generatedOrderNum = `#AGM-${Math.floor(1000 + Math.random() * 9000)}`;
       
       const finReq = await createFinancingRequest({
         applicantId: currentUser?.id || currentUser?.email || 'buyer_trade',
         applicantName: currentUser?.name || 'Buyer Partner',
         applicantRole: 'buyer',
-        orderId: listing.id,
+        orderId: generatedOrderId,
         orderNumber: generatedOrderNum,
         commodity: listing.commodity,
         variety: listing.variety || 'Standard Lot',
@@ -130,6 +131,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       // Notify parent to create order marked as financed
       setTimeout(() => {
         onConfirm({
+          id: generatedOrderId,
+          orderNumber: generatedOrderNum,
           listingId: listing.id,
           farmerId: listing.farmerId,
           farmerName: listing.farmerName,
@@ -145,6 +148,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
           platformRevenue: financials.totalPlatformCommission,
           netFarmerPayout: financials.netSellerReceivable,
           paymentMode: 'trade_credit',
+          financingAmount: financedLoanAmount,
+          buyerMarginDeposit: buyerMarginDeposit,
           financingRequestId: finReq.id,
           financingRequestNumber: finReq.requestNumber,
           state: listing.state,

@@ -129,8 +129,9 @@ export async function createOrder(orderData) {
       return `#AGM-${num}`;
     };
 
-    const orderId = generateId();
-    const orderNumber = generateOrderNum();
+    const orderId = orderData.id || generateId();
+    const orderNumber = orderData.orderNumber || generateOrderNum();
+    const isTradeCredit = orderData.paymentMode === 'trade_credit';
 
     const dbRow = {
       id: orderId,
@@ -140,7 +141,7 @@ export async function createOrder(orderData) {
       buyer_id: orderData.buyerId || null,
       buyer_name: orderData.buyerName || 'Buyer',
       farmer_id: orderData.farmerId || null,
-      farmer_name: orderData.farmerName || 'Sakthi Vel',
+      farmer_name: orderData.farmerName || 'Verified Producer',
       commodity: orderData.commodity || 'Tomato',
       variety: orderData.variety || 'Standard',
       grade: orderData.grade || 'A',
@@ -150,7 +151,7 @@ export async function createOrder(orderData) {
       total_amount: Number(orderData.totalAmount),
       state: orderData.state || '',
       district: orderData.district || '',
-      escrow_status: 'funded',
+      escrow_status: isTradeCredit ? 'financing_pending' : 'funded',
       status: 'order_placed',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -167,7 +168,7 @@ export async function createOrder(orderData) {
       throw error;
     }
 
-    // Register 100% deposit in Live Escrow API Engine
+    // Register deposit in Live Escrow API Engine
     try {
       await processLiveEscrowDeposit({
         orderNumber: data.order_number,
@@ -175,13 +176,21 @@ export async function createOrder(orderData) {
         tradeAmount: data.total_amount,
         buyerName: data.buyer_name,
         farmerName: data.farmer_name,
-        paymentMode: 'Buyer Instant Virtual Nodal UPI',
+        paymentMode: isTradeCredit ? 'NBFC Institutional Trade Credit' : 'Buyer Instant Virtual Nodal UPI',
       });
     } catch (escrowErr) {
       console.warn('Live escrow deposit record notice:', escrowErr);
     }
 
-    return mapOrderFromDb(data);
+    const mapped = mapOrderFromDb(data);
+    return {
+      ...mapped,
+      paymentMode: isTradeCredit ? 'trade_credit' : 'direct',
+      financingAmount: orderData.financingAmount,
+      buyerMarginDeposit: orderData.buyerMarginDeposit,
+      financingRequestId: orderData.financingRequestId,
+      financingRequestNumber: orderData.financingRequestNumber,
+    };
   } catch (err) {
     console.error('Error creating order:', err);
     throw err;
