@@ -210,7 +210,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
               Deliveries Desk
             </Button>
             <Badge variant="emerald" size="md">
-              {orders.filter((o) => o.status === 'pending').length} Pending Action
+              {safeOrders.filter((o) => o.status === 'pending' || o.status === 'order_placed').length} Pending Action
             </Badge>
           </div>
         </div>
