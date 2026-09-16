@@ -17,12 +17,10 @@ import {
   Lock,
   CheckCircle2,
   Clock,
-  Zap,
-  RotateCcw
+  Zap
 } from 'lucide-react';
 import { getAdminMetrics } from '../../utils/admin';
 import { formatINR } from '../../utils/commission';
-import { resetAllTestingData } from '../../utils/resetData';
 import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
@@ -77,30 +75,6 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
     };
   }, []);
 
-  const [isResetting, setIsResetting] = useState(false);
-
-  const handleResetData = async () => {
-    const confirmWipe = window.confirm(
-      '⚠️ FRESH START DATA WIPE:\n\nAre you sure you want to delete ALL test products, listings, orders, deliveries, financing requests, warehouse deposits, auctions, bids, and test user accounts?\n\n(Only the Master Admin account will be preserved).'
-    );
-    if (!confirmWipe) return;
-
-    setIsResetting(true);
-    showGlobalLoader('Wiping Testing Data...', 'Clearing products, orders, escrow logs, and non-admin users...');
-    try {
-      await resetAllTestingData();
-      alert('✅ All test products, transactions, and non-admin users have been wiped successfully! Ready for fresh testing.');
-      window.location.reload();
-    } catch (err) {
-      console.error('Reset error:', err);
-      alert('Notice: Local testing data wiped.');
-      window.location.reload();
-    } finally {
-      hideGlobalLoader();
-      setIsResetting(false);
-    }
-  };
-
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-6 text-left max-w-7xl mx-auto">
@@ -122,17 +96,6 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={RotateCcw}
-              iconPosition="left"
-              disabled={isResetting}
-              onClick={handleResetData}
-              className="font-semibold text-xs border-red-400/40 bg-red-500/10 text-red-200 hover:bg-red-500/20 cursor-pointer"
-            >
-              {isResetting ? 'Wiping...' : 'Reset All Testing Data'}
-            </Button>
             <Button
               variant="primary"
               size="sm"

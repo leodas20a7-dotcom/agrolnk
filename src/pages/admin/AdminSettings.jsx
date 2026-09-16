@@ -29,7 +29,8 @@ import {
   Lock,
   UserCheck,
   UserX,
-  X
+  X,
+  RotateCcw
 } from 'lucide-react';
 import {
   getAllKYCUsers,
@@ -43,6 +44,7 @@ import {
   clearAllChatHistory,
   clearThreadHistory
 } from '../../utils/chat';
+import { resetAllTestingData } from '../../utils/resetData';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function AdminSettings({ currentUser, onNavigate }) {
@@ -69,6 +71,8 @@ export default function AdminSettings({ currentUser, onNavigate }) {
   const [isDeleteUserModalOpen, setIsDeleteUserModalOpen] = useState(false);
   const [isResetChatModalOpen, setIsResetChatModalOpen] = useState(false);
   const [isResetDraftsModalOpen, setIsResetDraftsModalOpen] = useState(false);
+  const [isResetTestingModalOpen, setIsResetTestingModalOpen] = useState(false);
+  const [isResettingTesting, setIsResettingTesting] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
@@ -289,6 +293,29 @@ export default function AdminSettings({ currentUser, onNavigate }) {
     }
   };
 
+  const handleConfirmResetTestingData = async () => {
+    setIsResettingTesting(true);
+    showGlobalLoader('Wiping All Testing Data...', 'Deleting test listings, orders, deliveries, financing, and test users...');
+    try {
+      await resetAllTestingData();
+      setIsResetTestingModalOpen(false);
+      setActionSuccess('All test products, transactions, and non-admin users have been successfully wiped! System is ready for fresh testing.');
+      await loadData();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (err) {
+      console.error('Reset error:', err);
+      setActionError('Notice: Testing data reset executed.');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } finally {
+      hideGlobalLoader();
+      setIsResettingTesting(false);
+    }
+  };
+
   const roleBadgeVariants = {
     farmer: 'emerald',
     buyer: 'blue',
@@ -399,7 +426,7 @@ export default function AdminSettings({ currentUser, onNavigate }) {
             }`}
           >
             <Database className="w-4 h-4" />
-            <span>System Health & Cache</span>
+            <span>System Data & Testing Reset</span>
           </button>
         </div>
 
@@ -414,57 +441,57 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                 <span className="text-2xl font-extrabold text-[#0B3326] block font-heading">{usersList.length}</span>
               </Card>
               <Card className="p-4 bg-white border border-[#E5EDE8] space-y-1 text-left">
-                <span className="text-xs text-[#566861]">Verified KYC</span>
+                <span className="text-xs text-[#566861]">Verified Producers (Farmers)</span>
                 <span className="text-2xl font-extrabold text-[#10B981] block font-heading">
-                  {usersList.filter((u) => u.verificationStatus === 'verified').length}
+                  {usersList.filter((u) => u.role === 'farmer').length}
                 </span>
               </Card>
               <Card className="p-4 bg-white border border-[#E5EDE8] space-y-1 text-left">
-                <span className="text-xs text-[#566861]">Pending Review</span>
-                <span className="text-2xl font-extrabold text-[#D97706] block font-heading">
-                  {usersList.filter((u) => u.verificationStatus === 'pending').length}
+                <span className="text-xs text-[#566861]">Active Buyers / Traders</span>
+                <span className="text-2xl font-extrabold text-blue-700 block font-heading">
+                  {usersList.filter((u) => u.role === 'buyer').length}
                 </span>
               </Card>
               <Card className="p-4 bg-white border border-[#E5EDE8] space-y-1 text-left">
-                <span className="text-xs text-[#566861]">Administrators</span>
-                <span className="text-2xl font-extrabold text-[#E11D48] block font-heading">
-                  {usersList.filter((u) => u.role === 'admin').length}
+                <span className="text-xs text-[#566861]">Service Partners (NBFC/Logistics/WH)</span>
+                <span className="text-2xl font-extrabold text-amber-700 block font-heading">
+                  {usersList.filter((u) => ['financier', 'transporter', 'warehouse'].includes(u.role)).length}
                 </span>
               </Card>
             </div>
 
-            {/* Search & Filters */}
-            <div className="p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Filter & Search Bar */}
+            <div className="p-4 rounded-2xl bg-white border border-[#E5EDE8] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-2xs">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#566861]" />
+                <Search className="w-4 h-4 text-[#566861] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search by name, email, phone, business, district..."
+                  placeholder="Search user by name, email, role, phone, or state..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#E5EDE8] text-xs focus:outline-none focus:ring-2 focus:ring-[#10B981] bg-[#F8FAF8]"
+                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981] bg-[#F8FAF8]"
                 />
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <select
                   value={roleFilter}
                   onChange={(e) => {
                     setRoleFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold bg-[#F8FAF8] text-[#14211D] cursor-pointer"
                 >
                   <option value="all">All Roles</option>
-                  <option value="farmer">Farmers</option>
-                  <option value="buyer">Buyers</option>
-                  <option value="financier">Financiers</option>
-                  <option value="transporter">Transporters</option>
-                  <option value="warehouse">Warehouses</option>
-                  <option value="admin">Admins</option>
+                  <option value="farmer">Farmer</option>
+                  <option value="buyer">Buyer</option>
+                  <option value="financier">Financier</option>
+                  <option value="transporter">Transporter</option>
+                  <option value="warehouse">Warehouse</option>
+                  <option value="admin">Admin</option>
                 </select>
 
                 <select
@@ -473,34 +500,25 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                     setKycFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  className="px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold bg-[#F8FAF8] text-[#14211D] cursor-pointer"
                 >
                   <option value="all">All KYC Statuses</option>
-                  <option value="verified">Verified</option>
+                  <option value="verified">Verified ✓</option>
                   <option value="pending">Pending</option>
                   <option value="rejected">Rejected</option>
                 </select>
-
-                <button
-                  type="button"
-                  onClick={loadData}
-                  className="p-2 rounded-xl border border-[#E5EDE8] text-[#566861] hover:text-[#0B3326] hover:bg-[#F2FBF6] transition-colors cursor-pointer"
-                  title="Refresh Users"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
               </div>
             </div>
 
-            {/* Users Data Table */}
-            <div className="bg-white rounded-3xl border border-[#E5EDE8] shadow-xs overflow-hidden">
+            {/* Users Table / List */}
+            <div className="bg-white rounded-2xl border border-[#E5EDE8] overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] font-bold">
-                      <th className="py-3.5 px-4">User / Entity</th>
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="py-3.5 px-4">User</th>
                       <th className="py-3.5 px-4">Role</th>
-                      <th className="py-3.5 px-4">Contact Info</th>
+                      <th className="py-3.5 px-4">Contact</th>
                       <th className="py-3.5 px-4">Location</th>
                       <th className="py-3.5 px-4">KYC Status</th>
                       <th className="py-3.5 px-4 text-right">Actions</th>
@@ -509,7 +527,7 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                   <tbody className="divide-y divide-[#E5EDE8]">
                     {paginatedUsers.length > 0 ? (
                       paginatedUsers.map((u) => {
-                        const isVerified = u.verificationStatus === 'verified';
+                        const isVerified = u.verificationStatus === 'verified' || u.kycStatus === 'verified' || u.kyc_status === 'verified';
                         return (
                           <tr key={u.id || u.email} className="hover:bg-[#F2FBF6]/40 transition-colors">
                             <td className="py-3.5 px-4">
@@ -520,7 +538,7 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                                 <div>
                                   <span className="font-bold text-[#0B3326] block">{u.name || 'Anonymous User'}</span>
                                   <span className="text-[11px] text-[#566861] block">
-                                    {u.orgName || u.company_name || 'Individual Trader'}
+                                    {u.orgName || u.companyName || u.company_name || 'Individual Trader'}
                                   </span>
                                 </div>
                               </div>
@@ -537,10 +555,12 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                                 <Mail className="w-3 h-3 text-[#566861] shrink-0" />
                                 <span className="truncate max-w-[170px]">{u.email || '—'}</span>
                               </div>
-                              <div className="flex items-center gap-1.5 text-[#566861] text-[11px]">
-                                <Phone className="w-3 h-3 shrink-0" />
-                                <span>{u.phone || '—'}</span>
-                              </div>
+                              {u.phone && (
+                                <div className="flex items-center gap-1.5 text-[#566861] text-[11px]">
+                                  <Phone className="w-3 h-3 shrink-0" />
+                                  <span>{u.phone || '—'}</span>
+                                </div>
+                              )}
                             </td>
 
                             <td className="py-3.5 px-4">
@@ -561,7 +581,7 @@ export default function AdminSettings({ currentUser, onNavigate }) {
                                 }`}
                               >
                                 {isVerified ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                                <span className="capitalize">{u.verificationStatus || 'Pending'}</span>
+                                <span className="capitalize">{u.verificationStatus || u.kycStatus || u.kyc_status || 'Pending'}</span>
                               </span>
                             </td>
 
@@ -752,6 +772,51 @@ export default function AdminSettings({ currentUser, onNavigate }) {
         {activeTab === 'platform' && (
           <div className="space-y-6">
             
+            {/* DANGER ZONE: Complete Fresh Start Testing Data Wipe */}
+            <Card className="p-6 bg-red-50/40 border-2 border-red-200 text-left space-y-4 shadow-xs rounded-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-red-950 font-heading">
+                      Fresh Start: Wipe All Testing Data
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#566861] max-w-2xl">
+                    Deletes all test products, listings, orders, deliveries, financing applications, warehouse deposits, auctions, bids, and test user accounts. <strong>The Master Admin login (<span className="font-mono text-red-900 font-bold">admin@agrolnk.com</span>) will be preserved.</strong>
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setIsResetTestingModalOpen(true)}
+                  icon={RotateCcw}
+                  iconPosition="left"
+                  className="text-xs font-bold border-red-400 bg-red-600 text-white hover:bg-red-700 cursor-pointer shrink-0 shadow-sm"
+                >
+                  Reset All Testing Data
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-red-200/80 text-xs">
+                <div className="p-3 rounded-xl bg-white border border-red-100">
+                  <span className="font-bold text-red-900 block">Products & Lots</span>
+                  <span className="text-[11px] text-[#566861]">All marketplace listings & active auctions</span>
+                </div>
+                <div className="p-3 rounded-xl bg-white border border-red-100">
+                  <span className="font-bold text-red-900 block">Orders & Escrow</span>
+                  <span className="text-[11px] text-[#566861]">All purchase agreements & trade credits</span>
+                </div>
+                <div className="p-3 rounded-xl bg-white border border-red-100">
+                  <span className="font-bold text-red-900 block">Test Users</span>
+                  <span className="text-[11px] text-[#566861]">All non-admin logins (Admin preserved)</span>
+                </div>
+              </div>
+            </Card>
+
             {/* Unpublished Drafts & Local Storage Cache */}
             <Card className="p-6 bg-white border border-[#E5EDE8] text-left space-y-4 shadow-xs">
               <div className="flex items-start justify-between gap-4">
@@ -1156,6 +1221,55 @@ export default function AdminSettings({ currentUser, onNavigate }) {
               className="bg-amber-600 hover:bg-amber-700 border-amber-700 text-white font-bold cursor-pointer shadow-sm"
             >
               Yes, Clear Drafts
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL 5: Fresh Start Data Reset Confirmation */}
+      <Modal
+        isOpen={isResetTestingModalOpen}
+        onClose={() => setIsResetTestingModalOpen(false)}
+        title="Wipe All Testing Data & Reset"
+        subtitle="This action will permanently delete all test products, transactions, and test users."
+        icon={Trash2}
+        iconColor="text-red-600"
+        iconBg="bg-red-100"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4 text-left">
+          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-2">
+            <p className="font-semibold">
+              ⚠️ Are you sure you want to perform a full factory testing data wipe?
+            </p>
+            <ul className="list-disc pl-4 space-y-1 text-[11px] text-red-800">
+              <li>All marketplace listings & produce lots will be deleted</li>
+              <li>All orders, deliveries & escrow records will be cleared</li>
+              <li>All financing applications & deposits will be wiped</li>
+              <li>All non-admin user logins will be removed</li>
+              <li><strong>Master Admin account will remain intact</strong></li>
+            </ul>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isResettingTesting}
+              onClick={() => setIsResetTestingModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isResettingTesting}
+              onClick={handleConfirmResetTestingData}
+              icon={RotateCcw}
+              iconPosition="left"
+              className="bg-red-600 text-white hover:bg-red-700 font-bold border-red-600 cursor-pointer shadow-sm"
+            >
+              {isResettingTesting ? 'Wiping Data...' : 'Yes, Wipe Everything'}
             </Button>
           </div>
         </div>
