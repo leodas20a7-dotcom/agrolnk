@@ -57,15 +57,22 @@ export default function FinancingReviewModal({
         onSuccess: async (res) => {
           setMarginPaidSuccess(true);
           setIsPayingMargin(false);
-          const updated = await underwriteFinancingRequest(request.id, {
+          const targetKey = request.id || request.requestNumber || request.orderNumber;
+          const updatedPayload = {
             ...request,
             status: 'approved',
             marginPaid: true,
             escrowFunded: true,
             marginPaidAt: new Date().toISOString(),
             paymentId: res.razorpay_payment_id,
-          });
-          onStatusUpdated?.(updated || { ...request, marginPaid: true, escrowFunded: true });
+          };
+          const updated = await underwriteFinancingRequest(targetKey, updatedPayload);
+          const resolved = updated || updatedPayload;
+          try {
+            window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: resolved }));
+            window.dispatchEvent(new Event('storage'));
+          } catch {}
+          onStatusUpdated?.(resolved);
         },
         onFailure: (err) => {
           console.warn('Payment dismissed or failed:', err);

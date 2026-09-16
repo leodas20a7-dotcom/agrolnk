@@ -111,9 +111,31 @@ export async function getFinancingRequests() {
   }
 
   const local = getLocalFinancingRequests();
-  const remoteIds = new Set(remote.map((r) => r.id || r.requestNumber || r.orderNumber));
-  const merged = [...remote, ...local.filter((l) => !remoteIds.has(l.id) && !remoteIds.has(l.requestNumber) && !remoteIds.has(l.orderNumber))];
-  return merged;
+  const localMap = new Map();
+  local.forEach((l) => {
+    if (l.id) localMap.set(l.id, l);
+    if (l.requestNumber) localMap.set(l.requestNumber, l);
+    if (l.orderNumber) localMap.set(l.orderNumber, l);
+  });
+
+  const mergedRemote = remote.map((r) => {
+    const localMatch = localMap.get(r.id) || localMap.get(r.requestNumber) || (r.orderNumber && localMap.get(r.orderNumber));
+    if (localMatch) {
+      return {
+        ...r,
+        ...localMatch,
+        marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
+        escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
+        status: localMatch.status || r.status,
+      };
+    }
+    return r;
+  });
+
+  const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber].filter(Boolean)));
+  const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber)));
+
+  return [...mergedRemote, ...localOnly];
 }
 
 /**
