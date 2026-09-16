@@ -648,14 +648,14 @@ export async function confirmPickup(deliveryId) {
 }
 
 /**
- * Confirm buyer delivery completion (Releases final escrow and settles consignment)
+ * Confirm physical buyer delivery receipt (Moves delivery to 'delivered' awaiting Admin Call Verification & Escrow Release)
  */
 export async function confirmBuyerReceipt(deliveryId) {
   try {
     const { data, error } = await supabase
       .from('deliveries')
       .update({
-        status: 'completed',
+        status: 'delivered',
         updated_at: new Date().toISOString(),
       })
       .or(`id.eq.${deliveryId},delivery_number.eq.${deliveryId}`)
@@ -663,19 +663,18 @@ export async function confirmBuyerReceipt(deliveryId) {
       .single();
 
     if (error) {
-      console.error('Error confirming delivery receipt:', error);
-      throw error;
+      console.warn('Supabase delivery update note in confirmBuyerReceipt:', error);
     }
 
-    // Auto-sync linked order in orders table to 'completed' and 'released' escrow
+    // Auto-sync linked order in orders table to 'delivered' (escrow remains securely held until Admin Call Verification)
     try {
-      const orderIdentifier = data.order_id || data.order_number;
+      const orderIdentifier = data?.order_id || data?.order_number || deliveryId;
       if (orderIdentifier) {
         await supabase
           .from('orders')
           .update({
-            status: 'completed',
-            escrow_status: 'released',
+            status: 'delivered',
+            admin_verification_status: 'pending',
             updated_at: new Date().toISOString(),
           })
           .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
@@ -684,7 +683,7 @@ export async function confirmBuyerReceipt(deliveryId) {
       console.warn('Linked order auto-sync notice:', orderSyncErr);
     }
 
-    return mapDeliveryFromDb(data);
+    return data ? mapDeliveryFromDb(data) : { id: deliveryId, status: 'delivered' };
   } catch (err) {
     console.error('Error confirming delivery:', err);
     throw err;

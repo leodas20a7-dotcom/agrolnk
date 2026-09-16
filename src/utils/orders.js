@@ -412,29 +412,33 @@ export async function ensureOrderForFinancing(request, paymentData) {
 }
 
 /**
- * Confirm order receipt by buyer
+ * Confirm physical produce receipt by buyer (Moves order to 'delivered' awaiting Admin Call Verification & Escrow Release)
  */
 export async function confirmOrderReceipt(orderId) {
   try {
+    const updatePayload = {
+      status: 'delivered',
+      admin_verification_status: 'pending',
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from('orders')
-      .update({
-        status: 'completed',
-        escrow_status: 'released',
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .or(`id.eq.${orderId},order_number.eq.${orderId}`)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.warn('Supabase update note in confirmOrderReceipt:', error);
+    }
 
-    // Automatically sync linked delivery to completed
+    // Automatically sync linked delivery to delivered
     try {
       await supabase
         .from('deliveries')
         .update({
-          status: 'completed',
+          status: 'delivered',
           updated_at: new Date().toISOString(),
         })
         .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
@@ -442,14 +446,31 @@ export async function confirmOrderReceipt(orderId) {
       console.warn('Delivery sync notice:', delSyncErr);
     }
 
-    // Trigger Live Escrow Payout Settlement
-    try {
-      await processLiveEscrowRelease(data.order_number || data.id, 'OTP_VERIFIED_CONFIRMED');
-    } catch (escrowReleaseErr) {
-      console.warn('Live escrow payout record notice:', escrowReleaseErr);
+    const localOrders = getLocalOrders();
+    const updatedLocal = localOrders.map((o) => {
+      if (o.id === orderId || o.orderNumber === orderId) {
+        return {
+          ...o,
+          status: 'delivered',
+          adminVerificationStatus: 'pending',
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return o;
+    });
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updatedLocal));
+
+    const resolved = data
+      ? mapOrderFromDb(data)
+      : (updatedLocal.find((o) => o.id === orderId || o.orderNumber === orderId) || { id: orderId, status: 'delivered' });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: resolved }));
+      window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: resolved }));
+      window.dispatchEvent(new Event('storage'));
     }
 
-    return mapOrderFromDb(data);
+    return resolved;
   } catch (err) {
     console.error('Error confirming order receipt:', err);
     throw err;

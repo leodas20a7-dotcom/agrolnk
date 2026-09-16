@@ -132,13 +132,13 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
     },
     {
       id: 'confirmed',
-      label: 'Confirmed',
-      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit').length,
+      label: 'In Progress',
+      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered').length,
     },
     {
       id: 'completed',
       label: 'Completed',
-      count: safeOrders.filter((o) => o.status === 'completed' || o.status === 'delivered').length,
+      count: safeOrders.filter((o) => o.status === 'completed').length,
     },
   ];
 
@@ -151,9 +151,9 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return o.status === 'pending' || o.status === 'order_placed';
     if (activeTab === 'confirmed')
-      return o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit';
+      return o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered';
     if (activeTab === 'completed')
-      return o.status === 'completed' || o.status === 'delivered';
+      return o.status === 'completed';
     return true;
   });
 

@@ -142,7 +142,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
         await confirmBuyerReceipt(orderKey);
       } catch {}
       await fetchOrders();
-      setSelectedOrder((prev) => (prev ? { ...prev, status: 'completed' } : null));
+      setSelectedOrder((prev) => (prev ? { ...prev, status: 'delivered', adminVerificationStatus: 'pending' } : null));
     } catch (err) {
       console.error('Error confirming order receipt:', err);
     }
