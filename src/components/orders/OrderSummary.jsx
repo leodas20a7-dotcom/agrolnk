@@ -396,87 +396,62 @@ export default function OrderSummary({
           )
         )}
 
-        {/* Transaction-Linked Trade Credit Facility Breakdown (When order is financed) */}
+        {/* Transaction-Linked Trade Credit Facility Summary */}
         {isFinanced && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-white to-blue-50/40 border-2 border-blue-200 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100 pb-2.5">
+          <div className="p-4 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] space-y-2.5">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center">
-                  <Landmark className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-blue-950">
-                    Institutional Trade Credit & NBFC Settlement
-                  </h4>
-                  <span className="text-[11px] text-blue-800">
-                    Application {existingFinancing?.requestNumber || order.financingRequestNumber || '#FIN-CREDIT'}
-                  </span>
-                </div>
+                <Landmark className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-[#1E40AF]">
+                  Trade Credit Facility ({existingFinancing?.requestNumber || order.financingRequestNumber || '#FIN-CREDIT'})
+                </span>
               </div>
+              {existingFinancing ? (
+                <FinancingStatusBadge status={existingFinancing.status} size="sm" />
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                  Under Review
+                </span>
+              )}
+            </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs bg-white p-3 rounded-xl border border-blue-100">
+              <div>
+                <span className="text-[10px] text-[#566861] block">NBFC Loan (30 Days Net)</span>
+                <span className="font-extrabold text-blue-700 text-sm">
+                  ₹{financedAmount.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[#566861] block">Margin Paid</span>
+                <span className="font-bold text-[#0B3326] text-sm">
+                  ₹{buyerMargin.toLocaleString('en-IN')}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
-                {existingFinancing ? (
-                  <FinancingStatusBadge status={existingFinancing.status} size="sm" />
-                ) : (
-                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
-                    Underwriting Review
-                  </span>
+                {onRequestFinancing && (
+                  <button
+                    type="button"
+                    onClick={() => onRequestFinancing(order)}
+                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer"
+                  >
+                    + Re-Apply
+                  </button>
+                )}
+                {onViewFinancing && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onViewFinancing(existingFinancing || { id: order.financingRequestId, orderNumber: order.orderNumber, applicantRole: 'buyer' })}
+                    icon={ArrowRight}
+                    iconPosition="right"
+                    className="text-xs font-bold border-blue-200 text-blue-900 bg-white hover:bg-blue-50 cursor-pointer"
+                  >
+                    View Credit Desk
+                  </Button>
                 )}
               </div>
             </div>
-
-            {/* Split Financial Breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
-              <div className="p-2.5 rounded-xl bg-white border border-blue-100 shadow-2xs">
-                <span className="text-[10px] text-[#566861] block font-medium">NBFC Financed Loan</span>
-                <span className="font-extrabold text-blue-700 text-sm block mt-0.5">
-                  ₹{financedAmount.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[10px] text-emerald-700 font-semibold">Disbursed to Farmer</span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-white border border-blue-100 shadow-2xs">
-                <span className="text-[10px] text-[#566861] block font-medium">Buyer Margin Deposit</span>
-                <span className="font-extrabold text-[#0B3326] text-sm block mt-0.5">
-                  ₹{buyerMargin.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[10px] text-[#566861]">Paid at Booking</span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-white border border-blue-100 shadow-2xs col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-[#566861] block font-medium">Repayment Due</span>
-                <span className="font-bold text-[#14211D] text-xs block mt-0.5">
-                  30 Days Net
-                </span>
-                <span className="text-[10px] text-[#566861]">Post-Delivery (0.85%/mo)</span>
-              </div>
-            </div>
-
-            {/* Explanatory Guide for How Balance is Paid */}
-            <div className="p-3 rounded-xl bg-blue-100/50 border border-blue-200 text-xs text-blue-950 space-y-1">
-              <span className="font-bold block text-[11px] text-blue-900">
-                💡 How the settlement & balance repayment works:
-              </span>
-              <p className="text-[11px] text-blue-900/90 leading-relaxed">
-                1. <strong>Seller Escrow Payout</strong>: The NBFC disburses ₹{financedAmount.toLocaleString('en-IN')} directly into the seller's escrow upon verified dispatch.<br />
-                2. <strong>Balance Repayment</strong>: The buyer pays the ₹{financedAmount.toLocaleString('en-IN')} loan balance within 30 days of receiving produce via the <strong>Buyer Trade Credit Desk</strong>.
-              </p>
-            </div>
-
-            {onViewFinancing && (
-              <div className="flex justify-end pt-1">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onViewFinancing(existingFinancing || { id: order.financingRequestId, orderNumber: order.orderNumber, applicantRole: 'buyer' })}
-                  icon={ArrowRight}
-                  iconPosition="right"
-                  className="text-xs font-bold border-blue-200 text-blue-900 bg-white hover:bg-blue-100/60 cursor-pointer w-full sm:w-auto justify-center"
-                >
-                  Manage Loan in Trade Credit Desk
-                </Button>
-              </div>
-            )}
           </div>
         )}
 

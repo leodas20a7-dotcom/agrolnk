@@ -47,9 +47,7 @@ function getLocalFinancingRequests() {
 function saveLocalFinancingRequest(item) {
   try {
     const existing = getLocalFinancingRequests();
-    const filtered = existing.filter(
-      (r) => r.id !== item.id && r.requestNumber !== item.requestNumber && (item.orderNumber ? r.orderNumber !== item.orderNumber : true)
-    );
+    const filtered = existing.filter((r) => r.id !== item.id && r.requestNumber !== item.requestNumber);
     localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify([item, ...filtered]));
   } catch {}
 }
@@ -88,8 +86,8 @@ export async function getFinancingRequests() {
   }
 
   const local = getLocalFinancingRequests();
-  const remoteIds = new Set(remote.map((r) => r.id || r.requestNumber || r.orderNumber));
-  const merged = [...remote, ...local.filter((l) => !remoteIds.has(l.id) && !remoteIds.has(l.requestNumber) && !remoteIds.has(l.orderNumber))];
+  const remoteIds = new Set(remote.map((r) => r.id || r.requestNumber));
+  const merged = [...remote, ...local.filter((l) => !remoteIds.has(l.id) && !remoteIds.has(l.requestNumber))];
   return merged;
 }
 
