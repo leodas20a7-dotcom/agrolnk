@@ -340,24 +340,24 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
             {/* Action Bar when Delivered */}
             {selectedOrder.status === 'delivered' ? (
-              <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="space-y-0.5 text-xs">
-                  <span className="font-bold text-[#34D399] uppercase tracking-wider block">
+              <div className="p-5 sm:p-6 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-4 shadow-sm text-left">
+                <div className="space-y-1 w-full">
+                  <span className="font-bold text-xs text-[#34D399] uppercase tracking-wider block">
                     Consignment Arrived at Destination
                   </span>
-                  <span className="text-white/80">
+                  <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
                     Verify quality assay & weight, then confirm produce receipt. AgroLnk Admin will verify with you and release escrow payout to the farmer.
-                  </span>
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-1">
                   <Button
                     variant="secondary"
                     size="md"
                     onClick={() => setOrderForInspection(selectedOrder)}
                     icon={ClipboardCheck}
                     iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-4 bg-white/10 text-white hover:bg-white/20 border-white/20 shadow-xs cursor-pointer"
+                    className="w-full justify-center font-bold py-3 px-4 bg-white/10 text-white hover:bg-white/20 border-white/20 shadow-xs cursor-pointer"
                   >
                     Inspect Quality
                   </Button>
@@ -367,7 +367,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                     onClick={() => handleConfirmOrderReceipt(selectedOrder)}
                     icon={CheckCircle2}
                     iconPosition="left"
-                    className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
+                    className="w-full justify-center font-bold py-3 px-4 shadow-xs cursor-pointer"
                   >
                     Confirm Produce Receipt
                   </Button>
