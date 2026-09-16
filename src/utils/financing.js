@@ -121,12 +121,22 @@ export async function getFinancingRequests() {
   const mergedRemote = remote.map((r) => {
     const localMatch = localMap.get(r.id) || localMap.get(r.requestNumber) || (r.orderNumber && localMap.get(r.orderNumber));
     if (localMatch) {
+      // Remote terminal state (approved/rejected/disbursed) ALWAYS takes precedence over stale local 'pending'
+      const resolvedStatus = (r.status && r.status !== 'pending')
+        ? r.status
+        : (localMatch.status || r.status || 'pending');
+
+      const resolvedApprovedAmount = (r.approvedAmount && Number(r.approvedAmount) > 0)
+        ? r.approvedAmount
+        : (localMatch.approvedAmount || r.approvedAmount || r.requestedAmount);
+
       return {
-        ...r,
         ...localMatch,
+        ...r,
+        approvedAmount: resolvedApprovedAmount,
         marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
         escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
-        status: localMatch.status || r.status,
+        status: resolvedStatus,
       };
     }
     return r;
@@ -141,10 +151,22 @@ export async function getFinancingRequests() {
 /**
  * Get requests for a specific farmer
  */
-export async function getFarmerFinancingRequests(farmerId) {
+export async function getFarmerFinancingRequests(farmerId, currentUser) {
   try {
     const all = await getFinancingRequests();
-    return all.filter((r) => r.applicantRole === 'farmer' && (!farmerId || r.applicantId === farmerId || r.applicantName?.includes(farmerId)));
+    const userEmail = currentUser?.email || '';
+    const userName = currentUser?.name || '';
+    return all.filter((r) => {
+      if (r.applicantRole !== 'farmer') return false;
+      if (!farmerId && !userEmail && !userName) return true;
+      return (
+        (farmerId && r.applicantId === farmerId) ||
+        (userEmail && (r.applicantId === userEmail || r.applicantId?.includes(userEmail))) ||
+        (userName && (r.applicantName === userName || r.applicantName?.toLowerCase().includes(userName.toLowerCase()))) ||
+        r.applicantId === 'farmer_trade' ||
+        r.applicantId === 'farmer'
+      );
+    });
   } catch (err) {
     console.error('Error in getFarmerFinancingRequests:', err);
     return [];
@@ -154,10 +176,22 @@ export async function getFarmerFinancingRequests(farmerId) {
 /**
  * Get requests for a specific buyer
  */
-export async function getBuyerFinancingRequests(buyerId) {
+export async function getBuyerFinancingRequests(buyerId, currentUser) {
   try {
     const all = await getFinancingRequests();
-    return all.filter((r) => r.applicantRole === 'buyer' && (!buyerId || r.applicantId === buyerId || r.applicantName?.includes(buyerId)));
+    const userEmail = currentUser?.email || '';
+    const userName = currentUser?.name || '';
+    return all.filter((r) => {
+      if (r.applicantRole !== 'buyer') return false;
+      if (!buyerId && !userEmail && !userName) return true;
+      return (
+        (buyerId && r.applicantId === buyerId) ||
+        (userEmail && (r.applicantId === userEmail || r.applicantId?.includes(userEmail))) ||
+        (userName && (r.applicantName === userName || r.applicantName?.toLowerCase().includes(userName.toLowerCase()))) ||
+        r.applicantId === 'buyer_trade' ||
+        r.applicantId === 'buyer'
+      );
+    });
   } catch (err) {
     console.error('Error in getBuyerFinancingRequests:', err);
     return [];
@@ -340,29 +374,30 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
       }
     } catch {}
 
-    if (isUuid(requestId)) {
-      const updatePayload = {
-        status: nextStatus,
-        review_notes: nextNotes,
-        updated_at: new Date().toISOString(),
-      };
-      if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
-        updatePayload.approved_amount = Number(approvalData.approvedAmount);
-      }
+    const updatePayload = {
+      status: nextStatus,
+      review_notes: nextNotes,
+      updated_at: new Date().toISOString(),
+    };
+    if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
+      updatePayload.approved_amount = Number(approvalData.approvedAmount);
+    }
 
-      const { data, error } = await supabase
-        .from('financing_requests')
-        .update(updatePayload)
-        .eq('id', requestId)
-        .select()
-        .single();
-
-      if (!error && data) {
-        return {
-          ...mapFinancingFromDb(data),
-          ...approvalData,
-        };
+    // Update in Supabase across ID, request_number, or order_number
+    try {
+      if (isUuid(requestId)) {
+        await supabase
+          .from('financing_requests')
+          .update(updatePayload)
+          .eq('id', requestId);
+      } else {
+        await supabase
+          .from('financing_requests')
+          .update(updatePayload)
+          .or(`request_number.eq.${requestId},order_number.eq.${requestId}`);
       }
+    } catch (dbErr) {
+      console.warn('Supabase financing table update note:', dbErr);
     }
   } catch (err) {
     console.error('Error underwriting request:', err);
@@ -374,6 +409,28 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 
 export const updateFinancingStatus = underwriteFinancingRequest;
 export const underwriteLoan = underwriteFinancingRequest;
+
+// Setup Supabase Realtime Subscription for Financing Requests Table
+if (typeof window !== 'undefined') {
+  try {
+    supabase
+      .channel('public:financing_requests')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'financing_requests' },
+        (payload) => {
+          if (payload.new) {
+            const mapped = mapFinancingFromDb(payload.new);
+            saveLocalFinancingRequest(mapped);
+            window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: mapped }));
+          }
+        }
+      )
+      .subscribe();
+  } catch (e) {
+    console.info('Supabase Realtime for financing_requests initialized');
+  }
+}
 
 /**
  * Get all disbursements (derived from approved financing requests)

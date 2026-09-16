@@ -38,7 +38,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
       showGlobalLoader('Loading Trade Credit...', 'Fetching approved loans & repayment status...');
       const [orderData, requestData] = await Promise.all([
         getBuyerOrders(user.id),
-        getBuyerFinancingRequests(user.id),
+        getBuyerFinancingRequests(user.id, user),
       ]);
       setOrders(orderData || []);
       setFinancingRequests(requestData || []);
@@ -62,7 +62,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_financing_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
     };
-  }, [user.id]);
+  }, [user.id, user.email, user.name]);
 
   const safeRequests = Array.isArray(financingRequests) ? financingRequests : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -72,7 +72,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
   ).length;
 
   const totalApprovedFunding = safeRequests
-    .filter((r) => r.status === 'approved')
+    .filter((r) => r.status === 'approved' || r.status === 'disbursed')
     .reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
 
   const totalPurchaseVolume = safeOrders.reduce(

@@ -61,7 +61,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
       showGlobalLoader('Loading Agri-Credit Facility...', 'Calculating pre-harvest working capital & credit lines...');
       const [orderData, requestData] = await Promise.all([
         getFarmerOrders(user.id),
-        getFarmerFinancingRequests(user.id),
+        getFarmerFinancingRequests(user.id, user),
       ]);
       setOrders(orderData || []);
       setFinancingRequests(requestData || []);
@@ -74,7 +74,18 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
 
   useEffect(() => {
     loadData();
-  }, [user.id]);
+
+    const handleUpdated = () => {
+      loadData();
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+    return () => {
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
+    };
+  }, [user.id, user.email, user.name]);
 
   const safeRequests = Array.isArray(financingRequests) ? financingRequests : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -94,7 +105,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
   ).length;
 
   const totalApprovedFunding = safeRequests
-    .filter((r) => r.status === 'approved')
+    .filter((r) => r.status === 'approved' || r.status === 'disbursed')
     .reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
 
   const eligibleOrders = safeOrders.filter(
