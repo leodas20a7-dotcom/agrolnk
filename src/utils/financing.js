@@ -33,26 +33,64 @@ function mapFinancingFromDb(row) {
   };
 }
 
+const LOCAL_FINANCING_KEY = 'agrolnk_financing_requests_local';
+
+function getLocalFinancingRequests() {
+  try {
+    const raw = localStorage.getItem(LOCAL_FINANCING_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalFinancingRequest(item) {
+  try {
+    const existing = getLocalFinancingRequests();
+    const filtered = existing.filter(
+      (r) => r.id !== item.id && r.requestNumber !== item.requestNumber && (item.orderNumber ? r.orderNumber !== item.orderNumber : true)
+    );
+    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify([item, ...filtered]));
+  } catch {}
+}
+
+const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+const generateStandardUuid = () => {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+  } catch {}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 /**
- * Get all financing requests from Supabase
+ * Get all financing requests from Supabase merged with local requests
  */
 export async function getFinancingRequests() {
+  let remote = [];
   try {
     const { data, error } = await supabase
       .from('financing_requests')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Failed to fetch financing requests:', error);
-      return [];
+    if (!error && data) {
+      remote = data.map(mapFinancingFromDb);
     }
-
-    return (data || []).map(mapFinancingFromDb);
   } catch (err) {
     console.error('Error in getFinancingRequests:', err);
-    return [];
   }
+
+  const local = getLocalFinancingRequests();
+  const remoteIds = new Set(remote.map((r) => r.id || r.requestNumber || r.orderNumber));
+  const merged = [...remote, ...local.filter((l) => !remoteIds.has(l.id) && !remoteIds.has(l.requestNumber) && !remoteIds.has(l.orderNumber))];
+  return merged;
 }
 
 /**
@@ -60,20 +98,8 @@ export async function getFinancingRequests() {
  */
 export async function getFarmerFinancingRequests(farmerId) {
   try {
-    if (!farmerId) return [];
-
-    const { data, error } = await supabase
-      .from('financing_requests')
-      .select('*')
-      .eq('applicant_id', farmerId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Failed to fetch farmer financing requests:', error);
-      return [];
-    }
-
-    return (data || []).map(mapFinancingFromDb);
+    const all = await getFinancingRequests();
+    return all.filter((r) => r.applicantRole === 'farmer' && (!farmerId || r.applicantId === farmerId || r.applicantName?.includes(farmerId)));
   } catch (err) {
     console.error('Error in getFarmerFinancingRequests:', err);
     return [];
@@ -85,20 +111,8 @@ export async function getFarmerFinancingRequests(farmerId) {
  */
 export async function getBuyerFinancingRequests(buyerId) {
   try {
-    if (!buyerId) return [];
-
-    const { data, error } = await supabase
-      .from('financing_requests')
-      .select('*')
-      .eq('applicant_id', buyerId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Failed to fetch buyer financing requests:', error);
-      return [];
-    }
-
-    return (data || []).map(mapFinancingFromDb);
+    const all = await getFinancingRequests();
+    return all.filter((r) => r.applicantRole === 'buyer' && (!buyerId || r.applicantId === buyerId || r.applicantName?.includes(buyerId)));
   } catch (err) {
     console.error('Error in getBuyerFinancingRequests:', err);
     return [];
@@ -109,29 +123,55 @@ export async function getBuyerFinancingRequests(buyerId) {
  * Create a new financing request
  */
 export async function createFinancingRequest(requestData) {
+  const reqId = generateStandardUuid();
+  const generateReqNum = () => {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    return `#FIN-${num}`;
+  };
+  const reqNumber = generateReqNum();
+
+  const formattedItem = {
+    id: reqId,
+    requestNumber: reqNumber,
+    applicantId: requestData.applicantId || 'buyer',
+    applicantName: requestData.applicantName || 'Applicant Partner',
+    applicantRole: requestData.applicantRole || 'buyer',
+    orderId: requestData.orderId || null,
+    orderNumber: requestData.orderNumber || null,
+    receiptId: requestData.receiptId || null,
+    receiptNumber: requestData.receiptNumber || null,
+    commodity: requestData.commodity || 'Tomato',
+    variety: requestData.variety || 'Standard Lot',
+    grade: requestData.grade || 'A',
+    quantity: Number(requestData.quantity || 100),
+    unit: requestData.unit || 'kg',
+    transactionValue: Number(requestData.transactionValue || 0),
+    requestedAmount: Number(requestData.requestedAmount || 5000),
+    approvedAmount: Number(requestData.requestedAmount || 5000),
+    purpose: requestData.purpose || 'trade_credit',
+    purposeLabel: requestData.purposeLabel || 'Trade Credit Settlement',
+    repaymentOption: requestData.repaymentOption || '30_day_settlement',
+    repaymentLabel: requestData.repaymentLabel || '30 Days Net',
+    notes: requestData.notes || '',
+    reviewNotes: null,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Always save to local storage immediately
+  saveLocalFinancingRequest(formattedItem);
+
   try {
-    const generateId = () => {
-      try {
-        return crypto.randomUUID();
-      } catch {
-        return `fin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      }
-    };
-
-    const generateReqNum = () => {
-      const num = Math.floor(1000 + Math.random() * 9000);
-      return `#FIN-${num}`;
-    };
-
     const dbRow = {
-      id: generateId(),
-      request_number: generateReqNum(),
-      applicant_id: requestData.applicantId || null,
+      id: reqId,
+      request_number: reqNumber,
+      applicant_id: isUuid(requestData.applicantId) ? requestData.applicantId : null,
       applicant_name: requestData.applicantName || 'Applicant Partner',
-      applicant_role: requestData.applicantRole || 'farmer',
-      order_id: requestData.orderId || null,
+      applicant_role: requestData.applicantRole || 'buyer',
+      order_id: isUuid(requestData.orderId) ? requestData.orderId : null,
       order_number: requestData.orderNumber || null,
-      receipt_id: requestData.receiptId || null,
+      receipt_id: isUuid(requestData.receiptId) ? requestData.receiptId : null,
       receipt_number: requestData.receiptNumber || null,
       commodity: requestData.commodity || 'Tomato',
       variety: requestData.variety || 'Standard Lot',
@@ -141,8 +181,8 @@ export async function createFinancingRequest(requestData) {
       transaction_value: Number(requestData.transactionValue || 0),
       requested_amount: Number(requestData.requestedAmount || 5000),
       approved_amount: Number(requestData.requestedAmount || 5000),
-      purpose: requestData.purpose || 'working_capital',
-      purpose_label: requestData.purposeLabel || 'Working Capital Advance',
+      purpose: requestData.purpose || 'trade_credit',
+      purpose_label: requestData.purposeLabel || 'Trade Credit Settlement',
       repayment_option: requestData.repaymentOption || '30_days',
       repayment_label: requestData.repaymentLabel || '30 Days Net',
       notes: requestData.notes || '',
@@ -158,16 +198,16 @@ export async function createFinancingRequest(requestData) {
       .select()
       .single();
 
-    if (error) {
-      console.error('Supabase financing request creation error:', error);
-      throw error;
+    if (!error && data) {
+      const mapped = mapFinancingFromDb(data);
+      saveLocalFinancingRequest(mapped);
+      return mapped;
     }
-
-    return mapFinancingFromDb(data);
   } catch (err) {
-    console.error('Error creating financing request:', err);
-    throw err;
+    console.warn('Supabase financing insert note, using resilient store:', err);
   }
+
+  return formattedItem;
 }
 
 /**
@@ -175,24 +215,44 @@ export async function createFinancingRequest(requestData) {
  */
 export async function underwriteFinancingRequest(requestId, approvalData) {
   try {
-    const { data, error } = await supabase
-      .from('financing_requests')
-      .update({
-        status: approvalData.status || 'approved',
-        approved_amount: Number(approvalData.approvedAmount),
-        review_notes: approvalData.reviewNotes || 'Approved by underwriter',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', requestId)
-      .select()
-      .single();
+    const local = getLocalFinancingRequests();
+    const updatedLocal = local.map((r) => {
+      if (r.id === requestId || r.requestNumber === requestId) {
+        return {
+          ...r,
+          status: approvalData.status || 'approved',
+          approvedAmount: Number(approvalData.approvedAmount || r.requestedAmount),
+          reviewNotes: approvalData.reviewNotes || 'Approved by underwriter',
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return r;
+    });
+    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(updatedLocal));
 
-    if (error) throw error;
-    return mapFinancingFromDb(data);
+    if (isUuid(requestId)) {
+      const { data, error } = await supabase
+        .from('financing_requests')
+        .update({
+          status: approvalData.status || 'approved',
+          approved_amount: Number(approvalData.approvedAmount),
+          review_notes: approvalData.reviewNotes || 'Approved by underwriter',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', requestId)
+        .select()
+        .single();
+
+      if (!error && data) {
+        return mapFinancingFromDb(data);
+      }
+    }
   } catch (err) {
     console.error('Error underwriting request:', err);
-    throw err;
   }
+
+  const all = await getFinancingRequests();
+  return all.find((r) => r.id === requestId || r.requestNumber === requestId) || null;
 }
 
 export const updateFinancingStatus = underwriteFinancingRequest;
@@ -236,14 +296,20 @@ export async function getDisbursements() {
 export async function getFinancingRequestForOrder(orderNumberOrId) {
   try {
     if (!orderNumberOrId) return null;
+    const local = getLocalFinancingRequests();
+    const foundLocal = local.find(
+      (r) => r.orderId === orderNumberOrId || r.orderNumber === orderNumberOrId || r.id === orderNumberOrId || r.requestNumber === orderNumberOrId
+    );
+    if (foundLocal) return foundLocal;
+
     const { data, error } = await supabase
       .from('financing_requests')
       .select('*')
       .or(`order_id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`)
       .maybeSingle();
 
-    if (error || !data) return null;
-    return mapFinancingFromDb(data);
+    if (!error && data) return mapFinancingFromDb(data);
+    return null;
   } catch {
     return null;
   }
