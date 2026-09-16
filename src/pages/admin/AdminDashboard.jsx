@@ -65,12 +65,18 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
     fetchMetrics();
     window.addEventListener('agrolnk_kyc_updated', fetchMetrics);
+    window.addEventListener('agrolnk_orders_updated', fetchMetrics);
+    window.addEventListener('agrolnk_order_updated', fetchMetrics);
+    window.addEventListener('agrolnk_financing_updated', fetchMetrics);
     window.addEventListener('storage', fetchMetrics);
 
     return () => {
       isMounted = false;
       hideGlobalLoader();
       window.removeEventListener('agrolnk_kyc_updated', fetchMetrics);
+      window.removeEventListener('agrolnk_orders_updated', fetchMetrics);
+      window.removeEventListener('agrolnk_order_updated', fetchMetrics);
+      window.removeEventListener('agrolnk_financing_updated', fetchMetrics);
       window.removeEventListener('storage', fetchMetrics);
     };
   }, []);

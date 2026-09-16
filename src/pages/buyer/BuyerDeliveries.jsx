@@ -38,8 +38,8 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
     try {
       showGlobalLoader('Tracking Inbound Cargo...', 'Connecting to live GPS telematics & carrier waybills...');
       const [buyerOrders, buyerDeliveries] = await Promise.all([
-        getBuyerOrders(user.id),
-        getBuyerDeliveries(user.id),
+        getBuyerOrders(user.id, user),
+        getBuyerDeliveries(user.id, user),
       ]);
       setOrders(buyerOrders || []);
       setDeliveries(buyerDeliveries || []);
@@ -52,7 +52,23 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadData();
-  }, [user.id]);
+
+    const handleUpdated = () => {
+      loadData();
+    };
+
+    window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('agrolnk_order_updated', handleUpdated);
+    window.addEventListener('agrolnk_deliveries_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+
+    return () => {
+      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('agrolnk_order_updated', handleUpdated);
+      window.removeEventListener('agrolnk_deliveries_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
+    };
+  }, [user.id, user.email, user.name]);
 
   const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
 

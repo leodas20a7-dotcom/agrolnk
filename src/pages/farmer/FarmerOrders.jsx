@@ -71,7 +71,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
       showGlobalLoader('Loading Procurement Inquiries...', 'Fetching incoming purchase agreements & delivery milestones...');
     }
     try {
-      const data = await getFarmerOrders(user.id);
+      const data = await getFarmerOrders(user.id, user);
       setOrders(data || []);
       if (selectedOrder) {
         const updated = (data || []).find((o) => o.id === selectedOrder.id || o.orderNumber === selectedOrder.orderNumber);
@@ -92,10 +92,24 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   useEffect(() => {
     fetchOrders(true);
+
+    const handleUpdated = () => {
+      fetchOrders(false);
+    };
+
+    window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('agrolnk_order_updated', handleUpdated);
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+
     return () => {
       hideGlobalLoader();
+      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('agrolnk_order_updated', handleUpdated);
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
     };
-  }, [user.id]);
+  }, [user.id, user.email, user.name]);
 
   useEffect(() => {
     if (selectedOrder) {

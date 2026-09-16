@@ -14,6 +14,7 @@ import Badge from '../ui/Badge';
 import FinancingStatusBadge from './FinancingStatusBadge';
 import { updateFinancingStatus, underwriteFinancingRequest } from '../../utils/financing';
 import { initiateBuyerMarginDepositCheckout } from '../../utils/razorpayRouteClient';
+import { ensureOrderForFinancing } from '../../utils/orders';
 
 export default function FinancingReviewModal({
   request,
@@ -68,6 +69,14 @@ export default function FinancingReviewModal({
           };
           const updated = await underwriteFinancingRequest(targetKey, updatedPayload);
           const resolved = updated || updatedPayload;
+
+          // Materialize / update order in orders table and local cache as funded
+          try {
+            await ensureOrderForFinancing(resolved, res);
+          } catch (orderErr) {
+            console.warn('ensureOrderForFinancing note:', orderErr);
+          }
+
           try {
             window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: resolved }));
             window.dispatchEvent(new Event('storage'));

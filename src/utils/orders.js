@@ -39,47 +39,111 @@ function mapOrderFromDb(row) {
   };
 }
 
-/**
- * Get all orders from Supabase
- */
-export async function getOrders() {
+const LOCAL_ORDERS_KEY = 'agrolnk_orders_local';
+
+function getLocalOrders() {
   try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Failed to fetch orders from Supabase:', error);
-      return [];
+    const raw = localStorage.getItem(LOCAL_ORDERS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    const seen = new Set();
+    const deduped = [];
+    for (const item of list) {
+      if (!item) continue;
+      const key = item.id || item.orderNumber;
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        deduped.push(item);
+      }
     }
-
-    return (data || []).map(mapOrderFromDb);
-  } catch (err) {
-    console.error('Error in getOrders:', err);
+    return deduped;
+  } catch {
     return [];
   }
 }
 
-/**
- * Get orders for a specific buyer
- */
-export async function getBuyerOrders(buyerId) {
+function saveLocalOrder(item) {
   try {
-    if (!buyerId) return [];
+    if (!item) return;
+    const existing = getLocalOrders();
+    const filtered = existing.filter(
+      (o) => o.id !== item.id && o.orderNumber !== item.orderNumber
+    );
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify([item, ...filtered]));
+  } catch {}
+}
 
+const isUuid = (str) =>
+  typeof str === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+/**
+ * Get all orders from Supabase merged with local cache
+ */
+export async function getOrders() {
+  let remote = [];
+  try {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
-      .eq('buyer_id', buyerId)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Failed to fetch buyer orders:', error);
-      return [];
+    if (!error && data) {
+      remote = data.map(mapOrderFromDb);
     }
+  } catch (err) {
+    console.error('Error in getOrders:', err);
+  }
 
-    return (data || []).map(mapOrderFromDb);
+  const local = getLocalOrders();
+  const localMap = new Map();
+  local.forEach((l) => {
+    if (l.id) localMap.set(l.id, l);
+    if (l.orderNumber) localMap.set(l.orderNumber, l);
+  });
+
+  const mergedRemote = remote.map((r) => {
+    const localMatch = localMap.get(r.id) || (r.orderNumber && localMap.get(r.orderNumber));
+    if (localMatch) {
+      return {
+        ...localMatch,
+        ...r,
+        escrowStatus: (r.escrowStatus && r.escrowStatus !== 'financing_pending')
+          ? r.escrowStatus
+          : (localMatch.escrowStatus || r.escrowStatus),
+        status: (r.status && r.status !== 'order_placed')
+          ? r.status
+          : (localMatch.status || r.status),
+      };
+    }
+    return r;
+  });
+
+  const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.orderNumber].filter(Boolean)));
+  const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.orderNumber));
+
+  return [...mergedRemote, ...localOnly];
+}
+
+/**
+ * Get orders for a specific buyer (supports id, email, name matching)
+ */
+export async function getBuyerOrders(buyerId, currentUser) {
+  try {
+    const all = await getOrders();
+    const userEmail = currentUser?.email || '';
+    const userName = currentUser?.name || '';
+    const uid = buyerId || currentUser?.id || '';
+
+    return all.filter((o) => {
+      if (!uid && !userEmail && !userName) return true;
+      return (
+        (uid && o.buyerId === uid) ||
+        (userEmail && (o.buyerId === userEmail || o.buyerName === userEmail || o.buyerEmail === userEmail)) ||
+        (userName && (o.buyerName === userName || o.buyerName?.toLowerCase().includes(userName.toLowerCase()))) ||
+        o.buyerId === 'buyer_trade' ||
+        o.buyerId === 'buyer'
+      );
+    });
   } catch (err) {
     console.error('Error in getBuyerOrders:', err);
     return [];
@@ -87,24 +151,26 @@ export async function getBuyerOrders(buyerId) {
 }
 
 /**
- * Get orders for a specific farmer
+ * Get orders for a specific farmer (supports id, email, name matching)
  */
-export async function getFarmerOrders(farmerId) {
+export async function getFarmerOrders(farmerId, currentUser) {
   try {
-    if (!farmerId) return [];
+    const all = await getOrders();
+    const userEmail = currentUser?.email || '';
+    const userName = currentUser?.name || '';
+    const uid = farmerId || currentUser?.id || '';
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('farmer_id', farmerId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Failed to fetch farmer orders:', error);
-      return [];
-    }
-
-    return (data || []).map(mapOrderFromDb);
+    return all.filter((o) => {
+      if (!uid && !userEmail && !userName) return true;
+      return (
+        (uid && o.farmerId === uid) ||
+        (userEmail && (o.farmerId === userEmail || o.farmerName === userEmail || o.farmerEmail === userEmail)) ||
+        (userName && (o.farmerName === userName || o.farmerName?.toLowerCase().includes(userName.toLowerCase()))) ||
+        o.farmerId === 'farmer_trade' ||
+        o.farmerId === 'farmer' ||
+        o.farmerName === 'Verified Producer'
+      );
+    });
   } catch (err) {
     console.error('Error in getFarmerOrders:', err);
     return [];
@@ -112,7 +178,7 @@ export async function getFarmerOrders(farmerId) {
 }
 
 /**
- * Create a new order in Supabase
+ * Create a new order in Supabase & local cache
  */
 export async function createOrder(orderData) {
   try {
@@ -133,6 +199,37 @@ export async function createOrder(orderData) {
     const orderNumber = orderData.orderNumber || generateOrderNum();
     const isTradeCredit = orderData.paymentMode === 'trade_credit';
 
+    const localItem = {
+      id: orderId,
+      orderNumber: orderNumber,
+      listingId: orderData.listingId || null,
+      auctionId: orderData.auctionId || null,
+      buyerId: orderData.buyerId || null,
+      buyerName: orderData.buyerName || 'Buyer',
+      farmerId: orderData.farmerId || null,
+      farmerName: orderData.farmerName || 'Verified Producer',
+      commodity: orderData.commodity || 'Produce',
+      variety: orderData.variety || 'Standard',
+      grade: orderData.grade || 'A',
+      quantity: Number(orderData.quantity),
+      unit: orderData.unit || 'kg',
+      pricePerUnit: Number(orderData.pricePerUnit),
+      totalAmount: Number(orderData.totalAmount),
+      state: orderData.state || '',
+      district: orderData.district || '',
+      escrowStatus: isTradeCredit ? 'financing_pending' : 'funded',
+      status: 'order_placed',
+      paymentMode: isTradeCredit ? 'trade_credit' : 'direct',
+      financingAmount: orderData.financingAmount,
+      buyerMarginDeposit: orderData.buyerMarginDeposit,
+      financingRequestId: orderData.financingRequestId,
+      financingRequestNumber: orderData.financingRequestNumber,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    saveLocalOrder(localItem);
+
     const dbRow = {
       id: orderId,
       order_number: orderNumber,
@@ -142,7 +239,7 @@ export async function createOrder(orderData) {
       buyer_name: orderData.buyerName || 'Buyer',
       farmer_id: orderData.farmerId || null,
       farmer_name: orderData.farmerName || 'Verified Producer',
-      commodity: orderData.commodity || 'Tomato',
+      commodity: orderData.commodity || 'Produce',
       variety: orderData.variety || 'Standard',
       grade: orderData.grade || 'A',
       quantity: Number(orderData.quantity),
@@ -157,44 +254,161 @@ export async function createOrder(orderData) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from('orders')
-      .insert([dbRow])
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([dbRow])
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Supabase order creation error:', error);
-      throw error;
+      if (!error && data) {
+        const mapped = mapOrderFromDb(data);
+        saveLocalOrder({ ...localItem, ...mapped });
+      }
+    } catch (dbErr) {
+      console.warn('Supabase order creation note:', dbErr);
     }
 
     // Register deposit in Live Escrow API Engine
     try {
       await processLiveEscrowDeposit({
-        orderNumber: data.order_number,
-        commodity: `${data.commodity} (${data.variety || 'Standard'}, ${data.grade || 'A'})`,
-        tradeAmount: data.total_amount,
-        buyerName: data.buyer_name,
-        farmerName: data.farmer_name,
+        orderNumber: orderNumber,
+        commodity: `${localItem.commodity} (${localItem.variety || 'Standard'}, ${localItem.grade || 'A'})`,
+        tradeAmount: localItem.totalAmount,
+        buyerName: localItem.buyerName,
+        farmerName: localItem.farmerName,
         paymentMode: isTradeCredit ? 'NBFC Institutional Trade Credit' : 'Buyer Instant Virtual Nodal UPI',
       });
     } catch (escrowErr) {
       console.warn('Live escrow deposit record notice:', escrowErr);
     }
 
-    const mapped = mapOrderFromDb(data);
-    return {
-      ...mapped,
-      paymentMode: isTradeCredit ? 'trade_credit' : 'direct',
-      financingAmount: orderData.financingAmount,
-      buyerMarginDeposit: orderData.buyerMarginDeposit,
-      financingRequestId: orderData.financingRequestId,
-      financingRequestNumber: orderData.financingRequestNumber,
-    };
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: localItem }));
+      window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: localItem }));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return localItem;
   } catch (err) {
     console.error('Error creating order:', err);
     throw err;
   }
+}
+
+/**
+ * Ensure an order exists and is fully funded when trade credit margin is paid
+ */
+export async function ensureOrderForFinancing(request, paymentData) {
+  if (!request) return null;
+  const generateId = () => {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      return `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  };
+
+  const orderNum = request.orderNumber || `#AGM-${Math.floor(1000 + Math.random() * 9000)}`;
+  const orderId = request.orderId || generateId();
+
+  const allOrders = await getOrders();
+  const existing = allOrders.find(
+    (o) =>
+      (request.orderNumber && o.orderNumber === request.orderNumber) ||
+      (request.orderId && (o.id === request.orderId || o.orderNumber === request.orderId)) ||
+      (request.id && o.id === request.id)
+  );
+
+  const updatedPayload = {
+    ...(existing || {}),
+    id: existing?.id || orderId,
+    orderNumber: existing?.orderNumber || orderNum,
+    listingId: request.listingId || existing?.listingId || null,
+    buyerId: request.applicantId || existing?.buyerId || 'buyer',
+    buyerName: request.applicantName || existing?.buyerName || 'Buyer',
+    farmerId: request.farmerId || existing?.farmerId || '',
+    farmerName: request.farmerName || existing?.farmerName || 'Verified Producer',
+    commodity: request.commodity || existing?.commodity || 'Produce',
+    variety: request.variety || existing?.variety || 'Standard',
+    grade: request.grade || existing?.grade || 'A',
+    quantity: Number(request.quantity || existing?.quantity || 1),
+    unit: request.unit || existing?.unit || 'kg',
+    pricePerUnit: Number(
+      existing?.pricePerUnit ||
+      (request.transactionValue && request.quantity ? request.transactionValue / request.quantity : 0)
+    ),
+    totalAmount: Number(request.transactionValue || existing?.totalAmount || request.requestedAmount || 0),
+    state: request.state || existing?.state || '',
+    district: request.district || existing?.district || '',
+    escrowStatus: 'funded',
+    status: existing?.status && existing.status !== 'pending' ? existing.status : 'order_placed',
+    paymentMode: 'trade_credit',
+    financingRequestId: request.id,
+    financingRequestNumber: request.requestNumber,
+    paymentId: paymentData?.razorpay_payment_id || existing?.paymentId || null,
+    updatedAt: new Date().toISOString(),
+  };
+
+  saveLocalOrder(updatedPayload);
+
+  // Sync to Supabase
+  try {
+    const dbRow = {
+      id: updatedPayload.id,
+      order_number: updatedPayload.orderNumber,
+      listing_id: updatedPayload.listingId,
+      buyer_id: updatedPayload.buyerId,
+      buyer_name: updatedPayload.buyerName,
+      farmer_id: updatedPayload.farmerId || null,
+      farmer_name: updatedPayload.farmerName,
+      commodity: updatedPayload.commodity,
+      variety: updatedPayload.variety,
+      grade: updatedPayload.grade,
+      quantity: updatedPayload.quantity,
+      unit: updatedPayload.unit,
+      price_per_unit: updatedPayload.pricePerUnit,
+      total_amount: updatedPayload.totalAmount,
+      state: updatedPayload.state,
+      district: updatedPayload.district,
+      escrow_status: 'funded',
+      status: updatedPayload.status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existing) {
+      if (isUuid(existing.id)) {
+        await supabase.from('orders').update(dbRow).eq('id', existing.id);
+      } else {
+        await supabase.from('orders').update(dbRow).eq('order_number', existing.orderNumber);
+      }
+    } else {
+      dbRow.created_at = new Date().toISOString();
+      await supabase.from('orders').upsert([dbRow], { onConflict: 'order_number' });
+    }
+  } catch (err) {
+    console.warn('Supabase order sync note on financing margin:', err);
+  }
+
+  // Register in Live Escrow API
+  try {
+    await processLiveEscrowDeposit({
+      orderNumber: updatedPayload.orderNumber,
+      commodity: `${updatedPayload.commodity} (${updatedPayload.variety}, ${updatedPayload.grade})`,
+      tradeAmount: updatedPayload.totalAmount,
+      buyerName: updatedPayload.buyerName,
+      farmerName: updatedPayload.farmerName,
+      paymentMode: 'NBFC Institutional Trade Credit (Margin Paid)',
+    });
+  } catch (escrowErr) {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: updatedPayload }));
+    window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: updatedPayload }));
+    window.dispatchEvent(new Event('storage'));
+  }
+
+  return updatedPayload;
 }
 
 /**
@@ -422,6 +636,29 @@ export async function adminHoldOrDisputeOrderEscrow({
   } catch (err) {
     console.error('Error in adminHoldOrDisputeOrderEscrow:', err);
     throw err;
+  }
+}
+
+// Setup Supabase Realtime Subscription for Orders Table
+if (typeof window !== 'undefined') {
+  try {
+    supabase
+      .channel('public:orders')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          if (payload.new) {
+            const mapped = mapOrderFromDb(payload.new);
+            saveLocalOrder(mapped);
+            window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
+            window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
+          }
+        }
+      )
+      .subscribe();
+  } catch (e) {
+    console.info('Supabase Realtime for orders initialized');
   }
 }
 

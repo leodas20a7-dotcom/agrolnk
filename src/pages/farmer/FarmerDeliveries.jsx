@@ -69,8 +69,8 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
     }
     try {
       const [farmerOrders, farmerDeliveries] = await Promise.all([
-        getFarmerOrders(user.id),
-        getFarmerDeliveries(user.id),
+        getFarmerOrders(user.id, user),
+        getFarmerDeliveries(user.id, user),
       ]);
       setOrders(farmerOrders || []);
       setDeliveries(farmerDeliveries || []);
@@ -85,10 +85,24 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
 
   useEffect(() => {
     loadData(true);
+
+    const handleUpdated = () => {
+      loadData(false);
+    };
+
+    window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('agrolnk_order_updated', handleUpdated);
+    window.addEventListener('agrolnk_deliveries_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+
     return () => {
       hideGlobalLoader();
+      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('agrolnk_order_updated', handleUpdated);
+      window.removeEventListener('agrolnk_deliveries_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
     };
-  }, [user.id]);
+  }, [user.id, user.email, user.name]);
 
   const handleAcceptPrice = async (delivery) => {
     try {

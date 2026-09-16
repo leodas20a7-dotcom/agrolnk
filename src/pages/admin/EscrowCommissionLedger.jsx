@@ -62,14 +62,20 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
       loadData();
     };
 
+    window.addEventListener('agrolnk_orders_updated', handleUpdate);
     window.addEventListener('agrolnk_order_updated', handleUpdate);
     window.addEventListener('agrolnk_escrow_updated', handleUpdate);
+    window.addEventListener('agrolnk_financing_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
 
     return () => {
       isMounted = false;
       hideGlobalLoader();
+      window.removeEventListener('agrolnk_orders_updated', handleUpdate);
       window.removeEventListener('agrolnk_order_updated', handleUpdate);
       window.removeEventListener('agrolnk_escrow_updated', handleUpdate);
+      window.removeEventListener('agrolnk_financing_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
     };
   }, []);
 

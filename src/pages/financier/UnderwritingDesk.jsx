@@ -61,8 +61,20 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadRequests(true);
+
+    const handleUpdated = () => {
+      loadRequests(false);
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+
     return () => {
       hideGlobalLoader();
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
     };
   }, []);
 

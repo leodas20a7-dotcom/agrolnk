@@ -44,7 +44,7 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
           getDisbursements(),
         ]);
         if (isMounted) {
-          setActiveLoans((all || []).filter((r) => r.status === 'approved'));
+          setActiveLoans((all || []).filter((r) => r.status === 'approved' || r.status === 'disbursed'));
           setDisbursements((allDisb || []).filter((d) => d.status === 'active'));
         }
       } catch (err) {
@@ -54,8 +54,20 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
       }
     };
     loadAll();
+
+    const handleUpdated = () => {
+      loadAll();
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
     };
   }, []);
 
