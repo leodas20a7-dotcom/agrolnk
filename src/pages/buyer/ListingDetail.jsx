@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import OrderModal from '../../components/buyer/OrderModal';
 import BuyerInspectionModal from '../../components/inspection/BuyerInspectionModal';
+import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
@@ -19,11 +20,15 @@ import {
   Clock,
   Lock,
   Scale,
-  AlertCircle
+  AlertCircle,
+  Landmark,
+  Building2,
+  Percent
 } from 'lucide-react';
 import { createOrder } from '../../utils/orders';
 import { deductListingQuantity, COMMODITY_IMAGES } from '../../utils/listings';
 import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
+import { getFinancingRequestForOrder, getBuyerFinancingRequests } from '../../utils/financing';
 
 export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
@@ -48,6 +53,8 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInspectionOpen, setIsInspectionOpen] = useState(false);
   const [existingInspection, setExistingInspection] = useState(null);
+  const [isFinancingOpen, setIsFinancingOpen] = useState(false);
+  const [existingFinancing, setExistingFinancing] = useState(null);
   const estimatedTotal = Number(listing.quantity || 0) * Number(listing.price || 0);
 
   const loadInspection = async () => {
@@ -57,8 +64,26 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
     }
   };
 
+  const loadFinancing = async () => {
+    if (listing?.id || user.id) {
+      try {
+        const [lotFin, userFins] = await Promise.all([
+          listing?.id ? getFinancingRequestForOrder(listing.id) : null,
+          user.id ? getBuyerFinancingRequests(user.id) : [],
+        ]);
+
+        // Check if user has an active request for this specific listing/order
+        const matched = lotFin || (userFins || []).find((f) => f.orderId === listing?.id || f.commodity === listing?.commodity);
+        setExistingFinancing(matched || null);
+      } catch (e) {
+        console.error('Failed to load financing request for listing:', e);
+      }
+    }
+  };
+
   useEffect(() => {
     loadInspection();
+    loadFinancing();
 
     const unsubscribe = subscribeToInspections(() => {
       loadInspection();
@@ -66,16 +91,19 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
 
     const handleLocalUpdate = () => {
       loadInspection();
+      loadFinancing();
     };
     window.addEventListener('agrolnk_inspections_updated', handleLocalUpdate);
+    window.addEventListener('agrolnk_financing_updated', handleLocalUpdate);
     window.addEventListener('storage', handleLocalUpdate);
 
     return () => {
       unsubscribe?.();
       window.removeEventListener('agrolnk_inspections_updated', handleLocalUpdate);
+      window.removeEventListener('agrolnk_financing_updated', handleLocalUpdate);
       window.removeEventListener('storage', handleLocalUpdate);
     };
-  }, [listing?.id]);
+  }, [listing?.id, user.id]);
 
   const handleOrderConfirmed = async (orderPayload) => {
     try {
@@ -303,6 +331,65 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </Button>
               </div>
 
+              {/* Institutional Trade Credit & Financing Support */}
+              <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#1E3A8A] flex items-center gap-1.5">
+                    <Landmark className="w-4 h-4 text-blue-700" />
+                    Institutional Trade Credit
+                  </span>
+                  {existingFinancing ? (
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                      existingFinancing.status === 'approved'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : existingFinancing.status === 'rejected'
+                        ? 'bg-red-100 text-red-800 border border-red-300'
+                        : 'bg-blue-100 text-blue-800 border border-blue-300'
+                    }`}>
+                      {existingFinancing.status === 'approved'
+                        ? `Credit Approved: ₹${Number(existingFinancing.approvedAmount || existingFinancing.requestedAmount).toLocaleString('en-IN')} ✓`
+                        : existingFinancing.status === 'rejected'
+                        ? 'Financing Declined'
+                        : 'Underwriting Review'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold border border-blue-200">
+                      Up to 80% LTV
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[11px] text-[#475569] leading-relaxed">
+                    {existingFinancing?.status === 'approved'
+                      ? `Institutional credit of ₹${Number(existingFinancing.approvedAmount || existingFinancing.requestedAmount).toLocaleString('en-IN')} is earmarked by accredited NBFC. Proceed to purchase to utilize credit facility.`
+                      : existingFinancing?.status === 'pending'
+                      ? `Application ${existingFinancing.requestNumber || '#FIN'} is under review by institutional credit desk. Margin deposit required at checkout.`
+                      : `Short on working capital? Registered NBFCs offer purchase trade credit up to ₹${Math.round(estimatedTotal * 0.8).toLocaleString('en-IN')} with flexible 30–60 day net settlement.`}
+                  </p>
+                  <div className="flex items-center gap-3 text-[10px] text-blue-900/80 font-semibold pt-0.5">
+                    <span>⚡ 30 Days Net</span>
+                    <span>•</span>
+                    <span>🏛️ NBFC Underwritten</span>
+                    <span>•</span>
+                    <span>0.85%/mo</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsFinancingOpen(true)}
+                  icon={Landmark}
+                  iconPosition="left"
+                  className="w-full justify-center py-2 text-xs font-bold border-blue-200 text-blue-950 bg-white hover:bg-blue-100/70 cursor-pointer shadow-2xs"
+                >
+                  {existingFinancing
+                    ? 'View / Modify Trade Credit Request'
+                    : `Apply for Purchase Financing (Up to ₹${Math.round(estimatedTotal * 0.8).toLocaleString('en-IN')})`}
+                </Button>
+              </div>
+
               {/* Buy Now CTA Section with Quality Inspection Protection */}
               <div className="space-y-2">
                 {/* Condition 1: Inspection requested & awaiting admin inspector report */}
@@ -428,6 +515,20 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleOrderConfirmed}
       />
+
+      {/* Institutional Trade Credit & Financing Application Modal */}
+      {isFinancingOpen && (
+        <FinancingRequestModal
+          listing={listing}
+          currentUser={user}
+          onClose={() => setIsFinancingOpen(false)}
+          onSuccess={(fin) => {
+            setExistingFinancing(fin);
+            setIsFinancingOpen(false);
+            loadFinancing();
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }

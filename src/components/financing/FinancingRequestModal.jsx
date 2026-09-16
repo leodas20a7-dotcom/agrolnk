@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { X, Landmark, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, Landmark, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2, Building2, Sparkles } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { createFinancingRequest } from '../../utils/financing';
 
 export default function FinancingRequestModal({
   order,
+  listing,
   currentUser,
   onClose,
   onSuccess,
@@ -13,11 +14,17 @@ export default function FinancingRequestModal({
   const user = currentUser || {
     id: '',
     name: 'Applicant',
-    role: 'farmer',
+    role: 'buyer',
   };
 
   const isBuyer = user.role === 'buyer';
-  const totalValue = Number(order?.totalAmount || order?.transactionValue || 21000);
+  const targetItem = order || listing || {};
+  const totalValue = Number(
+    targetItem?.totalAmount ||
+    targetItem?.transactionValue ||
+    (Number(targetItem?.price || 0) * Number(targetItem?.quantity || 1)) ||
+    25000
+  );
 
   const [requestedAmount, setRequestedAmount] = useState(
     Math.round(totalValue * 0.7) // Default 70% of transaction value
@@ -34,9 +41,9 @@ export default function FinancingRequestModal({
 
   const purposeOptions = isBuyer
     ? [
-        { id: 'trade_credit', label: 'Auction / Purchase Trade Settlement Credit' },
-        { id: 'working_capital', label: 'Procurement Working Capital' },
-        { id: 'inventory_holding', label: 'Wholesale Storage & Inventory Holding' },
+        { id: 'trade_credit', label: 'Procurement Trade Credit & Purchase Settlement (NBFC Supported)' },
+        { id: 'working_capital', label: 'Wholesale Trade Working Capital Facility' },
+        { id: 'inventory_holding', label: 'Warehouse Inbound Inventory & Transit Financing' },
       ]
     : [
         { id: 'working_capital', label: 'Working Capital & Operational Liquidity' },
@@ -46,9 +53,10 @@ export default function FinancingRequestModal({
       ];
 
   const repaymentOptions = [
-    { id: 'auto_escrow_deduction', label: 'Auto-deduction on Agrolnk escrow payout' },
-    { id: '30_day_settlement', label: '30-day post-delivery settlement' },
-    { id: 'harvest_cycle', label: 'Seasonal harvest cycle rollover' },
+    { id: '30_day_settlement', label: '30-Day Post-Delivery Net Settlement (Recommended)' },
+    { id: '60_day_extended', label: '60-Day Extended Trade Credit Window' },
+    { id: 'auto_escrow_deduction', label: 'Auto-deduction on Agrolnk escrow release' },
+    { id: 'harvest_cycle', label: 'Seasonal trade cycle repayment' },
   ];
 
   const handlePreset = (percentage) => {
@@ -74,35 +82,45 @@ export default function FinancingRequestModal({
       const selectedRepaymentObj = repaymentOptions.find((r) => r.id === repaymentOption);
 
       const requestPayload = {
-        applicantId: user.id,
-        applicantName: user.name,
-        applicantRole: user.role,
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        commodity: order.commodity,
-        variety: order.variety || 'Standard Lot',
-        grade: order.grade || 'A',
-        quantity: order.quantity,
-        unit: order.unit || 'kg',
+        applicantId: user.id || user.email || 'buyer_trade',
+        applicantName: user.name || 'Agrolnk Buyer Partner',
+        applicantRole: user.role || 'buyer',
+        orderId: targetItem.id || null,
+        orderNumber: targetItem.orderNumber || (targetItem.id ? `#LOT-${String(targetItem.id).slice(0, 6).toUpperCase()}` : '#FIN-BUY'),
+        commodity: targetItem.commodity || 'Agricultural Produce',
+        variety: targetItem.variety || 'Standard Lot',
+        grade: targetItem.grade || 'A',
+        quantity: Number(targetItem.quantity || 100),
+        unit: targetItem.unit || 'kg',
         transactionValue: totalValue,
         requestedAmount: Number(requestedAmount),
         purpose,
-        purposeLabel: selectedPurposeObj?.label || 'Working Capital',
+        purposeLabel: selectedPurposeObj?.label || 'Trade Credit',
         repaymentOption,
-        repaymentLabel: selectedRepaymentObj?.label || 'Auto-deduction on escrow release',
+        repaymentLabel: selectedRepaymentObj?.label || '30-Day Settlement',
         notes: notes.trim(),
       };
 
       const created = await createFinancingRequest(requestPayload);
+      
+      // Notify other windows/tabs & desk
+      try {
+        window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: created }));
+      } catch (e) {
+        // ignore
+      }
+
       setIsSubmitting(false);
       onSuccess?.(created);
       onClose();
     } catch (err) {
       console.error('Failed to create financing request:', err);
-      setError('An error occurred while submitting the request.');
+      setError('An error occurred while submitting the request. Please try again.');
       setIsSubmitting(false);
     }
   };
+
+  const itemRefNumber = targetItem?.orderNumber || (targetItem?.id ? `Lot #${String(targetItem.id).slice(0, 8)}` : 'Active Trade Lot');
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
@@ -116,10 +134,10 @@ export default function FinancingRequestModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-[#0B3326] font-heading">
-                {isBuyer ? 'Request Trade Credit' : 'Request Liquidity Financing'}
+                {isBuyer ? 'Institutional Trade Credit & Financing' : 'Request Liquidity Financing'}
               </h3>
               <span className="text-xs text-[#566861]">
-                Transaction-linked agricultural funding
+                NBFC & Institutional agricultural credit support
               </span>
             </div>
           </div>
@@ -135,27 +153,29 @@ export default function FinancingRequestModal({
         {/* Linked Transaction Card Summary */}
         <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">
-              Linked Transaction
+            <span className="text-[11px] font-bold text-[#566861] uppercase tracking-wider flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-[#10B981]" />
+              Linked Procurement Lot
             </span>
             <Badge variant="dark" size="sm">
-              {order?.orderNumber}
+              {itemRefNumber}
             </Badge>
           </div>
 
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-base font-bold text-[#14211D]">
-                {order?.commodity}
+                {targetItem?.commodity || 'Produce Lot'}
               </h4>
               <span className="text-xs text-[#566861]">
-                {order?.quantity} {order?.unit || 'kg'} • Grade {order?.grade || 'A'}
+                {targetItem?.quantity} {targetItem?.unit || 'kg'} • Grade {targetItem?.grade || 'A'}
+                {targetItem?.farmerName ? ` • Seller: ${targetItem.farmerName}` : ''}
               </span>
             </div>
 
             <div className="text-right">
               <span className="text-[11px] text-[#566861] block font-medium">
-                Transaction Value
+                Lot / Order Value
               </span>
               <span className="text-xl font-extrabold text-[#0B3326] font-heading">
                 ₹{totalValue.toLocaleString('en-IN')}
@@ -285,7 +305,7 @@ export default function FinancingRequestModal({
           <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
             <span>
-              This request is backed by verified Agrolnk order {order?.orderNumber}. No independent collateral required.
+              This application is reviewed and underwritten by registered Agrolnk Institutional NBFCs. Direct escrow disbursement upon seller dispatch.
             </span>
           </div>
 
