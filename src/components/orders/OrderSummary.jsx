@@ -100,17 +100,6 @@ export default function OrderSummary({
         </div>
         
         <div className="flex items-center gap-2.5">
-          {/* Subtle Credit Link in Header ONLY if not yet financed */}
-          {!isFinanced && order.status !== 'completed' && order.status !== 'cancelled' && onRequestFinancing && (
-            <button
-              onClick={() => onRequestFinancing(order)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
-            >
-              <CreditCard className="w-3.5 h-3.5 text-amber-700" />
-              <span>{isBuyer ? 'Need Credit?' : 'Get Advance'}</span>
-            </button>
-          )}
-
           {/* Trade Credit Status Badge */}
           {isFinanced ? (
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
