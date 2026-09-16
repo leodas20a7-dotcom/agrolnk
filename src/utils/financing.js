@@ -64,6 +64,24 @@ function getLocalFinancingRequests() {
 function saveLocalFinancingRequest(item) {
   try {
     const existing = getLocalFinancingRequests();
+    const existingItem = existing.find(
+      (r) =>
+        r.id === item.id ||
+        r.requestNumber === item.requestNumber ||
+        (item.orderNumber && r.orderNumber === item.orderNumber) ||
+        (item.orderId && r.orderId === item.orderId)
+    );
+
+    // Deep merge to preserve settled status & margin payment
+    const mergedItem = {
+      ...(existingItem || {}),
+      ...item,
+      marginPaid: Boolean(item.marginPaid || existingItem?.marginPaid),
+      escrowFunded: Boolean(item.escrowFunded || existingItem?.escrowFunded),
+      paymentId: item.paymentId || existingItem?.paymentId || null,
+      status: (item.status && item.status !== 'pending') ? item.status : (existingItem?.status || item.status || 'pending'),
+    };
+
     const filtered = existing.filter(
       (r) =>
         r.id !== item.id &&
@@ -73,7 +91,7 @@ function saveLocalFinancingRequest(item) {
         (item.listingId ? (r.listingId !== item.listingId || r.applicantId !== item.applicantId) : true) &&
         !(r.commodity === item.commodity && r.applicantId === item.applicantId && Number(r.quantity) === Number(item.quantity) && r.status === 'pending')
     );
-    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify([item, ...filtered]));
+    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify([mergedItem, ...filtered]));
   } catch {}
 }
 
@@ -116,10 +134,11 @@ export async function getFinancingRequests() {
     if (l.id) localMap.set(l.id, l);
     if (l.requestNumber) localMap.set(l.requestNumber, l);
     if (l.orderNumber) localMap.set(l.orderNumber, l);
+    if (l.orderId) localMap.set(l.orderId, l);
   });
 
   const mergedRemote = remote.map((r) => {
-    const localMatch = localMap.get(r.id) || localMap.get(r.requestNumber) || (r.orderNumber && localMap.get(r.orderNumber));
+    const localMatch = localMap.get(r.id) || localMap.get(r.requestNumber) || (r.orderNumber && localMap.get(r.orderNumber)) || (r.orderId && localMap.get(r.orderId));
     if (localMatch) {
       // Remote terminal state (approved/rejected/disbursed) ALWAYS takes precedence over stale local 'pending'
       const resolvedStatus = (r.status && r.status !== 'pending')
@@ -136,13 +155,14 @@ export async function getFinancingRequests() {
         approvedAmount: resolvedApprovedAmount,
         marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
         escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
+        paymentId: r.paymentId || localMatch.paymentId || null,
         status: resolvedStatus,
       };
     }
     return r;
   });
 
-  const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber].filter(Boolean)));
+  const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber, r.orderId].filter(Boolean)));
   const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber)));
 
   return [...mergedRemote, ...localOnly];
@@ -382,19 +402,50 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
     if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
       updatePayload.approved_amount = Number(approvalData.approvedAmount);
     }
+    if (approvalData.marginPaid !== undefined) {
+      updatePayload.margin_paid = Boolean(approvalData.marginPaid);
+    }
+    if (approvalData.escrowFunded !== undefined) {
+      updatePayload.escrow_funded = Boolean(approvalData.escrowFunded);
+    }
+    if (approvalData.paymentId) {
+      updatePayload.payment_id = approvalData.paymentId;
+    }
+    if (approvalData.marginPaidAt) {
+      updatePayload.margin_paid_at = approvalData.marginPaidAt;
+    }
 
     // Update in Supabase across ID, request_number, or order_number
     try {
+      let query;
       if (isUuid(requestId)) {
-        await supabase
+        query = supabase
           .from('financing_requests')
           .update(updatePayload)
           .eq('id', requestId);
       } else {
-        await supabase
+        query = supabase
           .from('financing_requests')
           .update(updatePayload)
           .or(`request_number.eq.${requestId},order_number.eq.${requestId}`);
+      }
+
+      const { error: updateErr } = await query;
+      if (updateErr) {
+        // Fallback in case custom margin columns are pending SQL schema migration
+        const basicPayload = {
+          status: nextStatus,
+          review_notes: nextNotes,
+          updated_at: new Date().toISOString(),
+        };
+        if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
+          basicPayload.approved_amount = Number(approvalData.approvedAmount);
+        }
+        if (isUuid(requestId)) {
+          await supabase.from('financing_requests').update(basicPayload).eq('id', requestId);
+        } else {
+          await supabase.from('financing_requests').update(basicPayload).or(`request_number.eq.${requestId},order_number.eq.${requestId}`);
+        }
       }
     } catch (dbErr) {
       console.warn('Supabase financing table update note:', dbErr);
