@@ -252,7 +252,11 @@ CREATE TABLE IF NOT EXISTS public.financing_requests (
     repayment_label TEXT NOT NULL,
     notes TEXT,
     review_notes TEXT,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'under_review', 'approved', 'rejected')),
+    margin_paid BOOLEAN DEFAULT false,
+    escrow_funded BOOLEAN DEFAULT false,
+    payment_id TEXT,
+    margin_paid_at TIMESTAMP WITH TIME ZONE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'under_review', 'approved', 'disbursed', 'escrow_secured', 'rejected', 'cancelled')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
