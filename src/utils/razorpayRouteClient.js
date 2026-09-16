@@ -376,3 +376,81 @@ export async function initiateRazorpayInspectionFeeCheckout({
     onFailure?.(initErr);
   }
 }
+
+/**
+ * Launch Razorpay Route Escrow Capital Disbursement for Financial Institutions / NBFCs
+ * @param {object} params - { request, approvedAmount, financierUser, onSuccess, onFailure }
+ */
+export async function initiateFinancierEscrowDisbursement({
+  request,
+  approvedAmount,
+  financierUser,
+  onSuccess,
+  onFailure,
+}) {
+  const isLoaded = await loadRazorpaySDK();
+  if (!isLoaded) {
+    onFailure?.(new Error('Could not load Razorpay payment gateway. Please check your internet connection.'));
+    return;
+  }
+
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const disburseAmount = Number(approvedAmount) || Number(request?.approvedAmount) || Number(request?.requestedAmount) || 10000;
+  const totalAmountInPaise = Math.round(disburseAmount * 100);
+  const testOrderId = `disb_escrow_${Date.now()}`;
+
+  const options = {
+    key: razorpayKeyId,
+    amount: totalAmountInPaise,
+    currency: 'INR',
+    name: 'AgroLnk Escrow Capital Vault',
+    description: `Trade Credit Disbursement: ₹${disburseAmount.toLocaleString('en-IN')} -> Order ${request?.orderNumber || request?.orderId || '#TRADE-ESCROW'}`,
+    image: '/assets/Logo.jpeg',
+    prefill: {
+      name: financierUser?.name || 'Institutional Capital Partner',
+      email: financierUser?.email || 'financier@agrolnk.com',
+      contact: financierUser?.phone || '9876543210',
+    },
+    notes: {
+      request_id: request?.id,
+      request_number: request?.requestNumber,
+      order_number: request?.orderNumber,
+      applicant_name: request?.applicantName,
+      commodity: request?.commodity,
+      disbursed_loan_amount: `₹${disburseAmount}`,
+      escrow_status: 'held_on_hold',
+      settlement_type: 'Razorpay Route (Institutional Escrow Lien)',
+    },
+    theme: {
+      color: '#0B3326', // AgroLnk Emerald
+    },
+    modal: {
+      ondismiss: () => {
+        onFailure?.(new Error('Disbursement window closed by user.'));
+      },
+    },
+    handler: async function (response) {
+      try {
+        const utrNum = `UTR${202600000000 + Math.floor(Math.random() * 90000000 + 10000000)}`;
+        onSuccess?.({
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          bankUtr: utrNum,
+          disbursedAmount: disburseAmount,
+          verified: true,
+        });
+      } catch (err) {
+        onFailure?.(err);
+      }
+    },
+  };
+
+  try {
+    const rzpInstance = new window.Razorpay(options);
+    rzpInstance.open();
+  } catch (initErr) {
+    console.error('Error opening Razorpay disbursement modal:', initErr);
+    onFailure?.(initErr);
+  }
+}

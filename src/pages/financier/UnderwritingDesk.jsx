@@ -386,6 +386,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           isOpen={Boolean(selectedRequestForReview)}
           onClose={() => setSelectedRequestForReview(null)}
           request={selectedRequestForReview}
+          currentUser={user}
           onUpdated={loadRequests}
         />
       )}

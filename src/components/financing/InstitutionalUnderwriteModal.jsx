@@ -13,15 +13,19 @@ import {
   Calendar,
   DollarSign,
   FileCheck,
-  XCircle
+  XCircle,
+  Zap,
+  Lock
 } from 'lucide-react';
 import { underwriteLoan, updateFinancingStatus } from '../../utils/financing';
+import { initiateFinancierEscrowDisbursement } from '../../utils/razorpayRouteClient';
 
 export default function InstitutionalUnderwriteModal({
   isOpen,
   onClose,
   request,
   onUpdated,
+  currentUser,
 }) {
   const [approvedAmount, setApprovedAmount] = useState(50000);
   const [interestRate, setInterestRate] = useState(0.85);
@@ -30,6 +34,7 @@ export default function InstitutionalUnderwriteModal({
   const [reviewNotes, setReviewNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (request) {
@@ -39,6 +44,7 @@ export default function InstitutionalUnderwriteModal({
       setRiskRating(request.riskRating || 'Low (Tier 1)');
       setReviewNotes(request.notes || '');
       setActionSuccess(null);
+      setError('');
       setIsSubmitting(false);
     }
   }, [request, isOpen]);
@@ -53,28 +59,50 @@ export default function InstitutionalUnderwriteModal({
 
   const handleApprove = (e) => {
     e.preventDefault();
+    setError('');
     setIsSubmitting(true);
 
-    try {
-      underwriteLoan(request.id, {
-        approvedAmount: Number(approvedAmount),
-        interestRate: Number(interestRate),
-        tenorDays: Number(tenorDays),
-        riskRating,
-        reviewNotes: reviewNotes || 'Underwriting approved by institutional credit desk.',
-      });
+    // Launch Razorpay Route Escrow Capital Disbursement Gateway
+    initiateFinancierEscrowDisbursement({
+      request,
+      approvedAmount: Number(approvedAmount),
+      financierUser: currentUser,
+      onSuccess: async (paymentData) => {
+        try {
+          await underwriteLoan(request.id, {
+            status: 'approved',
+            approvedAmount: Number(approvedAmount),
+            interestRate: Number(interestRate),
+            tenorDays: Number(tenorDays),
+            riskRating,
+            reviewNotes: reviewNotes || `Loan disbursed to escrow via Razorpay Route. UTR: ${paymentData?.bankUtr || 'UTR-ESCROW-PAID'}.`,
+            bankUtr: paymentData?.bankUtr,
+            razorpayPaymentId: paymentData?.razorpay_payment_id,
+          });
 
-      setActionSuccess('Loan facility approved & capital earmarked from liquidity pool!');
-      setTimeout(() => {
-        onUpdated?.();
-        onClose();
-        setActionSuccess(null);
+          setActionSuccess(
+            `₹${Number(approvedAmount).toLocaleString('en-IN')} disbursed into Escrow via Razorpay Route! (UTR: ${paymentData?.bankUtr})`
+          );
+
+          setTimeout(() => {
+            onUpdated?.();
+            onClose();
+            setActionSuccess(null);
+            setIsSubmitting(false);
+          }, 1500);
+        } catch (err) {
+          console.error('Error underwriting after payment:', err);
+          setError('Failed to record approved underwriting status.');
+          setIsSubmitting(false);
+        }
+      },
+      onFailure: (err) => {
         setIsSubmitting(false);
-      }, 1200);
-    } catch (err) {
-      console.error(err);
-      setIsSubmitting(false);
-    }
+        if (err.message && !err.message.includes('closed')) {
+          setError(err.message || 'Escrow disbursement failed. Please try again.');
+        }
+      },
+    });
   };
 
   const handleReject = () => {
@@ -107,6 +135,13 @@ export default function InstitutionalUnderwriteModal({
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{actionSuccess}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -299,7 +334,7 @@ export default function InstitutionalUnderwriteModal({
               disabled={isSubmitting}
               className="font-bold cursor-pointer justify-center w-full sm:w-auto"
             >
-              {isSubmitting ? 'Processing...' : `Approve ₹${approvedAmount.toLocaleString('en-IN')}`}
+              {isSubmitting ? 'Processing Gateway...' : `Disburse ₹${approvedAmount.toLocaleString('en-IN')} to Escrow`}
             </Button>
           </div>
         </div>
