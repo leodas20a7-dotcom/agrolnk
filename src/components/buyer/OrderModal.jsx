@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { X, ShieldCheck, Check, AlertCircle, ShoppingBag, Zap, Landmark, ArrowRight, Sparkles, Percent } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ShieldCheck, Check, AlertCircle, ShoppingBag, Zap, Landmark, ArrowRight, Sparkles, Percent, CheckCircle2, Clock } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
-import { createFinancingRequest } from '../../utils/financing';
+import { createFinancingRequest, getFinancingRequests } from '../../utils/financing';
 
 export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
   const [purchaseQty, setPurchaseQty] = useState(listing ? Math.min(100, listing.quantity) : 100);
@@ -13,15 +13,36 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [creditSuccessMsg, setCreditSuccessMsg] = useState(null);
+  const [existingCreditReq, setExistingCreditReq] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (listing?.quantity) {
       setPurchaseQty(Math.min(100, listing.quantity));
     }
     setPaymentMode('direct');
     setCreditSuccessMsg(null);
     setError('');
-  }, [listing, isOpen]);
+
+    let isMounted = true;
+    if (listing && currentUser) {
+      getFinancingRequests().then((all) => {
+        if (!isMounted) return;
+        const applicantKey = currentUser.id || currentUser.email || '';
+        const found = all.find(
+          (r) =>
+            r.status !== 'rejected' &&
+            r.status !== 'cancelled' &&
+            ((r.listingId && r.listingId === listing.id) ||
+             (r.commodity === listing.commodity && (r.applicantId === applicantKey || r.applicantName?.includes(currentUser.name))))
+        );
+        setExistingCreditReq(found || null);
+      }).catch(() => {});
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [listing, currentUser, isOpen]);
 
   if (!isOpen || !listing) return null;
 
@@ -46,6 +67,10 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     }
 
     if (paymentMode === 'trade_credit') {
+      if (existingCreditReq) {
+        setError(`An active trade credit application (${existingCreditReq.requestNumber}) is already under review for this lot.`);
+        return;
+      }
       handleTradeCreditFinancing();
       return;
     }
@@ -101,6 +126,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
         applicantId: currentUser?.id || currentUser?.email || 'buyer_trade',
         applicantName: currentUser?.name || 'Buyer Partner',
         applicantRole: 'buyer',
+        listingId: listing.id,
         orderId: generatedOrderId,
         orderNumber: generatedOrderNum,
         commodity: listing.commodity,
@@ -327,15 +353,30 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                   </span>
                 </div>
                 <p className="text-[11px] text-[#566861] mt-1.5 leading-snug">
-                  Short on funds? Get up to 80% NBFC institutional financing.
+                  {existingCreditReq
+                    ? `Application ${existingCreditReq.requestNumber} is under review.`
+                    : 'Short on funds? Get up to 80% NBFC institutional financing.'}
                 </p>
               </button>
 
             </div>
           </div>
 
-          {/* Trade Credit Parameter Breakdown (If Selected) */}
-          {paymentMode === 'trade_credit' && (
+          {/* If an active credit application is already pending for this lot */}
+          {paymentMode === 'trade_credit' && existingCreditReq && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 space-y-1 text-xs text-amber-950">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>Credit Application Already Submitted ({existingCreditReq.requestNumber})</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                You already have an active trade credit application of <strong>{formatINR(existingCreditReq.requestedAmount)}</strong> for this lot. Duplicate repeat applications are disabled.
+              </p>
+            </div>
+          )}
+
+          {/* Trade Credit Parameter Breakdown (If Selected and not yet applied) */}
+          {paymentMode === 'trade_credit' && !existingCreditReq && (
             <div className="p-3.5 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] space-y-3 animate-in fade-in duration-150">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#1E40AF] flex items-center gap-1.5">
@@ -430,19 +471,23 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
             variant="primary"
             size="md"
             onClick={handleConfirmOrder}
-            disabled={isSubmitting || Boolean(creditSuccessMsg)}
+            disabled={isSubmitting || Boolean(creditSuccessMsg) || (paymentMode === 'trade_credit' && Boolean(existingCreditReq))}
             icon={paymentMode === 'trade_credit' ? Landmark : Zap}
             iconPosition="left"
             className={`flex-1 justify-center font-bold text-xs py-2.5 sm:py-3 shadow-xs cursor-pointer w-full sm:w-auto text-white ${
               paymentMode === 'trade_credit'
-                ? 'bg-[#2563EB] hover:bg-[#1D4ED8]'
+                ? existingCreditReq
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-[#2563EB] hover:bg-[#1D4ED8]'
                 : 'bg-[#0B3326] hover:bg-[#0A261D]'
             }`}
           >
             {isSubmitting
               ? 'Processing Application...'
               : paymentMode === 'trade_credit'
-              ? `Apply for Trade Credit (${formatINR(financedLoanAmount)})`
+              ? existingCreditReq
+                ? `Application Under Review (${existingCreditReq.requestNumber})`
+                : `Apply for Trade Credit (${formatINR(financedLoanAmount)})`
               : `Pay ${formatINR(financials.totalBuyerPayable)}`}
           </Button>
         </div>

@@ -38,7 +38,21 @@ const LOCAL_FINANCING_KEY = 'agrolnk_financing_requests_local';
 function getLocalFinancingRequests() {
   try {
     const raw = localStorage.getItem(LOCAL_FINANCING_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const list = raw ? JSON.parse(raw) : [];
+    const seen = new Set();
+    const deduped = [];
+    for (const item of list) {
+      if (!item) continue;
+      // Deduplicate signatures to prevent multi-click repeats
+      const signature = `${item.applicantId || 'applicant'}_${item.listingId || item.commodity || 'lot'}_${item.quantity || ''}_${item.requestedAmount || ''}`;
+      const directKey = item.id || item.requestNumber;
+      if (!seen.has(signature) && !seen.has(directKey)) {
+        seen.add(signature);
+        seen.add(directKey);
+        deduped.push(item);
+      }
+    }
+    return deduped;
   } catch {
     return [];
   }
@@ -52,7 +66,9 @@ function saveLocalFinancingRequest(item) {
         r.id !== item.id &&
         r.requestNumber !== item.requestNumber &&
         (item.orderNumber ? r.orderNumber !== item.orderNumber : true) &&
-        (item.orderId ? r.orderId !== item.orderId : true)
+        (item.orderId ? r.orderId !== item.orderId : true) &&
+        (item.listingId ? (r.listingId !== item.listingId || r.applicantId !== item.applicantId) : true) &&
+        !(r.commodity === item.commodity && r.applicantId === item.applicantId && Number(r.quantity) === Number(item.quantity) && r.status === 'pending')
     );
     localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify([item, ...filtered]));
   } catch {}
@@ -124,15 +140,37 @@ export async function getBuyerFinancingRequests(buyerId) {
 }
 
 /**
- * Create a new financing request (Strict 1-time per order/lot)
+ * Create a new financing request (Strict 1-time per order/lot/listing)
  */
 export async function createFinancingRequest(requestData) {
-  // Prevent duplicate repeat requests for the same order or lot
+  // 1. Check if an active request already exists for this order
   if (requestData.orderNumber || requestData.orderId) {
     const existing = await getFinancingRequestForOrder(requestData.orderNumber, requestData.orderId);
     if (existing) {
       return existing;
     }
+  }
+
+  // 2. Prevent duplicate repeat applications for the same listing lot or commodity
+  const localRequests = getLocalFinancingRequests();
+  const existingActive = localRequests.find((r) => {
+    if (r.status === 'rejected' || r.status === 'cancelled') return false;
+    if (requestData.listingId && r.listingId === requestData.listingId && r.applicantId === requestData.applicantId) {
+      return true;
+    }
+    if (
+      requestData.commodity &&
+      r.commodity === requestData.commodity &&
+      r.applicantId === requestData.applicantId &&
+      Number(r.quantity) === Number(requestData.quantity)
+    ) {
+      return true;
+    }
+    return false;
+  });
+
+  if (existingActive) {
+    return existingActive;
   }
 
   const reqId = generateStandardUuid();
@@ -145,6 +183,7 @@ export async function createFinancingRequest(requestData) {
   const formattedItem = {
     id: reqId,
     requestNumber: reqNumber,
+    listingId: requestData.listingId || null,
     applicantId: requestData.applicantId || 'buyer',
     applicantName: requestData.applicantName || 'Applicant Partner',
     applicantRole: requestData.applicantRole || 'buyer',
