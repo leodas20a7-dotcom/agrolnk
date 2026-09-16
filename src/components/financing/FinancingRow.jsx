@@ -13,6 +13,7 @@ export default function FinancingRow({
   const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
   const isBuyer = viewerRole === 'buyer';
+  const isFinancier = viewerRole === 'financier';
   const isMarginSettled = Boolean(request.marginPaid || request.escrowFunded || request.status === 'disbursed');
   const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
   const needsMarginPayment = isBuyer && isApproved && !isMarginSettled;
