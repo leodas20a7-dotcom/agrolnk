@@ -23,6 +23,7 @@ import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustom
 import { createAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
+import { getResolvedUserKycStatus } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 
@@ -206,7 +207,8 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     setError('');
 
     // Check verification status before publishing
-    const verified = await isUserVerified(user.id);
+    const resolvedStatus = getResolvedUserKycStatus(user);
+    const verified = (resolvedStatus === 'verified') || (await isUserVerified(user.id || user.email));
     if (!verified && user.kycStatus !== 'verified') {
       saveListingDraft(user.id, { formData, saleType, currentStep: 5 });
       setIsVerificationModalOpen(true);

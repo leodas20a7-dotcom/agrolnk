@@ -8,6 +8,7 @@ import DeliveryRow from '../../components/delivery/DeliveryRow';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import TransportQuoteModal from '../../components/delivery/TransportQuoteModal';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import AddEditVehicleModal from '../../components/transporter/AddEditVehicleModal';
 import FleetVehicleCard from '../../components/transporter/FleetVehicleCard';
 import Pagination from '../../components/ui/Pagination';
@@ -69,11 +70,31 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const [inspectingDoc, setInspectingDoc] = useState(null);
 
   // Dynamic KYC Status state
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
 
   const isVerified = currentKycStatus === 'verified';
+
+  const handleOpenKycAction = () => {
+    if (currentKycStatus === 'pending') {
+      try {
+        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+        const registry = storedRaw ? JSON.parse(storedRaw) : [];
+        const found = registry.find((u) => u.id === user.id || u.email === user.email);
+        if (found?.documents && found.documents.length > 0) {
+          setInspectingDoc(found.documents[0]);
+          return;
+        }
+      } catch { }
+      if (user.documents && user.documents.length > 0) {
+        setInspectingDoc(user.documents[0]);
+        return;
+      }
+    }
+    setIsVerificationModalOpen(true);
+  };
 
   useEffect(() => {
     const syncKyc = async () => {
@@ -303,11 +324,10 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             <Button
               variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
               size="sm"
-              onClick={() => setIsVerificationModalOpen(true)}
+              onClick={handleOpenKycAction}
               className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
-              <FileCheck className="w-3.5 h-3.5 mr-1.5" />
-              {currentKycStatus === 'pending' ? 'View Submitted Proof' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
+              {currentKycStatus === 'pending' ? 'View' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
             </Button>
           </div>
         )}
@@ -583,6 +603,16 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
           onSuccess={(updatedFleet) => {
             setFleetVehicles(updatedFleet);
           }}
+        />
+      )}
+
+      {/* Document Inspection Modal */}
+      {inspectingDoc && (
+        <DocumentViewerModal
+          isOpen={!!inspectingDoc}
+          onClose={() => setInspectingDoc(null)}
+          document={inspectingDoc}
+          user={user}
         />
       )}
     </DashboardLayout>

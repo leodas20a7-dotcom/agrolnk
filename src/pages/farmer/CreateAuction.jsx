@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { createAuction } from '../../utils/auctions';
 import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import { isUserVerified } from '../../utils/admin';
+import { getResolvedUserKycStatus } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 
@@ -39,6 +42,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
 
   const [error, setError] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   // Dynamic platform commodities state
   const [commodities, setCommodities] = useState(() => getPlatformCommodities());
@@ -124,6 +128,14 @@ export default function CreateAuction({ currentUser, onNavigate }) {
   const handlePublishAuction = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Check verification status before launching live auction
+    const resolvedStatus = getResolvedUserKycStatus(user);
+    const verified = (resolvedStatus === 'verified') || (await isUserVerified(user.id || user.email));
+    if (!verified && user.kycStatus !== 'verified') {
+      setIsVerificationModalOpen(true);
+      return;
+    }
 
     if (!formData.commodity) {
       setError('Please select a commodity.');
@@ -527,6 +539,16 @@ export default function CreateAuction({ currentUser, onNavigate }) {
         </form>
 
       </div>
+
+      {/* Mandatory Verification Modal */}
+      <VerificationRequiredModal
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+        currentUser={user}
+        onSuccess={() => {
+          setIsVerificationModalOpen(false);
+        }}
+      />
     </DashboardLayout>
   );
 }

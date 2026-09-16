@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button';
 import InstitutionalUnderwriteModal from '../../components/financing/InstitutionalUnderwriteModal';
 import AddLiquidityModal from '../../components/financing/AddLiquidityModal';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import {
   Landmark,
   Clock,
@@ -52,10 +53,30 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
   const [isAddLiquidityOpen, setIsAddLiquidityOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [inspectingDoc, setInspectingDoc] = useState(null);
 
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
 
   const isVerified = currentKycStatus === 'verified';
+
+  const handleOpenKycAction = () => {
+    if (currentKycStatus === 'pending') {
+      try {
+        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+        const registry = storedRaw ? JSON.parse(storedRaw) : [];
+        const found = registry.find((u) => u.id === user.id || u.email === user.email);
+        if (found?.documents && found.documents.length > 0) {
+          setInspectingDoc(found.documents[0]);
+          return;
+        }
+      } catch { }
+      if (user.documents && user.documents.length > 0) {
+        setInspectingDoc(user.documents[0]);
+        return;
+      }
+    }
+    setIsVerificationModalOpen(true);
+  };
 
   useEffect(() => {
     const syncKyc = async () => {
@@ -212,11 +233,10 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
             <Button
               variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
               size="sm"
-              onClick={() => setIsVerificationModalOpen(true)}
+              onClick={handleOpenKycAction}
               className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
-              <FileCheck className="w-3.5 h-3.5 mr-1.5" />
-              {currentKycStatus === 'pending' ? 'View Submitted Proof' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
+              {currentKycStatus === 'pending' ? 'View' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
             </Button>
           </div>
         )}
@@ -628,6 +648,16 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
             setIsVerificationModalOpen(false);
             setCurrentKycStatus('pending');
           }}
+        />
+      )}
+
+      {/* Document Inspection Modal */}
+      {inspectingDoc && (
+        <DocumentViewerModal
+          isOpen={!!inspectingDoc}
+          onClose={() => setInspectingDoc(null)}
+          document={inspectingDoc}
+          user={user}
         />
       )}
     </DashboardLayout>

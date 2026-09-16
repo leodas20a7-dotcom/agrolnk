@@ -50,6 +50,7 @@ import {
   getWarehouseOperatorProfile,
   dispatchProduceFromWarehouse,
 } from '../../utils/warehouses';
+import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 
 export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -110,7 +111,19 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadData(true);
+
+    const handleKycUpdate = () => {
+      loadData(false);
+    };
+
+    window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    window.addEventListener('storage', handleKycUpdate);
+    window.addEventListener('agrolnk_user_profile_updated', handleKycUpdate);
+
     return () => {
+      window.removeEventListener('agrolnk_kyc_updated', handleKycUpdate);
+      window.removeEventListener('storage', handleKycUpdate);
+      window.removeEventListener('agrolnk_user_profile_updated', handleKycUpdate);
       hideGlobalLoader();
     };
   }, [user.id, user.email]);
