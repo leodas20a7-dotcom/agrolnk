@@ -38,6 +38,7 @@ import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
 import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
+import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -52,17 +53,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const [inspectingDoc, setInspectingDoc] = useState(null);
   const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
 
-  const [currentKycStatus, setCurrentKycStatus] = useState(() => {
-    try {
-      const stored = localStorage.getItem('agrolnkUser');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed?.kycStatus) return parsed.kycStatus;
-        if (parsed?.verificationStatus) return parsed.verificationStatus;
-      }
-    } catch { }
-    return user?.kycStatus || user?.verificationStatus || 'pending';
-  });
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
 
   const isVerified = currentKycStatus === 'verified';
 
@@ -86,25 +77,28 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   };
 
   useEffect(() => {
-    const handleKycUpdate = () => {
+    const syncKyc = async () => {
+      const status = getResolvedUserKycStatus(user);
+      setCurrentKycStatus(status);
       try {
-        const stored = localStorage.getItem('agrolnkUser');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed?.kycStatus) {
-            setCurrentKycStatus(parsed.kycStatus);
-          } else if (parsed?.verificationStatus) {
-            setCurrentKycStatus(parsed.verificationStatus);
-          }
+        const profile = await fetchCurrentProfile();
+        if (profile?.kycStatus) {
+          setCurrentKycStatus(profile.kycStatus);
         }
       } catch { }
     };
 
-    window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    syncKyc();
+
+    window.addEventListener('agrolnk_kyc_updated', syncKyc);
+    window.addEventListener('storage', syncKyc);
+    window.addEventListener('agrolnk_user_profile_updated', syncKyc);
     return () => {
-      window.removeEventListener('agrolnk_kyc_updated', handleKycUpdate);
+      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
+      window.removeEventListener('storage', syncKyc);
+      window.removeEventListener('agrolnk_user_profile_updated', syncKyc);
     };
-  }, []);
+  }, [user.id, user.email]);
 
   // Listen to bank details updates
   useEffect(() => {

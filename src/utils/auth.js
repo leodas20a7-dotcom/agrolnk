@@ -262,39 +262,99 @@ export function getCurrentUser() {
 }
 
 /**
- * Fetch latest profile for current user from Supabase
+ * Resolve latest KYC verification status from local registry or cached session
+ */
+export function getResolvedUserKycStatus(user) {
+  if (!user) return 'pending';
+  if (user.role === 'admin') return 'verified';
+
+  // 1. Check local KYC registry (updated by Admin approvals)
+  try {
+    const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+    if (storedRaw) {
+      const registry = JSON.parse(storedRaw);
+      if (Array.isArray(registry)) {
+        const regUser = registry.find(
+          (u) =>
+            (user.id && u.id === user.id) ||
+            (user.email && (u.email || '').toLowerCase() === (user.email || '').toLowerCase())
+        );
+        if (regUser?.verificationStatus) {
+          return regUser.verificationStatus;
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Check cached user in session
+  try {
+    const raw = localStorage.getItem(AGROLNK_USER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (
+        (user.id && parsed.id === user.id) ||
+        (user.email && (parsed.email || '').toLowerCase() === (user.email || '').toLowerCase())
+      ) {
+        if (parsed.kycStatus) return parsed.kycStatus;
+        if (parsed.verificationStatus) return parsed.verificationStatus;
+      }
+    }
+  } catch {}
+
+  return user.kycStatus || user.verificationStatus || 'pending';
+}
+
+/**
+ * Fetch latest profile for current user from Supabase & KYC Registry
  */
 export async function fetchCurrentProfile() {
   const current = getCurrentUser();
-  if (!current?.id) return null;
+  if (!current?.id && !current?.email) return null;
+
+  let kycStatus = getResolvedUserKycStatus(current);
 
   try {
+    const filter = current.id
+      ? `id.eq.${current.id}${current.email ? `,email.eq.${current.email}` : ''}`
+      : `email.eq.${current.email}`;
+
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', current.id)
+      .or(filter)
       .maybeSingle();
 
     if (profile && !error) {
+      const resolvedKyc = profile.kyc_status || kycStatus;
       const userObj = {
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        phone: profile.phone,
-        role: profile.role,
-        state: profile.state,
-        district: profile.district,
-        companyName: profile.company_name,
-        kycStatus: profile.kyc_status,
+        ...current,
+        id: profile.id || current.id,
+        name: profile.name || current.name,
+        email: profile.email || current.email,
+        phone: profile.phone || current.phone,
+        role: profile.role || current.role,
+        state: profile.state || current.state,
+        district: profile.district || current.district,
+        companyName: profile.company_name || current.companyName,
+        kycStatus: resolvedKyc,
+        verificationStatus: resolvedKyc,
         createdAt: profile.created_at,
       };
       setCurrentUser(userObj);
       return userObj;
     }
-    return current;
-  } catch {
-    return current;
+  } catch (err) {
+    console.warn('fetchCurrentProfile notice:', err);
   }
+
+  // Update session if status has changed
+  if (current && (current.kycStatus !== kycStatus || current.verificationStatus !== kycStatus)) {
+    current.kycStatus = kycStatus;
+    current.verificationStatus = kycStatus;
+    setCurrentUser(current);
+  }
+
+  return current;
 }
 
 /**

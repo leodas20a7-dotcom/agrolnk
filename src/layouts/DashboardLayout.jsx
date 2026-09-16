@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { logoutUser, getCurrentUser } from '../utils/auth';
+import { logoutUser, getCurrentUser, getResolvedUserKycStatus, fetchCurrentProfile } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
 import UserProfileModal from '../components/profile/UserProfileModal';
@@ -47,9 +47,12 @@ export default function DashboardLayout({
     role: 'farmer',
   });
 
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(activeUser));
+
   useEffect(() => {
     if (currentUser) {
       setActiveUser(currentUser);
+      setCurrentKycStatus(getResolvedUserKycStatus(currentUser));
     }
   }, [currentUser]);
 
@@ -58,13 +61,46 @@ export default function DashboardLayout({
     const handleProfileUpdated = (e) => {
       if (e?.detail) {
         setActiveUser(e.detail);
+        setCurrentKycStatus(getResolvedUserKycStatus(e.detail));
       }
     };
     window.addEventListener('agrolnk_user_profile_updated', handleProfileUpdated);
     return () => window.removeEventListener('agrolnk_user_profile_updated', handleProfileUpdated);
   }, []);
 
-  const user = activeUser;
+  // Listen to KYC verification approvals / status updates globally
+  useEffect(() => {
+    const syncKyc = async () => {
+      const status = getResolvedUserKycStatus(activeUser);
+      setCurrentKycStatus(status);
+      try {
+        const profile = await fetchCurrentProfile();
+        if (profile?.kycStatus) {
+          setCurrentKycStatus(profile.kycStatus);
+          setActiveUser((prev) => ({
+            ...prev,
+            kycStatus: profile.kycStatus,
+            verificationStatus: profile.kycStatus,
+          }));
+        }
+      } catch {}
+    };
+
+    syncKyc();
+
+    window.addEventListener('agrolnk_kyc_updated', syncKyc);
+    window.addEventListener('storage', syncKyc);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
+      window.removeEventListener('storage', syncKyc);
+    };
+  }, [activeUser?.id, activeUser?.email]);
+
+  const user = {
+    ...activeUser,
+    kycStatus: currentKycStatus,
+    verificationStatus: currentKycStatus,
+  };
 
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

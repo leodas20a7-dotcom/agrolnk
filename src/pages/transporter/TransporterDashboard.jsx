@@ -42,6 +42,7 @@ import {
 } from '../../utils/fleet';
 import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 
 export default function TransporterDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -70,34 +71,23 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   const [editingVehicle, setEditingVehicle] = useState(null);
 
   // Dynamic KYC Status state
-  const [currentKycStatus, setCurrentKycStatus] = useState(() => {
-    try {
-      const stored = localStorage.getItem('agrolnkUser');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed?.kycStatus) return parsed.kycStatus;
-        if (parsed?.verificationStatus) return parsed.verificationStatus;
-      }
-    } catch { }
-    return user?.kycStatus || user?.verificationStatus || 'pending';
-  });
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
 
   const isVerified = currentKycStatus === 'verified';
 
   useEffect(() => {
-    const handleKycUpdate = () => {
+    const syncKyc = async () => {
+      const status = getResolvedUserKycStatus(user);
+      setCurrentKycStatus(status);
       try {
-        const stored = localStorage.getItem('agrolnkUser');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed?.kycStatus) {
-            setCurrentKycStatus(parsed.kycStatus);
-          } else if (parsed?.verificationStatus) {
-            setCurrentKycStatus(parsed.verificationStatus);
-          }
+        const profile = await fetchCurrentProfile();
+        if (profile?.kycStatus) {
+          setCurrentKycStatus(profile.kycStatus);
         }
       } catch { }
     };
+
+    syncKyc();
 
     const handleFleetUpdate = (e) => {
       if (e?.detail?.fleet) {
@@ -107,10 +97,14 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
       }
     };
 
-    window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
+    window.addEventListener('agrolnk_kyc_updated', syncKyc);
+    window.addEventListener('storage', syncKyc);
+    window.addEventListener('agrolnk_user_profile_updated', syncKyc);
     window.addEventListener('agrolnk_fleet_updated', handleFleetUpdate);
     return () => {
-      window.removeEventListener('agrolnk_kyc_updated', handleKycUpdate);
+      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
+      window.removeEventListener('storage', syncKyc);
+      window.removeEventListener('agrolnk_user_profile_updated', syncKyc);
       window.removeEventListener('agrolnk_fleet_updated', handleFleetUpdate);
     };
   }, [user.id, user.email]);
