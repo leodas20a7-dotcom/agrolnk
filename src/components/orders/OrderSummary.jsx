@@ -61,10 +61,26 @@ export default function OrderSummary({
       }
     };
     loadLinkedData();
+
+    const handleSync = () => {
+      loadLinkedData();
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleSync);
+    window.addEventListener('agrolnk_orders_updated', handleSync);
+    window.addEventListener('agrolnk_order_updated', handleSync);
+    window.addEventListener('agrolnk_deliveries_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('agrolnk_financing_updated', handleSync);
+      window.removeEventListener('agrolnk_orders_updated', handleSync);
+      window.removeEventListener('agrolnk_order_updated', handleSync);
+      window.removeEventListener('agrolnk_deliveries_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
     };
-  }, [order?.id, order?.orderNumber]);
+  }, [order?.id, order?.orderNumber, order?.status]);
 
   if (!order) return null;
 

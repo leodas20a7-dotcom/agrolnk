@@ -365,9 +365,20 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
       : 'Under evaluation');
 
   try {
+    const targetKey = typeof requestId === 'string' ? requestId.trim() : String(requestId || '');
+    const reqNum = approvalData.requestNumber || (targetKey.startsWith('#FIN-') ? targetKey : null);
+    const ordNum = approvalData.orderNumber || (targetKey.startsWith('#AGM-') ? targetKey : null);
+
     const local = getLocalFinancingRequests();
+    let matched = false;
     const updatedLocal = local.map((r) => {
-      if (r.id === requestId || r.requestNumber === requestId || (r.orderNumber && r.orderNumber === requestId)) {
+      const isMatch =
+        (targetKey && (r.id === targetKey || r.requestNumber === targetKey || r.orderNumber === targetKey || r.orderId === targetKey)) ||
+        (reqNum && r.requestNumber === reqNum) ||
+        (ordNum && (r.orderNumber === ordNum || r.orderId === ordNum));
+
+      if (isMatch) {
+        matched = true;
         const nextAmount =
           approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null
             ? Number(approvalData.approvedAmount)
@@ -384,13 +395,31 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
       }
       return r;
     });
+
+    if (!matched && (reqNum || ordNum || targetKey)) {
+      updatedLocal.unshift({
+        id: targetKey,
+        requestNumber: reqNum || (targetKey.startsWith('#FIN-') ? targetKey : '#FIN-REQ'),
+        orderNumber: ordNum,
+        ...approvalData,
+        status: nextStatus,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
     localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(updatedLocal));
 
     // Global broadcast so other views/tabs update instantly
     try {
-      const target = updatedLocal.find((r) => r.id === requestId || r.requestNumber === requestId || (r.orderNumber && r.orderNumber === requestId));
+      const target = updatedLocal.find(
+        (r) =>
+          (targetKey && (r.id === targetKey || r.requestNumber === targetKey || r.orderNumber === targetKey || r.orderId === targetKey)) ||
+          (reqNum && r.requestNumber === reqNum) ||
+          (ordNum && (r.orderNumber === ordNum || r.orderId === ordNum))
+      );
       if (target && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: target }));
+        window.dispatchEvent(new Event('storage'));
       }
     } catch {}
 
@@ -527,26 +556,22 @@ export async function getDisbursements() {
 export async function getFinancingRequestForOrder(orderNumberOrId, alternateId) {
   try {
     if (!orderNumberOrId && !alternateId) return null;
-    const local = getLocalFinancingRequests();
-    const foundLocal = local.find(
-      (r) =>
-        (orderNumberOrId && (r.orderId === orderNumberOrId || r.orderNumber === orderNumberOrId || r.id === orderNumberOrId || r.requestNumber === orderNumberOrId)) ||
-        (alternateId && (r.orderId === alternateId || r.orderNumber === alternateId || r.id === alternateId || r.requestNumber === alternateId))
+    const all = await getFinancingRequests();
+    return (
+      all.find(
+        (r) =>
+          (orderNumberOrId &&
+            (r.orderId === orderNumberOrId ||
+              r.orderNumber === orderNumberOrId ||
+              r.id === orderNumberOrId ||
+              r.requestNumber === orderNumberOrId)) ||
+          (alternateId &&
+            (r.orderId === alternateId ||
+              r.orderNumber === alternateId ||
+              r.id === alternateId ||
+              r.requestNumber === alternateId))
+      ) || null
     );
-    if (foundLocal) return foundLocal;
-
-    const filters = [];
-    if (orderNumberOrId) filters.push(`order_number.eq.${orderNumberOrId}`, `order_id.eq.${orderNumberOrId}`);
-    if (alternateId) filters.push(`order_number.eq.${alternateId}`, `order_id.eq.${alternateId}`);
-
-    const { data, error } = await supabase
-      .from('financing_requests')
-      .select('*')
-      .or(filters.join(','))
-      .maybeSingle();
-
-    if (!error && data) return mapFinancingFromDb(data);
-    return null;
   } catch {
     return null;
   }
@@ -558,14 +583,8 @@ export async function getFinancingRequestForOrder(orderNumberOrId, alternateId) 
 export async function getFinancingRequestById(id) {
   try {
     if (!id) return null;
-    const { data, error } = await supabase
-      .from('financing_requests')
-      .select('*')
-      .or(`id.eq.${id},request_number.eq.${id}`)
-      .maybeSingle();
-
-    if (error || !data) return null;
-    return mapFinancingFromDb(data);
+    const all = await getFinancingRequests();
+    return all.find((r) => r.id === id || r.requestNumber === id || r.orderNumber === id) || null;
   } catch {
     return null;
   }

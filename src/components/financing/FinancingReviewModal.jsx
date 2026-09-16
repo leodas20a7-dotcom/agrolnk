@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Landmark,
@@ -12,7 +12,7 @@ import {
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import FinancingStatusBadge from './FinancingStatusBadge';
-import { updateFinancingStatus, underwriteFinancingRequest } from '../../utils/financing';
+import { updateFinancingStatus, underwriteFinancingRequest, getFinancingRequestForOrder } from '../../utils/financing';
 import { initiateBuyerMarginDepositCheckout } from '../../utils/razorpayRouteClient';
 import { ensureOrderForFinancing } from '../../utils/orders';
 
@@ -22,6 +22,7 @@ export default function FinancingReviewModal({
   onClose,
   onStatusUpdated,
 }) {
+  const [activeRequest, setActiveRequest] = useState(request);
   const [approvedAmount, setApprovedAmount] = useState(
     request ? (request.approvedAmount || request.requestedAmount) : 0
   );
@@ -30,37 +31,83 @@ export default function FinancingReviewModal({
   const [isPayingMargin, setIsPayingMargin] = useState(false);
   const [marginPaidSuccess, setMarginPaidSuccess] = useState(Boolean(request?.marginPaid));
 
-  React.useEffect(() => {
+  useEffect(() => {
+    setActiveRequest(request);
     if (request) {
       setApprovedAmount(request.approvedAmount || request.requestedAmount || 0);
       setReviewNotes(request.reviewNotes || '');
       setMarginPaidSuccess(Boolean(request.marginPaid));
     }
-  }, [request]);
 
-  if (!request) return null;
+    let isMounted = true;
+    const loadFresh = async () => {
+      const orderNum = request?.orderNumber || request?.orderId;
+      const reqId = request?.id || request?.requestNumber;
+      if (orderNum || reqId) {
+        const fresh = await getFinancingRequestForOrder(orderNum, reqId);
+        if (isMounted && fresh) {
+          setActiveRequest(fresh);
+          setApprovedAmount(fresh.approvedAmount || fresh.requestedAmount || 0);
+          setReviewNotes(fresh.reviewNotes || '');
+          setMarginPaidSuccess(Boolean(fresh.marginPaid));
+        }
+      }
+    };
+    loadFresh();
+
+    const handleSync = (e) => {
+      const detail = e?.detail;
+      const targetReq = activeRequest || request;
+      if (!targetReq) return;
+      if (
+        detail &&
+        (detail.id === targetReq.id ||
+          detail.requestNumber === targetReq.requestNumber ||
+          detail.orderNumber === targetReq.orderNumber)
+      ) {
+        setActiveRequest(detail);
+        setApprovedAmount(detail.approvedAmount || detail.requestedAmount || 0);
+        setReviewNotes(detail.reviewNotes || '');
+        setMarginPaidSuccess(Boolean(detail.marginPaid));
+      } else {
+        loadFresh();
+      }
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('agrolnk_financing_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, [request?.id, request?.requestNumber, request?.orderNumber, request?.orderId, request?.status]);
+
+  const curr = activeRequest || request;
+  if (!curr) return null;
 
   const isFinancier = viewerRole === 'financier';
   const isBuyer = viewerRole === 'buyer';
-  const isApproved = request.status === 'approved';
-  const totalTxValue = Number(request.transactionValue || 0);
-  const effectiveApproved = Number(request.approvedAmount || request.requestedAmount || approvedAmount || 0);
+  const isApproved = curr.status === 'approved' || curr.status === 'disbursed' || curr.status === 'escrow_secured';
+  const totalTxValue = Number(curr.transactionValue || 0);
+  const effectiveApproved = Number(curr.approvedAmount || curr.requestedAmount || approvedAmount || 0);
   const marginDeposit = Math.max(0, totalTxValue - effectiveApproved);
-  const isMarginSettled = Boolean(request.marginPaid || marginPaidSuccess);
+  const isMarginSettled = Boolean(curr.marginPaid || marginPaidSuccess || curr.status === 'disbursed');
 
   const handlePayMargin = async () => {
     setIsPayingMargin(true);
     try {
       await initiateBuyerMarginDepositCheckout({
-        request,
+        request: curr,
         marginAmount: marginDeposit,
-        buyerUser: { name: request.applicantName },
+        buyerUser: { name: curr.applicantName },
         onSuccess: async (res) => {
           setMarginPaidSuccess(true);
           setIsPayingMargin(false);
-          const targetKey = request.id || request.requestNumber || request.orderNumber;
+          const targetKey = curr.id || curr.requestNumber || curr.orderNumber;
           const updatedPayload = {
-            ...request,
+            ...curr,
             status: 'approved',
             marginPaid: true,
             escrowFunded: true,
@@ -97,8 +144,9 @@ export default function FinancingReviewModal({
   const handleStatusChange = (newStatus) => {
     setIsUpdating(true);
     try {
+      const targetKey = curr.id || curr.requestNumber || curr.orderNumber;
       const updated = updateFinancingStatus(
-        request.id,
+        targetKey,
         newStatus,
         newStatus === 'approved' ? approvedAmount : null,
         reviewNotes
@@ -134,12 +182,12 @@ export default function FinancingReviewModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-bold text-[#0B3326]">
-                  Trade Credit {request.requestNumber || ''}
+                  Trade Credit {curr.requestNumber || ''}
                 </h3>
-                <FinancingStatusBadge status={request.status} />
+                <FinancingStatusBadge status={curr.status} />
               </div>
               <span className="text-xs text-[#566861]">
-                {request.orderNumber ? `Order ${request.orderNumber}` : (request.orderId ? `Order #${request.orderId}` : 'Escrow Collateral')}
+                {curr.orderNumber ? `Order ${curr.orderNumber}` : (curr.orderId ? `Order #${curr.orderId}` : 'Escrow Collateral')}
               </span>
             </div>
           </div>
@@ -158,17 +206,17 @@ export default function FinancingReviewModal({
           <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-[#14211D] text-base">{request.commodity || 'Produce Lot'}</span>
-                <Badge variant="dark" size="sm">Grade {request.grade || 'A'}</Badge>
+                <span className="font-bold text-[#14211D] text-base">{curr.commodity || 'Produce Lot'}</span>
+                <Badge variant="dark" size="sm">Grade {curr.grade || 'A'}</Badge>
               </div>
               <span className="text-xs text-[#566861]">
-                {Number(request.quantity || 0).toLocaleString('en-IN')} {request.unit || 'kg'} • {request.variety || 'Standard'}
+                {Number(curr.quantity || 0).toLocaleString('en-IN')} {curr.unit || 'kg'} • {curr.variety || 'Standard'}
               </span>
             </div>
             <div className="text-right">
               <span className="text-[10px] text-[#566861] block font-medium">Total Value</span>
               <span className="text-lg font-extrabold text-[#0B3326]">
-                ₹{Number(request.transactionValue || 0).toLocaleString('en-IN')}
+                ₹{Number(curr.transactionValue || 0).toLocaleString('en-IN')}
               </span>
             </div>
           </div>
