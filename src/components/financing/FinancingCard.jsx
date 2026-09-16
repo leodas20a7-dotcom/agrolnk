@@ -15,8 +15,9 @@ export default function FinancingCard({
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
 
   const isBuyer = viewerRole === 'buyer';
+  const isMarginSettled = Boolean(request.marginPaid || request.escrowFunded || request.status === 'disbursed');
   const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
-  const needsMarginPayment = isBuyer && isApproved && !request.marginPaid;
+  const needsMarginPayment = isBuyer && isApproved && !isMarginSettled;
 
   return (
     <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 text-left">
@@ -36,7 +37,13 @@ export default function FinancingCard({
           </div>
         </div>
 
-        <FinancingStatusBadge status={request.status} />
+        {isMarginSettled ? (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
+            Escrow Secured ✓
+          </span>
+        ) : (
+          <FinancingStatusBadge status={request.status} />
+        )}
       </div>
 
       {/* Linked Transaction Breakdown */}
@@ -93,7 +100,7 @@ export default function FinancingCard({
       <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]/80">
         <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-semibold">
           <ShieldCheck className="w-4 h-4" />
-          <span>{needsMarginPayment ? `Balance Margin: ₹${Number(marginAmount).toLocaleString('en-IN')}` : 'Underwritten by Collateral'}</span>
+          <span>{isMarginSettled ? '100% Escrow Secured (Margin Paid ✓)' : needsMarginPayment ? `Balance Margin: ₹${Number(marginAmount).toLocaleString('en-IN')}` : 'Underwritten by Collateral'}</span>
         </div>
 
         <Button

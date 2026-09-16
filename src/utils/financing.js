@@ -28,6 +28,9 @@ function mapFinancingFromDb(row) {
     notes: row.notes,
     reviewNotes: row.review_notes,
     status: row.status,
+    marginPaid: Boolean(row.margin_paid),
+    escrowFunded: Boolean(row.escrow_funded),
+    paymentId: row.payment_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -206,6 +209,8 @@ export async function createFinancingRequest(requestData) {
     notes: requestData.notes || '',
     reviewNotes: null,
     status: 'pending',
+    marginPaid: Boolean(requestData.marginPaid),
+    escrowFunded: Boolean(requestData.escrowFunded),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -286,7 +291,7 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
   try {
     const local = getLocalFinancingRequests();
     const updatedLocal = local.map((r) => {
-      if (r.id === requestId || r.requestNumber === requestId) {
+      if (r.id === requestId || r.requestNumber === requestId || (r.orderNumber && r.orderNumber === requestId)) {
         const nextAmount =
           approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null
             ? Number(approvalData.approvedAmount)
@@ -294,6 +299,7 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 
         return {
           ...r,
+          ...approvalData,
           status: nextStatus,
           approvedAmount: nextAmount,
           reviewNotes: nextNotes,
@@ -306,7 +312,7 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 
     // Global broadcast so other views/tabs update instantly
     try {
-      const target = updatedLocal.find((r) => r.id === requestId || r.requestNumber === requestId);
+      const target = updatedLocal.find((r) => r.id === requestId || r.requestNumber === requestId || (r.orderNumber && r.orderNumber === requestId));
       if (target && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: target }));
       }
@@ -330,7 +336,10 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
         .single();
 
       if (!error && data) {
-        return mapFinancingFromDb(data);
+        return {
+          ...mapFinancingFromDb(data),
+          ...approvalData,
+        };
       }
     }
   } catch (err) {
@@ -338,7 +347,7 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
   }
 
   const all = await getFinancingRequests();
-  return all.find((r) => r.id === requestId || r.requestNumber === requestId) || null;
+  return all.find((r) => r.id === requestId || r.requestNumber === requestId || (r.orderNumber && r.orderNumber === requestId)) || null;
 }
 
 export const updateFinancingStatus = underwriteFinancingRequest;

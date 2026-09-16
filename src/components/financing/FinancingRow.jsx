@@ -13,8 +13,9 @@ export default function FinancingRow({
   const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
   const isBuyer = viewerRole === 'buyer';
+  const isMarginSettled = Boolean(request.marginPaid || request.escrowFunded || request.status === 'disbursed');
   const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
-  const needsMarginPayment = isBuyer && isApproved && !request.marginPaid;
+  const needsMarginPayment = isBuyer && isApproved && !isMarginSettled;
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
@@ -78,7 +79,13 @@ export default function FinancingRow({
 
       {/* Right: Status & Actions */}
       <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
-        <FinancingStatusBadge status={request.status} size="sm" />
+        {isMarginSettled ? (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
+            Escrow Secured ✓
+          </span>
+        ) : (
+          <FinancingStatusBadge status={request.status} size="sm" />
+        )}
 
         <Button
           variant={needsMarginPayment ? 'accent' : (isFinancier ? (request.status === 'approved' ? 'secondary' : 'accent') : 'secondary')}

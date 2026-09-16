@@ -54,6 +54,17 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdated = () => {
+      loadData();
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+    return () => {
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
+    };
   }, [user.id]);
 
   const safeRequests = Array.isArray(financingRequests) ? financingRequests : [];
