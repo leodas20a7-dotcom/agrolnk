@@ -287,11 +287,60 @@ export async function createAdminUser(userData) {
   const kycStatus = userData.verificationStatus || userData.kycStatus || 'pending';
   const role = userData.role || 'farmer';
   const name = userData.name || 'New User';
-  const email = userData.email || `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@agrolnk.local`;
-  const phone = userData.phone || '9876543210';
+  const email = (userData.email || `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@agrolnk.local`).trim().toLowerCase();
+  const phone = (userData.phone || '9876543210').trim();
+  const normalizedPhoneDigits = phone.replace(/\D/g, '').slice(-10);
   const state = userData.state || 'Tamil Nadu';
   const district = userData.district || 'Salem';
   const companyName = userData.orgName || userData.companyName || userData.farmName || `${name} Agri`;
+
+  // 1. Check duplicate in local KYC list
+  const localList = getStoredKYC();
+  if (email && localList.some((u) => (u.email || '').trim().toLowerCase() === email)) {
+    throw new Error('An account with this email already exists.');
+  }
+  if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+    const dupLocalPhone = localList.some((u) => {
+      const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+      return uDigits === normalizedPhoneDigits;
+    });
+    if (dupLocalPhone) {
+      throw new Error('This mobile number is already registered with another account.');
+    }
+  }
+
+  // 2. Check duplicate in Supabase DB
+  try {
+    if (email) {
+      const { data: existingEmail } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .maybeSingle();
+      if (existingEmail) {
+        throw new Error('An account with this email already exists.');
+      }
+    }
+    if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+      const { data: phoneMatches } = await supabase
+        .from('profiles')
+        .select('id, phone')
+        .ilike('phone', `%${normalizedPhoneDigits}%`);
+      if (phoneMatches && phoneMatches.length > 0) {
+        const hasMatch = phoneMatches.some((p) => {
+          const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
+          return pDigits === normalizedPhoneDigits;
+        });
+        if (hasMatch) {
+          throw new Error('This mobile number is already registered with another account.');
+        }
+      }
+    }
+  } catch (dbCheckErr) {
+    if (dbCheckErr.message && (dbCheckErr.message.includes('already exists') || dbCheckErr.message.includes('already registered'))) {
+      throw dbCheckErr;
+    }
+  }
 
   const newRecord = {
     id: userId,
@@ -321,8 +370,7 @@ export async function createAdminUser(userData) {
     auditNotes: `Account created directly via Admin Command Center.`,
   };
 
-  // 1. Save to local KYC registry
-  const localList = getStoredKYC();
+  // 3. Save to local KYC registry
   localList.unshift(newRecord);
   saveStoredKYC(localList);
 

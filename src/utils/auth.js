@@ -11,17 +11,68 @@ export const DEFAULT_DEMO_USERS = [];
  */
 export async function registerUser({ name, phone, email, role, state, district, companyName }) {
   const normalizedEmail = (email || '').trim().toLowerCase();
+  const rawPhone = (phone || '').trim();
+  const normalizedPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
 
   try {
-    // 1. Check if user already exists in Supabase
-    const { data: existing, error: checkError } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .eq('email', normalizedEmail)
-      .maybeSingle();
+    // 1. Check if email already exists in Supabase
+    if (normalizedEmail) {
+      const { data: existing, error: checkError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
 
-    if (existing) {
-      throw new Error('An account with this email already exists. Please sign in instead.');
+      if (existing) {
+        throw new Error('An account with this email already exists. Please sign in instead.');
+      }
+    }
+
+    // 2. Check if mobile number already exists in Supabase
+    if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+      const { data: phoneMatches, error: phoneErr } = await supabase
+        .from('profiles')
+        .select('id, phone, email')
+        .ilike('phone', `%${normalizedPhoneDigits}%`);
+
+      if (!phoneErr && phoneMatches && phoneMatches.length > 0) {
+        const duplicatePhone = phoneMatches.find((p) => {
+          const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
+          return pDigits === normalizedPhoneDigits;
+        });
+        if (duplicatePhone) {
+          throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
+        }
+      }
+    }
+
+    // 3. Check in local KYC registry for duplicate email or mobile number
+    try {
+      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+      if (storedRaw) {
+        const registry = JSON.parse(storedRaw);
+        if (Array.isArray(registry)) {
+          if (normalizedEmail) {
+            const dupEmail = registry.find((u) => (u.email || '').trim().toLowerCase() === normalizedEmail);
+            if (dupEmail) {
+              throw new Error('An account with this email already exists. Please sign in instead.');
+            }
+          }
+          if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+            const dupPhone = registry.find((u) => {
+              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+              return uDigits === normalizedPhoneDigits;
+            });
+            if (dupPhone) {
+              throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
+            }
+          }
+        }
+      }
+    } catch (regErr) {
+      if (regErr.message && (regErr.message.includes('already exists') || regErr.message.includes('already registered'))) {
+        throw regErr;
+      }
     }
 
     const generateId = () => {
@@ -35,7 +86,7 @@ export async function registerUser({ name, phone, email, role, state, district, 
     const newProfile = {
       id: generateId(),
       name: (name || '').trim(),
-      phone: phone ? phone.trim() : '',
+      phone: rawPhone,
       email: normalizedEmail,
       role: role || 'farmer',
       state: (state || '').trim(),
@@ -73,7 +124,7 @@ export async function registerUser({ name, phone, email, role, state, district, 
       console.warn('Could not sync to admin registry:', regErr);
     }
 
-    // 2. Insert into Supabase (with fallback if offline)
+    // 4. Insert into Supabase (with fallback if offline)
     try {
       const { data, error } = await supabase
         .from('profiles')

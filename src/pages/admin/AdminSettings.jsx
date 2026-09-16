@@ -191,7 +191,7 @@ export default function AdminSettings({ currentUser, onNavigate }) {
       setTimeout(() => setActionSuccess(''), 4000);
       loadData();
     } catch (err) {
-      setActionError('Failed to create user. Please try again.');
+      setActionError(err?.message || 'Failed to create user. Please try again.');
     } finally {
       hideGlobalLoader();
     }
