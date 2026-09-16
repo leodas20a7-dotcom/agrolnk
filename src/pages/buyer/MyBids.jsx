@@ -26,7 +26,7 @@ export default function MyBids({ currentUser, onNavigate }) {
   const user = currentUser || { id: '', name: 'Buyer', role: 'buyer' };
   const [bids, setBids] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 

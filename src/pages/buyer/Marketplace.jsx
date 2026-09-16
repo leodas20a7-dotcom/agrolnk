@@ -30,7 +30,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const [selectedLocation, setSelectedLocation] = useState(navState?.initialLocation || 'All');
   const [sortBy, setSortBy] = useState('latest');
   const [availableCommodities, setAvailableCommodities] = useState(() => ['All', ...getPlatformCommodities()]);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 

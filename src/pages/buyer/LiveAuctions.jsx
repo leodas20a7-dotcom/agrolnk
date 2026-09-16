@@ -57,7 +57,7 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
   const liveCount = safeAuctions.filter((a) => a.status === 'live' && (!a.endsAt || new Date(a.endsAt).getTime() > now)).length;
   const endedCount = safeAuctions.filter((a) => a.status === 'ended' || (a.endsAt && new Date(a.endsAt).getTime() <= now)).length;
 
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'row'
+  const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
