@@ -513,28 +513,42 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
               </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {paginatedWarehouses.map((wh) => (
-                  <WarehouseCard
-                    key={wh.id}
-                    warehouse={wh}
-                    onDeposit={(selected) => {
-                      setSelectedWarehouseForDeposit(selected);
-                      setShowDepositModal(true);
-                    }}
-                  />
-                ))}
-              </div>
+            {warehousesList.length > 0 ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {paginatedWarehouses.map((wh) => (
+                    <WarehouseCard
+                      key={wh.id}
+                      warehouse={wh}
+                      onDeposit={(selected) => {
+                        setSelectedWarehouseForDeposit(selected);
+                        setShowDepositModal(true);
+                      }}
+                    />
+                  ))}
+                </div>
 
-              <Pagination
-                currentPage={warehousesPage}
-                totalPages={totalWarehousesPages}
-                totalItems={warehousesList.length}
-                itemsPerPage={ITEMS_PER_PAGE}
-                onPageChange={setWarehousesPage}
-              />
-            </div>
+                <Pagination
+                  currentPage={warehousesPage}
+                  totalPages={totalWarehousesPages}
+                  totalItems={warehousesList.length}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onPageChange={setWarehousesPage}
+                />
+              </div>
+            ) : (
+              <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
+                  <Building2 className="w-6 h-6 text-[#10B981]" />
+                </div>
+                <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                  No Certified Storage Facilities Yet
+                </h3>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  When accredited warehouse operators register on Agrolnk and are verified by Admin, their WDRA facilities will appear here for crop deposits.
+                </p>
+              </Card>
+            )}
           </div>
         )}
 
