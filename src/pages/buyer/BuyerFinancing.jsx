@@ -26,19 +26,16 @@ import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
-export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
+export default function BuyerFinancing({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
 
   const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);
-  const [selectedOrderForFinancing, setSelectedOrderForFinancing] = useState(
-    navState?.orderForFinancing || null
-  );
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
 
   const loadData = async () => {
     try {
-      showGlobalLoader('Loading Trade Credit Facility...', 'Evaluating working capital lines & PO financing status...');
+      showGlobalLoader('Loading Trade Credit...', 'Fetching approved loans & repayment status...');
       const [orderData, requestData] = await Promise.all([
         getBuyerOrders(user.id),
         getBuyerFinancingRequests(user.id),
@@ -69,26 +66,6 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
 
   const safeRequests = Array.isArray(financingRequests) ? financingRequests : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
-
-  const requestByOrder = React.useMemo(() => {
-    const map = new Map();
-    safeRequests.forEach((req) => {
-      if (req.orderNumber) map.set(req.orderNumber, req);
-      if (req.orderId) map.set(req.orderId, req);
-    });
-    return map;
-  }, [safeRequests]);
-
-  const unfinancedOrders = React.useMemo(() => {
-    return safeOrders.filter(
-      (o) =>
-        o.status !== 'completed' &&
-        o.status !== 'cancelled' &&
-        o.paymentMode !== 'trade_credit' &&
-        !requestByOrder.has(o.orderNumber) &&
-        !requestByOrder.has(o.id)
-    );
-  }, [safeOrders, requestByOrder]);
 
   const activeRequestsCount = safeRequests.filter(
     (r) => r.status === 'pending' || r.status === 'under_review'
@@ -262,86 +239,13 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
               <CreditCard className="w-8 h-8 text-[#10B981] mx-auto" />
               <h4 className="text-sm font-bold text-[#0B3326]">No trade credit applications yet</h4>
               <p className="text-xs text-[#566861]">
-                Select "Trade Credit (NBFC)" at purchase checkout or apply on eligible orders below.
+                Select "Trade Credit (NBFC)" at purchase checkout in the Marketplace.
               </p>
             </Card>
           )}
         </div>
 
-        {/* Section 2: Other Eligible Purchases (Only show orders that don't have credit yet) */}
-        {unfinancedOrders.length > 0 && (
-          <div className="space-y-4 pt-6 border-t border-[#E5EDE8]">
-            <div>
-              <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                Apply Credit on Other Purchases ({unfinancedOrders.length})
-              </h2>
-              <p className="text-xs text-[#566861]">
-                Orders placed via direct escrow that are eligible for 30-day NBFC refinancing
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {unfinancedOrders.map((order) => (
-                <Card key={order.id} className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="dark" size="sm">
-                        {order.orderNumber}
-                      </Badge>
-                      <span className="text-xs text-[#566861]">
-                        {order.commodity?.includes('Auction') ? 'Auction Order' : 'Direct Marketplace'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h4 className="text-base font-bold text-[#14211D]">
-                        {order.commodity}
-                      </h4>
-                      <p className="text-xs text-[#566861] mt-0.5">
-                        Seller: {order.farmerName || 'Verified Producer'} • {order.quantity} {order.unit || 'kg'}
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
-                      <span className="text-xs text-[#566861] font-medium">Purchase Value:</span>
-                      <span className="text-base font-extrabold text-[#0B3326]">
-                        ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#E5EDE8]">
-                    <Button
-                      variant="accent"
-                      size="sm"
-                      onClick={() => setSelectedOrderForFinancing(order)}
-                      icon={CreditCard}
-                      iconPosition="left"
-                      className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
-                    >
-                      Request Trade Credit
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
       </div>
-
-      {/* Credit Request Modal */}
-      {selectedOrderForFinancing && (
-        <FinancingRequestModal
-          order={selectedOrderForFinancing}
-          currentUser={user}
-          onClose={() => setSelectedOrderForFinancing(null)}
-          onSuccess={(newReq) => {
-            loadData();
-            setSelectedRequestForReview(newReq);
-          }}
-        />
-      )}
 
       {/* Review / Status Modal */}
       {selectedRequestForReview && (
