@@ -148,40 +148,43 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
         window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: finReq }));
       } catch (e) {}
 
+      const orderPayload = {
+        id: generatedOrderId,
+        orderNumber: generatedOrderNum,
+        listingId: listing.id,
+        farmerId: listing.farmerId,
+        farmerName: listing.farmerName,
+        commodity: listing.commodity,
+        variety: listing.variety,
+        grade: listing.grade,
+        quantity: qty,
+        unit: listing.unit,
+        pricePerUnit: listing.price,
+        totalAmount: subtotal,
+        buyerFee: financials.buyerFee,
+        sellerFee: financials.sellerFee,
+        platformRevenue: financials.totalPlatformCommission,
+        netFarmerPayout: financials.netSellerReceivable,
+        paymentMode: 'trade_credit',
+        financingAmount: financedLoanAmount,
+        buyerMarginDeposit: buyerMarginDeposit,
+        financingRequestId: finReq.id,
+        financingRequestNumber: finReq.requestNumber,
+        state: listing.state,
+        district: listing.district,
+      };
+
       setIsSubmitting(false);
       setCreditSuccessMsg({
         reqNum: finReq.requestNumber || '#FIN-CREDIT',
         amount: financedLoanAmount,
+        orderPayload: orderPayload,
       });
 
-      // Notify parent to create order marked as financed
+      // Auto-redirect after 3.5 seconds if user doesn't click earlier
       setTimeout(() => {
-        onConfirm({
-          id: generatedOrderId,
-          orderNumber: generatedOrderNum,
-          listingId: listing.id,
-          farmerId: listing.farmerId,
-          farmerName: listing.farmerName,
-          commodity: listing.commodity,
-          variety: listing.variety,
-          grade: listing.grade,
-          quantity: qty,
-          unit: listing.unit,
-          pricePerUnit: listing.price,
-          totalAmount: subtotal,
-          buyerFee: financials.buyerFee,
-          sellerFee: financials.sellerFee,
-          platformRevenue: financials.totalPlatformCommission,
-          netFarmerPayout: financials.netSellerReceivable,
-          paymentMode: 'trade_credit',
-          financingAmount: financedLoanAmount,
-          buyerMarginDeposit: buyerMarginDeposit,
-          financingRequestId: finReq.id,
-          financingRequestNumber: finReq.requestNumber,
-          state: listing.state,
-          district: listing.district,
-        });
-      }, 1500);
+        onConfirm(orderPayload);
+      }, 3500);
 
     } catch (err) {
       console.error('Failed to submit trade credit application:', err);
@@ -190,11 +193,19 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     }
   };
 
+  const handleManualTrack = () => {
+    if (creditSuccessMsg?.orderPayload) {
+      onConfirm(creditSuccessMsg.orderPayload);
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-3 sm:p-6 flex items-center justify-center animate-in fade-in duration-200"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (e.target === e.currentTarget && !creditSuccessMsg) {
           onClose?.();
         }
       }}
@@ -203,53 +214,89 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
         className="bg-white rounded-3xl max-w-lg w-full max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-200 relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5 text-[#10B981]" />
+        {/* SUCCESS VIEW SCREEN */}
+        {creditSuccessMsg ? (
+          <div className="p-7 sm:p-9 text-center space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-3xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-sm ring-8 ring-[#EBF5F0]/50">
+              <CheckCircle2 className="w-10 h-10 text-[#10B981]" />
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-[#0B3326] font-heading">
-                Confirm Purchase
+
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                <Sparkles className="w-3.5 h-3.5" /> Application Dispatched to NBFC
+              </span>
+              <h3 className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">
+                Trade Credit Submitted!
               </h3>
-              <span className="text-xs text-[#566861]">Direct Procurement Order</span>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
-
-          {/* Success State */}
-          {creditSuccessMsg && (
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 space-y-2 text-center animate-in zoom-in-95">
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto">
-                <Check className="w-6 h-6" />
-              </div>
-              <h4 className="font-bold text-sm text-emerald-900">
-                Trade Credit Application Submitted!
-              </h4>
-              <p className="text-xs text-emerald-700">
-                Application <strong>{creditSuccessMsg.reqNum}</strong> for <strong>{formatINR(creditSuccessMsg.amount)}</strong> sent to Institutional NBFC Underwriters. Order initialized.
+              <p className="text-xs text-[#566861] max-w-sm mx-auto leading-relaxed">
+                Application <strong className="text-[#0B3326] font-mono">{creditSuccessMsg.reqNum}</strong> for <strong className="text-blue-700">{formatINR(creditSuccessMsg.amount)}</strong> has been routed to Institutional NBFC Underwriters.
               </p>
             </div>
-          )}
 
-          {/* Error Alert */}
-          {error && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-              <span>{error}</span>
+            <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs space-y-2 text-left">
+              <div className="flex justify-between items-center text-[#566861]">
+                <span>Produce Consignment:</span>
+                <strong className="text-[#14211D]">{listing.commodity} ({qty} {listing.unit})</strong>
+              </div>
+              <div className="flex justify-between items-center text-[#566861]">
+                <span>NBFC Financing Coverage:</span>
+                <strong className="text-blue-700 font-bold">{formatINR(creditSuccessMsg.amount)} ({Math.round(financePct * 100)}%)</strong>
+              </div>
+              <div className="flex justify-between items-center text-[#566861]">
+                <span>Buyer Margin Deposit:</span>
+                <strong className="text-[#0B3326] font-bold">{formatINR(buyerMarginDeposit)}</strong>
+              </div>
             </div>
-          )}
+
+            <div className="space-y-2 pt-2">
+              <Button
+                variant="accent"
+                size="lg"
+                onClick={handleManualTrack}
+                icon={ArrowRight}
+                iconPosition="right"
+                className="w-full justify-center font-bold text-sm py-3.5 shadow-md shadow-[#10B981]/20 cursor-pointer"
+              >
+                Track in My Orders Now
+              </Button>
+              <p className="text-[11px] text-[#566861] flex items-center justify-center gap-1">
+                <Clock className="w-3 h-3 text-[#10B981]" /> Auto-redirecting to orders terminal...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] shrink-0 bg-white z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
+                  <ShoppingBag className="w-5 h-5 text-[#10B981]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[#0B3326] font-heading">
+                    Confirm Purchase
+                  </h3>
+                  <span className="text-xs text-[#566861]">Direct Procurement Order</span>
+                </div>
+              </div>
+
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+              {/* Error Alert */}
+              {error && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{error}</span>
+                </div>
+              )}
 
           {/* Produce Overview Snapshot */}
           <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
@@ -491,6 +538,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
               : `Pay ${formatINR(financials.totalBuyerPayable)}`}
           </Button>
         </div>
+        </>
+      )}
 
       </div>
     </div>
