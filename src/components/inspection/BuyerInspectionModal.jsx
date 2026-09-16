@@ -152,16 +152,10 @@ export default function BuyerInspectionModal({
         {/* Stage 1: If Inspection has NOT been requested yet */}
         {!inspection && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs text-amber-950 space-y-2">
-              <span className="font-bold block flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-amber-700" />
-                How Quality Inspection Works:
-              </span>
-              <p className="text-[11px] text-amber-900 leading-relaxed">
-                1. Click <strong>"Request Quality Inspection"</strong> below.<br />
-                2. Admin receives your request and dispatches a certified assayer to inspect the lot.<br />
-                3. The inspector tests moisture %, purity, and grade, and uploads the certified assay report.<br />
-                4. Pay the certified inspection fee via Razorpay to unlock and accept the report before purchase.
+            <div className="p-3.5 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 text-xs text-[#0B3326] flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+              <p className="text-xs text-[#0B3326] leading-relaxed">
+                An official assayer will visit the farm to test moisture %, quality grade, and purity before you purchase.
               </p>
             </div>
 

@@ -449,8 +449,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
             <span>
               {paymentMode === 'trade_credit'
-                ? 'Backed by verified institutional credit lines. Funds earmarked to farmer upon underwriter review.'
-                : 'Marketplace funds deferred in Razorpay Route on_hold until Delivery OTP confirmation.'}
+                ? 'NBFC pays 80% directly into Escrow. You pay only the 20% balance once approved.'
+                : '100% Escrow Protected. Money is released to the farmer only after you verify delivery.'}
             </span>
           </div>
 

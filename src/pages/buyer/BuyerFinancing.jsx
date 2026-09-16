@@ -109,13 +109,13 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <CreditCard className="w-3.5 h-3.5" /> Buyer Trade Credit & Settlement Desk
+              <CreditCard className="w-3.5 h-3.5" /> Buyer Trade Credit
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
-              Credit & Trade Financing
+              Trade Credit
             </h1>
             <p className="text-sm sm:text-base text-[#DCFCE7]/90 leading-relaxed font-normal">
-              Support your agricultural procurement and auction wins with eligible credit facilities backed by institutional funders.
+              Get up to 80% financing from approved NBFCs to purchase produce with 30-day repayment.
             </p>
           </div>
 
@@ -149,7 +149,7 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
           {/* Total Purchase Pipeline */}
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Procurement Volume</span>
+              <span className="text-xs font-semibold text-[#566861]">Total Orders</span>
               <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
                 <ShoppingBag className="w-4 h-4" />
               </div>
@@ -165,7 +165,7 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
           {/* Active Credit Requests */}
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Pending Underwriting</span>
+              <span className="text-xs font-semibold text-[#566861]">Pending Review</span>
               <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
                 <Clock className="w-4 h-4" />
               </div>
@@ -174,14 +174,14 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
               {activeRequestsCount}
             </div>
             <div className="text-[11px] text-[#566861]">
-              Credit requests under funder review
+              Applications being reviewed
             </div>
           </Card>
 
           {/* Active Credit Facility */}
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Approved Credit Lines</span>
+              <span className="text-xs font-semibold text-[#566861]">Approved Credit</span>
               <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
                 <ShieldCheck className="w-4 h-4 text-[#10B981]" />
               </div>
@@ -190,7 +190,7 @@ export default function BuyerFinancing({ currentUser, onNavigate, navState }) {
               ₹{totalApprovedFunding.toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-[#10B981] font-semibold">
-              Available for trade settlement
+              Ready for purchase settlement
             </div>
           </Card>
 
