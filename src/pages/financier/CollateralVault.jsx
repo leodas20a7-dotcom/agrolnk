@@ -69,11 +69,13 @@ export default function CollateralVault({ currentUser, onNavigate }) {
   const safeInventory = Array.isArray(inventory) ? inventory : [];
 
   const filteredInventory = safeInventory.filter((item) => {
+    const q = (searchQuery || '').toLowerCase().trim();
+    if (!q) return true;
     return (
-      item?.commodity?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item?.receiptNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item?.farmerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item?.warehouseName?.toLowerCase().includes(searchQuery.toLowerCase())
+      (item?.commodity || '').toLowerCase().includes(q) ||
+      (item?.receiptNumber || '').toLowerCase().includes(q) ||
+      (item?.farmerName || '').toLowerCase().includes(q) ||
+      (item?.warehouseName || '').toLowerCase().includes(q)
     );
   });
 

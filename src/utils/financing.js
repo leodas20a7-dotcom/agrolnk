@@ -225,16 +225,39 @@ export async function createFinancingRequest(requestData) {
 /**
  * Approve or underwrite a financing request
  */
-export async function underwriteFinancingRequest(requestId, approvalData) {
+export async function underwriteFinancingRequest(requestId, approvalDataOrStatus, maybeAmount, maybeNotes) {
+  const approvalData =
+    typeof approvalDataOrStatus === 'object' && approvalDataOrStatus !== null
+      ? approvalDataOrStatus
+      : {
+          status: approvalDataOrStatus || 'approved',
+          approvedAmount: maybeAmount,
+          reviewNotes: maybeNotes,
+        };
+
+  const nextStatus = approvalData.status || 'approved';
+  const nextNotes =
+    approvalData.reviewNotes ||
+    (nextStatus === 'approved'
+      ? 'Approved by institutional credit desk'
+      : nextStatus === 'rejected'
+      ? 'Application declined by risk policy'
+      : 'Under evaluation');
+
   try {
     const local = getLocalFinancingRequests();
     const updatedLocal = local.map((r) => {
       if (r.id === requestId || r.requestNumber === requestId) {
+        const nextAmount =
+          approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null
+            ? Number(approvalData.approvedAmount)
+            : Number(r.approvedAmount || r.requestedAmount);
+
         return {
           ...r,
-          status: approvalData.status || 'approved',
-          approvedAmount: Number(approvalData.approvedAmount || r.requestedAmount),
-          reviewNotes: approvalData.reviewNotes || 'Approved by underwriter',
+          status: nextStatus,
+          approvedAmount: nextAmount,
+          reviewNotes: nextNotes,
           updatedAt: new Date().toISOString(),
         };
       }
@@ -242,15 +265,27 @@ export async function underwriteFinancingRequest(requestId, approvalData) {
     });
     localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(updatedLocal));
 
+    // Global broadcast so other views/tabs update instantly
+    try {
+      const target = updatedLocal.find((r) => r.id === requestId || r.requestNumber === requestId);
+      if (target && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: target }));
+      }
+    } catch {}
+
     if (isUuid(requestId)) {
+      const updatePayload = {
+        status: nextStatus,
+        review_notes: nextNotes,
+        updated_at: new Date().toISOString(),
+      };
+      if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
+        updatePayload.approved_amount = Number(approvalData.approvedAmount);
+      }
+
       const { data, error } = await supabase
         .from('financing_requests')
-        .update({
-          status: approvalData.status || 'approved',
-          approved_amount: Number(approvalData.approvedAmount),
-          review_notes: approvalData.reviewNotes || 'Approved by underwriter',
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', requestId)
         .select()
         .single();
@@ -281,19 +316,25 @@ export async function getDisbursements() {
       .map((r, i) => {
         const monthlyRate = 0.85; // 0.85% per month
         const tenorDays = 30;
-        const expectedReturn = Math.round(r.approvedAmount * (1 + (monthlyRate / 100) * (tenorDays / 30)));
+        const expectedReturn = Math.round((Number(r.approvedAmount) || Number(r.requestedAmount) || 0) * (1 + (monthlyRate / 100) * (tenorDays / 30)));
+        const utrNum = `UTR${202600000000 + (i + 1) * 9481 + 107}`;
+
         return {
           id: `disb_${r.id}`,
           refNumber: `DISB-2026-00${i + 1}`,
+          bankUtr: utrNum,
           requestId: r.id,
           requestNumber: r.requestNumber,
-          applicantName: r.applicantName,
-          amount: r.approvedAmount,
+          applicantName: r.applicantName || 'Applicant Partner',
+          applicantRole: r.applicantRole || 'buyer',
+          orderNumber: r.orderNumber || null,
+          commodity: r.commodity || 'Produce Lot',
+          amount: Number(r.approvedAmount) || Number(r.requestedAmount) || 0,
           interestRate: monthlyRate,
           tenorDays,
           expectedReturn,
           status: 'active',
-          disbursedAt: r.createdAt,
+          disbursedAt: r.updatedAt || r.createdAt || new Date().toISOString(),
         };
       });
   } catch (err) {

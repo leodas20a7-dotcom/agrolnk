@@ -57,13 +57,18 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const filteredDisbursements = disbursements.filter(
-    (d) =>
-      d.refNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.applicantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.requestNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.bankUtr.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDisbursements = disbursements.filter((d) => {
+    const q = (searchQuery || '').toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (d.refNumber || '').toLowerCase().includes(q) ||
+      (d.applicantName || '').toLowerCase().includes(q) ||
+      (d.requestNumber || '').toLowerCase().includes(q) ||
+      (d.bankUtr || '').toLowerCase().includes(q) ||
+      (d.commodity || '').toLowerCase().includes(q) ||
+      (d.orderNumber || '').toLowerCase().includes(q)
+    );
+  });
 
   const totalDisbursed = disbursements.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const totalSettled = disbursements

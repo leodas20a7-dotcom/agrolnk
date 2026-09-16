@@ -80,18 +80,20 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const buyerCount = requests.filter((r) => r.applicantRole === 'buyer').length;
 
   const filteredRequests = requests.filter((r) => {
+    const q = (searchQuery || '').toLowerCase().trim();
     const matchesSearch =
-      r.applicantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.commodity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.requestNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.orderNumber.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      (r.applicantName || '').toLowerCase().includes(q) ||
+      (r.commodity || '').toLowerCase().includes(q) ||
+      (r.requestNumber || '').toLowerCase().includes(q) ||
+      (r.orderNumber || '').toLowerCase().includes(q);
 
     const matchesRole = selectedRoleFilter === 'all' || r.applicantRole === selectedRoleFilter;
     const matchesStatus =
       selectedStatusFilter === 'all' ||
       (selectedStatusFilter === 'pending' && (r.status === 'pending' || r.status === 'under_review')) ||
       r.status === selectedStatusFilter;
-    const matchesCommodity = selectedCommodity === 'all' || r.commodity.includes(selectedCommodity);
+    const matchesCommodity = selectedCommodity === 'all' || (r.commodity || '').includes(selectedCommodity);
 
     return matchesSearch && matchesRole && matchesStatus && matchesCommodity;
   });
