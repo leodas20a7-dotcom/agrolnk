@@ -21,63 +21,8 @@ export const ESCROW_NODAL_ACCOUNT = {
   settlementSpeed: 'Instant IMPS / NEFT 24x7',
 };
 
-// Initial Seed Transactions for High-Impact Live Demos
-const DEFAULT_INITIAL_TRANSACTIONS = [
-  {
-    id: 'TXN_ESC_9081',
-    orderNumber: 'ORD-8821',
-    type: 'DEPOSIT',
-    commodity: 'Tomato (Hybrid Shivam)',
-    buyerName: 'Maran S (Global Agro)',
-    farmerName: 'Veerappan (Salem Producer)',
-    grossAmount: 4210.50,
-    tradeValue: 4200.00,
-    buyerFee: 10.50,
-    sellerFee: 10.50,
-    netFarmerPayout: 4189.50,
-    platformRevenue: 21.00,
-    status: 'LOCKED_IN_ESCROW',
-    utrNumber: 'CMSICICI202609088812',
-    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    milestone: 'In Transit — Held under Corridors Manifest',
-  },
-  {
-    id: 'TXN_ESC_9074',
-    orderNumber: 'ORD-8790',
-    type: 'DISBURSEMENT',
-    commodity: 'Basmati Rice (Pusa 1121)',
-    buyerName: 'ITC Agri Sourcing Ltd.',
-    farmerName: 'Sakthi Vel (Attur Farmgate)',
-    grossAmount: 76190.00,
-    tradeValue: 76000.00,
-    buyerFee: 190.00,
-    sellerFee: 190.00,
-    netFarmerPayout: 75810.00,
-    platformRevenue: 380.00,
-    status: 'SETTLED_TO_FARMER',
-    utrNumber: 'CMSICICI202609081049',
-    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    milestone: 'Delivered & OTP Verified by Buyer',
-  },
-  {
-    id: 'TXN_ESC_9062',
-    orderNumber: 'ORD-8735',
-    type: 'DISBURSEMENT',
-    commodity: 'Salem Turmeric (Grade A)',
-    buyerName: 'Southern Spices Hub',
-    farmerName: 'Kavin Kumar (Erode Agri Lot)',
-    grossAmount: 18045.00,
-    tradeValue: 18000.00,
-    buyerFee: 45.00,
-    sellerFee: 45.00,
-    netFarmerPayout: 17955.00,
-    platformRevenue: 90.00,
-    status: 'SETTLED_TO_FARMER',
-    utrNumber: 'CMSICICI202609079941',
-    timestamp: new Date(Date.now() - 1000 * 60 * 600).toISOString(),
-    milestone: 'Quality Assayed & Delivery OTP Confirmed',
-  }
-];
+// Initial Seed Transactions (Empty for clean fresh testing)
+const DEFAULT_INITIAL_TRANSACTIONS = [];
 
 // Helper to retrieve local memory state
 function getStoredLedger() {
