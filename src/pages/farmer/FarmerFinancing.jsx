@@ -101,6 +101,10 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
     (o) =>
       o.status !== 'completed' &&
       o.status !== 'cancelled' &&
+      o.paymentMode !== 'escrow' &&
+      o.paymentMode !== '100% Escrow' &&
+      o.escrowStatus !== 'held_in_escrow' &&
+      o.escrowStatus !== 'funded' &&
       !requestByOrder.has(o.orderNumber) &&
       !requestByOrder.has(o.id)
   );

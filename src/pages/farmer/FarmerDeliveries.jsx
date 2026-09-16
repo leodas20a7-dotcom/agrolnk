@@ -121,9 +121,9 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
 
-  // Confirmed orders that need transport
+  // Orders awaiting dispatch / transport arrangement
   const confirmedOrdersNeedingTransport = safeOrders.filter(
-    (o) => o.status === 'confirmed' || o.status === 'ready_for_delivery'
+    (o) => o.status === 'pending' || o.status === 'order_placed' || o.status === 'confirmed' || o.status === 'ready_for_delivery'
   );
 
   const activeDeliveries = safeDeliveries.filter(
