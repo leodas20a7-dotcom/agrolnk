@@ -100,8 +100,8 @@ export default function OrderSummary({
         </div>
         
         <div className="flex items-center gap-2.5">
-          {/* Trade Credit Status Badge */}
-          {isFinanced ? (
+          {/* Trade Credit Status Badge - Only for Buyer or Admin/Financier */}
+          {isBuyer && isFinanced ? (
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
               existingFinancing?.status === 'approved'
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
@@ -161,8 +161,8 @@ export default function OrderSummary({
           </div>
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">Payment Mode</span>
-            <span className={`font-bold ${isFinanced ? 'text-blue-700' : 'text-[#10B981]'}`}>
-              {isFinanced ? 'Trade Credit (NBFC)' : '100% Escrow'}
+            <span className={`font-bold ${isBuyer && isFinanced ? 'text-blue-700' : 'text-[#10B981]'}`}>
+              {isBuyer && isFinanced ? 'Trade Credit (NBFC)' : '100% Escrow'}
             </span>
           </div>
         </div>
@@ -362,8 +362,8 @@ export default function OrderSummary({
           )
         )}
 
-        {/* Transaction-Linked Trade Credit Facility Breakdown (When order is financed) */}
-        {isFinanced && (
+        {/* Transaction-Linked Trade Credit Facility Breakdown (Only shown to Buyer) */}
+        {isFinanced && isBuyer && (
           <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 text-xs space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">

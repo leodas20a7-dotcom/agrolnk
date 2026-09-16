@@ -39,7 +39,7 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
             <Badge variant="dark" size="sm">
               Grade {order.grade || 'A'}
             </Badge>
-            {financingReq && (
+            {viewerRole === 'buyer' && financingReq && (
               <FinancingStatusBadge status={financingReq.status} size="sm" />
             )}
           </div>
