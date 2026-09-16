@@ -12,7 +12,9 @@ export default function FinancingRow({
   const isApproved = request.status === 'approved';
   const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
-  const isFinancier = viewerRole === 'financier';
+  const isBuyer = viewerRole === 'buyer';
+  const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
+  const needsMarginPayment = isBuyer && isApproved && !request.marginPaid;
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
@@ -79,14 +81,16 @@ export default function FinancingRow({
         <FinancingStatusBadge status={request.status} size="sm" />
 
         <Button
-          variant={isFinancier ? (request.status === 'approved' ? 'secondary' : 'accent') : 'secondary'}
+          variant={needsMarginPayment ? 'accent' : (isFinancier ? (request.status === 'approved' ? 'secondary' : 'accent') : 'secondary')}
           size="sm"
           onClick={() => onView(request)}
           icon={ArrowRight}
           iconPosition="right"
           className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
         >
-          {isFinancier ? (request.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve') : 'View Details'}
+          {needsMarginPayment
+            ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
+            : (isFinancier ? (request.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve') : 'View Details')}
         </Button>
       </div>
     </div>

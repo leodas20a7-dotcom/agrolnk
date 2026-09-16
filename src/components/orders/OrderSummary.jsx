@@ -446,14 +446,20 @@ export default function OrderSummary({
             {onViewFinancing && (
               <div className="flex justify-end pt-0.5">
                 <Button
-                  variant="secondary"
+                  variant={isBuyer && existingFinancing?.status === 'approved' && !existingFinancing?.marginPaid ? "accent" : "secondary"}
                   size="sm"
                   onClick={() => onViewFinancing(existingFinancing || { id: order.financingRequestId, orderNumber: order.orderNumber, applicantRole: 'buyer' })}
-                  icon={ArrowRight}
-                  iconPosition="right"
-                  className="text-xs font-semibold border-blue-200 text-blue-900 bg-white hover:bg-blue-50 cursor-pointer"
+                  icon={isBuyer && existingFinancing?.status === 'approved' && !existingFinancing?.marginPaid ? CreditCard : ArrowRight}
+                  iconPosition={isBuyer && existingFinancing?.status === 'approved' && !existingFinancing?.marginPaid ? "left" : "right"}
+                  className={`text-xs font-bold cursor-pointer ${
+                    isBuyer && existingFinancing?.status === 'approved' && !existingFinancing?.marginPaid
+                      ? 'shadow-xs'
+                      : 'border-blue-200 text-blue-900 bg-white hover:bg-blue-50'
+                  }`}
                 >
-                  View Credit Desk
+                  {isBuyer && existingFinancing?.status === 'approved' && !existingFinancing?.marginPaid
+                    ? `Pay Margin (₹${buyerMargin.toLocaleString('en-IN')}) & Secure Escrow`
+                    : 'View Credit Desk'}
                 </Button>
               </div>
             )}

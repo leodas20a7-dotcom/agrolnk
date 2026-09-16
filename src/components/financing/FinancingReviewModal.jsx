@@ -9,12 +9,14 @@ import {
   User,
   FileText,
   Tag,
-  AlertCircle
+  AlertCircle,
+  CreditCard
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import FinancingStatusBadge from './FinancingStatusBadge';
-import { updateFinancingStatus } from '../../utils/financing';
+import { updateFinancingStatus, underwriteFinancingRequest } from '../../utils/financing';
+import { initiateBuyerMarginDepositCheckout } from '../../utils/razorpayRouteClient';
 
 export default function FinancingReviewModal({
   request,
@@ -27,17 +29,55 @@ export default function FinancingReviewModal({
   );
   const [reviewNotes, setReviewNotes] = useState(request?.reviewNotes || '');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isPayingMargin, setIsPayingMargin] = useState(false);
+  const [marginPaidSuccess, setMarginPaidSuccess] = useState(Boolean(request?.marginPaid));
 
   React.useEffect(() => {
     if (request) {
       setApprovedAmount(request.approvedAmount || request.requestedAmount || 0);
       setReviewNotes(request.reviewNotes || '');
+      setMarginPaidSuccess(Boolean(request.marginPaid));
     }
   }, [request]);
 
   if (!request) return null;
 
   const isFinancier = viewerRole === 'financier';
+  const isBuyer = viewerRole === 'buyer';
+  const totalTxValue = Number(request.transactionValue || 0);
+  const effectiveApproved = Number(request.approvedAmount || request.requestedAmount || approvedAmount || 0);
+  const marginDeposit = Math.max(0, totalTxValue - effectiveApproved);
+
+  const handlePayMargin = async () => {
+    setIsPayingMargin(true);
+    try {
+      await initiateBuyerMarginDepositCheckout({
+        request,
+        marginAmount: marginDeposit,
+        buyerUser: { name: request.applicantName },
+        onSuccess: async (res) => {
+          setMarginPaidSuccess(true);
+          setIsPayingMargin(false);
+          const updated = await underwriteFinancingRequest(request.id, {
+            ...request,
+            status: 'approved',
+            marginPaid: true,
+            escrowFunded: true,
+            marginPaidAt: new Date().toISOString(),
+            paymentId: res.razorpay_payment_id,
+          });
+          onStatusUpdated?.(updated || { ...request, marginPaid: true, escrowFunded: true });
+        },
+        onFailure: (err) => {
+          console.warn('Payment dismissed or failed:', err);
+          setIsPayingMargin(false);
+        },
+      });
+    } catch (err) {
+      console.error('Error initiating margin checkout:', err);
+      setIsPayingMargin(false);
+    }
+  };
 
   const handleStatusChange = (newStatus) => {
     setIsUpdating(true);
@@ -323,6 +363,73 @@ export default function FinancingReviewModal({
                   : `Approve (₹${Number(approvedAmount || 0).toLocaleString('en-IN')})`}
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Buyer Margin Deposit & Escrow Activation Action (Only for Buyer when Approved) */}
+        {isBuyer && request.status === 'approved' && (
+          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-4 shadow-lg animate-in fade-in duration-150">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
+                  Complete 100% Escrow Collateral
+                </span>
+                <h4 className="text-base font-extrabold text-white mt-0.5 font-heading">
+                  {request.marginPaid || marginPaidSuccess
+                    ? 'Trade Margin Secured in Escrow Vault'
+                    : 'Deposit 20% Margin Money & Place Order'}
+                </h4>
+                <p className="text-xs text-white/80 mt-1 leading-relaxed">
+                  {request.marginPaid || marginPaidSuccess
+                    ? 'Both the NBFC loan (80%) and your margin deposit (20%) are locked in Razorpay Route Escrow. The farmer is notified to fulfill and dispatch produce.'
+                    : `The NBFC has approved ₹${Number(effectiveApproved).toLocaleString('en-IN')} (80%). Pay the remaining 20% balance of ₹${Number(marginDeposit).toLocaleString('en-IN')} to lock 100% Escrow and place the order.`}
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20 text-[#34D399] shrink-0">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+            </div>
+
+            {/* Financial Split Breakdown */}
+            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-white/10 border border-white/15 text-center text-xs">
+              <div>
+                <span className="text-[10px] text-white/70 block font-medium">NBFC Loan Disbursed</span>
+                <span className="text-sm font-extrabold text-[#34D399]">
+                  ₹{Number(effectiveApproved).toLocaleString('en-IN')} (80%)
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-white/70 block font-medium">Buyer Balance Deposit</span>
+                <span className="text-sm font-extrabold text-white">
+                  ₹{Number(marginDeposit).toLocaleString('en-IN')} (20%)
+                </span>
+              </div>
+            </div>
+
+            {/* Action */}
+            {!(request.marginPaid || marginPaidSuccess) ? (
+              <div className="pt-2 border-t border-white/15">
+                <Button
+                  variant="accent"
+                  size="lg"
+                  disabled={isPayingMargin}
+                  onClick={handlePayMargin}
+                  icon={CreditCard}
+                  iconPosition="left"
+                  className="w-full justify-center font-bold text-sm py-3 shadow-md cursor-pointer text-[#0B3326] bg-[#34D399] hover:bg-[#10B981] transition-all"
+                >
+                  {isPayingMargin ? 'Opening Razorpay Gateway...' : `Pay Margin (₹${Number(marginDeposit).toLocaleString('en-IN')}) & Place Order`}
+                </Button>
+              </div>
+            ) : (
+              <div className="pt-2 border-t border-white/15 flex items-center justify-between text-xs text-[#34D399] font-bold">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#34D399]" /> 100% Escrow Collateralized
+                </span>
+                <span className="text-white/80 font-normal">Order Active & Escrow Secured</span>
+              </div>
+            )}
           </div>
         )}
 

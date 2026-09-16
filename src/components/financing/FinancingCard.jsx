@@ -14,6 +14,10 @@ export default function FinancingCard({
   const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
 
+  const isBuyer = viewerRole === 'buyer';
+  const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
+  const needsMarginPayment = isBuyer && isApproved && !request.marginPaid;
+
   return (
     <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 text-left">
       {/* Top Header: Request ID, Date & Status */}
@@ -89,18 +93,20 @@ export default function FinancingCard({
       <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]/80">
         <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-semibold">
           <ShieldCheck className="w-4 h-4" />
-          <span>Underwritten by Trade Collateral</span>
+          <span>{needsMarginPayment ? `Balance Margin: ₹${Number(marginAmount).toLocaleString('en-IN')}` : 'Underwritten by Collateral'}</span>
         </div>
 
         <Button
-          variant={viewerRole === 'financier' ? 'primary' : 'secondary'}
+          variant={needsMarginPayment ? 'accent' : (viewerRole === 'financier' ? 'primary' : 'secondary')}
           size="sm"
           onClick={() => onView(request)}
           icon={ArrowRight}
           iconPosition="right"
           className="text-xs font-bold py-2 cursor-pointer"
         >
-          {viewerRole === 'financier' ? 'Review Application' : 'View Details'}
+          {needsMarginPayment
+            ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
+            : (viewerRole === 'financier' ? 'Review Application' : 'View Details')}
         </Button>
       </div>
     </Card>
