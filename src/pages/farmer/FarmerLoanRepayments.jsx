@@ -25,6 +25,7 @@ import {
   X
 } from 'lucide-react';
 import { getFarmerFinancingRequests, calculateLoanMaturity, repayFinancingLoan } from '../../utils/financing';
+import { initiateRazorpayLoanRepaymentCheckout } from '../../utils/razorpayRouteClient';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
@@ -35,7 +36,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
   const [isUrgentRequestOpen, setIsUrgentRequestOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'repaid' | 'all'
   const [currentPage, setCurrentPage] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('upi');
+  const [paymentMethod, setPaymentMethod] = useState('razorpay');
   const [isProcessing, setIsProcessing] = useState(false);
   const [repaymentReceipt, setRepaymentReceipt] = useState(null);
 
@@ -104,11 +105,56 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
 
   const handleConfirmRepayment = async (loan) => {
     if (!loan) return;
+    const maturity = calculateLoanMaturity(loan);
+
+    // If Razorpay gateway selected, launch official Razorpay Checkout SDK modal
+    if (paymentMethod === 'razorpay') {
+      setIsProcessing(true);
+      initiateRazorpayLoanRepaymentCheckout({
+        request: loan,
+        amount: maturity.totalDue,
+        currentUser: user,
+        onSuccess: async (rzpRes) => {
+          showGlobalLoader('Verifying Settlement...', 'Confirming Razorpay transaction & releasing loan lien...');
+          const txnId = rzpRes.razorpay_payment_id || `PAY_${Date.now()}`;
+          await repayFinancingLoan(loan.id || loan.requestNumber, {
+            method: 'razorpay',
+            txnId,
+            amount: maturity.totalDue,
+            notes: `Razorpay Online Settlement (Payment ID: ${txnId})`,
+          });
+
+          const receipt = {
+            txnId,
+            loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
+            orderNumber: loan.orderNumber || 'Working Capital Facility',
+            borrowerName: user.name || loan.applicantName || 'Farmer Partner',
+            institutionName: 'Samunnati / NABARD Agri-Finance Desk',
+            principalAmount: maturity.principal,
+            interestAmount: maturity.interest,
+            totalPaid: maturity.totalDue,
+            paidAt: new Date().toISOString(),
+            paymentMethod: 'Razorpay Gateway (UPI, Cards, NetBanking)',
+          };
+
+          setRepaymentReceipt(receipt);
+          await loadData(false);
+          setIsProcessing(false);
+          hideGlobalLoader();
+        },
+        onFailure: (err) => {
+          console.warn('Razorpay checkout window note:', err);
+          setIsProcessing(false);
+          hideGlobalLoader();
+        },
+      });
+      return;
+    }
+
     setIsProcessing(true);
     showGlobalLoader('Transmitting Loan Settlement...', 'Settling balance with Financial Institution & releasing escrow lien...');
 
     try {
-      const maturity = calculateLoanMaturity(loan);
       const txnId = `TXN${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
 
       await repayFinancingLoan(loan.id || loan.requestNumber, {
@@ -518,18 +564,33 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                       Repay to Financial Institution Directly:
                     </label>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('razorpay')}
+                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                          paymentMethod === 'razorpay'
+                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
+                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
+                        }`}
+                      >
+                        <Sparkles className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
+                        <span className="font-bold text-xs block">Razorpay</span>
+                        <span className="text-[9px] text-[#566861] block">Cards/UPI/Net</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('upi')}
                         className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                           paymentMethod === 'upi'
-                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-1 ring-[#10B981]'
+                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
                             : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
                         }`}
                       >
                         <QrCode className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
-                        <span className="font-bold text-xs block">UPI / QR</span>
+                        <span className="font-bold text-xs block">Direct UPI</span>
+                        <span className="text-[9px] text-[#566861] block">Instant QR</span>
                       </button>
 
                       <button
@@ -537,12 +598,13 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                         onClick={() => setPaymentMethod('netbanking')}
                         className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                           paymentMethod === 'netbanking'
-                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-1 ring-[#10B981]'
+                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
                             : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
                         }`}
                       >
                         <Landmark className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
                         <span className="font-bold text-xs block">NetBanking</span>
+                        <span className="text-[9px] text-[#566861] block">Bank Login</span>
                       </button>
 
                       <button
@@ -550,12 +612,13 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                         onClick={() => setPaymentMethod('bank_transfer')}
                         className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                           paymentMethod === 'bank_transfer'
-                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-1 ring-[#10B981]'
+                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
                             : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
                         }`}
                       >
                         <CreditCard className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
                         <span className="font-bold text-xs block">RTGS/NEFT</span>
+                        <span className="text-[9px] text-[#566861] block">Direct Transfer</span>
                       </button>
                     </div>
 
