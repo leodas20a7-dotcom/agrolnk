@@ -60,9 +60,7 @@ export default function TransportQuoteModal({
 
   const [savedFleet, setSavedFleet] = useState([]);
   const [selectedVehicleKey, setSelectedVehicleKey] = useState(defaultFareInfo.vehicleKey || 'medium_lcv');
-  const [freightAmount, setFreightAmount] = useState(
-    delivery?.freightAmount || defaultFareInfo.estimatedFare || ''
-  );
+  const [freightAmount, setFreightAmount] = useState(0);
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
@@ -83,10 +81,6 @@ export default function TransportQuoteModal({
           if (primary.driverPhone) setDriverPhone(primary.driverPhone);
           if (primary.vehicleCategory && VEHICLE_TARIFF_RATES[primary.vehicleCategory]) {
             setSelectedVehicleKey(primary.vehicleCategory);
-            const updatedFare = calculateEstimatedFare(delivery?.quantity, distanceKm, primary.vehicleCategory);
-            if (!delivery?.freightAmount) {
-              setFreightAmount(updatedFare.estimatedFare);
-            }
           }
         }
       }
@@ -94,7 +88,7 @@ export default function TransportQuoteModal({
     return () => {
       isMounted = false;
     };
-  }, [user.id, user.email, distanceKm, delivery?.quantity, delivery?.freightAmount]);
+  }, [user.id, user.email, vehicleNumber]);
 
   // When a fleet vehicle is clicked to assign
   const handleSelectFleetVehicle = (veh) => {
@@ -104,16 +98,12 @@ export default function TransportQuoteModal({
     const catKey = veh.vehicleCategory || 'medium_lcv';
     if (VEHICLE_TARIFF_RATES[catKey]) {
       setSelectedVehicleKey(catKey);
-      const updatedFare = calculateEstimatedFare(delivery?.quantity, distanceKm, catKey);
-      setFreightAmount(updatedFare.estimatedFare);
     }
   };
 
   // Re-calculate suggested fare when vehicle category changes
   const handleVehicleChange = (newKey) => {
     setSelectedVehicleKey(newKey);
-    const updated = calculateEstimatedFare(delivery?.quantity, distanceKm, newKey);
-    setFreightAmount(updated.estimatedFare);
   };
 
   const isVerified =
@@ -131,7 +121,7 @@ export default function TransportQuoteModal({
       return;
     }
     if (!freightAmount || Number(freightAmount) <= 0) {
-      setError('Please enter a valid transport quote price.');
+      setError('Please enter your transport quote price.');
       return;
     }
     if (!vehicleNumber.trim()) {
@@ -321,7 +311,7 @@ export default function TransportQuoteModal({
                   Transporter Price Quote (₹)
                 </span>
                 <span className="text-[11px] text-[#DCFCE7]/80">
-                  Standard Matrix: Base ₹{currentRate.baseFare} + ({distanceKm} km × ₹{currentRate.ratePerKm}) = ₹{Math.round(currentRate.baseFare + distanceKm * currentRate.ratePerKm)}
+                  Standard Matrix Reference: Base ₹{currentRate.baseFare} + ({distanceKm} km × ₹{currentRate.ratePerKm}) = ₹{Math.round(currentRate.baseFare + distanceKm * currentRate.ratePerKm)} (You can quote any amount based on distance)
                 </span>
               </div>
             </div>
@@ -330,9 +320,16 @@ export default function TransportQuoteModal({
               <span className="text-2xl font-extrabold text-[#34D399]">₹</span>
               <input
                 type="number"
-                min="500"
-                step="50"
+                min="0"
+                step="10"
+                placeholder="0"
                 value={freightAmount}
+                onFocus={() => {
+                  if (Number(freightAmount) === 0) setFreightAmount('');
+                }}
+                onBlur={() => {
+                  if (freightAmount === '' || Number.isNaN(Number(freightAmount))) setFreightAmount(0);
+                }}
                 onChange={(e) => setFreightAmount(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-white text-gray-900 font-extrabold text-xl focus:outline-none focus:ring-2 focus:ring-[#34D399]"
                 required
