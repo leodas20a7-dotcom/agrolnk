@@ -15,6 +15,9 @@ export async function registerUser({ name, phone, email, role, state, district, 
   const normalizedPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
 
   try {
+    let supabaseEmailChecked = false;
+    let supabasePhoneChecked = false;
+
     // 1. Check if email already exists in Supabase
     if (normalizedEmail) {
       const { data: existing, error: checkError } = await supabase
@@ -23,8 +26,11 @@ export async function registerUser({ name, phone, email, role, state, district, 
         .eq('email', normalizedEmail)
         .maybeSingle();
 
-      if (existing) {
-        throw new Error('An account with this email already exists. Please sign in instead.');
+      if (!checkError) {
+        supabaseEmailChecked = true;
+        if (existing) {
+          throw new Error('An account with this email already exists. Please sign in instead.');
+        }
       }
     }
 
@@ -35,30 +41,48 @@ export async function registerUser({ name, phone, email, role, state, district, 
         .select('id, phone, email')
         .ilike('phone', `%${normalizedPhoneDigits}%`);
 
-      if (!phoneErr && phoneMatches && phoneMatches.length > 0) {
-        const duplicatePhone = phoneMatches.find((p) => {
-          const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
-          return pDigits === normalizedPhoneDigits;
-        });
-        if (duplicatePhone) {
-          throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
+      if (!phoneErr) {
+        supabasePhoneChecked = true;
+        if (phoneMatches && phoneMatches.length > 0) {
+          const duplicatePhone = phoneMatches.find((p) => {
+            const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
+            return pDigits === normalizedPhoneDigits;
+          });
+          if (duplicatePhone) {
+            throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
+          }
         }
       }
     }
 
-    // 3. Check in local KYC registry for duplicate email or mobile number
+    // 3. Sync & Clean up local KYC registry
     try {
       const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
       if (storedRaw) {
-        const registry = JSON.parse(storedRaw);
+        let registry = JSON.parse(storedRaw);
         if (Array.isArray(registry)) {
-          if (normalizedEmail) {
+          // If Supabase checked and confirmed the email is NOT in the database,
+          // purge any orphaned/stale entry from local registry so it doesn't falsely block registration.
+          if (supabaseEmailChecked && normalizedEmail) {
+            registry = registry.filter(
+              (u) => (u.email || '').trim().toLowerCase() !== normalizedEmail
+            );
+            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
+          } else if (!supabaseEmailChecked && normalizedEmail) {
+            // Offline fallback check only if Supabase could not be contacted
             const dupEmail = registry.find((u) => (u.email || '').trim().toLowerCase() === normalizedEmail);
             if (dupEmail) {
               throw new Error('An account with this email already exists. Please sign in instead.');
             }
           }
-          if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+
+          if (supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+            registry = registry.filter((u) => {
+              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+              return uDigits !== normalizedPhoneDigits;
+            });
+            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
+          } else if (!supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
             const dupPhone = registry.find((u) => {
               const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
               return uDigits === normalizedPhoneDigits;

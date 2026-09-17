@@ -294,51 +294,70 @@ export async function createAdminUser(userData) {
   const district = userData.district || 'Salem';
   const companyName = userData.orgName || userData.companyName || userData.farmName || `${name} Agri`;
 
-  // 1. Check duplicate in local KYC list
-  const localList = getStoredKYC();
-  if (email && localList.some((u) => (u.email || '').trim().toLowerCase() === email)) {
-    throw new Error('An account with this email already exists.');
-  }
-  if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-    const dupLocalPhone = localList.some((u) => {
-      const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-      return uDigits === normalizedPhoneDigits;
-    });
-    if (dupLocalPhone) {
-      throw new Error('This mobile number is already registered with another account.');
-    }
-  }
+  let dbEmailChecked = false;
+  let dbPhoneChecked = false;
 
-  // 2. Check duplicate in Supabase DB
+  // 1. Check duplicate in Supabase DB (source of truth)
   try {
     if (email) {
-      const { data: existingEmail } = await supabase
+      const { data: existingEmail, error: emailErr } = await supabase
         .from('profiles')
         .select('id, email')
         .eq('email', email)
         .maybeSingle();
-      if (existingEmail) {
-        throw new Error('An account with this email already exists.');
+      if (!emailErr) {
+        dbEmailChecked = true;
+        if (existingEmail) {
+          throw new Error('An account with this email already exists.');
+        }
       }
     }
     if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-      const { data: phoneMatches } = await supabase
+      const { data: phoneMatches, error: phoneErr } = await supabase
         .from('profiles')
         .select('id, phone')
         .ilike('phone', `%${normalizedPhoneDigits}%`);
-      if (phoneMatches && phoneMatches.length > 0) {
-        const hasMatch = phoneMatches.some((p) => {
-          const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
-          return pDigits === normalizedPhoneDigits;
-        });
-        if (hasMatch) {
-          throw new Error('This mobile number is already registered with another account.');
+      if (!phoneErr) {
+        dbPhoneChecked = true;
+        if (phoneMatches && phoneMatches.length > 0) {
+          const hasMatch = phoneMatches.some((p) => {
+            const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
+            return pDigits === normalizedPhoneDigits;
+          });
+          if (hasMatch) {
+            throw new Error('This mobile number is already registered with another account.');
+          }
         }
       }
     }
   } catch (dbCheckErr) {
     if (dbCheckErr.message && (dbCheckErr.message.includes('already exists') || dbCheckErr.message.includes('already registered'))) {
       throw dbCheckErr;
+    }
+  }
+
+  // 2. Clean & check local KYC list
+  let localList = getStoredKYC();
+  if (dbEmailChecked && email) {
+    localList = localList.filter((u) => (u.email || '').trim().toLowerCase() !== email);
+    saveStoredKYC(localList);
+  } else if (!dbEmailChecked && email && localList.some((u) => (u.email || '').trim().toLowerCase() === email)) {
+    throw new Error('An account with this email already exists.');
+  }
+
+  if (dbPhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+    localList = localList.filter((u) => {
+      const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+      return uDigits !== normalizedPhoneDigits;
+    });
+    saveStoredKYC(localList);
+  } else if (!dbPhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+    const dupLocalPhone = localList.some((u) => {
+      const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+      return uDigits === normalizedPhoneDigits;
+    });
+    if (dupLocalPhone) {
+      throw new Error('This mobile number is already registered with another account.');
     }
   }
 
