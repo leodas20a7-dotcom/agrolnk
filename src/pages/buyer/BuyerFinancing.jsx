@@ -8,7 +8,6 @@ import FinancingRow from '../../components/financing/FinancingRow';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import FinancingStatusBadge from '../../components/financing/FinancingStatusBadge';
-import LoanDeadlinesRepaymentModal from '../../components/financing/LoanDeadlinesRepaymentModal';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
@@ -34,7 +33,6 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
   const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
-  const [isDeadlinesModalOpen, setIsDeadlinesModalOpen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -119,7 +117,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
               size="md"
               icon={Calendar}
               iconPosition="left"
-              onClick={() => setIsDeadlinesModalOpen(true)}
+              onClick={() => onNavigate('buyer-loan-repayments')}
               className="font-bold text-xs py-2.5 px-4 shadow-md cursor-pointer justify-center"
             >
               My Deadlines & Repay
@@ -261,17 +259,6 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
           viewerRole="buyer"
           onClose={() => setSelectedRequestForReview(null)}
           onStatusUpdated={() => loadData()}
-        />
-      )}
-
-      {/* Loan Deadlines & Direct Repayment Modal */}
-      {isDeadlinesModalOpen && (
-        <LoanDeadlinesRepaymentModal
-          isOpen={isDeadlinesModalOpen}
-          requests={safeRequests}
-          currentUser={user}
-          onClose={() => setIsDeadlinesModalOpen(false)}
-          onRepaymentSuccess={() => loadData()}
         />
       )}
     </DashboardLayout>

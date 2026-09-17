@@ -25,6 +25,7 @@ import BuyerOrders from './pages/buyer/BuyerOrders';
 import LiveAuctions from './pages/buyer/LiveAuctions';
 import MyBids from './pages/buyer/MyBids';
 import BuyerFinancing from './pages/buyer/BuyerFinancing';
+import BuyerLoanRepayments from './pages/buyer/BuyerLoanRepayments';
 import BuyerDeliveries from './pages/buyer/BuyerDeliveries';
 
 // Shared Auction Room Page
@@ -89,6 +90,7 @@ const VALID_ROUTES = new Set([
   'buyer-live-auctions',
   'buyer-my-bids',
   'buyer-financing',
+  'buyer-loan-repayments',
   'buyer-deliveries',
   // Shared
   'auction-room',
@@ -472,6 +474,15 @@ export default function App() {
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
             navState={navState}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'buyer-loan-repayments' && (
+        <ProtectedRoute requiredRole="buyer" onNavigate={handleNavigate}>
+          <BuyerLoanRepayments
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
           />
         </ProtectedRoute>
       )}
