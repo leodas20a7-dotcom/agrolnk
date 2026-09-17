@@ -525,33 +525,30 @@ export default function OrderSummary({
           </div>
         )}
 
-        {/* If NO financing yet, and order is active, show the 1-click Credit Application banner for Farmer */}
+        {/* Sleek, simple credit option for Farmer */}
         {viewerRole === 'farmer' && !isFarmerFinancing && order.status !== 'cancelled' && order.status !== 'completed' && onRequestFinancing && (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white border border-emerald-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <span className="p-1 rounded-md bg-[#0B3326] text-[#34D399]">
-                  <Landmark className="w-3.5 h-3.5" />
-                </span>
-                <span className="text-xs font-bold text-[#0B3326]">
-                  Need Credit for harvesting, packing, or operational expenses?
-                </span>
-                <Badge variant="accent" size="sm">30 - 60 Days Credit</Badge>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] gap-2.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-[#0B3326] text-[#34D399]">
+                <Landmark className="w-4 h-4" />
               </div>
-              <p className="text-[11px] text-[#566861] pl-6">
-                Apply for direct working capital credit up to <strong className="text-[#0B3326]">₹{Math.round(Number(order.totalAmount || 0) * 0.8).toLocaleString('en-IN')}</strong> from partner financial institutions with 30/60 days credit cycles.
-              </p>
+              <div>
+                <span className="text-xs font-bold text-[#0B3326] block">
+                  Need Working Capital Credit?
+                </span>
+                <span className="text-[11px] text-[#566861]">
+                  Apply for credit up to ₹{Math.round(Number(order.totalAmount || 0) * 0.8).toLocaleString('en-IN')} (30–60 days)
+                </span>
+              </div>
             </div>
 
             <Button
               variant="accent"
               size="sm"
               onClick={() => onRequestFinancing(order)}
-              icon={Landmark}
-              iconPosition="left"
-              className="text-xs font-bold py-2 px-4 shadow-xs shrink-0 cursor-pointer whitespace-nowrap"
+              className="text-xs font-bold py-1.5 px-4 shadow-xs shrink-0 self-start sm:self-center cursor-pointer whitespace-nowrap"
             >
-              ⚡ Need Credit?
+              Apply Credit
             </Button>
           </div>
         )}

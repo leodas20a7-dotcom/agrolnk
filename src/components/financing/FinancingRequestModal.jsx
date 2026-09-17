@@ -185,7 +185,7 @@ export default function FinancingRequestModal({
             </div>
           </div>
 
-          {/* Repayment Option (Credit Cycle 30 or 60 days) */}
+          {/* Preferred Cycle */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-[#10B981]" />
@@ -203,7 +203,7 @@ export default function FinancingRequestModal({
                 }`}
               >
                 <span className="block font-bold">30 Days Net</span>
-                <span className="text-[10px] text-[#566861] block mt-0.5">Standard Cycle</span>
+                <span className="text-[10px] text-[#566861] block mt-0.5">Standard</span>
               </button>
               <button
                 type="button"
@@ -215,34 +215,9 @@ export default function FinancingRequestModal({
                 }`}
               >
                 <span className="block font-bold">60 Days</span>
-                <span className="text-[10px] text-[#566861] block mt-0.5">Extended Cycle</span>
+                <span className="text-[10px] text-[#566861] block mt-0.5">Extended</span>
               </button>
             </div>
-          </div>
-
-          {/* Institutional Request Summary Card */}
-          <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#0B3326]">Request Summary</span>
-              <Badge variant="accent" size="sm">Partner NBFC Review</Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 text-center text-[11px] bg-white p-2.5 rounded-xl border border-[#E5EDE8]">
-              <div>
-                <span className="text-[#566861] block text-[10px]">Requested Credit</span>
-                <span className="font-extrabold text-[#0B3326] text-xs">₹{Number(requestedAmount || 0).toLocaleString('en-IN')}</span>
-              </div>
-              <div>
-                <span className="text-[#566861] block text-[10px]">Requested Cycle</span>
-                <span className="font-bold text-[#14211D] text-xs">
-                  {repaymentOption === '60_day_extended' ? '60 Days' : '30 Days'}
-                </span>
-              </div>
-            </div>
-            
-            <p className="text-[11px] text-[#566861] leading-relaxed">
-              Your application will be reviewed by the financial institution. Interest rate, sanctioned amount, and repayment schedule will be determined by the institution upon underwriting.
-            </p>
           </div>
 
           {/* Error Message */}
@@ -253,10 +228,10 @@ export default function FinancingRequestModal({
             </div>
           )}
 
-          {/* Institutional Guarantee Pill */}
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EBF5F0] text-xs text-[#0B3326]">
+          {/* Clean Institutional Footnote */}
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-[11px] text-[#566861]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>Fast institutional underwriting and sanctioning.</span>
+            <span>Forwarded to partner NBFCs/Banks for fast review & approval.</span>
           </div>
 
           {/* Action Buttons */}
@@ -279,7 +254,7 @@ export default function FinancingRequestModal({
               iconPosition="right"
               className="font-bold py-2 px-5 shadow-xs cursor-pointer"
             >
-              {isSubmitting ? 'Submitting...' : 'Apply for Credit'}
+              {isSubmitting ? 'Submitting...' : 'Submit Request'}
             </Button>
           </div>
         </form>
