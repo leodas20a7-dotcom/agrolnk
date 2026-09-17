@@ -40,8 +40,8 @@ export default function OrderReceiptModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-3 sm:p-6 flex min-h-full items-center justify-center">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-3 sm:p-6 flex min-h-full items-start justify-center py-6 sm:py-10">
+      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-auto animate-in fade-in zoom-in-95 duration-200 relative">
         
         {/* Top Control Bar (Hidden on print) */}
         <div className="flex items-center justify-between pb-4 border-b border-[#E5EDE8] print:hidden">
@@ -169,7 +169,7 @@ export default function OrderReceiptModal({
                       {order.commodity} ({order.variety || 'Standard'})
                     </span>
                     <span className="text-[10px] text-[#566861]">
-                      Lot #{order.orderNumber} • Physical inspection & weight verified
+                      Lot #{String(order.orderNumber || '').replace(/^#+/, '')} • Physical inspection & weight verified
                     </span>
                   </td>
                   <td className="py-3 px-3 text-center font-semibold">
