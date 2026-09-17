@@ -120,9 +120,9 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
       try {
         const [listingData, orderData, auctionData, financingData, deliveryData, invData] = await Promise.all([
           getFarmerListings(user.id),
-          getFarmerOrders(user.id),
+          getFarmerOrders(user.id, user),
           getFarmerAuctions(user.id),
-          getFarmerFinancingRequests(user.id),
+          getFarmerFinancingRequests(user.id, user),
           getFarmerDeliveries(user.id),
           getFarmerInventory(user.id),
         ]);

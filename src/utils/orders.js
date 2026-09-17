@@ -185,7 +185,7 @@ export async function getOrders() {
 }
 
 /**
- * Get orders for a specific buyer (supports id, email, name matching)
+ * Get orders for a specific buyer (strictly confidential to this buyer)
  */
 export async function getBuyerOrders(buyerId, currentUser) {
   try {
@@ -194,21 +194,17 @@ export async function getBuyerOrders(buyerId, currentUser) {
     const userName = (currentUser?.name || '').toLowerCase().trim();
     const uid = buyerId || currentUser?.id || '';
 
+    if (!uid && !userEmail && !userName) return [];
+
     return all.filter((o) => {
       const bName = (o.buyerName || '').toLowerCase().trim();
       const bEmail = (o.buyerEmail || '').toLowerCase().trim();
       const bId = String(o.buyerId || '').trim();
 
-      if (!uid && !userEmail && !userName) return true;
       return (
         (uid && bId === uid) ||
-        (userEmail && (bId === userEmail || bName === userEmail || bEmail === userEmail || bName.includes(userEmail))) ||
-        (userName && (bName === userName || bName.includes(userName) || userName.includes(bName))) ||
-        bId === 'buyer_trade' ||
-        bId === 'buyer' ||
-        bName === 'buyer' ||
-        bName === 'arun' ||
-        !bName
+        (userEmail && (bId === userEmail || bEmail === userEmail)) ||
+        (userName && bName === userName)
       );
     });
   } catch (err) {
@@ -218,7 +214,7 @@ export async function getBuyerOrders(buyerId, currentUser) {
 }
 
 /**
- * Get orders for a specific farmer (supports id, email, name matching)
+ * Get orders for a specific farmer (strictly confidential to this farmer)
  */
 export async function getFarmerOrders(farmerId, currentUser) {
   try {
@@ -227,22 +223,17 @@ export async function getFarmerOrders(farmerId, currentUser) {
     const userName = (currentUser?.name || '').toLowerCase().trim();
     const uid = farmerId || currentUser?.id || '';
 
+    if (!uid && !userEmail && !userName) return [];
+
     return all.filter((o) => {
       const fName = (o.farmerName || '').toLowerCase().trim();
       const fEmail = (o.farmerEmail || '').toLowerCase().trim();
       const fId = String(o.farmerId || '').trim();
 
-      if (!uid && !userEmail && !userName) return true;
       return (
         (uid && fId === uid) ||
-        (userEmail && (fId === userEmail || fName === userEmail || fEmail === userEmail || fName.includes(userEmail))) ||
-        (userName && (fName === userName || fName.includes(userName) || userName.includes(fName))) ||
-        fId === 'farmer_trade' ||
-        fId === 'farmer' ||
-        fName === 'verified producer' ||
-        fName === 'farmer' ||
-        fName === 'rajan' ||
-        !fName
+        (userEmail && (fId === userEmail || fEmail === userEmail)) ||
+        (userName && fName === userName)
       );
     });
   } catch (err) {

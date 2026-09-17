@@ -60,7 +60,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
     try {
       showGlobalLoader('Loading Agri-Credit Facility...', 'Calculating pre-harvest working capital & credit lines...');
       const [orderData, requestData] = await Promise.all([
-        getFarmerOrders(user.id),
+        getFarmerOrders(user.id, user),
         getFarmerFinancingRequests(user.id, user),
       ]);
       setOrders(orderData || []);

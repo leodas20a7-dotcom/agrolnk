@@ -174,17 +174,21 @@ export async function getFinancingRequests() {
 export async function getFarmerFinancingRequests(farmerId, currentUser) {
   try {
     const all = await getFinancingRequests();
-    const userEmail = currentUser?.email || '';
-    const userName = currentUser?.name || '';
+    const userEmail = (currentUser?.email || '').toLowerCase().trim();
+    const userName = (currentUser?.name || '').toLowerCase().trim();
+    const uid = farmerId || currentUser?.id || '';
+
+    if (!uid && !userEmail && !userName) return [];
+
     return all.filter((r) => {
       if (r.applicantRole !== 'farmer') return false;
-      if (!farmerId && !userEmail && !userName) return true;
+      const appId = String(r.applicantId || '').trim();
+      const appName = (r.applicantName || '').toLowerCase().trim();
+
       return (
-        (farmerId && r.applicantId === farmerId) ||
-        (userEmail && (r.applicantId === userEmail || r.applicantId?.includes(userEmail))) ||
-        (userName && (r.applicantName === userName || r.applicantName?.toLowerCase().includes(userName.toLowerCase()))) ||
-        r.applicantId === 'farmer_trade' ||
-        r.applicantId === 'farmer'
+        (uid && appId === uid) ||
+        (userEmail && (appId === userEmail || appId.includes(userEmail))) ||
+        (userName && appName === userName)
       );
     });
   } catch (err) {
@@ -199,17 +203,21 @@ export async function getFarmerFinancingRequests(farmerId, currentUser) {
 export async function getBuyerFinancingRequests(buyerId, currentUser) {
   try {
     const all = await getFinancingRequests();
-    const userEmail = currentUser?.email || '';
-    const userName = currentUser?.name || '';
+    const userEmail = (currentUser?.email || '').toLowerCase().trim();
+    const userName = (currentUser?.name || '').toLowerCase().trim();
+    const uid = buyerId || currentUser?.id || '';
+
+    if (!uid && !userEmail && !userName) return [];
+
     return all.filter((r) => {
       if (r.applicantRole !== 'buyer') return false;
-      if (!buyerId && !userEmail && !userName) return true;
+      const appId = String(r.applicantId || '').trim();
+      const appName = (r.applicantName || '').toLowerCase().trim();
+
       return (
-        (buyerId && r.applicantId === buyerId) ||
-        (userEmail && (r.applicantId === userEmail || r.applicantId?.includes(userEmail))) ||
-        (userName && (r.applicantName === userName || r.applicantName?.toLowerCase().includes(userName.toLowerCase()))) ||
-        r.applicantId === 'buyer_trade' ||
-        r.applicantId === 'buyer'
+        (uid && appId === uid) ||
+        (userEmail && (appId === userEmail || appId.includes(userEmail))) ||
+        (userName && appName === userName)
       );
     });
   } catch (err) {
