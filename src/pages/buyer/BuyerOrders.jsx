@@ -135,10 +135,26 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
     currentPage * pageSize
   );
 
+  const isBuyerArrivalConfirmed = (ord) => {
+    if (!ord) return false;
+    if (ord.buyerConfirmedArrival || ord.buyerArrivalVerified || ord.status === 'completed') return true;
+    if (typeof window !== 'undefined') {
+      if (ord.id && localStorage.getItem(`agrolnk_buyer_verified_${ord.id}`) === 'true') return true;
+      if (ord.orderNumber && localStorage.getItem(`agrolnk_buyer_verified_${ord.orderNumber}`) === 'true') return true;
+    }
+    return false;
+  };
+
   const handleConfirmOrderReceipt = async (orderOrDelivery) => {
     const orderKey = orderOrDelivery?.id || orderOrDelivery?.orderNumber;
     try {
       showGlobalLoader('Confirming Arrival...', 'Logging arrival verification & notifying AgroLnk Admin...');
+      if (typeof window !== 'undefined') {
+        if (orderOrDelivery?.id) localStorage.setItem(`agrolnk_buyer_verified_${orderOrDelivery.id}`, 'true');
+        if (orderOrDelivery?.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${orderOrDelivery.orderNumber}`, 'true');
+        if (selectedOrder?.id) localStorage.setItem(`agrolnk_buyer_verified_${selectedOrder.id}`, 'true');
+        if (selectedOrder?.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${selectedOrder.orderNumber}`, 'true');
+      }
       await confirmOrderReceipt(orderKey);
       try {
         await confirmBuyerReceipt(orderKey);
@@ -350,7 +366,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
             {/* Action Bar when Delivered */}
             {selectedOrder.status === 'delivered' ? (
-              (selectedOrder.buyerConfirmedArrival || selectedOrder.buyerArrivalVerified) ? (
+              isBuyerArrivalConfirmed(selectedOrder) ? (
                 <div className="p-4 sm:p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-3 shadow-sm text-left">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">

@@ -118,6 +118,20 @@ export async function getOrders() {
 
   const mergedRemote = remote.map((r) => {
     const localMatch = localMap.get(r.id) || (r.orderNumber && localMap.get(r.orderNumber));
+    const isConfirmed = Boolean(
+      (localMatch && (localMatch.buyerConfirmedArrival || localMatch.buyerArrivalVerified)) ||
+      r.buyerConfirmedArrival ||
+      r.buyerArrivalVerified ||
+      (typeof window !== 'undefined' && (
+        localStorage.getItem(`agrolnk_buyer_verified_${r.id}`) === 'true' ||
+        localStorage.getItem(`agrolnk_buyer_verified_${r.orderNumber}`) === 'true' ||
+        (localMatch && (
+          localStorage.getItem(`agrolnk_buyer_verified_${localMatch.id}`) === 'true' ||
+          localStorage.getItem(`agrolnk_buyer_verified_${localMatch.orderNumber}`) === 'true'
+        ))
+      ))
+    );
+
     if (localMatch) {
       return {
         ...localMatch,
@@ -132,9 +146,16 @@ export async function getOrders() {
         status: (r.status && r.status !== 'order_placed')
           ? r.status
           : (localMatch.status || r.status),
+        buyerConfirmedArrival: isConfirmed,
+        buyerArrivalVerified: isConfirmed,
+        adminVerificationStatus: r.adminVerificationStatus || localMatch.adminVerificationStatus || 'pending',
       };
     }
-    return r;
+    return {
+      ...r,
+      buyerConfirmedArrival: isConfirmed,
+      buyerArrivalVerified: isConfirmed,
+    };
   });
 
   const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.orderNumber].filter(Boolean)));
@@ -489,24 +510,38 @@ export async function ensureOrderForFinancing(request, paymentData) {
  */
 export async function confirmOrderReceipt(orderId) {
   try {
-    const updatePayload = {
-      status: 'delivered',
-      admin_verification_status: 'pending',
-      buyer_confirmed_arrival: true,
-      buyer_arrival_verified: true,
-      buyer_verified_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    if (typeof window !== 'undefined' && orderId) {
+      localStorage.setItem(`agrolnk_buyer_verified_${orderId}`, 'true');
+    }
 
-    const { data, error } = await supabase
-      .from('orders')
-      .update(updatePayload)
-      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
-      .select()
-      .single();
+    try {
+      const updatePayload = {
+        status: 'delivered',
+        admin_verification_status: 'pending',
+        buyer_confirmed_arrival: true,
+        buyer_arrival_verified: true,
+        buyer_verified_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-    if (error) {
-      console.warn('Supabase update note in confirmOrderReceipt:', error);
+      const { error } = await supabase
+        .from('orders')
+        .update(updatePayload)
+        .or(`id.eq.${orderId},order_number.eq.${orderId}`);
+
+      if (error) {
+        console.warn('Supabase update note in confirmOrderReceipt:', error);
+        // Fallback update
+        await supabase
+          .from('orders')
+          .update({
+            status: 'delivered',
+            updated_at: new Date().toISOString(),
+          })
+          .or(`id.eq.${orderId},order_number.eq.${orderId}`);
+      }
+    } catch (dbErr) {
+      console.warn('Database note in confirmOrderReceipt:', dbErr);
     }
 
     // Automatically sync linked delivery to delivered
@@ -525,6 +560,10 @@ export async function confirmOrderReceipt(orderId) {
     const localOrders = getLocalOrders();
     const updatedLocal = localOrders.map((o) => {
       if (o.id === orderId || o.orderNumber === orderId) {
+        if (typeof window !== 'undefined') {
+          if (o.id) localStorage.setItem(`agrolnk_buyer_verified_${o.id}`, 'true');
+          if (o.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${o.orderNumber}`, 'true');
+        }
         return {
           ...o,
           status: 'delivered',
@@ -539,9 +578,13 @@ export async function confirmOrderReceipt(orderId) {
     });
     localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updatedLocal));
 
-    const resolved = data
-      ? mapOrderFromDb(data)
-      : (updatedLocal.find((o) => o.id === orderId || o.orderNumber === orderId) || { id: orderId, status: 'delivered' });
+    const resolved = updatedLocal.find((o) => o.id === orderId || o.orderNumber === orderId) || {
+      id: orderId,
+      status: 'delivered',
+      adminVerificationStatus: 'pending',
+      buyerConfirmedArrival: true,
+      buyerArrivalVerified: true,
+    };
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: resolved }));
