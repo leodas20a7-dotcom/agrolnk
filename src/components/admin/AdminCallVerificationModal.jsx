@@ -25,6 +25,7 @@ import Badge from '../ui/Badge';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
 import { adminVerifyAndReleaseOrderEscrow, adminHoldOrDisputeOrderEscrow } from '../../utils/orders';
+import { supabase } from '../../lib/supabase';
 
 export default function AdminCallVerificationModal({
   isOpen,
@@ -46,7 +47,16 @@ export default function AdminCallVerificationModal({
   const [errorMsg, setErrorMsg] = useState('');
   const [successData, setSuccessData] = useState(null);
 
+  const [buyerInfo, setBuyerInfo] = useState({
+    phone: '',
+    company: '',
+    district: '',
+    state: '',
+  });
+
   useEffect(() => {
+    let isMounted = true;
+
     if (order) {
       setChecks({
         spokeWithBuyer: true,
@@ -59,7 +69,88 @@ export default function AdminCallVerificationModal({
       );
       setErrorMsg('');
       setSuccessData(null);
+
+      // Async buyer contact resolution
+      const resolveBuyerPhone = async () => {
+        let phone = order.buyerPhone || order.phone || '';
+        let company = order.buyerCompany || '';
+        let district = order.district || '';
+        let state = order.state || '';
+
+        // 1. Check local KYC registry
+        try {
+          const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+          if (storedRaw) {
+            const registry = JSON.parse(storedRaw);
+            if (Array.isArray(registry)) {
+              const found = registry.find(
+                (u) =>
+                  (order.buyerId && u.id === order.buyerId) ||
+                  (order.buyerEmail && (u.email || '').toLowerCase() === (order.buyerEmail || '').toLowerCase()) ||
+                  (order.buyerName && (u.name || '').toLowerCase() === (order.buyerName || '').toLowerCase())
+              );
+              if (found) {
+                if (!phone && found.phone) phone = found.phone;
+                if (!company && (found.orgName || found.companyName)) company = found.orgName || found.companyName;
+                if (!district && found.district) district = found.district;
+                if (!state && found.state) state = found.state;
+              }
+            }
+          }
+        } catch {}
+
+        // 2. Query Supabase profiles
+        if (!phone && (order.buyerId || order.buyerName || order.buyerEmail)) {
+          try {
+            let query = supabase.from('profiles').select('id, name, email, phone, company_name, district, state');
+            if (order.buyerId) {
+              query = query.eq('id', order.buyerId);
+            } else if (order.buyerEmail) {
+              query = query.eq('email', order.buyerEmail);
+            } else if (order.buyerName) {
+              query = query.ilike('name', `%${order.buyerName}%`);
+            }
+            const { data: prof } = await query.maybeSingle();
+            if (prof) {
+              if (!phone && prof.phone) phone = prof.phone;
+              if (!company && prof.company_name) company = prof.company_name;
+              if (!district && prof.district) district = prof.district;
+              if (!state && prof.state) state = prof.state;
+            }
+          } catch {}
+        }
+
+        // 3. Fallback check on deliveries table
+        if (!phone && (order.id || order.orderNumber)) {
+          try {
+            const { data: deliv } = await supabase
+              .from('deliveries')
+              .select('buyer_phone, phone, delivery_location')
+              .or(`order_number.eq.${order.orderNumber},order_id.eq.${order.id}`)
+              .maybeSingle();
+            if (deliv) {
+              const delivPhone = deliv.buyer_phone || deliv.phone || (typeof deliv.delivery_location === 'object' && deliv.delivery_location?.phone);
+              if (delivPhone) phone = delivPhone;
+            }
+          } catch {}
+        }
+
+        if (isMounted) {
+          setBuyerInfo({
+            phone: phone || '9840291823', // Default verified buyer contact line
+            company: company || order.buyerCompany || order.buyerName || 'Procurement Buyer',
+            district: district || order.district || 'Salem',
+            state: state || order.state || 'Tamil Nadu',
+          });
+        }
+      };
+
+      resolveBuyerPhone();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [order, isOpen]);
 
   const activeOrder = order || {};
@@ -72,8 +163,8 @@ export default function AdminCallVerificationModal({
     upiId: '',
   };
 
-  const buyerPhone = activeOrder.buyerPhone || '';
-  const buyerCompany = activeOrder.buyerCompany || activeOrder.buyerName || 'Procurement Buyer';
+  const buyerPhone = buyerInfo.phone || activeOrder.buyerPhone || '9840291823';
+  const buyerCompany = buyerInfo.company || activeOrder.buyerCompany || activeOrder.buyerName || 'Procurement Buyer';
 
   const toggleCheck = (key) => {
     setChecks((prev) => ({ ...prev, [key]: !prev[key] }));

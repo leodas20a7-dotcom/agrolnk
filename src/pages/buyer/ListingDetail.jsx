@@ -113,6 +113,9 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         ...orderPayload,
         buyerId: user.id || '',
         buyerName: user.name || 'Buyer',
+        buyerPhone: user.phone || '',
+        buyerEmail: user.email || '',
+        buyerCompany: user.companyName || user.orgName || '',
       });
 
       // Deduct quantity from live listing
