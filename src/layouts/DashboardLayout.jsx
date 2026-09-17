@@ -362,49 +362,21 @@ export default function DashboardLayout({
   const financierNavGroups = [
     {
       type: 'single',
-      label: 'Executive Desk',
+      label: 'Dashboard',
       page: 'financier-dashboard',
       icon: LayoutDashboard,
     },
     {
-      type: 'dropdown',
-      id: 'credit-desk',
-      label: 'Credit Operations',
-      icon: Landmark,
-      items: [
-        {
-          label: 'Underwriting Queue',
-          page: 'financier-underwriting',
-          icon: FileText,
-          desc: 'Evaluate & approve loan requests',
-        },
-        {
-          label: 'Active Credit Portfolio',
-          page: 'financier-portfolio',
-          icon: PieChart,
-          desc: 'Live loans & repayment tracking',
-        },
-      ],
+      type: 'single',
+      label: 'Loan Requests',
+      page: 'financier-underwriting',
+      icon: FileText,
     },
     {
-      type: 'dropdown',
-      id: 'vault-ledger',
-      label: 'Vault & Settlements',
-      icon: Shield,
-      items: [
-        {
-          label: 'Crop Collateral & Storage Loans',
-          page: 'financier-collateral-vault',
-          icon: Building2,
-          desc: 'Insured storage receipts & liens',
-        },
-        {
-          label: 'Disbursements & Yields',
-          page: 'financier-disbursements',
-          icon: Receipt,
-          desc: 'Payout ledger & interest returns',
-        },
-      ],
+      type: 'single',
+      label: 'Loans & Repayments',
+      page: 'financier-portfolio',
+      icon: PieChart,
     },
   ];
 

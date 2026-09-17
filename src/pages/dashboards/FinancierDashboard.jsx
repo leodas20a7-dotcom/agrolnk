@@ -163,49 +163,36 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
         
-        {/* 1. Executive Terminal Welcome Header */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-6 p-5 sm:p-8 rounded-3xl bg-gradient-to-r from-[#061B14] via-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-1.5 sm:space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+        {/* 1. Header with Simple Clean Text */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 sm:p-7 rounded-3xl bg-gradient-to-r from-[#061B14] via-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] shadow-md">
+          <div className="space-y-1 max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
               <Landmark className="w-3.5 h-3.5" />
-              <span className="sm:hidden">Institutional Desk</span>
-              <span className="hidden sm:inline">Institutional Capital & Trade Credit Terminal</span>
+              <span>Lending & Finance Hub</span>
             </div>
-            <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold font-heading tracking-tight">
+            <h1 className="text-xl sm:text-3xl font-extrabold font-heading tracking-tight">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85 leading-relaxed font-normal">
-              Direct underwriting, real-time escrow liens, and automated settlement of agricultural invoices and certified warehouse storage receipts.
+            <p className="text-xs sm:text-sm text-[#DCFCE7]/85 leading-relaxed">
+              Overview of money given out, pending loan approvals, and money returned with profit.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={Building2}
-              iconPosition="left"
-              onClick={() => onNavigate('financier-collateral-vault')}
-              className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer font-semibold text-xs py-2 px-3 sm:px-4"
-            >
-              <span className="sm:hidden">Vault</span>
-              <span className="hidden sm:inline">Collateral Vault</span>
-            </Button>
+          <div className="flex items-center gap-2.5 shrink-0">
             <Button
               variant="accent"
               size="sm"
               icon={Plus}
               iconPosition="left"
               onClick={() => setIsAddLiquidityOpen(true)}
-              className="font-bold text-xs shadow-md cursor-pointer py-2 px-3 sm:px-4"
+              className="font-bold text-xs shadow-md cursor-pointer py-2.5 px-4"
             >
-              <span className="sm:hidden">+ Deploy</span>
-              <span className="hidden sm:inline">Deploy Capital</span>
+              + Add Lending Balance
             </Button>
           </div>
         </div>
 
-        {/* Financier KYC / Institutional Accreditation Alert Banner */}
+        {/* KYC Alert if not verified */}
         {!isVerified && (
           <div className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
             currentKycStatus === 'pending'
@@ -231,24 +218,17 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                 )}
               </div>
               <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs sm:text-sm font-bold">
-                    {currentKycStatus === 'pending'
-                      ? 'KYC Verification Under Review'
-                      : currentKycStatus === 'rejected'
-                      ? 'KYC Documents Rejected'
-                      : 'Institutional KYC Verification Required'}
-                  </span>
-                  <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'dark'} size="sm">
-                    {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
-                  </Badge>
-                </div>
+                <span className="text-xs sm:text-sm font-bold block">
+                  {currentKycStatus === 'pending'
+                    ? 'Verification Under Review'
+                    : currentKycStatus === 'rejected'
+                    ? 'Documents Need Correction'
+                    : 'Account Verification Required'}
+                </span>
                 <p className="text-xs text-[#566861]">
                   {currentKycStatus === 'pending'
-                    ? 'Documents are under review. Trade credit underwriting will activate once approved.'
-                    : currentKycStatus === 'rejected'
-                    ? 'Please review and re-submit your institutional accreditation documents.'
-                    : 'Complete accreditation verification to underwrite trade credit and deploy capital.'}
+                    ? 'Your documents are being checked. Loan approvals will activate once approved.'
+                    : 'Please submit your proof of identity / business registration to approve loans.'}
                 </p>
               </div>
             </div>
@@ -259,378 +239,283 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               onClick={handleOpenKycAction}
               className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
-              {currentKycStatus === 'pending' ? 'View' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
+              {currentKycStatus === 'pending' ? 'View' : 'Verify Now'}
             </Button>
           </div>
         )}
 
-        {/* 2. Four Core Institutional Metric Cards */}
+        {/* 2. Four Core Simple Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           
-          {/* Available Lending Pool */}
+          {/* Available Lending Balance */}
           <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
             <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
-              <span className="font-semibold truncate">
-                <span className="sm:hidden">Available Pool</span>
-                <span className="hidden sm:inline">Available Liquidity Pool</span>
-              </span>
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
-                <Landmark className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="font-semibold">Available Balance</span>
+              <div className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                <Landmark className="w-4 h-4" />
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               ₹{availablePool.toLocaleString('en-IN')}
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="truncate hidden sm:inline">Committed: ₹{totalPool.toLocaleString('en-IN')}</span>
+              <span>Ready to lend</span>
               <span className="text-[#10B981] font-bold">{liquidPct}% Available</span>
             </div>
           </Card>
 
-          {/* Active Capital Deployed */}
+          {/* Money Given Out (Active Loans) */}
           <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
             <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
-              <span className="font-semibold truncate">
-                <span className="sm:hidden">Active Deployed</span>
-                <span className="hidden sm:inline">Active Loans Deployed</span>
-              </span>
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
-                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="font-semibold">Loans Given Out</span>
+              <div className="w-7 h-7 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                <TrendingUp className="w-4 h-4" />
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               ₹{totalDeployed.toLocaleString('en-IN')}
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="truncate hidden sm:inline">{activeLoans.length} Live Facilities</span>
-              <span className="text-[#D97706] font-bold">100% Escrow Lien</span>
+              <span>{activeLoans.length} active loans</span>
+              <span className="text-[#D97706] font-bold">100% Escrow Secured</span>
             </div>
           </Card>
 
-          {/* Realized Interest Yield & Recovered Capital */}
+          {/* Money Returned & Profit Earned */}
           <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
             <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
-              <span className="font-semibold truncate">
-                <span className="sm:hidden">Yield Earned</span>
-                <span className="hidden sm:inline">Realized Yield & Returns</span>
-              </span>
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#F2FBF6] text-[#10B981] flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
+              <span className="font-semibold">Profit Earned (+₹)</span>
+              <div className="w-7 h-7 rounded-lg bg-[#F2FBF6] text-[#10B981] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#10B981] font-heading">
               +₹{realizedYield.toLocaleString('en-IN')}
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="truncate">Recovered: <b>₹{recoveredPrincipal.toLocaleString('en-IN')}</b></span>
+              <span className="truncate">₹{recoveredPrincipal.toLocaleString('en-IN')} returned</span>
               <span className="text-[#10B981] font-bold">{repaidLoans.length} Cleared</span>
             </div>
           </Card>
 
-          {/* Default Rate / Escrow Security */}
+          {/* Overdue / Unpaid Rate */}
           <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
             <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
-              <span className="font-semibold truncate">
-                <span className="sm:hidden">NPA Default</span>
-                <span className="hidden sm:inline">Historical Default / NPA</span>
-              </span>
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
+              <span className="font-semibold">Overdue / Unpaid</span>
+              <div className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               0.00%
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="hidden sm:inline">100% Escrow Collateral</span>
-              <span className="text-[#10B981] font-bold">Zero Loss</span>
+              <span>Trade Escrow Backed</span>
+              <span className="text-[#10B981] font-bold">Safe Return</span>
             </div>
           </Card>
 
         </div>
 
-        {/* 3. Quick Action Operations Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* 3. Two Clear Quick Navigation Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             onClick={() => onNavigate('financier-underwriting')}
-            className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
+            className="p-5 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer text-left"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <span className="font-bold text-sm text-[#0B3326] block">Underwriting Desk</span>
-                <span className="text-xs text-[#566861]">{pendingRequests.length} pending review</span>
+                <span className="font-bold text-sm text-[#0B3326] block">Loan Requests & Approvals</span>
+                <span className="text-xs text-[#566861]">{pendingRequests.length} requests waiting for approval</span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#566861] group-hover:translate-x-1 transition-transform" />
+            <ChevronRight className="w-5 h-5 text-[#566861] group-hover:translate-x-1 transition-transform" />
           </button>
 
           <button
             onClick={() => onNavigate('financier-portfolio')}
-            className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
+            className="p-5 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer text-left"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
                 <PieChart className="w-5 h-5" />
               </div>
               <div>
-                <span className="font-bold text-sm text-[#0B3326] block">Active Portfolio</span>
-                <span className="text-xs text-[#566861]">{activeLoans.length} active live loans</span>
+                <span className="font-bold text-sm text-[#0B3326] block">Loans & Repayments Ledger</span>
+                <span className="text-xs text-[#566861]">{activeLoans.length} active loans &bull; {repaidLoans.length} cleared with profit</span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#566861] group-hover:translate-x-1 transition-transform" />
-          </button>
-
-          <button
-            onClick={() => onNavigate('financier-disbursements')}
-            className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="font-bold text-sm text-[#0B3326] block">Disbursements & Ledger</span>
-                <span className="text-xs text-[#566861]">Bank UTRs & yield history</span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-[#566861] group-hover:translate-x-1 transition-transform" />
+            <ChevronRight className="w-5 h-5 text-[#566861] group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
-        {/* 4. Main Two Column Section: Live Applications & Risk/Portfolio Breakdown */}
+        {/* 4. Two Clean Columns: Pending Requests & Upcoming Returns */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Left Column (7 Cols): High-Priority Underwriting Applications */}
+          {/* Left Column (7 Cols): New Loan Requests waiting for review */}
           <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  High-Priority Loan Applications
+                  New Loan Requests ({pendingRequests.length})
                 </h2>
                 <p className="text-xs text-[#566861]">
-                  Verified trade agreements ready for credit assessment & liquidity deployment
+                  Farmers and retailers asking for working capital or trade credit
                 </p>
               </div>
-              <button
-                onClick={() => onNavigate('financier-underwriting')}
-                className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
-              >
-                <span>View All ({pendingRequests.length})</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              {pendingRequests.length > 0 && (
+                <button
+                  onClick={() => onNavigate('financier-underwriting')}
+                  className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <span>View All</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             {pendingRequests.length === 0 ? (
               <Card className="p-8 bg-white border border-[#E5EDE8] text-center space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-[#10B981] mx-auto" />
-                <h4 className="text-sm font-bold text-[#0B3326]">Underwriting Queue Clear</h4>
+                <h4 className="text-sm font-bold text-[#0B3326]">All Requests Cleared</h4>
                 <p className="text-xs text-[#566861]">
-                  All current trade credit and working capital requests have been processed.
+                  There are no pending loan applications right now.
                 </p>
               </Card>
             ) : (
               <div className="space-y-3.5">
-                {pendingRequests.map((req) => {
-                  const ltv = Number(((req.requestedAmount / req.transactionValue) * 100).toFixed(1));
-
-                  return (
-                    <Card
-                      key={req.id}
-                      hoverEffect
-                      className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#0B3326] font-bold text-xs flex items-center justify-center">
-                            {req.applicantRole === 'farmer' ? '🌾' : '🛒'}
-                          </div>
-                          <div>
-                            <span className="font-bold text-xs sm:text-sm text-[#14211D] block">
-                              {req.applicantName}
-                            </span>
-                            <span className="text-[11px] text-[#566861]">
-                              {req.applicantLocation} • Score: <b className="text-[#10B981]">{req.creditScore || 780}</b>
-                            </span>
-                          </div>
+                {pendingRequests.slice(0, 3).map((req) => (
+                  <Card
+                    key={req.id}
+                    hoverEffect
+                    className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#0B3326] font-bold text-xs flex items-center justify-center">
+                          {req.applicantRole === 'farmer' ? '🌾' : '🛒'}
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <Badge variant="emerald" size="sm">
-                            {req.riskRating || 'Tier 1 Prime'}
-                          </Badge>
-                          <Badge variant="amber" size="sm">
-                            {req.status === 'under_review' ? 'Under Review' : 'Pending'}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2.5 p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
                         <div>
-                          <span className="text-[10px] text-[#566861] block">Requested</span>
-                          <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
-                            ₹{req.requestedAmount.toLocaleString('en-IN')}
+                          <span className="font-bold text-xs sm:text-sm text-[#14211D] block">
+                            {req.applicantName} ({req.applicantRole === 'farmer' ? 'Farmer' : 'Retail Buyer'})
                           </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[#566861] block">LTV Ratio</span>
-                          <span className="font-bold text-[#10B981] text-xs sm:text-sm">
-                            {ltv}%
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[#566861] block">Collateral Value</span>
-                          <span className="font-bold text-[#14211D] text-xs sm:text-sm">
-                            ₹{req.transactionValue.toLocaleString('en-IN')}
+                          <span className="text-[11px] text-[#566861]">
+                            Purpose: <b>{req.purposeLabel || 'Working Capital'}</b> &bull; Crop: {req.commodity}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[11px] text-[#566861] flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-[#10B981]" />
-                          <span>Lien: Order {req.orderNumber}</span>
+                      <Badge variant="amber" size="sm">
+                        Waiting Approval
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
+                      <div>
+                        <span className="text-[10px] text-[#566861] block">Amount Needed</span>
+                        <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                          ₹{Number(req.requestedAmount || 0).toLocaleString('en-IN')}
                         </span>
-
-                        <Button
-                          variant="accent"
-                          size="sm"
-                          onClick={() => setSelectedRequestForReview(req)}
-                          className="font-bold text-xs cursor-pointer"
-                        >
-                          Underwrite & Structure
-                        </Button>
                       </div>
-                    </Card>
-                  );
-                })}
+                      <div>
+                        <span className="text-[10px] text-[#566861] block">Profit Return</span>
+                        <span className="font-bold text-[#10B981] text-xs sm:text-sm">
+                          1.2% / month
+                        </span>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <span className="text-[10px] text-[#566861] block">Security</span>
+                        <span className="font-bold text-[#14211D] text-xs sm:text-sm">
+                          Escrow Lien
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] text-[#566861]">
+                        Ref: {req.requestNumber}
+                      </span>
+
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        onClick={() => setSelectedRequestForReview(req)}
+                        className="font-bold text-xs cursor-pointer py-1.5 px-3"
+                      >
+                        Review & Approve
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Right Column (5 Cols): Portfolio Allocation & Maturity Pipeline */}
+          {/* Right Column (5 Cols): Upcoming Returns & Repayment Deadlines */}
           <div className="lg:col-span-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  Portfolio Analytics
+                  Active Loans Due ({activeLoans.length})
                 </h2>
                 <p className="text-xs text-[#566861]">
-                  Live capital allocation & upcoming maturity settlements
+                  Upcoming repayment dates and expected returns
                 </p>
               </div>
-              <button
-                onClick={() => onNavigate('financier-portfolio')}
-                className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
-              >
-                <span>View Portfolio</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              {activeLoans.length > 0 && (
+                <button
+                  onClick={() => onNavigate('financier-portfolio')}
+                  className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <span>View All</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             
-            {/* Risk & Segment Distribution */}
-            <Card className="p-5 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
-              <h3 className="text-sm font-bold text-[#0B3326] font-heading">
-                Capital Deployment Breakdown
-              </h3>
-
+            <Card className="p-5 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
               {activeLoans.length === 0 ? (
                 <div className="p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-center space-y-1.5">
-                  <p className="text-xs font-bold text-[#0B3326]">No Active Loan Deployments</p>
+                  <p className="text-xs font-bold text-[#0B3326]">No Active Loans</p>
                   <p className="text-[11px] text-[#566861]">
-                    When trade applications are underwritten and approved, facility allocations will update here automatically.
+                    When you approve loan applications, their return schedules and due dates will appear here.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-[#14211D]">Farmer Working Capital</span>
-                      <span className="text-[#10B981]">
-                        ₹{activeLoans.filter((l) => l.applicantRole === 'farmer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
+                  {activeLoans.slice(0, 4).map((loan) => {
+                    const principal = Number(loan.approvedAmount || loan.requestedAmount || 0);
+                    const estInterest = Math.round(principal * 0.012);
+                    const totalDue = principal + estInterest;
+
+                    return (
                       <div
-                        className="h-full bg-[#10B981] rounded-full"
-                        style={{
-                          width: `${totalDeployed > 0 ? ((activeLoans.filter((l) => l.applicantRole === 'farmer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0) / totalDeployed) * 100) : 0}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
+                        key={loan.id}
+                        className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-[#14211D] block">
+                            {loan.applicantName} ({loan.applicantRole === 'farmer' ? 'Farmer' : 'Buyer'})
+                          </span>
+                          <span className="text-[11px] text-[#566861]">
+                            {loan.repaymentLabel || '30 Days Net'} &bull; Ref: {loan.requestNumber}
+                          </span>
+                        </div>
 
-                  <div>
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-[#14211D]">Buyer Invoice Discounting</span>
-                      <span className="text-[#0B3326]">
-                        ₹{activeLoans.filter((l) => l.applicantRole === 'buyer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[#E5EDE8] overflow-hidden">
-                      <div
-                        className="h-full bg-[#0B3326] rounded-full"
-                        style={{
-                          width: `${totalDeployed > 0 ? ((activeLoans.filter((l) => l.applicantRole === 'buyer').reduce((s, l) => s + (l.approvedAmount || l.requestedAmount || 0), 0) / totalDeployed) * 100) : 0}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between text-xs text-[#566861]">
-                <span>Risk Distribution:</span>
-                <span className="font-bold text-[#10B981]">100% Escrow Lien Protected</span>
-              </div>
-            </Card>
-
-            {/* Upcoming Repayment Maturities */}
-            <Card className="p-5 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-[#0B3326] font-heading">
-                  Upcoming Maturities (30 Days)
-                </h3>
-                <span className="text-[11px] font-semibold text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-full">
-                  Auto-Settlement
-                </span>
-              </div>
-
-              {disbursements.length === 0 ? (
-                <div className="p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-center space-y-1">
-                  <p className="text-xs font-bold text-[#0B3326]">No Pending Maturities</p>
-                  <p className="text-[11px] text-[#566861]">
-                    All active facility settlements will appear in real-time as loans are disbursed.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {disbursements.slice(0, 3).map((disb) => (
-                    <div
-                      key={disb.id}
-                      className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs"
-                    >
-                      <div className="space-y-0.5">
-                        <span className="font-bold text-[#14211D] block">
-                          {disb.applicantName}
-                        </span>
-                        <span className="text-[11px] text-[#566861]">
-                          Maturity: {disb.maturityDate ? new Date(disb.maturityDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '30 Days'}
-                        </span>
+                        <div className="text-right">
+                          <span className="font-bold text-[#0B3326] block">
+                            ₹{totalDue.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[10px] text-[#10B981] font-semibold">
+                            +₹{estInterest.toLocaleString('en-IN')} Profit
+                          </span>
+                        </div>
                       </div>
-
-                      <div className="text-right">
-                        <span className="font-bold text-[#0B3326] block">
-                          ₹{Number(disb.expectedReturn || disb.amount || 0).toLocaleString('en-IN')}
-                        </span>
-                        <span className="text-[10px] text-[#10B981] font-semibold">
-                          {disb.interestRate || 0.85}% / mo
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </Card>

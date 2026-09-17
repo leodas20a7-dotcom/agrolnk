@@ -114,26 +114,24 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
         
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-5 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1 sm:space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+        {/* Header with Simple, Understandable Words */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-5 sm:p-7 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
               <Landmark className="w-3.5 h-3.5" />
-              <span className="sm:hidden">Credit Desk</span>
-              <span className="hidden sm:inline">Credit Assessment & Risk Underwriting</span>
+              <span>Loan Applications</span>
             </div>
             <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
-              Underwriting Queue
+              Loan Requests & Approvals
             </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85">
-              Review NABL assay test parameters, evaluate LTV collateral coverage, and issue institutional term-sheets.
+            <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
+              Review funding requests from farmers and urban retailers, and approve loans directly.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <Badge variant="emerald" size="sm">
-              <span className="sm:hidden">Auto-Escrow</span>
-              <span className="hidden sm:inline">Auto-Escrow Settlement Active</span>
+              <span>Trade Escrow Protected</span>
             </Badge>
           </div>
         </div>
@@ -148,7 +146,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by applicant, commodity, #FIN or order number..."
+                placeholder="Search by name, crop, #FIN or order reference..."
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
               />
             </div>
@@ -163,7 +161,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                All Roles ({requests.length})
+                All ({requests.length})
               </button>
               <button
                 onClick={() => setSelectedRoleFilter('farmer')}
@@ -200,7 +198,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Pending & Under Review ({roleScopedRequests.filter((r) => r.status === 'pending' || r.status === 'under_review').length})
+                Waiting Approval ({roleScopedRequests.filter((r) => r.status === 'pending' || r.status === 'under_review').length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('approved')}
@@ -220,7 +218,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Repaid & Settled ({roleScopedRequests.filter((r) => r.status === 'repaid' || r.status === 'settled').length})
+                Repaid ({roleScopedRequests.filter((r) => r.status === 'repaid' || r.status === 'settled').length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('all')}
@@ -230,7 +228,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                All ({roleScopedRequests.length})
+                All Records ({roleScopedRequests.length})
               </button>
             </div>
 

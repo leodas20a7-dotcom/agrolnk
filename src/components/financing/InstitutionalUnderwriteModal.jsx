@@ -123,8 +123,8 @@ export default function InstitutionalUnderwriteModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Credit Underwriting — ${request.requestNumber}`}
-      subtitle={`Applicant: ${request.applicantName} (${request.applicantRole.toUpperCase()}) • Order ${request.orderNumber}`}
+      title={`Approve Loan — ${request.requestNumber}`}
+      subtitle={`Applicant: ${request.applicantName} (${request.applicantRole?.toUpperCase() || 'USER'}) • Order ${request.orderNumber || 'Working Capital'}`}
       icon={Landmark}
       iconColor="text-[#10B981]"
       iconBg="bg-[#EBF5F0]"
@@ -149,49 +149,49 @@ export default function InstitutionalUnderwriteModal({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
             <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-              Commodity Collateral
+              Item / Reason
             </span>
-            <span className="font-bold text-[#14211D] text-xs block mt-0.5">
-              {request.commodity} ({request.grade})
+            <span className="font-bold text-[#14211D] text-xs block mt-0.5 truncate">
+              {request.commodity || request.purpose || 'Agricultural'}
             </span>
             <span className="text-[11px] text-[#566861]">
-              Valued at ₹{totalValue.toLocaleString('en-IN')}
+              Value: ₹{totalValue.toLocaleString('en-IN')}
             </span>
           </div>
 
           <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
             <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-              Credit Score
+              Trust Rating
             </span>
             <span className="font-bold text-[#10B981] text-sm block mt-0.5">
               {request.creditScore || 780} / 900
             </span>
             <span className="text-[11px] text-[#566861]">
-              NABL Assayed Record
+              Verified History
             </span>
           </div>
 
           <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
             <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-              Requested Advance
+              Requested Amount
             </span>
             <span className="font-bold text-[#0B3326] text-sm block mt-0.5">
               ₹{request.requestedAmount.toLocaleString('en-IN')}
             </span>
             <span className="text-[11px] text-[#10B981] font-semibold">
-              {request.repaymentLabel || 'Auto Escrow'}
+              {request.repaymentLabel || 'Direct Bank/UPI'}
             </span>
           </div>
 
           <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
             <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-              Current LTV
+              Loan Coverage
             </span>
             <span className="font-bold text-[#14211D] text-sm block mt-0.5">
               {ltv}%
             </span>
             <span className="text-[11px] text-[#566861]">
-              Max Permitted: 85%
+              Safe Limit
             </span>
           </div>
         </div>
@@ -199,21 +199,21 @@ export default function InstitutionalUnderwriteModal({
         {/* Credit Structuring Controls */}
         <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] space-y-4">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#0B3326]">
-            Loan Structuring & Terms
+            Loan Amount & Terms
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Approved Amount */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#14211D] flex items-center justify-between">
-                <span>Facility Amount (₹)</span>
-                <span className="text-[10px] text-[#10B981]">{ltv}% LTV</span>
+                <span>Amount to Send (₹)</span>
+                <span className="text-[10px] text-[#10B981]">{ltv}% of total</span>
               </label>
               <input
                 type="number"
                 value={approvedAmount}
                 onChange={(e) => setApprovedAmount(Number(e.target.value))}
-                max={totalValue * 0.85}
+                max={totalValue * 0.95}
                 min={1000}
                 className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 required
@@ -223,7 +223,7 @@ export default function InstitutionalUnderwriteModal({
             {/* Interest Rate Monthly */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#14211D] flex items-center justify-between">
-                <span>Interest Rate (%)</span>
+                <span>Monthly Profit Rate (%)</span>
                 <span className="text-[10px] text-[#10B981] font-semibold">/ month</span>
               </label>
               <input
@@ -241,19 +241,19 @@ export default function InstitutionalUnderwriteModal({
             {/* Tenor Days */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#14211D] flex items-center justify-between">
-                <span>Tenor (Days)</span>
-                <span className="text-[10px] text-[#566861]">Maturity</span>
+                <span>Duration (Days)</span>
+                <span className="text-[10px] text-[#566861]">Repayment</span>
               </label>
               <select
                 value={tenorDays}
                 onChange={(e) => setTenorDays(Number(e.target.value))}
                 className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
               >
-                <option value={15}>15 Days (Spot Dispatch)</option>
-                <option value={30}>30 Days (Standard Escrow)</option>
-                <option value={45}>45 Days (Extended Harvest)</option>
-                <option value={60}>60 Days (Cold Storage Hold)</option>
-                <option value={90}>90 Days (Quarterly Trade)</option>
+                <option value={15}>15 Days</option>
+                <option value={30}>30 Days (1 Month)</option>
+                <option value={45}>45 Days (1.5 Months)</option>
+                <option value={60}>60 Days (2 Months)</option>
+                <option value={90}>90 Days (3 Months)</option>
               </select>
             </div>
           </div>
@@ -261,19 +261,19 @@ export default function InstitutionalUnderwriteModal({
           {/* Underwriting Yield Simulation */}
           <div className="p-3.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/20 grid grid-cols-3 gap-2 text-center text-xs">
             <div>
-              <span className="text-[10px] text-[#566861] block">Principal Disbursed</span>
+              <span className="text-[10px] text-[#566861] block font-medium">Money Sent</span>
               <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
                 ₹{approvedAmount.toLocaleString('en-IN')}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-[#566861] block">Est. Interest Yield</span>
-              <span className="font-bold text-[#10B981] text-xs sm:text-sm">
+              <span className="text-[10px] text-[#566861] block font-semibold">Profit to Earn</span>
+              <span className="font-bold text-emerald-700 text-xs sm:text-sm">
                 +₹{estimatedInterestReturn.toLocaleString('en-IN')}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-[#566861] block">Total Escrow Return</span>
+              <span className="text-[10px] text-[#566861] block font-bold">Total to Collect</span>
               <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
                 ₹{totalSettlementReturn.toLocaleString('en-IN')}
               </span>
@@ -284,22 +284,22 @@ export default function InstitutionalUnderwriteModal({
         {/* Risk & Review Notes */}
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-[#14211D] block">
-            Underwriter Audit & Covenant Notes
+            Approval Notes (Optional)
           </label>
           <textarea
             value={reviewNotes}
             onChange={(e) => setReviewNotes(e.target.value)}
             rows={2}
-            placeholder="e.g. Verified NABL moisture content < 12%, warehouse receipt lock registered."
+            placeholder="e.g. Approved for trade working capital."
             className="w-full p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
           />
         </div>
 
-        {/* Institutional Escrow Pledge Lock Banner */}
-        <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-[#061B14] text-white text-xs">
+        {/* Institutional Note */}
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#061B14] text-white text-xs">
           <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
           <span className="text-[#DCFCE7]/90 text-[11px] leading-relaxed">
-            By approving, an automated legal lien is placed on Escrow Agreement <b>{request.orderNumber}</b>. Repayment will auto-deduct upon buyer receipt.
+            Approving this will transfer funds to the applicant and create a repayment schedule with interest.
           </span>
         </div>
 
@@ -311,7 +311,7 @@ export default function InstitutionalUnderwriteModal({
             disabled={isSubmitting}
             className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors cursor-pointer w-full sm:w-auto text-center"
           >
-            <XCircle className="w-4 h-4" /> Reject Facility
+            <XCircle className="w-4 h-4" /> Decline Request
           </button>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
@@ -321,7 +321,7 @@ export default function InstitutionalUnderwriteModal({
               size="sm"
               onClick={onClose}
               disabled={isSubmitting}
-              className="justify-center w-full sm:w-auto"
+              className="justify-center w-full sm:w-auto text-xs"
             >
               Cancel
             </Button>
@@ -332,9 +332,9 @@ export default function InstitutionalUnderwriteModal({
               icon={CheckCircle2}
               iconPosition="right"
               disabled={isSubmitting}
-              className="font-bold cursor-pointer justify-center w-full sm:w-auto"
+              className="font-bold cursor-pointer justify-center w-full sm:w-auto text-xs"
             >
-              {isSubmitting ? 'Processing Gateway...' : `Disburse ₹${approvedAmount.toLocaleString('en-IN')} to Escrow`}
+              {isSubmitting ? 'Transferring Money...' : `Approve & Transfer ₹${approvedAmount.toLocaleString('en-IN')}`}
             </Button>
           </div>
         </div>
