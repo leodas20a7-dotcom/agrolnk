@@ -120,6 +120,20 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdated = () => {
+      loadData();
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+
+    return () => {
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
+    };
   }, []);
 
   const safeRequests = Array.isArray(requests) ? requests : [];

@@ -66,10 +66,10 @@ function saveLocalFinancingRequest(item) {
     const existing = getLocalFinancingRequests();
     const existingItem = existing.find(
       (r) =>
-        r.id === item.id ||
-        r.requestNumber === item.requestNumber ||
-        (item.orderNumber && r.orderNumber === item.orderNumber) ||
-        (item.orderId && r.orderId === item.orderId)
+        (r.id && r.id === item.id) ||
+        (r.requestNumber && r.requestNumber === item.requestNumber) ||
+        (item.orderNumber && r.orderNumber === item.orderNumber && r.applicantRole === item.applicantRole) ||
+        (item.orderId && r.orderId === item.orderId && r.applicantRole === item.applicantRole)
     );
 
     // Deep merge to preserve settled status & margin payment
@@ -79,15 +79,15 @@ function saveLocalFinancingRequest(item) {
       marginPaid: Boolean(item.marginPaid || existingItem?.marginPaid),
       escrowFunded: Boolean(item.escrowFunded || existingItem?.escrowFunded),
       paymentId: item.paymentId || existingItem?.paymentId || null,
-      status: (item.status && item.status !== 'pending') ? item.status : (existingItem?.status || item.status || 'pending'),
+      status: item.status || existingItem?.status || 'pending',
     };
 
     const filtered = existing.filter(
       (r) =>
         r.id !== item.id &&
         r.requestNumber !== item.requestNumber &&
-        (item.orderNumber ? r.orderNumber !== item.orderNumber : true) &&
-        (item.orderId ? r.orderId !== item.orderId : true) &&
+        !(item.orderNumber && r.orderNumber === item.orderNumber && r.applicantRole === item.applicantRole) &&
+        !(item.orderId && r.orderId === item.orderId && r.applicantRole === item.applicantRole) &&
         (item.listingId ? (r.listingId !== item.listingId || r.applicantId !== item.applicantId) : true) &&
         !(r.commodity === item.commodity && r.applicantId === item.applicantId && Number(r.quantity) === Number(item.quantity) && r.status === 'pending')
     );
@@ -230,10 +230,10 @@ export async function getBuyerFinancingRequests(buyerId, currentUser) {
  * Create a new financing request (Strict 1-time per order/lot/listing)
  */
 export async function createFinancingRequest(requestData) {
-  // 1. Check if an active request already exists for this order
+  // 1. Check if an active request already exists for this order AND for this applicant role
   if (requestData.orderNumber || requestData.orderId) {
-    const existing = await getFinancingRequestForOrder(requestData.orderNumber, requestData.orderId);
-    if (existing) {
+    const existing = await getFinancingRequestForOrder(requestData.orderNumber, requestData.orderId, requestData.applicantRole);
+    if (existing && existing.status !== 'rejected' && existing.status !== 'cancelled') {
       return existing;
     }
   }
