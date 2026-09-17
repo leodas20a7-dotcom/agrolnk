@@ -25,7 +25,8 @@ import {
   CreditCard,
   Truck,
   ClipboardCheck,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
 import { getBuyerOrders, confirmOrderReceipt } from '../../utils/orders';
 import { confirmBuyerReceipt } from '../../utils/deliveries';
