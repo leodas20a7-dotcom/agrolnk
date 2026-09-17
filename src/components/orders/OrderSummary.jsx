@@ -197,8 +197,8 @@ export default function OrderSummary({
           </div>
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">Payment Mode</span>
-            <span className={`font-bold ${isBuyer && isFinanced ? 'text-blue-700' : 'text-[#10B981]'}`}>
-              {isBuyer && isFinanced ? 'Trade Credit (NBFC)' : '100% Escrow'}
+            <span className={`font-bold ${isBuyer && isBuyerFinanced ? 'text-blue-700' : 'text-[#10B981]'}`}>
+              {isBuyer && isBuyerFinanced ? 'Trade Credit (NBFC)' : '100% Escrow'}
             </span>
           </div>
         </div>
