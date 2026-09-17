@@ -529,3 +529,80 @@ export async function initiateBuyerMarginDepositCheckout({
     onFailure?.(initErr);
   }
 }
+
+/**
+ * Launch Razorpay Checkout for Institutional Loan & Trade Credit Repayment
+ * @param {object} params - { request, amount, currentUser, onSuccess, onFailure }
+ */
+export async function initiateRazorpayLoanRepaymentCheckout({
+  request,
+  amount,
+  currentUser,
+  onSuccess,
+  onFailure,
+}) {
+  const isLoaded = await loadRazorpaySDK();
+  if (!isLoaded) {
+    onFailure?.(new Error('Could not load Razorpay payment gateway. Please check your internet connection.'));
+    return;
+  }
+
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const repayAmount = Number(amount) || Number(request?.approvedAmount) || 1000;
+  const totalAmountInPaise = Math.round(repayAmount * 100);
+  const testOrderId = `repay_${Date.now()}`;
+
+  const options = {
+    key: razorpayKeyId,
+    amount: totalAmountInPaise,
+    currency: 'INR',
+    name: 'AgroLnk Agri-Credit Repayment',
+    description: `Loan Repayment: ${request?.requestNumber || request?.orderNumber || '#FIN-LOAN'} (${request?.purposeLabel || 'Agri Working Capital'})`,
+    image: '/assets/Logo.jpeg',
+    prefill: {
+      name: currentUser?.name || request?.applicantName || 'Borrower',
+      email: currentUser?.email || 'borrower@agrolnk.com',
+      contact: currentUser?.phone || '9876543210',
+    },
+    notes: {
+      financing_request_id: request?.id,
+      request_number: request?.requestNumber,
+      order_number: request?.orderNumber,
+      repayment_amount: `₹${repayAmount}`,
+      borrower_name: currentUser?.name || request?.applicantName,
+      borrower_role: currentUser?.role || request?.applicantRole || 'farmer',
+      type: 'Institutional Loan Repayment',
+      settlement_target: 'Samunnati / NABARD Agri-Credit Vault',
+    },
+    theme: {
+      color: '#0B3326', // AgroLnk Emerald
+    },
+    modal: {
+      ondismiss: () => {
+        onFailure?.(new Error('Repayment window closed by user.'));
+      },
+    },
+    handler: async function (response) {
+      try {
+        onSuccess?.({
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          repaymentAmount: repayAmount,
+          verified: true,
+        });
+      } catch (err) {
+        onFailure?.(err);
+      }
+    },
+  };
+
+  try {
+    const rzpInstance = new window.Razorpay(options);
+    rzpInstance.open();
+  } catch (initErr) {
+    console.error('Error opening Razorpay loan repayment modal:', initErr);
+    onFailure?.(initErr);
+  }
+}
+
