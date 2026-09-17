@@ -210,7 +210,17 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Approved ({roleScopedRequests.filter((r) => r.status === 'approved').length})
+                Approved ({roleScopedRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed').length})
+              </button>
+              <button
+                onClick={() => setSelectedStatusFilter('repaid')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  selectedStatusFilter === 'repaid'
+                    ? 'bg-emerald-100 text-emerald-800 font-bold'
+                    : 'text-[#566861] hover:bg-gray-100'
+                }`}
+              >
+                Repaid & Settled ({roleScopedRequests.filter((r) => r.status === 'repaid' || r.status === 'settled').length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('all')}
@@ -220,7 +230,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                All Records ({roleScopedRequests.length})
+                All ({roleScopedRequests.length})
               </button>
             </div>
 

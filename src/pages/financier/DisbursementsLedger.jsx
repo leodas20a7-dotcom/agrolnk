@@ -237,10 +237,12 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
 
                         <td className="p-4">
                           <span className="font-bold text-[#0B3326] block">
-                            ₹{d.expectedReturn.toLocaleString('en-IN')}
+                            ₹{(d.status === 'settled' ? d.actualReturn : d.expectedReturn).toLocaleString('en-IN')}
                           </span>
-                          <span className="text-[10px] text-[#566861]">
-                            Due {new Date(d.maturityDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                          <span className="text-[10px] text-emerald-700 font-semibold block">
+                            {d.status === 'settled'
+                              ? `+₹${d.realizedYield.toLocaleString('en-IN')} Realized Yield`
+                              : `Est. Yield: +₹${Math.round(d.expectedReturn - d.amount).toLocaleString('en-IN')}`}
                           </span>
                         </td>
 
@@ -250,16 +252,16 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
                           </span>
                           <span className="text-[10px] text-[#10B981] flex items-center gap-1">
                             <ShieldCheck className="w-3 h-3" />
-                            <span>{d.escrowLienId}</span>
+                            <span>{d.status === 'settled' ? `Cleared (${d.paymentMethod || 'Razorpay'})` : 'Escrow Lien Active'}</span>
                           </span>
                         </td>
 
                         <td className="p-4">
                           <Badge
-                            variant={d.status === 'settled' ? 'emerald' : 'amber'}
+                            variant={d.status === 'settled' ? 'emerald' : 'blue'}
                             size="sm"
                           >
-                            {d.status === 'settled' ? 'Settled & Realized' : 'Active Facility'}
+                            {d.status === 'settled' ? 'Settled & Realized ✓' : 'Active Facility'}
                           </Badge>
                         </td>
                       </tr>

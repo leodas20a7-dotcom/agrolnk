@@ -22,6 +22,24 @@ export default function FinancingStatusBadge({ status, size = 'sm' }) {
       icon: CheckCircle2,
       dot: true,
     },
+    disbursed: {
+      label: 'Disbursed',
+      variant: 'blue',
+      icon: CheckCircle2,
+      dot: true,
+    },
+    repaid: {
+      label: 'Repaid & Settled',
+      variant: 'emerald',
+      icon: CheckCircle2,
+      dot: true,
+    },
+    settled: {
+      label: 'Repaid & Settled',
+      variant: 'emerald',
+      icon: CheckCircle2,
+      dot: true,
+    },
     rejected: {
       label: 'Rejected',
       variant: 'rose',

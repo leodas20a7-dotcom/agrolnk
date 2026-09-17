@@ -31,6 +31,13 @@ function mapFinancingFromDb(row) {
     marginPaid: Boolean(row.margin_paid),
     escrowFunded: Boolean(row.escrow_funded),
     paymentId: row.payment_id,
+    repaidAt: row.repaid_at,
+    repaymentMethod: row.repayment_method,
+    repaymentTransactionId: row.repayment_transaction_id,
+    repaymentAmount: Number(row.repayment_amount || 0),
+    repaymentPrincipal: Number(row.repayment_principal || 0),
+    repaymentInterest: Number(row.repayment_interest || 0),
+    repaymentNotes: row.repayment_notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -72,7 +79,7 @@ function saveLocalFinancingRequest(item) {
         (item.orderId && r.orderId === item.orderId && r.applicantRole === item.applicantRole)
     );
 
-    // Deep merge to preserve settled status & margin payment
+    // Deep merge to preserve settled status, margin payment, & repayment details
     const mergedItem = {
       ...(existingItem || {}),
       ...item,
@@ -80,6 +87,13 @@ function saveLocalFinancingRequest(item) {
       escrowFunded: Boolean(item.escrowFunded || existingItem?.escrowFunded),
       paymentId: item.paymentId || existingItem?.paymentId || null,
       status: item.status || existingItem?.status || 'pending',
+      repaidAt: item.repaidAt || existingItem?.repaidAt || null,
+      repaymentMethod: item.repaymentMethod || existingItem?.repaymentMethod || null,
+      repaymentTransactionId: item.repaymentTransactionId || existingItem?.repaymentTransactionId || null,
+      repaymentAmount: item.repaymentAmount !== undefined ? item.repaymentAmount : existingItem?.repaymentAmount || 0,
+      repaymentPrincipal: item.repaymentPrincipal !== undefined ? item.repaymentPrincipal : existingItem?.repaymentPrincipal || 0,
+      repaymentInterest: item.repaymentInterest !== undefined ? item.repaymentInterest : existingItem?.repaymentInterest || 0,
+      repaymentNotes: item.repaymentNotes || existingItem?.repaymentNotes || null,
     };
 
     const filtered = existing.filter(
@@ -451,6 +465,27 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
     if (approvalData.marginPaidAt) {
       updatePayload.margin_paid_at = approvalData.marginPaidAt;
     }
+    if (approvalData.repaidAt) {
+      updatePayload.repaid_at = approvalData.repaidAt;
+    }
+    if (approvalData.repaymentMethod) {
+      updatePayload.repayment_method = approvalData.repaymentMethod;
+    }
+    if (approvalData.repaymentTransactionId) {
+      updatePayload.repayment_transaction_id = approvalData.repaymentTransactionId;
+    }
+    if (approvalData.repaymentAmount !== undefined) {
+      updatePayload.repayment_amount = Number(approvalData.repaymentAmount);
+    }
+    if (approvalData.repaymentPrincipal !== undefined) {
+      updatePayload.repayment_principal = Number(approvalData.repaymentPrincipal);
+    }
+    if (approvalData.repaymentInterest !== undefined) {
+      updatePayload.repayment_interest = Number(approvalData.repaymentInterest);
+    }
+    if (approvalData.repaymentNotes) {
+      updatePayload.repayment_notes = approvalData.repaymentNotes;
+    }
 
     // Update in Supabase across ID, request_number, or order_number
     try {
@@ -469,7 +504,7 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 
       const { error: updateErr } = await query;
       if (updateErr) {
-        // Fallback in case custom margin columns are pending SQL schema migration
+        // Fallback in case custom margin/repayment columns are pending SQL schema migration
         const basicPayload = {
           status: nextStatus,
           review_notes: nextNotes,
@@ -496,18 +531,28 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 }
 
 /**
- * Repay financing loan directly to financial institution
+ * Repay financing loan directly to financial institution with principal + interest breakdown
  */
 export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
   try {
+    const all = await getFinancingRequests();
+    const existing = all.find((r) => r.id === requestId || r.requestNumber === requestId || r.orderNumber === requestId);
+    const maturity = calculateLoanMaturity(existing);
+
     const txnId = repaymentDetails.txnId || `TXN${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+    const totalAmount = Number(repaymentDetails.amount || maturity.totalDue || 0);
+    const principal = Number(repaymentDetails.principal || maturity.principal || totalAmount);
+    const interest = Number(repaymentDetails.interest || maturity.interest || Math.max(0, totalAmount - principal));
+
     const repaymentData = {
       status: 'repaid',
       repaidAt: new Date().toISOString(),
-      repaymentMethod: repaymentDetails.method || 'upi_direct',
+      repaymentMethod: repaymentDetails.method || 'razorpay',
       repaymentTransactionId: txnId,
-      repaymentAmount: Number(repaymentDetails.amount || 0),
-      repaymentNotes: repaymentDetails.notes || 'Full loan balance settled with financial institution.',
+      repaymentAmount: totalAmount,
+      repaymentPrincipal: principal,
+      repaymentInterest: interest,
+      repaymentNotes: repaymentDetails.notes || `Full settlement of ₹${totalAmount.toLocaleString('en-IN')} (Principal: ₹${principal.toLocaleString('en-IN')}, Interest: ₹${interest.toLocaleString('en-IN')}) with financial institution.`,
       updatedAt: new Date().toISOString(),
     };
 
@@ -527,7 +572,7 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
  * Calculate loan maturity date, days remaining, and estimated interest
  */
 export function calculateLoanMaturity(request) {
-  if (!request) return { dueDate: null, daysLeft: 30, isOverdue: false, interest: 0, totalDue: 0 };
+  if (!request) return { dueDate: null, daysLeft: 30, isOverdue: false, interest: 0, totalDue: 0, principal: 0 };
 
   const principal = Number(request.approvedAmount || request.requestedAmount || 0);
   const createdDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime())
@@ -586,18 +631,21 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Get all disbursements (derived from approved financing requests)
+ * Get all disbursements (including active loans and settled repayments)
  */
 export async function getDisbursements() {
   try {
     const requests = await getFinancingRequests();
     return requests
-      .filter((r) => r.status === 'approved' || r.status === 'disbursed')
+      .filter((r) => r.status === 'approved' || r.status === 'disbursed' || r.status === 'repaid' || r.status === 'settled')
       .map((r, i) => {
-        const monthlyRate = 0.85; // 0.85% per month
-        const tenorDays = 30;
-        const expectedReturn = Math.round((Number(r.approvedAmount) || Number(r.requestedAmount) || 0) * (1 + (monthlyRate / 100) * (tenorDays / 30)));
-        const utrNum = `UTR${202600000000 + (i + 1) * 9481 + 107}`;
+        const monthlyRate = r.interestRate || 0.85; // 0.85% per month
+        const tenorDays = r.tenorDays || (r.repaymentOption === '60_day_extended' ? 60 : 30);
+        const principal = Number(r.approvedAmount) || Number(r.requestedAmount) || 0;
+        const estInterest = Math.round(principal * (monthlyRate / 100) * (tenorDays / 30));
+        const expectedReturn = principal + estInterest;
+        const utrNum = r.bankUtr || r.repaymentTransactionId || `UTR${202600000000 + (i + 1) * 9481 + 107}`;
+        const isSettled = r.status === 'repaid' || r.status === 'settled';
 
         return {
           id: `disb_${r.id}`,
@@ -609,12 +657,16 @@ export async function getDisbursements() {
           applicantRole: r.applicantRole || 'buyer',
           orderNumber: r.orderNumber || null,
           commodity: r.commodity || 'Produce Lot',
-          amount: Number(r.approvedAmount) || Number(r.requestedAmount) || 0,
+          amount: principal,
           interestRate: monthlyRate,
           tenorDays,
           expectedReturn,
-          status: 'active',
-          disbursedAt: r.updatedAt || r.createdAt || new Date().toISOString(),
+          actualReturn: isSettled ? (Number(r.repaymentAmount) || expectedReturn) : 0,
+          realizedYield: isSettled ? (Number(r.repaymentInterest) || estInterest) : 0,
+          status: isSettled ? 'settled' : 'active',
+          disbursedAt: r.createdAt || new Date().toISOString(),
+          settledAt: isSettled ? (r.repaidAt || r.updatedAt || new Date().toISOString()) : null,
+          paymentMethod: r.repaymentMethod || 'Razorpay Gateway',
         };
       });
   } catch (err) {
@@ -692,15 +744,22 @@ export function addLiquidityPoolFunds(amount) {
 }
 
 /**
- * Get aggregate financing statistics
+ * Get aggregate financing statistics with realized yield and recovered capital
  */
 export async function getFinancingStats() {
   try {
     const all = await getFinancingRequests();
     const pending = all.filter((r) => r.status === 'pending');
     const approved = all.filter((r) => r.status === 'approved' || r.status === 'disbursed');
+    const repaid = all.filter((r) => r.status === 'repaid' || r.status === 'settled');
+
     const totalApproved = approved.reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
     const totalPending = pending.reduce((sum, r) => sum + (Number(r.requestedAmount) || 0), 0);
+    const recoveredPrincipal = repaid.reduce((sum, r) => sum + (Number(r.repaymentPrincipal || r.approvedAmount || r.requestedAmount) || 0), 0);
+    const realizedInterestYield = repaid.reduce((sum, r) => {
+      const mat = calculateLoanMaturity(r);
+      return sum + (Number(r.repaymentInterest) || mat.interest || 0);
+    }, 0);
 
     return {
       pendingRequestsCount: pending.length,
@@ -708,8 +767,11 @@ export async function getFinancingStats() {
       approvedRequestsCount: approved.length,
       approvedRequestsAmount: totalApproved,
       activeLoansCount: approved.length,
+      repaidLoansCount: repaid.length,
+      recoveredPrincipal,
+      realizedInterestYield,
       totalCommittedPool: 10000000,
-      availableLiquidity: Math.max(0, 10000000 - totalApproved),
+      availableLiquidity: Math.max(0, 10000000 - totalApproved + recoveredPrincipal),
       averageInterestRate: 0.85, // 0.85% per month
     };
   } catch (err) {
@@ -720,6 +782,9 @@ export async function getFinancingStats() {
       approvedRequestsCount: 0,
       approvedRequestsAmount: 0,
       activeLoansCount: 0,
+      repaidLoansCount: 0,
+      recoveredPrincipal: 0,
+      realizedInterestYield: 0,
       totalCommittedPool: 10000000,
       availableLiquidity: 10000000,
       averageInterestRate: 0.85,

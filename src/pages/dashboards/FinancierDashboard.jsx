@@ -141,13 +141,22 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
     (r) => r.status === 'pending' || r.status === 'under_review'
   );
   const activeLoans = safeRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed');
+  const repaidLoans = safeRequests.filter((r) => r.status === 'repaid' || r.status === 'settled');
 
   const totalPool = pool?.totalCommitted || 10000000;
   const totalDeployed = activeLoans.reduce(
     (sum, l) => sum + (Number(l.approvedAmount) || Number(l.requestedAmount) || 0),
     0
   );
-  const availablePool = Math.max(0, totalPool - totalDeployed);
+  const recoveredPrincipal = stats?.recoveredPrincipal !== undefined 
+    ? stats.recoveredPrincipal 
+    : repaidLoans.reduce((sum, r) => sum + (Number(r.repaymentPrincipal || r.approvedAmount || r.requestedAmount) || 0), 0);
+  
+  const realizedYield = stats?.realizedInterestYield !== undefined
+    ? stats.realizedInterestYield
+    : repaidLoans.reduce((sum, r) => sum + (Number(r.repaymentInterest) || 0), 0);
+
+  const availablePool = Math.max(0, totalPool - totalDeployed + recoveredPrincipal);
   const liquidPct = totalPool > 0 ? ((availablePool / totalPool) * 100).toFixed(1) : 100;
 
   return (
@@ -273,8 +282,8 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               ₹{availablePool.toLocaleString('en-IN')}
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="truncate hidden sm:inline">Total: ₹{totalPool.toLocaleString('en-IN')}</span>
-              <span className="text-[#10B981] font-bold">{liquidPct}% Liquid</span>
+              <span className="truncate hidden sm:inline">Committed: ₹{totalPool.toLocaleString('en-IN')}</span>
+              <span className="text-[#10B981] font-bold">{liquidPct}% Available</span>
             </div>
           </Card>
 
@@ -282,8 +291,8 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
           <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
             <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
               <span className="font-semibold truncate">
-                <span className="sm:hidden">Deployed</span>
-                <span className="hidden sm:inline">Active Capital Deployed</span>
+                <span className="sm:hidden">Active Deployed</span>
+                <span className="hidden sm:inline">Active Loans Deployed</span>
               </span>
               <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
                 <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -294,27 +303,27 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
               <span className="truncate hidden sm:inline">{activeLoans.length} Live Facilities</span>
-              <span className="text-[#D97706] font-bold">100% Escrow</span>
+              <span className="text-[#D97706] font-bold">100% Escrow Lien</span>
             </div>
           </Card>
 
-          {/* Weighted Average Yield / IRR */}
+          {/* Realized Interest Yield & Recovered Capital */}
           <Card hoverEffect className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-1.5 sm:space-y-2">
             <div className="flex items-center justify-between text-[11px] sm:text-xs text-[#566861]">
               <span className="font-semibold truncate">
-                <span className="sm:hidden">Avg Monthly Yield</span>
-                <span className="hidden sm:inline">Weighted Monthly Yield</span>
+                <span className="sm:hidden">Yield Earned</span>
+                <span className="hidden sm:inline">Realized Yield & Returns</span>
               </span>
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center shrink-0">
-                <PercentIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#F2FBF6] text-[#10B981] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-[#10B981] font-heading">
-              {activeLoans.length > 0 ? (stats?.averageInterestRate || 0.85) : 0}% <span className="text-[10px] sm:text-xs text-[#566861] font-normal">/ month</span>
+              +₹{realizedYield.toLocaleString('en-IN')}
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="hidden sm:inline">Interest frequency</span>
-              <span className="text-[#10B981] font-bold">{activeLoans.length > 0 ? 'Per Month (30-day)' : 'No Active Loans'}</span>
+              <span className="truncate">Recovered: <b>₹{recoveredPrincipal.toLocaleString('en-IN')}</b></span>
+              <span className="text-[#10B981] font-bold">{repaidLoans.length} Cleared</span>
             </div>
           </Card>
 
@@ -333,8 +342,8 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               0.00%
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-[#566861] pt-1 border-t border-[#E5EDE8]/60">
-              <span className="hidden sm:inline">{disbursements.length} Settlements</span>
-              <span className="text-[#10B981] font-bold">100% On-Time</span>
+              <span className="hidden sm:inline">100% Escrow Collateral</span>
+              <span className="text-[#10B981] font-bold">Zero Loss</span>
             </div>
           </Card>
 
@@ -628,6 +637,111 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
           </div>
 
+        </div>
+
+        {/* 5. Live Repayment Settlements & Realized Yield Ledger */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-[#0B3326] font-heading flex items-center gap-2">
+                <span>Recent Repayment Settlements & Realized Yields</span>
+                <Badge variant="emerald" size="sm">
+                  {repaidLoans.length} Settled
+                </Badge>
+              </h2>
+              <p className="text-xs text-[#566861]">
+                Real-time ledger of returned principal capital, earned interest yields, and released legal liens
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigate('financier-disbursements')}
+              className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span>View Full Ledger</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {repaidLoans.length === 0 ? (
+            <Card className="p-8 bg-white border border-[#E5EDE8] text-center space-y-2">
+              <Landmark className="w-8 h-8 text-[#566861] mx-auto opacity-50" />
+              <h4 className="text-sm font-bold text-[#0B3326]">No Repayments Recorded Yet</h4>
+              <p className="text-xs text-[#566861]">
+                When farmers or buyers settle their loan facilities or 30-day net credit balances via Razorpay or UPI, their returned principal and realized interest earnings will appear here instantly.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {repaidLoans.slice(0, 4).map((loan) => {
+                const principal = Number(loan.repaymentPrincipal || loan.approvedAmount || loan.requestedAmount || 0);
+                const interest = Number(loan.repaymentInterest || (Number(loan.repaymentAmount || 0) - principal) || 0);
+                const totalPaid = Number(loan.repaymentAmount || (principal + interest) || 0);
+
+                return (
+                  <Card
+                    key={loan.id}
+                    hoverEffect
+                    className="p-4 sm:p-5 bg-white border border-emerald-100 hover:border-emerald-300 shadow-2xs space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 font-bold flex items-center justify-center shrink-0 border border-emerald-200">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-extrabold text-sm text-[#0B3326]">
+                              {loan.requestNumber}
+                            </span>
+                            <Badge variant="dark" size="sm">
+                              {loan.orderNumber || 'Working Capital'}
+                            </Badge>
+                            <Badge variant={loan.applicantRole === 'farmer' ? 'emerald' : 'blue'} size="sm">
+                              <span className="capitalize">{loan.applicantRole}</span>
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-[#566861]">
+                            Borrower: <strong className="text-[#14211D]">{loan.applicantName}</strong> &bull; Settled via {loan.repaymentMethod ? loan.repaymentMethod.toUpperCase() : 'Razorpay Gateway'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4 bg-[#F8FAF8] p-2.5 sm:p-3 rounded-xl border border-[#E5EDE8] text-center text-xs">
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-semibold">Principal Recovered</span>
+                          <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                            ₹{principal.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-semibold">Interest Yield Realized</span>
+                          <span className="font-extrabold text-emerald-700 text-xs sm:text-sm">
+                            +₹{interest.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-semibold">Total Recovered</span>
+                          <span className="font-extrabold text-[#0B3326] text-xs sm:text-sm">
+                            ₹{totalPaid.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#E5EDE8]/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#566861]">
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                        <span>Escrow Lien Cleared &bull; Txn Ref: <b className="font-mono text-[#14211D]">{loan.repaymentTransactionId || loan.paymentId || 'TXN-SETTLED'}</b></span>
+                      </div>
+                      <span className="text-emerald-800 font-medium">
+                        Settled on {loan.repaidAt ? new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent'}
+                      </span>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
 
       </div>

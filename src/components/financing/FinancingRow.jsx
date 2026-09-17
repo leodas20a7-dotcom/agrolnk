@@ -80,7 +80,12 @@ export default function FinancingRow({
 
       {/* Right: Status & Actions */}
       <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
-        {isMarginSettled ? (
+        {request.status === 'repaid' || request.status === 'settled' ? (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Repaid & Settled ✓</span>
+          </span>
+        ) : isMarginSettled ? (
           <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
             Escrow Secured ✓
           </span>
@@ -89,14 +94,16 @@ export default function FinancingRow({
         )}
 
         <Button
-          variant={needsMarginPayment ? 'accent' : (isFinancier ? (request.status === 'approved' ? 'secondary' : 'accent') : 'secondary')}
+          variant={needsMarginPayment ? 'accent' : (isFinancier ? (request.status === 'approved' || request.status === 'repaid' ? 'secondary' : 'accent') : 'secondary')}
           size="sm"
           onClick={() => onView(request)}
           icon={ArrowRight}
           iconPosition="right"
           className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
         >
-          {needsMarginPayment
+          {request.status === 'repaid'
+            ? 'View Clearance Receipt'
+            : needsMarginPayment
             ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
             : (isFinancier ? (request.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve') : 'View Details')}
         </Button>

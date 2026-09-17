@@ -256,10 +256,29 @@ CREATE TABLE IF NOT EXISTS public.financing_requests (
     escrow_funded BOOLEAN DEFAULT false,
     payment_id TEXT,
     margin_paid_at TIMESTAMP WITH TIME ZONE,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'under_review', 'approved', 'disbursed', 'escrow_secured', 'rejected', 'cancelled')),
+    repaid_at TIMESTAMP WITH TIME ZONE,
+    repayment_method TEXT,
+    repayment_transaction_id TEXT,
+    repayment_amount NUMERIC,
+    repayment_principal NUMERIC,
+    repayment_interest NUMERIC,
+    repayment_notes TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'under_review', 'approved', 'disbursed', 'escrow_secured', 'repaid', 'settled', 'rejected', 'cancelled')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure newly added columns exist for existing deployments
+ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repaid_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repayment_method TEXT;
+ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repayment_transaction_id TEXT;
+ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repayment_amount NUMERIC;
+ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repayment_principal NUMERIC;
+ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repayment_interest NUMERIC;
+ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repayment_notes TEXT;
+ALTER TABLE public.financing_requests DROP CONSTRAINT IF EXISTS financing_requests_status_check;
+ALTER TABLE public.financing_requests ADD CONSTRAINT financing_requests_status_check 
+  CHECK (status IN ('pending', 'under_review', 'approved', 'disbursed', 'escrow_secured', 'repaid', 'settled', 'rejected', 'cancelled'));
 
 -- ============================================================================
 -- 8. QUALITY INSPECTION & ASSAY REPORTS
