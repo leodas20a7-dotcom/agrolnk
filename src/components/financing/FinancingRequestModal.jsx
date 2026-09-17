@@ -100,10 +100,10 @@ export default function FinancingRequestModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-[#0B3326]">
-                {isBuyer ? 'Apply for Trade Credit' : 'Apply for Working Advance'}
+                {isBuyer ? 'Apply for Trade Credit' : 'Apply for PO Advance'}
               </h3>
               <span className="text-xs text-[#566861]">
-                Quick NBFC loan up to 80%
+                {isBuyer ? 'Quick NBFC buyer credit up to 80%' : 'Instant advance for harvesting, packing & transport'}
               </span>
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function FinancingRequestModal({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-[#0B3326]">
-                Credit Amount Needed (₹)
+                {isBuyer ? 'Credit Amount Needed (₹)' : 'Advance Amount Needed (₹)'}
               </label>
               <span className="text-xs text-[#566861]">
                 Max: ₹{totalValue.toLocaleString('en-IN')}
@@ -227,7 +227,11 @@ export default function FinancingRequestModal({
           {/* Simple Escrow Guarantee Pill */}
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EBF5F0] text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>Escrow Protected. Funds disbursed directly for order settlement.</span>
+            <span>
+              {isBuyer
+                ? 'Escrow Protected. Funds disbursed directly for order settlement.'
+                : 'PO Backed. Advance disbursed immediately; settled upon delivery payout.'}
+            </span>
           </div>
 
           {/* Action Buttons */}
@@ -250,7 +254,7 @@ export default function FinancingRequestModal({
               iconPosition="right"
               className="font-bold py-2 px-5 shadow-xs cursor-pointer"
             >
-              {isSubmitting ? 'Submitting...' : 'Apply Credit'}
+              {isSubmitting ? 'Submitting...' : isBuyer ? 'Apply Credit' : 'Request Advance'}
             </Button>
           </div>
         </form>

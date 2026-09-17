@@ -116,7 +116,7 @@ export default function OrderSummary({
         </div>
         
         <div className="flex items-center gap-2.5">
-          {/* Trade Credit Status Badge - Only for Buyer or Admin/Financier */}
+          {/* Trade Credit / PO Advance Status Badge */}
           {isBuyer && isFinanced ? (
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
               existingFinancing?.status === 'approved'
@@ -126,6 +126,19 @@ export default function OrderSummary({
               <Landmark className="w-3.5 h-3.5 text-blue-600" />
               <span>
                 {existingFinancing?.status === 'approved' ? 'NBFC Credit Approved ✓' : 'NBFC Credit • Under Review'}
+              </span>
+            </span>
+          ) : !isBuyer && existingFinancing ? (
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
+              existingFinancing.status === 'approved' || existingFinancing.status === 'disbursed'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                : 'bg-amber-50 text-amber-800 border-amber-300'
+            }`}>
+              <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+              <span>
+                {existingFinancing.status === 'approved' || existingFinancing.status === 'disbursed'
+                  ? `₹${(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0).toLocaleString('en-IN')} Advance Approved ✓`
+                  : 'PO Advance • Under Review'}
               </span>
             </span>
           ) : existingDelivery ? (
@@ -445,6 +458,94 @@ export default function OrderSummary({
                 </Button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Working Capital / PO Advance Card for Farmer */}
+        {viewerRole === 'farmer' && existingFinancing && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-[#F8FAF8] to-white border border-emerald-200 text-xs space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#0B3326] text-white flex items-center justify-center">
+                  <Landmark className="w-3.5 h-3.5 text-[#34D399]" />
+                </div>
+                <div>
+                  <span className="font-bold text-[#0B3326] block">PO Advance & Working Capital (NBFC)</span>
+                  <span className="text-[11px] text-[#566861]">
+                    Request {existingFinancing.requestNumber || '#FIN-ADVANCE'} • Linked to Order {order.orderNumber}
+                  </span>
+                </div>
+              </div>
+              <FinancingStatusBadge status={existingFinancing.status} size="sm" />
+            </div>
+
+            {/* Metric boxes */}
+            <div className="grid grid-cols-3 gap-2 text-center bg-white p-2.5 rounded-xl border border-emerald-100">
+              <div>
+                <span className="text-[10px] text-[#566861] block font-medium">Advance Amount</span>
+                <span className="font-extrabold text-[#0B3326] text-xs block mt-0.5">
+                  ₹{Number(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[#566861] block font-medium">Institution</span>
+                <span className="font-bold text-[#14211D] text-xs block mt-0.5">
+                  Partner NBFC
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[#566861] block font-medium">Escrow Settlement</span>
+                <span className="font-bold text-emerald-700 text-xs block mt-0.5">
+                  Auto-Deduct on Delivery
+                </span>
+              </div>
+            </div>
+
+            {onViewFinancing && (
+              <div className="flex justify-end pt-0.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onViewFinancing(existingFinancing)}
+                  icon={ArrowRight}
+                  iconPosition="right"
+                  className="text-xs font-bold border-emerald-200 text-[#0B3326] bg-white hover:bg-emerald-50 cursor-pointer shadow-2xs"
+                >
+                  View Advance Status & Details
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* If NO financing yet, and order is active, show the 1-click Advance Application banner for Farmer */}
+        {viewerRole === 'farmer' && !existingFinancing && order.status !== 'cancelled' && order.status !== 'completed' && onRequestFinancing && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white border border-emerald-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-md bg-[#0B3326] text-[#34D399]">
+                  <Landmark className="w-3.5 h-3.5" />
+                </span>
+                <span className="text-xs font-bold text-[#0B3326]">
+                  Need money for harvesting, packing, or transport?
+                </span>
+                <Badge variant="accent" size="sm">Up to 80% Advance</Badge>
+              </div>
+              <p className="text-[11px] text-[#566861] pl-6">
+                Apply for instant working capital up to <strong className="text-[#0B3326]">₹{Math.round(Number(order.totalAmount || 0) * 0.8).toLocaleString('en-IN')}</strong> from partner financial institutions against this escrow-backed order.
+              </p>
+            </div>
+
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => onRequestFinancing(order)}
+              icon={Landmark}
+              iconPosition="left"
+              className="text-xs font-bold py-2 px-4 shadow-xs shrink-0 cursor-pointer whitespace-nowrap"
+            >
+              ⚡ Request PO Advance
+            </Button>
           </div>
         )}
 
