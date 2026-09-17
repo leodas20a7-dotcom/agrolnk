@@ -23,11 +23,13 @@ import {
   VEHICLE_TARIFF_RATES
 } from '../../utils/deliveries';
 import { getTransporterFleet } from '../../utils/fleet';
+import { getResolvedUserKycStatus } from '../../utils/auth';
 import AddEditVehicleModal from '../transporter/AddEditVehicleModal';
 
 export default function TransportQuoteModal({
   delivery,
   currentUser,
+  isVerified: propIsVerified,
   onClose,
   onSuccess,
 }) {
@@ -114,7 +116,13 @@ export default function TransportQuoteModal({
     setFreightAmount(updated.estimatedFare);
   };
 
-  const isVerified = currentUser?.kycStatus === 'verified' || currentUser?.verificationStatus === 'verified';
+  const isVerified =
+    propIsVerified !== undefined
+      ? propIsVerified
+      : (getResolvedUserKycStatus(currentUser || user) === 'verified' ||
+         currentUser?.kycStatus === 'verified' ||
+         currentUser?.verificationStatus === 'verified' ||
+         user?.kycStatus === 'verified');
 
   const handleSubmit = async (e) => {
     e.preventDefault();

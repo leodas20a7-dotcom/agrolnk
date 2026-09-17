@@ -558,6 +558,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
         <TransportQuoteModal
           delivery={quotingDelivery}
           currentUser={user}
+          isVerified={isVerified}
           onClose={() => setQuotingDelivery(null)}
           onSuccess={async () => {
             await loadData();
