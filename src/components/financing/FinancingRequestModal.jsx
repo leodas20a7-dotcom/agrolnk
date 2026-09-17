@@ -33,10 +33,6 @@ export default function FinancingRequestModal({
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const interestRate = repaymentOption === '60_day_extended' ? 0.02 : 0.01; // 1% for 30 days, 2% for 60 days
-  const interestAmount = Math.round(Number(requestedAmount || 0) * interestRate);
-  const totalRepayable = Number(requestedAmount || 0) + interestAmount;
-
   const handlePreset = (percentage) => {
     setRequestedAmount(Math.round(totalValue * percentage));
     setError('');
@@ -72,7 +68,7 @@ export default function FinancingRequestModal({
         purpose: isBuyer ? 'trade_credit' : 'working_capital',
         purposeLabel: isBuyer ? 'Trade Credit' : 'Working Capital Credit',
         repaymentOption,
-        repaymentLabel: repaymentOption === '60_day_extended' ? '60 Days Net (2.0% Interest)' : '30 Days Net (1.0% Interest)',
+        repaymentLabel: repaymentOption === '60_day_extended' ? '60 Days Net' : '30 Days Net',
         notes: '',
       };
 
@@ -107,7 +103,7 @@ export default function FinancingRequestModal({
                 {isBuyer ? 'Apply for Trade Credit' : 'Apply for Institutional Credit'}
               </h3>
               <span className="text-xs text-[#566861]">
-                Direct NBFC / Bank credit at transparent monthly interest
+                Forward credit request to partner financial institutions
               </span>
             </div>
           </div>
@@ -191,15 +187,10 @@ export default function FinancingRequestModal({
 
           {/* Repayment Option (Credit Cycle 30 or 60 days) */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-[#10B981]" />
-                Repayment Window / Credit Cycle
-              </label>
-              <span className="text-[11px] text-[#566861]">
-                Rate: ~1% per month
-              </span>
-            </div>
+            <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-[#10B981]" />
+              Preferred Repayment Cycle
+            </label>
             
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -212,7 +203,7 @@ export default function FinancingRequestModal({
                 }`}
               >
                 <span className="block font-bold">30 Days Net</span>
-                <span className="text-[10px] text-[#566861] block mt-0.5">1.0% interest</span>
+                <span className="text-[10px] text-[#566861] block mt-0.5">Standard Cycle</span>
               </button>
               <button
                 type="button"
@@ -223,36 +214,34 @@ export default function FinancingRequestModal({
                     : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
                 }`}
               >
-                <span className="block font-bold">60 Days (Extended)</span>
-                <span className="text-[10px] text-[#566861] block mt-0.5">2.0% interest</span>
+                <span className="block font-bold">60 Days</span>
+                <span className="text-[10px] text-[#566861] block mt-0.5">Extended Cycle</span>
               </button>
             </div>
           </div>
 
-          {/* Institutional Credit Summary Card */}
+          {/* Institutional Request Summary Card */}
           <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#0B3326]">Credit Facility Summary</span>
-              <Badge variant="accent" size="sm">Partner NBFC / Bank</Badge>
+              <span className="font-bold text-[#0B3326]">Request Summary</span>
+              <Badge variant="accent" size="sm">Partner NBFC Review</Badge>
             </div>
             
-            <div className="grid grid-cols-3 gap-2 text-center text-[11px] bg-white p-2.5 rounded-xl border border-[#E5EDE8]">
+            <div className="grid grid-cols-2 gap-2 text-center text-[11px] bg-white p-2.5 rounded-xl border border-[#E5EDE8]">
               <div>
-                <span className="text-[#566861] block text-[10px]">Disbursed Amount</span>
-                <span className="font-bold text-[#0B3326]">₹{Number(requestedAmount || 0).toLocaleString('en-IN')}</span>
+                <span className="text-[#566861] block text-[10px]">Requested Credit</span>
+                <span className="font-extrabold text-[#0B3326] text-xs">₹{Number(requestedAmount || 0).toLocaleString('en-IN')}</span>
               </div>
               <div>
-                <span className="text-[#566861] block text-[10px]">Total Interest</span>
-                <span className="font-bold text-amber-700">₹{interestAmount.toLocaleString('en-IN')}</span>
-              </div>
-              <div>
-                <span className="text-[#566861] block text-[10px]">Total Repayment</span>
-                <span className="font-extrabold text-[#0B3326]">₹{totalRepayable.toLocaleString('en-IN')}</span>
+                <span className="text-[#566861] block text-[10px]">Requested Cycle</span>
+                <span className="font-bold text-[#14211D] text-xs">
+                  {repaymentOption === '60_day_extended' ? '60 Days' : '30 Days'}
+                </span>
               </div>
             </div>
             
             <p className="text-[11px] text-[#566861] leading-relaxed">
-              Disbursed directly by the financial institution. Independent of buyer escrow changes; repayable within {repaymentOption === '60_day_extended' ? '60' : '30'} days.
+              Your application will be reviewed by the financial institution. Interest rate, sanctioned amount, and repayment schedule will be determined by the institution upon underwriting.
             </p>
           </div>
 
@@ -267,7 +256,7 @@ export default function FinancingRequestModal({
           {/* Institutional Guarantee Pill */}
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EBF5F0] text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>Regulated credit facility. Fast approval from verified financial institutions.</span>
+            <span>Fast institutional underwriting and sanctioning.</span>
           </div>
 
           {/* Action Buttons */}
