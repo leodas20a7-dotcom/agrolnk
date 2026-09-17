@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Landmark, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { X, Landmark, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { createFinancingRequest } from '../../utils/financing';
@@ -67,8 +67,10 @@ export default function FinancingRequestModal({
         requestedAmount: Number(requestedAmount),
         purpose: isBuyer ? 'trade_credit' : 'working_capital',
         purposeLabel: isBuyer ? 'Trade Credit' : 'Working Capital',
-        repaymentOption,
-        repaymentLabel: repaymentOption === '60_day_extended' ? '60 Days Net' : '30 Days Net',
+        repaymentOption: isBuyer ? repaymentOption : 'auto_escrow_settlement',
+        repaymentLabel: isBuyer
+          ? (repaymentOption === '60_day_extended' ? '60 Days Net' : '30 Days Net')
+          : 'Auto-Settled on Delivery (Escrow)',
         notes: '',
       };
 
@@ -185,36 +187,69 @@ export default function FinancingRequestModal({
             </div>
           </div>
 
-          {/* Repayment Option */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#0B3326] block">
-              Repayment Window
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setRepaymentOption('30_day_settlement')}
-                className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
-                  repaymentOption === '30_day_settlement'
-                    ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold'
-                    : 'border-[#E5EDE8] bg-white text-[#566861]'
-                }`}
-              >
-                30 Days Net (Standard)
-              </button>
-              <button
-                type="button"
-                onClick={() => setRepaymentOption('60_day_extended')}
-                className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
-                  repaymentOption === '60_day_extended'
-                    ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold'
-                    : 'border-[#E5EDE8] bg-white text-[#566861]'
-                }`}
-              >
-                60 Days (Extended)
-              </button>
+          {/* Repayment Option / Settlement Mechanism */}
+          {isBuyer ? (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#0B3326] block">
+                Repayment Window
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRepaymentOption('30_day_settlement')}
+                  className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                    repaymentOption === '30_day_settlement'
+                      ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold'
+                      : 'border-[#E5EDE8] bg-white text-[#566861]'
+                  }`}
+                >
+                  30 Days Net (Standard)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRepaymentOption('60_day_extended')}
+                  className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                    repaymentOption === '60_day_extended'
+                      ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold'
+                      : 'border-[#E5EDE8] bg-white text-[#566861]'
+                  }`}
+                >
+                  60 Days (Extended)
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                  Automatic Escrow Settlement
+                </span>
+                <Badge variant="accent" size="sm">0 Manual Repayments</Badge>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-2 text-center text-[11px] bg-white p-2 rounded-xl border border-[#E5EDE8]">
+                <div>
+                  <span className="text-[#566861] block text-[10px]">Instant Advance</span>
+                  <span className="font-bold text-[#0B3326]">₹{Number(requestedAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="text-[#566861] block text-[10px]">Nominal Fee (1%)</span>
+                  <span className="font-bold text-[#566861]">₹{Math.round(Number(requestedAmount || 0) * 0.01).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="text-[#566861] block text-[10px]">Final Escrow Payout</span>
+                  <span className="font-bold text-[#10B981]">
+                    ₹{Math.max(0, totalValue - Number(requestedAmount || 0) - Math.round(Number(requestedAmount || 0) * 0.01)).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-[#566861] leading-relaxed">
+                No monthly repayment needed. When the buyer confirms delivery, the advance and fee are automatically settled from the locked escrow deposit, and the remaining ₹{Math.max(0, totalValue - Number(requestedAmount || 0) - Math.round(Number(requestedAmount || 0) * 0.01)).toLocaleString('en-IN')} is directly credited to your account.
+              </p>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -230,7 +265,7 @@ export default function FinancingRequestModal({
             <span>
               {isBuyer
                 ? 'Escrow Protected. Funds disbursed directly for order settlement.'
-                : 'PO Backed. Advance disbursed immediately; settled upon delivery payout.'}
+                : 'PO Backed. Advance disbursed immediately; settled automatically upon delivery release.'}
             </span>
           </div>
 
