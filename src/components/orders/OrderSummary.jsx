@@ -123,7 +123,7 @@ export default function OrderSummary({
         </div>
         
         <div className="flex items-center gap-2.5">
-          {/* Trade Credit / PO Advance Status Badge */}
+          {/* Trade Credit / Institutional Credit Status Badge */}
           {isBuyer && isBuyerFinanced ? (
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
               existingFinancing?.status === 'approved'
@@ -144,8 +144,8 @@ export default function OrderSummary({
               <Landmark className="w-3.5 h-3.5 text-emerald-600" />
               <span>
                 {existingFinancing.status === 'approved' || existingFinancing.status === 'disbursed'
-                  ? `₹${(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0).toLocaleString('en-IN')} Advance Approved ✓`
-                  : 'PO Advance • Under Review'}
+                  ? `₹${(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0).toLocaleString('en-IN')} Credit Approved ✓`
+                  : 'Institutional Credit • Under Review'}
               </span>
             </span>
           ) : existingDelivery ? (
