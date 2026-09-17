@@ -525,7 +525,7 @@ export default function OrderSummary({
           </div>
         )}
 
-        {/* If NO financing yet, and order is active, show the 1-click Advance Application banner for Farmer */}
+        {/* If NO financing yet, and order is active, show the 1-click Credit Application banner for Farmer */}
         {viewerRole === 'farmer' && !isFarmerFinancing && order.status !== 'cancelled' && order.status !== 'completed' && onRequestFinancing && (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white border border-emerald-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
             <div className="space-y-0.5">
@@ -534,12 +534,12 @@ export default function OrderSummary({
                   <Landmark className="w-3.5 h-3.5" />
                 </span>
                 <span className="text-xs font-bold text-[#0B3326]">
-                  Need money for harvesting, packing, or transport?
+                  Need Credit for harvesting, packing, or operational expenses?
                 </span>
-                <Badge variant="accent" size="sm">Up to 80% Advance</Badge>
+                <Badge variant="accent" size="sm">30 - 60 Days Credit</Badge>
               </div>
               <p className="text-[11px] text-[#566861] pl-6">
-                Apply for instant working capital up to <strong className="text-[#0B3326]">₹{Math.round(Number(order.totalAmount || 0) * 0.8).toLocaleString('en-IN')}</strong> from partner financial institutions against this escrow-backed order.
+                Apply for direct working capital credit up to <strong className="text-[#0B3326]">₹{Math.round(Number(order.totalAmount || 0) * 0.8).toLocaleString('en-IN')}</strong> from partner financial institutions with 30/60 days credit cycles.
               </p>
             </div>
 
@@ -551,7 +551,7 @@ export default function OrderSummary({
               iconPosition="left"
               className="text-xs font-bold py-2 px-4 shadow-xs shrink-0 cursor-pointer whitespace-nowrap"
             >
-              ⚡ Request PO Advance
+              ⚡ Need Credit?
             </Button>
           </div>
         )}

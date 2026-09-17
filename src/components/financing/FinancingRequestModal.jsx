@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Landmark, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, Landmark, ShieldCheck, ArrowRight, AlertCircle, Calendar, Percent } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { createFinancingRequest } from '../../utils/financing';
@@ -11,14 +11,14 @@ export default function FinancingRequestModal({
   onClose,
   onSuccess,
 }) {
+  const targetItem = order || listing || {};
   const user = currentUser || {
-    id: '',
-    name: 'Applicant',
-    role: 'buyer',
+    id: targetItem.farmerId || '',
+    name: targetItem.farmerName || 'Applicant',
+    role: targetItem.farmerId || targetItem.farmerName ? 'farmer' : 'buyer',
   };
 
   const isBuyer = user.role === 'buyer';
-  const targetItem = order || listing || {};
   const totalValue = Number(
     targetItem?.totalAmount ||
     targetItem?.transactionValue ||
@@ -32,6 +32,10 @@ export default function FinancingRequestModal({
   const [repaymentOption, setRepaymentOption] = useState('30_day_settlement');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const interestRate = repaymentOption === '60_day_extended' ? 0.02 : 0.01; // 1% for 30 days, 2% for 60 days
+  const interestAmount = Math.round(Number(requestedAmount || 0) * interestRate);
+  const totalRepayable = Number(requestedAmount || 0) + interestAmount;
 
   const handlePreset = (percentage) => {
     setRequestedAmount(Math.round(totalValue * percentage));
@@ -53,11 +57,11 @@ export default function FinancingRequestModal({
 
     try {
       const requestPayload = {
-        applicantId: user.id || user.email || 'buyer_trade',
-        applicantName: user.name || 'Agrolnk Partner',
-        applicantRole: user.role || 'buyer',
+        applicantId: user.id || user.email || 'applicant_credit',
+        applicantName: user.name || (isBuyer ? 'Buyer Partner' : 'Farmer Partner'),
+        applicantRole: user.role || (isBuyer ? 'buyer' : 'farmer'),
         orderId: targetItem.id || null,
-        orderNumber: targetItem.orderNumber || (targetItem.id ? `#LOT-${String(targetItem.id).slice(0, 6).toUpperCase()}` : '#FIN-BUY'),
+        orderNumber: targetItem.orderNumber || (targetItem.id ? `#LOT-${String(targetItem.id).slice(0, 6).toUpperCase()}` : '#FIN-CREDIT'),
         commodity: targetItem.commodity || 'Agricultural Produce',
         variety: targetItem.variety || 'Standard Lot',
         grade: targetItem.grade || 'A',
@@ -66,11 +70,9 @@ export default function FinancingRequestModal({
         transactionValue: totalValue,
         requestedAmount: Number(requestedAmount),
         purpose: isBuyer ? 'trade_credit' : 'working_capital',
-        purposeLabel: isBuyer ? 'Trade Credit' : 'Working Capital',
-        repaymentOption: isBuyer ? repaymentOption : 'auto_escrow_settlement',
-        repaymentLabel: isBuyer
-          ? (repaymentOption === '60_day_extended' ? '60 Days Net' : '30 Days Net')
-          : 'Auto-Settled on Delivery (Escrow)',
+        purposeLabel: isBuyer ? 'Trade Credit' : 'Working Capital Credit',
+        repaymentOption,
+        repaymentLabel: repaymentOption === '60_day_extended' ? '60 Days Net (2.0% Interest)' : '30 Days Net (1.0% Interest)',
         notes: '',
       };
 
@@ -102,10 +104,10 @@ export default function FinancingRequestModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-[#0B3326]">
-                {isBuyer ? 'Apply for Trade Credit' : 'Apply for PO Advance'}
+                {isBuyer ? 'Apply for Trade Credit' : 'Apply for Institutional Credit'}
               </h3>
               <span className="text-xs text-[#566861]">
-                {isBuyer ? 'Quick NBFC buyer credit up to 80%' : 'Instant advance for harvesting, packing & transport'}
+                Direct NBFC / Bank credit at transparent monthly interest
               </span>
             </div>
           </div>
@@ -143,10 +145,10 @@ export default function FinancingRequestModal({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-[#0B3326]">
-                {isBuyer ? 'Credit Amount Needed (₹)' : 'Advance Amount Needed (₹)'}
+                Credit Amount Needed (₹)
               </label>
               <span className="text-xs text-[#566861]">
-                Max: ₹{totalValue.toLocaleString('en-IN')}
+                Max: ₹{totalValue.toLocaleString('en-IN')} (Up to 80%)
               </span>
             </div>
 
@@ -187,69 +189,72 @@ export default function FinancingRequestModal({
             </div>
           </div>
 
-          {/* Repayment Option / Settlement Mechanism */}
-          {isBuyer ? (
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0B3326] block">
-                Repayment Window
+          {/* Repayment Option (Credit Cycle 30 or 60 days) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-[#10B981]" />
+                Repayment Window / Credit Cycle
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRepaymentOption('30_day_settlement')}
-                  className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
-                    repaymentOption === '30_day_settlement'
-                      ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold'
-                      : 'border-[#E5EDE8] bg-white text-[#566861]'
-                  }`}
-                >
-                  30 Days Net (Standard)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRepaymentOption('60_day_extended')}
-                  className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
-                    repaymentOption === '60_day_extended'
-                      ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold'
-                      : 'border-[#E5EDE8] bg-white text-[#566861]'
-                  }`}
-                >
-                  60 Days (Extended)
-                </button>
-              </div>
+              <span className="text-[11px] text-[#566861]">
+                Rate: ~1% per month
+              </span>
             </div>
-          ) : (
-            <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                  Automatic Escrow Settlement
-                </span>
-                <Badge variant="accent" size="sm">0 Manual Repayments</Badge>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-2 text-center text-[11px] bg-white p-2 rounded-xl border border-[#E5EDE8]">
-                <div>
-                  <span className="text-[#566861] block text-[10px]">Instant Advance</span>
-                  <span className="font-bold text-[#0B3326]">₹{Number(requestedAmount || 0).toLocaleString('en-IN')}</span>
-                </div>
-                <div>
-                  <span className="text-[#566861] block text-[10px]">Nominal Fee (1%)</span>
-                  <span className="font-bold text-[#566861]">₹{Math.round(Number(requestedAmount || 0) * 0.01).toLocaleString('en-IN')}</span>
-                </div>
-                <div>
-                  <span className="text-[#566861] block text-[10px]">Final Escrow Payout</span>
-                  <span className="font-bold text-[#10B981]">
-                    ₹{Math.max(0, totalValue - Number(requestedAmount || 0) - Math.round(Number(requestedAmount || 0) * 0.01)).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setRepaymentOption('30_day_settlement')}
+                className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                  repaymentOption === '30_day_settlement'
+                    ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold shadow-2xs'
+                    : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
+                }`}
+              >
+                <span className="block font-bold">30 Days Net</span>
+                <span className="text-[10px] text-[#566861] block mt-0.5">1.0% interest</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRepaymentOption('60_day_extended')}
+                className={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                  repaymentOption === '60_day_extended'
+                    ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326] font-bold shadow-2xs'
+                    : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
+                }`}
+              >
+                <span className="block font-bold">60 Days (Extended)</span>
+                <span className="text-[10px] text-[#566861] block mt-0.5">2.0% interest</span>
+              </button>
+            </div>
+          </div>
 
-              <p className="text-[11px] text-[#566861] leading-relaxed">
-                No monthly repayment needed. When the buyer confirms delivery, the advance and fee are automatically settled from the locked escrow deposit, and the remaining ₹{Math.max(0, totalValue - Number(requestedAmount || 0) - Math.round(Number(requestedAmount || 0) * 0.01)).toLocaleString('en-IN')} is directly credited to your account.
-              </p>
+          {/* Institutional Credit Summary Card */}
+          <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-[#0B3326]">Credit Facility Summary</span>
+              <Badge variant="accent" size="sm">Partner NBFC / Bank</Badge>
             </div>
-          )}
+            
+            <div className="grid grid-cols-3 gap-2 text-center text-[11px] bg-white p-2.5 rounded-xl border border-[#E5EDE8]">
+              <div>
+                <span className="text-[#566861] block text-[10px]">Disbursed Amount</span>
+                <span className="font-bold text-[#0B3326]">₹{Number(requestedAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div>
+                <span className="text-[#566861] block text-[10px]">Total Interest</span>
+                <span className="font-bold text-amber-700">₹{interestAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <div>
+                <span className="text-[#566861] block text-[10px]">Total Repayment</span>
+                <span className="font-extrabold text-[#0B3326]">₹{totalRepayable.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+            
+            <p className="text-[11px] text-[#566861] leading-relaxed">
+              Disbursed directly by the financial institution. Independent of buyer escrow changes; repayable within {repaymentOption === '60_day_extended' ? '60' : '30'} days.
+            </p>
+          </div>
 
           {/* Error Message */}
           {error && (
@@ -259,14 +264,10 @@ export default function FinancingRequestModal({
             </div>
           )}
 
-          {/* Simple Escrow Guarantee Pill */}
+          {/* Institutional Guarantee Pill */}
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EBF5F0] text-xs text-[#0B3326]">
             <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>
-              {isBuyer
-                ? 'Escrow Protected. Funds disbursed directly for order settlement.'
-                : 'PO Backed. Advance disbursed immediately; settled automatically upon delivery release.'}
-            </span>
+            <span>Regulated credit facility. Fast approval from verified financial institutions.</span>
           </div>
 
           {/* Action Buttons */}
@@ -289,7 +290,7 @@ export default function FinancingRequestModal({
               iconPosition="right"
               className="font-bold py-2 px-5 shadow-xs cursor-pointer"
             >
-              {isSubmitting ? 'Submitting...' : isBuyer ? 'Apply Credit' : 'Request Advance'}
+              {isSubmitting ? 'Submitting...' : 'Apply for Credit'}
             </Button>
           </div>
         </form>
