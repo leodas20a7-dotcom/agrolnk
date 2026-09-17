@@ -543,9 +543,9 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
           order={orderForFinancing}
           currentUser={user}
           onClose={() => setOrderForFinancing(null)}
-          onSuccess={(req) => {
+          onSuccess={() => {
+            setOrderForFinancing(null);
             fetchOrders();
-            setRequestForReview(req);
           }}
         />
       )}

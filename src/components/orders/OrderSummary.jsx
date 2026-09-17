@@ -468,59 +468,39 @@ export default function OrderSummary({
           </div>
         )}
 
-        {/* Working Capital / PO Advance Card for Farmer */}
+        {/* Working Capital Credit Status for Farmer */}
         {viewerRole === 'farmer' && isFarmerFinancing && (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-[#F8FAF8] to-white border border-emerald-200 text-xs space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#0B3326] text-white flex items-center justify-center">
-                  <Landmark className="w-3.5 h-3.5 text-[#34D399]" />
-                </div>
-                <div>
-                  <span className="font-bold text-[#0B3326] block">PO Advance & Working Capital (NBFC)</span>
-                  <span className="text-[11px] text-[#566861]">
-                    Request {existingFinancing.requestNumber || '#FIN-ADVANCE'} • Linked to Order {order.orderNumber}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 gap-2.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-amber-600 text-white">
+                <Landmark className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#0B3326]">
+                    Credit Request ({existingFinancing.requestNumber || '#FIN-REQ'})
                   </span>
+                  <FinancingStatusBadge status={existingFinancing.status} size="sm" />
                 </div>
-              </div>
-              <FinancingStatusBadge status={existingFinancing.status} size="sm" />
-            </div>
-
-            {/* Metric boxes */}
-            <div className="grid grid-cols-3 gap-2 text-center bg-white p-2.5 rounded-xl border border-emerald-100">
-              <div>
-                <span className="text-[10px] text-[#566861] block font-medium">Advance Amount</span>
-                <span className="font-extrabold text-[#0B3326] text-xs block mt-0.5">
-                  ₹{Number(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0).toLocaleString('en-IN')}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] text-[#566861] block font-medium">Institution</span>
-                <span className="font-bold text-[#14211D] text-xs block mt-0.5">
-                  Partner NBFC
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] text-[#566861] block font-medium">Escrow Settlement</span>
-                <span className="font-bold text-emerald-700 text-xs block mt-0.5">
-                  Auto-Deduct on Delivery
+                <span className="text-[11px] text-[#566861]">
+                  {existingFinancing.status === 'pending'
+                    ? `Requested ₹${Number(existingFinancing.requestedAmount || 0).toLocaleString('en-IN')} (${existingFinancing.repaymentLabel || '30 Days Net'}) • Under Institutional Review`
+                    : existingFinancing.status === 'approved' || existingFinancing.status === 'disbursed'
+                    ? `₹${Number(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0).toLocaleString('en-IN')} Approved ✓ Disbursed to account`
+                    : `Application ${existingFinancing.status}`}
                 </span>
               </div>
             </div>
 
             {onViewFinancing && (
-              <div className="flex justify-end pt-0.5">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onViewFinancing(existingFinancing)}
-                  icon={ArrowRight}
-                  iconPosition="right"
-                  className="text-xs font-bold border-emerald-200 text-[#0B3326] bg-white hover:bg-emerald-50 cursor-pointer shadow-2xs"
-                >
-                  View Advance Status & Details
-                </Button>
-              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onViewFinancing(existingFinancing)}
+                className="text-xs font-bold py-1.5 px-3 bg-white border-amber-200 text-[#0B3326] hover:bg-amber-50 shadow-2xs shrink-0 self-start sm:self-center cursor-pointer"
+              >
+                View Status
+              </Button>
             )}
           </div>
         )}
