@@ -14,6 +14,7 @@ import FinancingReviewModal from '../../components/financing/FinancingReviewModa
 import CreateDeliveryModal from '../../components/delivery/CreateDeliveryModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import SelfTransportModal from '../../components/delivery/SelfTransportModal';
+import OrderReceiptModal from '../../components/orders/OrderReceiptModal';
 import {
   ShoppingBag,
   ArrowLeft,
@@ -25,7 +26,8 @@ import {
   Package,
   AlertCircle,
   Landmark,
-  Info
+  Info,
+  Receipt
 } from 'lucide-react';
 import { getFarmerOrders, updateOrderStatus } from '../../utils/orders';
 import { getDeliveryForOrder } from '../../utils/deliveries';
@@ -65,6 +67,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   const [orderForDelivery, setOrderForDelivery] = useState(null);
   const [orderForSelfTransport, setOrderForSelfTransport] = useState(null);
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
+  const [orderForReceipt, setOrderForReceipt] = useState(null);
 
   const fetchOrders = async (showFlash = false) => {
     if (showFlash) {
@@ -515,10 +518,33 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                 )}
 
                 {selectedOrder.status === 'completed' && (
-                  <div className="text-center p-3 rounded-xl bg-[#0F4A37] border border-[#14624A]">
-                    <Badge variant="accent" size="md">
-                      ✓ Completed & Escrow Settled
-                    </Badge>
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-[#0F4A37] to-[#0B3326] border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left shadow-sm">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="accent" size="sm">
+                          ✓ Completed & Escrow Settled
+                        </Badge>
+                        {selectedOrder.bankUtr && (
+                          <span className="font-mono text-[10px] text-emerald-300">
+                            UTR: {selectedOrder.bankUtr}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-white/90 block">
+                        Full payout disbursed to your bank account. Official trade settlement receipt issued.
+                      </span>
+                    </div>
+
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setOrderForReceipt(selectedOrder)}
+                      icon={Receipt}
+                      iconPosition="left"
+                      className="text-xs font-bold py-2.5 px-4 shadow-md shrink-0 cursor-pointer w-full sm:w-auto justify-center"
+                    >
+                      View Settlement Receipt
+                    </Button>
                   </div>
                 )}
 
@@ -595,6 +621,16 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
           currentUser={user}
           onClose={() => setDeliveryForDetail(null)}
           onStatusUpdated={() => fetchOrders()}
+        />
+      )}
+
+      {/* Official Trade Settlement Receipt Modal for Farmer */}
+      {orderForReceipt && (
+        <OrderReceiptModal
+          isOpen={!!orderForReceipt}
+          order={orderForReceipt}
+          onClose={() => setOrderForReceipt(null)}
+          viewerRole="farmer"
         />
       )}
     </DashboardLayout>

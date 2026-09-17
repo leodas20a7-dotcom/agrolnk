@@ -346,7 +346,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                     Consignment Arrived at Destination
                   </span>
                   <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-                    Verify quality assay & weight, then confirm produce receipt. AgroLnk Admin will verify with you and release escrow payout to the farmer.
+                    Verify quality assay & weight, then confirm goods arrival. AgroLnk Operations will call you to confirm produce satisfaction before releasing the official trade receipt & escrow payout to the farmer.
                   </p>
                 </div>
 
@@ -369,9 +369,23 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                     iconPosition="left"
                     className="w-full justify-center font-bold py-3 px-4 shadow-xs cursor-pointer"
                   >
-                    Confirm Produce Receipt
+                    Confirm Produce Arrival
                   </Button>
                 </div>
+              </div>
+            ) : selectedOrder.status === 'completed' ? (
+              <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
+                    Order Completed & Escrow Settled
+                  </span>
+                  <span className="text-xs text-white/90">
+                    Trade settlement receipt and official invoice have been released by AgroLnk Operations.
+                  </span>
+                </div>
+                <Badge variant="accent" size="md">
+                  ✓ 100% Escrow Settled
+                </Badge>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex items-center justify-between">
@@ -386,8 +400,6 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                       'Farmer has confirmed the trade agreement. Carrier logistics dispatch is being arranged.'}
                     {selectedOrder.status === 'ready_for_delivery' &&
                       'Consignment is with carrier and in transit to your destination facility.'}
-                    {selectedOrder.status === 'completed' &&
-                      'Order is 100% completed and settled.'}
                   </span>
                 </div>
 

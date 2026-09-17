@@ -25,7 +25,8 @@ import InspectionStatusBadge from '../inspection/InspectionStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
 import { getDeliveryForOrder } from '../../utils/deliveries';
 import { getInspectionForOrder } from '../../utils/inspection';
-import { ClipboardCheck } from 'lucide-react';
+import { ClipboardCheck, Receipt } from 'lucide-react';
+import OrderReceiptModal from './OrderReceiptModal';
 
 export default function OrderSummary({
   order,
@@ -40,6 +41,7 @@ export default function OrderSummary({
   const [existingFinancing, setExistingFinancing] = React.useState(null);
   const [existingDelivery, setExistingDelivery] = React.useState(null);
   const [existingInspection, setExistingInspection] = React.useState(null);
+  const [showReceiptModal, setShowReceiptModal] = React.useState(false);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -347,21 +349,26 @@ export default function OrderSummary({
                 )}
               </div>
 
-              {/* Buyer Confirm Receipt Button if Delivered */}
-              {isBuyer && effectiveDeliveryStatus === 'delivered' && onConfirmReceipt && (
-                <div className="pt-2 flex items-center justify-between">
-                  <span className="text-xs text-[#0B3326] font-semibold">
-                    Produce delivered at your facility. Please confirm receipt.
-                  </span>
+              {/* Buyer Confirm Arrival Button if Delivered */}
+              {isBuyer && effectiveDeliveryStatus === 'delivered' && onConfirmReceipt && order.status !== 'completed' && (
+                <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/70">
+                  <div className="space-y-0.5 text-left">
+                    <span className="text-xs text-[#0B3326] font-bold block">
+                      Consignment arrived at destination
+                    </span>
+                    <span className="text-[11px] text-[#566861] block">
+                      Confirm goods arrival to notify AgroLnk Admin to perform verification call and release escrow.
+                    </span>
+                  </div>
                   <Button
                     variant="accent"
                     size="sm"
                     onClick={() => onConfirmReceipt(existingDelivery)}
                     icon={CheckCircle2}
                     iconPosition="left"
-                    className="text-xs font-bold py-2 shadow-xs cursor-pointer"
+                    className="text-xs font-bold py-2 shadow-xs shrink-0 cursor-pointer"
                   >
-                    Confirm Receipt
+                    Confirm Delivery Arrival
                   </Button>
                 </div>
               )}
@@ -533,6 +540,42 @@ export default function OrderSummary({
           </div>
         )}
 
+        {/* Completed Order: Official Settlement & Trade Receipt Banner */}
+        {(order.status === 'completed' || order.escrow_status === 'released') && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#34D399]/20 text-[#34D399] flex items-center justify-center shrink-0 border border-[#34D399]/30">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Official Trade Settlement Released
+                  </span>
+                  <Badge variant="accent" size="sm">
+                    ✓ 100% Settled
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-white/80">
+                  {order.bankUtr || order.bank_utr ? `Bank UTR: ${order.bankUtr || order.bank_utr} • ` : ''}
+                  Escrow verified & disbursed by AgroLnk Operations.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => setShowReceiptModal(true)}
+              icon={Receipt}
+              iconPosition="left"
+              className="text-xs font-bold py-2 px-4 shadow-md shrink-0 cursor-pointer w-full sm:w-auto justify-center"
+            >
+              View Settlement Receipt
+            </Button>
+          </div>
+        )}
+
         {/* Escrow Guarantee Pill */}
         <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
           <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
@@ -542,6 +585,16 @@ export default function OrderSummary({
               : 'Your payment is safely protected in escrow. Funds will only be released to the farmer after verified delivery.'}
           </span>
         </div>
+
+        {/* Official Trade Settlement Receipt Modal */}
+        {showReceiptModal && (
+          <OrderReceiptModal
+            isOpen={showReceiptModal}
+            order={order}
+            onClose={() => setShowReceiptModal(false)}
+            viewerRole={viewerRole}
+          />
+        )}
       </div>
     </div>
   );
