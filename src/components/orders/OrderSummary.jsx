@@ -47,7 +47,7 @@ export default function OrderSummary({
       if (!order?.orderNumber && !order?.id) return;
       try {
         const [fin, dlv, insp] = await Promise.all([
-          getFinancingRequestForOrder(order.orderNumber || order.id),
+          getFinancingRequestForOrder(order.orderNumber || order.id, null, viewerRole),
           getDeliveryForOrder(order.orderNumber || order.id),
           getInspectionForOrder(order.orderNumber || order.id),
         ]);
@@ -80,7 +80,7 @@ export default function OrderSummary({
       window.removeEventListener('agrolnk_deliveries_updated', handleSync);
       window.removeEventListener('storage', handleSync);
     };
-  }, [order?.id, order?.orderNumber, order?.status]);
+  }, [order?.id, order?.orderNumber, order?.status, viewerRole]);
 
   if (!order) return null;
 
@@ -94,11 +94,18 @@ export default function OrderSummary({
     ? `${order.deliveryLocation?.district || 'Chennai'}, ${order.deliveryLocation?.state || 'Tamil Nadu'}`
     : 'Destination Wholesale Terminal';
 
-  const isFinanced = Boolean(
-    existingFinancing ||
-    order.paymentMode === 'trade_credit' ||
-    order.escrowStatus === 'financing_pending' ||
-    order.financingRequestId
+  const isFarmerFinancing = Boolean(
+    !isBuyer &&
+    existingFinancing &&
+    (existingFinancing.applicantRole === 'farmer' || existingFinancing.purpose === 'working_capital')
+  );
+
+  const isBuyerFinanced = Boolean(
+    isBuyer &&
+    (existingFinancing ||
+      order.paymentMode === 'trade_credit' ||
+      order.escrowStatus === 'financing_pending' ||
+      order.financingRequestId)
   );
 
   const financedAmount = existingFinancing?.approvedAmount || existingFinancing?.requestedAmount || order.financingAmount || Math.round(Number(order.totalAmount || 0) * 0.8);
@@ -117,7 +124,7 @@ export default function OrderSummary({
         
         <div className="flex items-center gap-2.5">
           {/* Trade Credit / PO Advance Status Badge */}
-          {isBuyer && isFinanced ? (
+          {isBuyer && isBuyerFinanced ? (
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
               existingFinancing?.status === 'approved'
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
@@ -128,7 +135,7 @@ export default function OrderSummary({
                 {existingFinancing?.status === 'approved' ? 'NBFC Credit Approved ✓' : 'NBFC Credit • Under Review'}
               </span>
             </span>
-          ) : !isBuyer && existingFinancing ? (
+          ) : isFarmerFinancing ? (
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
               existingFinancing.status === 'approved' || existingFinancing.status === 'disbursed'
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
@@ -392,7 +399,7 @@ export default function OrderSummary({
         )}
 
         {/* Transaction-Linked Trade Credit Facility Breakdown (Only shown to Buyer) */}
-        {isFinanced && isBuyer && (
+        {isBuyer && isBuyerFinanced && (
           <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 text-xs space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -462,7 +469,7 @@ export default function OrderSummary({
         )}
 
         {/* Working Capital / PO Advance Card for Farmer */}
-        {viewerRole === 'farmer' && existingFinancing && (
+        {viewerRole === 'farmer' && isFarmerFinancing && (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-[#F8FAF8] to-white border border-emerald-200 text-xs space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -519,7 +526,7 @@ export default function OrderSummary({
         )}
 
         {/* If NO financing yet, and order is active, show the 1-click Advance Application banner for Farmer */}
-        {viewerRole === 'farmer' && !existingFinancing && order.status !== 'cancelled' && order.status !== 'completed' && onRequestFinancing && (
+        {viewerRole === 'farmer' && !isFarmerFinancing && order.status !== 'cancelled' && order.status !== 'completed' && onRequestFinancing && (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white border border-emerald-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">

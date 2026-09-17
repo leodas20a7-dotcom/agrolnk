@@ -561,23 +561,28 @@ export async function getDisbursements() {
 /**
  * Get financing request linked to an order
  */
-export async function getFinancingRequestForOrder(orderNumberOrId, alternateId) {
+export async function getFinancingRequestForOrder(orderNumberOrId, alternateId, roleFilter) {
   try {
     if (!orderNumberOrId && !alternateId) return null;
     const all = await getFinancingRequests();
     return (
       all.find(
-        (r) =>
-          (orderNumberOrId &&
-            (r.orderId === orderNumberOrId ||
-              r.orderNumber === orderNumberOrId ||
-              r.id === orderNumberOrId ||
-              r.requestNumber === orderNumberOrId)) ||
-          (alternateId &&
-            (r.orderId === alternateId ||
-              r.orderNumber === alternateId ||
-              r.id === alternateId ||
-              r.requestNumber === alternateId))
+        (r) => {
+          const matchOrder =
+            (orderNumberOrId &&
+              (r.orderId === orderNumberOrId ||
+                r.orderNumber === orderNumberOrId ||
+                r.id === orderNumberOrId ||
+                r.requestNumber === orderNumberOrId)) ||
+            (alternateId &&
+              (r.orderId === alternateId ||
+                r.orderNumber === alternateId ||
+                r.id === alternateId ||
+                r.requestNumber === alternateId));
+          if (!matchOrder) return false;
+          if (roleFilter && r.applicantRole && r.applicantRole !== roleFilter) return false;
+          return true;
+        }
       ) || null
     );
   } catch {
