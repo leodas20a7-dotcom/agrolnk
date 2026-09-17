@@ -97,9 +97,13 @@ export default function UserProfileModal({
   }, [isOpen, currentUser]);
 
   const handleChange = (field, value) => {
+    let cleanValue = value;
+    if (field === 'phone') {
+      cleanValue = value.replace(/\D/g, '').slice(0, 10);
+    }
     setFormData((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: cleanValue,
     }));
     if (field === 'ifscCode') {
       const clean = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
@@ -122,6 +126,11 @@ export default function UserProfileModal({
     e.preventDefault();
     if (!formData.name.trim()) {
       setErrorMessage('Full name is required.');
+      return;
+    }
+    const cleanPhone = (formData.phone || '').replace(/\D/g, '');
+    if (cleanPhone && (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone))) {
+      setErrorMessage('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
@@ -269,9 +278,10 @@ export default function UserProfileModal({
                   <Phone className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="tel"
+                    maxLength={10}
                     value={formData.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
-                    placeholder="+91 98765 43210"
+                    placeholder="9876543210 (10 digits)"
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                   />
                 </div>

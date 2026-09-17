@@ -186,10 +186,15 @@ export default function AdminSettings({ currentUser, onNavigate }) {
       setActionError('User name and email address are required.');
       return;
     }
+    const cleanPhone = (userFormData.phone || '').replace(/\D/g, '');
+    if (cleanPhone && (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone))) {
+      setActionError('Phone number must be a valid 10-digit mobile number.');
+      return;
+    }
 
     try {
       showGlobalLoader('Creating User...', 'Saving new partner to platform registry...');
-      await createAdminUser(userFormData);
+      await createAdminUser({ ...userFormData, phone: cleanPhone });
       setIsAddUserModalOpen(false);
       setActionSuccess(`User "${userFormData.name}" created successfully.`);
       setTimeout(() => setActionSuccess(''), 4000);
@@ -205,9 +210,15 @@ export default function AdminSettings({ currentUser, onNavigate }) {
     e.preventDefault();
     if (!selectedUser) return;
 
+    const cleanPhone = (userFormData.phone || '').replace(/\D/g, '');
+    if (cleanPhone && (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone))) {
+      setActionError('Phone number must be a valid 10-digit mobile number.');
+      return;
+    }
+
     try {
       showGlobalLoader('Updating User...', 'Applying changes to platform registry...');
-      await updateAdminUser(selectedUser.id, userFormData);
+      await updateAdminUser(selectedUser.id, { ...userFormData, phone: cleanPhone });
       setIsEditUserModalOpen(false);
       setActionSuccess(`User "${userFormData.name}" updated successfully.`);
       setTimeout(() => setActionSuccess(''), 4000);
@@ -929,10 +940,11 @@ export default function AdminSettings({ currentUser, onNavigate }) {
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#14211D]">Phone Number</label>
               <input
-                type="text"
-                placeholder="e.g. +91 98400 12345"
+                type="tel"
+                maxLength={10}
+                placeholder="9840012345 (10 digits)"
                 value={userFormData.phone}
-                onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value })}
+                onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 className="w-full px-3.5 py-2 rounded-xl border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981] bg-[#F8FAF8]"
               />
             </div>
@@ -1057,9 +1069,11 @@ export default function AdminSettings({ currentUser, onNavigate }) {
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#14211D]">Phone Number</label>
               <input
-                type="text"
+                type="tel"
+                maxLength={10}
+                placeholder="9840012345 (10 digits)"
                 value={userFormData.phone}
-                onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value })}
+                onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 className="w-full px-3.5 py-2 rounded-xl border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981] bg-[#F8FAF8]"
               />
             </div>

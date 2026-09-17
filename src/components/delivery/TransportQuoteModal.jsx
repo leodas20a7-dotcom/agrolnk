@@ -128,6 +128,11 @@ export default function TransportQuoteModal({
       setError('Please provide vehicle registration number.');
       return;
     }
+    const cleanPhone = driverPhone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setError('Please provide a valid 10-digit driver contact mobile number.');
+      return;
+    }
 
     setIsSubmitting(true);
     setError('');
@@ -383,10 +388,11 @@ export default function TransportQuoteModal({
               <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
                 <Phone className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                 <input
-                  type="text"
+                  type="tel"
+                  maxLength={10}
                   value={driverPhone}
-                  onChange={(e) => setDriverPhone(e.target.value)}
-                  placeholder="94433 77889"
+                  onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="9443377889"
                   className="w-full text-xs font-mono font-semibold text-[#14211D] bg-transparent focus:outline-none"
                   required
                 />

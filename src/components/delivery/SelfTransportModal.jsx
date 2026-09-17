@@ -31,6 +31,11 @@ export default function SelfTransportModal({
       setError('Please enter a valid vehicle number (e.g. TN 28 AB 4092 or KA 04 E 1234).');
       return false;
     }
+    const cleanPhone = driverPhone.replace(/\D/g, '');
+    if (cleanPhone && (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone))) {
+      setError('Driver contact phone must be a valid 10-digit mobile number.');
+      return false;
+    }
     return true;
   };
 
@@ -172,9 +177,10 @@ export default function SelfTransportModal({
                 <Phone className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="tel"
+                  maxLength={10}
                   value={driverPhone}
-                  onChange={(e) => setDriverPhone(e.target.value)}
-                  placeholder="e.g. +91 94433 77889"
+                  onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="9823983333 (10 digits)"
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
               </div>
