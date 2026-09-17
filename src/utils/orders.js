@@ -32,6 +32,9 @@ function mapOrderFromDb(row) {
     adminVerificationStatus: row.admin_verification_status || 'pending',
     adminCallNotes: row.admin_call_notes || null,
     adminVerifiedAt: row.admin_verified_at || null,
+    buyerConfirmedArrival: row.buyer_confirmed_arrival ?? (row.buyer_arrival_verified || !!row.buyer_verified_at || false),
+    buyerArrivalVerified: row.buyer_arrival_verified || !!row.buyer_verified_at || false,
+    buyerVerifiedAt: row.buyer_verified_at || null,
     payoutBankName: row.payout_bank_name || null,
     payoutAccountNumber: row.payout_account_number || null,
     payoutIfsc: row.payout_ifsc || null,
@@ -489,6 +492,9 @@ export async function confirmOrderReceipt(orderId) {
     const updatePayload = {
       status: 'delivered',
       admin_verification_status: 'pending',
+      buyer_confirmed_arrival: true,
+      buyer_arrival_verified: true,
+      buyer_verified_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
@@ -523,6 +529,9 @@ export async function confirmOrderReceipt(orderId) {
           ...o,
           status: 'delivered',
           adminVerificationStatus: 'pending',
+          buyerConfirmedArrival: true,
+          buyerArrivalVerified: true,
+          buyerVerifiedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
       }

@@ -137,14 +137,23 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   const handleConfirmOrderReceipt = async (orderOrDelivery) => {
     const orderKey = orderOrDelivery?.id || orderOrDelivery?.orderNumber;
     try {
+      showGlobalLoader('Confirming Arrival...', 'Logging arrival verification & notifying AgroLnk Admin...');
       await confirmOrderReceipt(orderKey);
       try {
         await confirmBuyerReceipt(orderKey);
       } catch {}
       await fetchOrders();
-      setSelectedOrder((prev) => (prev ? { ...prev, status: 'delivered', adminVerificationStatus: 'pending' } : null));
+      setSelectedOrder((prev) => (prev ? {
+        ...prev,
+        status: 'delivered',
+        adminVerificationStatus: 'pending',
+        buyerConfirmedArrival: true,
+        buyerArrivalVerified: true
+      } : null));
     } catch (err) {
-      console.error('Error confirming order receipt:', err);
+      console.error('Error confirming order arrival:', err);
+    } finally {
+      hideGlobalLoader();
     }
   };
 
@@ -340,39 +349,78 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
             {/* Action Bar when Delivered */}
             {selectedOrder.status === 'delivered' ? (
-              <div className="p-5 sm:p-6 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-4 shadow-sm text-left">
-                <div className="space-y-1 w-full">
-                  <span className="font-bold text-xs text-[#34D399] uppercase tracking-wider block">
-                    Consignment Arrived at Destination
-                  </span>
-                  <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-                    Verify quality assay & weight, then confirm goods arrival. AgroLnk Operations will call you to confirm produce satisfaction before releasing the official trade receipt & escrow payout to the farmer.
-                  </p>
-                </div>
+              (selectedOrder.buyerConfirmedArrival || selectedOrder.buyerArrivalVerified) ? (
+                <div className="p-5 sm:p-6 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-3.5 shadow-sm text-left">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="accent" size="sm">
+                        ✓ Goods Arrival Verified by You
+                      </Badge>
+                      <Badge variant="amber" size="sm">
+                        Awaiting AgroLnk Admin Call
+                      </Badge>
+                    </div>
+                    <span className="text-[11px] text-[#34D399] font-mono">
+                      100% Escrow Protected
+                    </span>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-1">
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    onClick={() => setOrderForInspection(selectedOrder)}
-                    icon={ClipboardCheck}
-                    iconPosition="left"
-                    className="w-full justify-center font-bold py-3 px-4 bg-white/10 text-white hover:bg-white/20 border-white/20 shadow-xs cursor-pointer"
-                  >
-                    Inspect Quality
-                  </Button>
-                  <Button
-                    variant="accent"
-                    size="md"
-                    onClick={() => handleConfirmOrderReceipt(selectedOrder)}
-                    icon={CheckCircle2}
-                    iconPosition="left"
-                    className="w-full justify-center font-bold py-3 px-4 shadow-xs cursor-pointer"
-                  >
-                    Confirm Produce Arrival
-                  </Button>
+                  <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+                    You have confirmed consignment arrival. AgroLnk Operations will call your registered phone to confirm produce satisfaction before releasing the official trade receipt & escrow payout to the farmer.
+                  </p>
+
+                  <div className="pt-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-white/10 text-xs">
+                    <span className="flex items-center gap-1.5 text-[#A7F3D0] text-[11px]">
+                      <ShieldCheck className="w-4 h-4 text-[#34D399] shrink-0" />
+                      Escrow funds will NOT be released until you confirm satisfaction on call
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setOrderForInspection(selectedOrder)}
+                      icon={ClipboardCheck}
+                      iconPosition="left"
+                      className="text-xs font-bold py-1.5 px-3 bg-white/10 text-white hover:bg-white/20 border-white/20 cursor-pointer shrink-0"
+                    >
+                      Inspect Quality Assay
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-5 sm:p-6 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-4 shadow-sm text-left">
+                  <div className="space-y-1 w-full">
+                    <span className="font-bold text-xs text-[#34D399] uppercase tracking-wider block">
+                      Consignment Arrived at Destination
+                    </span>
+                    <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+                      Verify quality assay & weight, then confirm goods arrival. (Note: Escrow funds will <strong>NOT</strong> be released to the farmer until AgroLnk Admin calls you to verify satisfaction).
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-1">
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setOrderForInspection(selectedOrder)}
+                      icon={ClipboardCheck}
+                      iconPosition="left"
+                      className="w-full justify-center font-bold py-3 px-4 bg-white/10 text-white hover:bg-white/20 border-white/20 shadow-xs cursor-pointer"
+                    >
+                      Inspect Quality
+                    </Button>
+                    <Button
+                      variant="accent"
+                      size="md"
+                      onClick={() => handleConfirmOrderReceipt(selectedOrder)}
+                      icon={CheckCircle2}
+                      iconPosition="left"
+                      className="w-full justify-center font-bold py-3 px-4 shadow-xs cursor-pointer"
+                    >
+                      Confirm Goods Arrival
+                    </Button>
+                  </div>
+                </div>
+              )
             ) : selectedOrder.status === 'completed' ? (
               <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
                 <div className="space-y-0.5">

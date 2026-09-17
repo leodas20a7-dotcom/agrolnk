@@ -349,27 +349,18 @@ export default function OrderSummary({
                 )}
               </div>
 
-              {/* Buyer Confirm Arrival Button if Delivered */}
-              {isBuyer && effectiveDeliveryStatus === 'delivered' && onConfirmReceipt && order.status !== 'completed' && (
-                <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/70">
-                  <div className="space-y-0.5 text-left">
-                    <span className="text-xs text-[#0B3326] font-bold block">
-                      Consignment arrived at destination
-                    </span>
-                    <span className="text-[11px] text-[#566861] block">
-                      Confirm goods arrival to notify AgroLnk Admin to perform verification call and release escrow.
+              {/* Informational Destination Arrival Notice */}
+              {effectiveDeliveryStatus === 'delivered' && order.status !== 'completed' && (
+                <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/70 text-xs">
+                  <div className="flex items-center gap-2 text-[#0B3326]">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-semibold">
+                      Consignment arrived at destination facility
                     </span>
                   </div>
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => onConfirmReceipt(existingDelivery)}
-                    icon={CheckCircle2}
-                    iconPosition="left"
-                    className="text-xs font-bold py-2 shadow-xs shrink-0 cursor-pointer"
-                  >
-                    Confirm Delivery Arrival
-                  </Button>
+                  <span className="text-[11px] text-[#566861]">
+                    100% Escrow secured in trust account
+                  </span>
                 </div>
               )}
             </div>
