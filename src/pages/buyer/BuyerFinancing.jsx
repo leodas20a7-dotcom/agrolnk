@@ -8,6 +8,7 @@ import FinancingRow from '../../components/financing/FinancingRow';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import FinancingStatusBadge from '../../components/financing/FinancingStatusBadge';
+import LoanDeadlinesRepaymentModal from '../../components/financing/LoanDeadlinesRepaymentModal';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
@@ -20,7 +21,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   Compass,
-  Gavel
+  Gavel,
+  Calendar
 } from 'lucide-react';
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
@@ -32,6 +34,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
   const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
+  const [isDeadlinesModalOpen, setIsDeadlinesModalOpen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -97,36 +100,38 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
         
         {/* Top Welcome Banner */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-2 max-w-2xl">
+          <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
               <CreditCard className="w-3.5 h-3.5" /> Buyer Trade Credit
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
               Trade Credit
             </h1>
-            <p className="text-sm sm:text-base text-[#DCFCE7]/90 leading-relaxed font-normal">
+            <p className="text-sm text-[#DCFCE7]/90 leading-relaxed font-normal">
               Get up to 80% financing from approved NBFCs to purchase produce with 30-day repayment.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="secondary"
-              size="md"
-              icon={Gavel}
-              iconPosition="left"
-              onClick={() => onNavigate('buyer-live-auctions')}
-              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
-            >
-              Live Auctions
-            </Button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
+            {/* BUTTON: MY LOAN DEADLINES & REPAY */}
             <Button
               variant="accent"
+              size="md"
+              icon={Calendar}
+              iconPosition="left"
+              onClick={() => setIsDeadlinesModalOpen(true)}
+              className="font-bold text-xs py-2.5 px-4 shadow-md cursor-pointer justify-center"
+            >
+              My Deadlines & Repay
+            </Button>
+
+            <Button
+              variant="secondary"
               size="md"
               icon={Compass}
               iconPosition="left"
               onClick={() => onNavigate('buyer-marketplace')}
-              className="font-bold text-xs cursor-pointer"
+              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
             >
               Marketplace
             </Button>
@@ -256,6 +261,17 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
           viewerRole="buyer"
           onClose={() => setSelectedRequestForReview(null)}
           onStatusUpdated={() => loadData()}
+        />
+      )}
+
+      {/* Loan Deadlines & Direct Repayment Modal */}
+      {isDeadlinesModalOpen && (
+        <LoanDeadlinesRepaymentModal
+          isOpen={isDeadlinesModalOpen}
+          requests={safeRequests}
+          currentUser={user}
+          onClose={() => setIsDeadlinesModalOpen(false)}
+          onRepaymentSuccess={() => loadData()}
         />
       )}
     </DashboardLayout>

@@ -495,6 +495,71 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
   return all.find((r) => r.id === requestId || r.requestNumber === requestId || (r.orderNumber && r.orderNumber === requestId)) || null;
 }
 
+/**
+ * Repay financing loan directly to financial institution
+ */
+export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
+  try {
+    const txnId = repaymentDetails.txnId || `TXN${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+    const repaymentData = {
+      status: 'repaid',
+      repaidAt: new Date().toISOString(),
+      repaymentMethod: repaymentDetails.method || 'upi_direct',
+      repaymentTransactionId: txnId,
+      repaymentAmount: Number(repaymentDetails.amount || 0),
+      repaymentNotes: repaymentDetails.notes || 'Full loan balance settled with financial institution.',
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = await underwriteFinancingRequest(requestId, repaymentData);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: updated }));
+      window.dispatchEvent(new Event('storage'));
+    }
+    return updated;
+  } catch (err) {
+    console.error('Error repaying financing loan:', err);
+    throw err;
+  }
+}
+
+/**
+ * Calculate loan maturity date, days remaining, and estimated interest
+ */
+export function calculateLoanMaturity(request) {
+  if (!request) return { dueDate: null, daysLeft: 30, isOverdue: false, interest: 0, totalDue: 0 };
+
+  const principal = Number(request.approvedAmount || request.requestedAmount || 0);
+  const createdDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime())
+    ? new Date(request.createdAt)
+    : new Date();
+
+  const tenureDays = request.repaymentOption === '60_day_extended' ? 60 : 30;
+  const dueDate = new Date(createdDate.getTime() + tenureDays * 24 * 60 * 60 * 1000);
+
+  const now = new Date();
+  const diffTime = dueDate.getTime() - now.getTime();
+  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const isOverdue = daysLeft < 0;
+
+  // Standard institutional rate: ~1.2% per month (14.4% per annum)
+  const monthlyRate = 0.012;
+  const interest = Math.round(principal * monthlyRate * (tenureDays / 30));
+  const totalDue = principal + interest;
+
+  return {
+    principal,
+    interest,
+    totalDue,
+    tenureDays,
+    dueDate,
+    dueDateFormatted: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+    daysLeft: Math.max(0, daysLeft),
+    isOverdue,
+    isRepaid: request.status === 'repaid',
+  };
+}
+
 export const updateFinancingStatus = underwriteFinancingRequest;
 export const underwriteLoan = underwriteFinancingRequest;
 
