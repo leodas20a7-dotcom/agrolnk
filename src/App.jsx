@@ -13,6 +13,7 @@ import FarmerOrders from './pages/farmer/FarmerOrders';
 import CreateAuction from './pages/farmer/CreateAuction';
 import MyAuctions from './pages/farmer/MyAuctions';
 import FarmerFinancing from './pages/farmer/FarmerFinancing';
+import FarmerLoanRepayments from './pages/farmer/FarmerLoanRepayments';
 import FarmerDeliveries from './pages/farmer/FarmerDeliveries';
 import FarmerInventory from './pages/farmer/FarmerInventory';
 
@@ -77,6 +78,7 @@ const VALID_ROUTES = new Set([
   'farmer-create-auction',
   'farmer-my-auctions',
   'farmer-financing',
+  'farmer-loan-repayments',
   'farmer-deliveries',
   'farmer-inventory',
   // Buyer
@@ -373,6 +375,15 @@ export default function App() {
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
             navState={navState}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'farmer-loan-repayments' && (
+        <ProtectedRoute requiredRole="farmer" onNavigate={handleNavigate}>
+          <FarmerLoanRepayments
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
           />
         </ProtectedRoute>
       )}

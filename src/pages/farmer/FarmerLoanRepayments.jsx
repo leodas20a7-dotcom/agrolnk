@@ -1,0 +1,597 @@
+import React, { useState, useEffect } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Badge from '../../components/ui/Badge';
+import Pagination from '../../components/ui/Pagination';
+import UrgentLoanRequestModal from '../../components/financing/UrgentLoanRequestModal';
+import {
+  Calendar,
+  ArrowLeft,
+  Landmark,
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  CreditCard,
+  QrCode,
+  Receipt,
+  Plus,
+  ChevronRight,
+  TrendingUp,
+  FileText,
+  Printer,
+  Sparkles,
+  X
+} from 'lucide-react';
+import { getFarmerFinancingRequests, calculateLoanMaturity, repayFinancingLoan } from '../../utils/financing';
+import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+
+export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
+  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
+
+  const [requests, setRequests] = useState([]);
+  const [selectedLoanForDetail, setSelectedLoanForDetail] = useState(null);
+  const [isUrgentRequestOpen, setIsUrgentRequestOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'repaid' | 'all'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState('upi');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [repaymentReceipt, setRepaymentReceipt] = useState(null);
+
+  const pageSize = 6;
+
+  const loadData = async (showFlash = false) => {
+    if (showFlash) {
+      showGlobalLoader('Loading Loan Repayment Schedules...', 'Auditing institutional loan maturities and escrow liens...');
+    }
+    try {
+      const data = await getFarmerFinancingRequests(user.id, user);
+      setRequests(data || []);
+    } catch (err) {
+      console.error('Error loading financing requests:', err);
+    } finally {
+      if (showFlash) hideGlobalLoader();
+    }
+  };
+
+  useEffect(() => {
+    loadData(true);
+
+    const handleUpdated = () => {
+      loadData(false);
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+    return () => {
+      hideGlobalLoader();
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
+    };
+  }, [user.id, user.email, user.name]);
+
+  const safeRequests = Array.isArray(requests) ? requests : [];
+
+  const activeLoans = safeRequests.filter(
+    (r) => r.status === 'approved' || r.status === 'disbursed' || r.status === 'active' || r.status === 'pending'
+  );
+
+  const repaidLoans = safeRequests.filter((r) => r.status === 'repaid');
+
+  const totalActiveLiability = activeLoans
+    .filter((r) => r.status === 'approved' || r.status === 'disbursed' || r.status === 'active')
+    .reduce((sum, r) => {
+      const mat = calculateLoanMaturity(r);
+      return sum + mat.totalDue;
+    }, 0);
+
+  const filteredLoans = safeRequests.filter((r) => {
+    if (activeTab === 'active') {
+      return r.status === 'approved' || r.status === 'disbursed' || r.status === 'active' || r.status === 'pending';
+    }
+    if (activeTab === 'repaid') {
+      return r.status === 'repaid';
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredLoans.length / pageSize) || 1;
+  const paginatedLoans = filteredLoans.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const handleConfirmRepayment = async (loan) => {
+    if (!loan) return;
+    setIsProcessing(true);
+    showGlobalLoader('Transmitting Loan Settlement...', 'Settling balance with Financial Institution & releasing escrow lien...');
+
+    try {
+      const maturity = calculateLoanMaturity(loan);
+      const txnId = `TXN${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+
+      await repayFinancingLoan(loan.id || loan.requestNumber, {
+        method: paymentMethod,
+        txnId,
+        amount: maturity.totalDue,
+        notes: `Direct institutional loan repayment by ${user.name} via ${paymentMethod.toUpperCase()}`,
+      });
+
+      const receipt = {
+        txnId,
+        loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
+        orderNumber: loan.orderNumber || 'Working Capital Facility',
+        borrowerName: user.name || loan.applicantName || 'Farmer Partner',
+        institutionName: 'Samunnati / NABARD Agri-Finance Desk',
+        principalAmount: maturity.principal,
+        interestAmount: maturity.interest,
+        totalPaid: maturity.totalDue,
+        paidAt: new Date().toISOString(),
+        paymentMethod: paymentMethod === 'upi' ? 'UPI Instant Pay' : paymentMethod === 'netbanking' ? 'Net Banking Direct' : 'Bank RTGS/NEFT',
+      };
+
+      setRepaymentReceipt(receipt);
+      await loadData(false);
+    } catch (err) {
+      console.error('Repayment failure:', err);
+    } finally {
+      setIsProcessing(false);
+      hideGlobalLoader();
+    }
+  };
+
+  return (
+    <DashboardLayout currentUser={user} onNavigate={onNavigate}>
+      <div className="space-y-8 text-left">
+        
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <button
+              onClick={() => onNavigate('farmer-financing')}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-2 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Financing Desk
+            </button>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+              Loan Deadlines & Repayments
+            </h1>
+            <p className="text-xs sm:text-sm text-[#566861]">
+              Track maturity dates, view simple abstract records, and settle loan balances directly with financial institutions.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Button
+              variant="accent"
+              size="md"
+              icon={Plus}
+              iconPosition="left"
+              onClick={() => setIsUrgentRequestOpen(true)}
+              className="font-bold text-xs py-2.5 px-4 shadow-md cursor-pointer justify-center"
+            >
+              Need Urgent Money? (Apply Now)
+            </Button>
+          </div>
+        </div>
+
+        {/* 3 Abstract Summary Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          
+          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#566861] uppercase tracking-wider">
+                Total Active Loan Due
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
+                <Landmark className="w-4 h-4 text-[#10B981]" />
+              </div>
+            </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
+              ₹{totalActiveLiability.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] text-[#566861]">
+              Across {activeLoans.length} active institutional credit {activeLoans.length === 1 ? 'line' : 'lines'}
+            </div>
+          </Card>
+
+          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#566861] uppercase tracking-wider">
+                Repayment Mechanism
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+              </div>
+            </div>
+            <div className="text-base font-extrabold text-emerald-700 font-heading">
+              Auto-Escrow Settlement
+            </div>
+            <div className="text-[11px] text-[#566861]">
+              Auto-deducted on trade completion or pay early via UPI
+            </div>
+          </Card>
+
+          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#566861] uppercase tracking-wider">
+                Cleared & Settled
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-emerald-700 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 font-heading">
+              {repaidLoans.length}
+            </div>
+            <div className="text-[11px] text-[#10B981] font-semibold">
+              100% good credit standing
+            </div>
+          </Card>
+
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center justify-between border-b border-[#E5EDE8] pb-1">
+          <div className="flex items-center gap-2">
+            {[
+              { id: 'active', label: 'Active Due Loans', count: activeLoans.length },
+              { id: 'repaid', label: 'Cleared & Repaid', count: repaidLoans.length },
+              { id: 'all', label: 'All Records', count: safeRequests.length },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                    isActive
+                      ? 'bg-[#0B3326] text-white shadow-xs'
+                      : 'text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8]'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-[#E5EDE8] text-[#566861]'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Abstract Records List */}
+        <div className="space-y-3">
+          {paginatedLoans.length === 0 ? (
+            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-[#10B981] mx-auto" />
+              <h4 className="text-sm font-bold text-[#0B3326]">No loans in this view</h4>
+              <p className="text-xs text-[#566861]">
+                Need liquidity? Click "Need Urgent Money" to submit an application.
+              </p>
+            </Card>
+          ) : (
+            paginatedLoans.map((loan) => {
+              const maturity = calculateLoanMaturity(loan);
+              const isRepaid = loan.status === 'repaid';
+              const isPending = loan.status === 'pending' || loan.status === 'under_review';
+
+              return (
+                <div
+                  key={loan.id}
+                  className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 text-left"
+                >
+                  {/* Left: Loan ID & Purpose */}
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-[240px]">
+                    <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                      <Landmark className="w-5 h-5 text-[#10B981]" />
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-extrabold text-[#0B3326] font-heading">
+                          {loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`}
+                        </span>
+                        {loan.orderNumber && (
+                          <Badge variant="dark" size="sm">
+                            {loan.orderNumber}
+                          </Badge>
+                        )}
+                        <Badge
+                          variant={isRepaid ? 'emerald' : isPending ? 'blue' : maturity.isOverdue ? 'amber' : 'teal'}
+                          size="sm"
+                        >
+                          {isRepaid
+                            ? '✓ Settled'
+                            : isPending
+                            ? 'Under Review'
+                            : `${maturity.daysLeft} Days Left`}
+                        </Badge>
+                      </div>
+
+                      <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-[#14211D]">
+                          {loan.purposeLabel || loan.commodity || 'Working Capital'}
+                        </span>
+                        <span>&bull;</span>
+                        <span>Samunnati / NABARD Agri-Desk</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Middle: Key Abstract Figures */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6 py-2 md:py-0 border-y md:border-y-0 md:border-x md:px-6 border-[#E5EDE8] text-xs">
+                    <div>
+                      <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">
+                        Borrowed
+                      </span>
+                      <span className="font-extrabold text-sm text-[#0B3326]">
+                        ₹{maturity.principal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">
+                        Due Date
+                      </span>
+                      <span className="font-bold text-sm text-[#566861]">
+                        {maturity.dueDateFormatted}
+                      </span>
+                    </div>
+
+                    <div className="col-span-2 sm:col-span-1">
+                      <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">
+                        Total Payable
+                      </span>
+                      <span className="font-extrabold text-base text-[#10B981] font-heading">
+                        ₹{maturity.totalDue.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: More Details Button */}
+                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedLoanForDetail(loan);
+                        setRepaymentReceipt(null);
+                      }}
+                      icon={ChevronRight}
+                      iconPosition="right"
+                      className="text-xs font-bold py-2 px-3.5 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] cursor-pointer"
+                    >
+                      {isRepaid ? 'View Receipt' : 'More Details & Repay'}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredLoans.length}
+              pageSize={pageSize}
+            />
+          )}
+        </div>
+
+      </div>
+
+      {/* DETAIL & REPAYMENT DRAWER / MODAL (Only shown when user clicks "More Details") */}
+      {selectedLoanForDetail && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start sm:items-center justify-center">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-auto animate-in zoom-in-95 duration-150 relative">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-[#E5EDE8]">
+              <div>
+                <span className="text-[10px] font-bold text-[#10B981] uppercase tracking-wider block">
+                  Institutional Credit Specification
+                </span>
+                <h3 className="text-lg font-extrabold text-[#0B3326] font-heading">
+                  Loan Ref: {selectedLoanForDetail.requestNumber || selectedLoanForDetail.orderNumber}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedLoanForDetail(null);
+                  setRepaymentReceipt(null);
+                }}
+                className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* If Repayment Receipt is shown */}
+            {repaymentReceipt ? (
+              <div className="space-y-5 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-lg font-bold text-[#0B3326]">
+                    Loan Cleared in Full!
+                  </h4>
+                  <p className="text-xs text-[#566861]">
+                    Payment of ₹{repaymentReceipt.totalPaid.toLocaleString('en-IN')} confirmed with Financial Institution.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2 text-xs font-mono text-left">
+                  <div className="flex justify-between">
+                    <span className="text-[#566861]">Txn ID:</span>
+                    <span className="font-bold text-[#0B3326]">{repaymentReceipt.txnId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#566861]">Paid Via:</span>
+                    <span className="font-bold text-[#0B3326]">{repaymentReceipt.paymentMethod}</span>
+                  </div>
+                  <div className="flex justify-between font-sans pt-1 border-t border-[#E5EDE8]">
+                    <span className="font-bold text-[#566861]">Total Settled:</span>
+                    <span className="font-extrabold text-emerald-700">₹{repaymentReceipt.totalPaid.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => window.print()}
+                    icon={Printer}
+                    iconPosition="left"
+                    className="text-xs font-bold py-2 px-4 cursor-pointer"
+                  >
+                    Print Receipt
+                  </Button>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedLoanForDetail(null);
+                      setRepaymentReceipt(null);
+                    }}
+                    className="text-xs font-bold py-2 px-5 shadow-sm cursor-pointer"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* 4-Item Breakdown */}
+                <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                  <div>
+                    <span className="text-[10px] text-[#566861] uppercase font-bold block">Principal Amount</span>
+                    <strong className="text-base text-[#14211D]">
+                      ₹{calculateLoanMaturity(selectedLoanForDetail).principal.toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#566861] uppercase font-bold block">Interest Accrued</span>
+                    <strong className="text-base text-emerald-700">
+                      ₹{calculateLoanMaturity(selectedLoanForDetail).interest.toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#566861] uppercase font-bold block">Due Deadline</span>
+                    <strong className="text-[#0B3326]">
+                      {calculateLoanMaturity(selectedLoanForDetail).dueDateFormatted}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#566861] uppercase font-bold block">Repayment Cycle</span>
+                    <strong className="text-[#14211D]">
+                      {selectedLoanForDetail.repaymentLabel || '30 Days Net'}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Purpose and Lien Information */}
+                <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-xs text-emerald-950 space-y-1">
+                  <span className="font-bold block">
+                    Purpose: {selectedLoanForDetail.purposeLabel || selectedLoanForDetail.commodity || 'Urgent Working Capital'}
+                  </span>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    Underwritten by <strong>Samunnati / NABARD Agri-Finance Desk</strong>. Auto-deducted from trade escrow payout upon buyer quality release, or clear balance immediately below.
+                  </p>
+                </div>
+
+                {/* Direct Pay Options (If not already repaid) */}
+                {selectedLoanForDetail.status !== 'repaid' && (
+                  <div className="space-y-3 pt-2 border-t border-[#E5EDE8]">
+                    <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
+                      Repay to Financial Institution Directly:
+                    </label>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('upi')}
+                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                          paymentMethod === 'upi'
+                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-1 ring-[#10B981]'
+                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
+                        }`}
+                      >
+                        <QrCode className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
+                        <span className="font-bold text-xs block">UPI / QR</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('netbanking')}
+                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                          paymentMethod === 'netbanking'
+                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-1 ring-[#10B981]'
+                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
+                        }`}
+                      >
+                        <Landmark className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
+                        <span className="font-bold text-xs block">NetBanking</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('bank_transfer')}
+                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                          paymentMethod === 'bank_transfer'
+                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-1 ring-[#10B981]'
+                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
+                        }`}
+                      >
+                        <CreditCard className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
+                        <span className="font-bold text-xs block">RTGS/NEFT</span>
+                      </button>
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        variant="accent"
+                        size="md"
+                        onClick={() => handleConfirmRepayment(selectedLoanForDetail)}
+                        disabled={isProcessing}
+                        className="w-full font-bold text-xs py-3 px-4 shadow-md cursor-pointer justify-center"
+                      >
+                        {isProcessing
+                          ? 'Transmitting Settlement...'
+                          : `Authorize ₹${calculateLoanMaturity(selectedLoanForDetail).totalDue.toLocaleString('en-IN')} Repayment Now`}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* Urgent Loan Request Modal */}
+      {isUrgentRequestOpen && (
+        <UrgentLoanRequestModal
+          currentUser={user}
+          onClose={() => setIsUrgentRequestOpen(false)}
+          onSuccess={() => {
+            loadData(false);
+          }}
+        />
+      )}
+
+    </DashboardLayout>
+  );
+}

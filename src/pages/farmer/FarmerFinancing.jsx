@@ -10,7 +10,7 @@ import FinancingRow from '../../components/financing/FinancingRow';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import FinancingStatusBadge from '../../components/financing/FinancingStatusBadge';
-import LoanDeadlinesRepaymentModal from '../../components/financing/LoanDeadlinesRepaymentModal';
+import UrgentLoanRequestModal from '../../components/financing/UrgentLoanRequestModal';
 import {
   Landmark,
   ArrowLeft,
@@ -24,7 +24,8 @@ import {
   FileText,
   DollarSign,
   Calendar,
-  CreditCard
+  CreditCard,
+  Banknote
 } from 'lucide-react';
 import { getFarmerOrders } from '../../utils/orders';
 import { getFarmerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
@@ -56,8 +57,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
     navState?.orderForFinancing || null
   );
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
-  const [isDeadlinesModalOpen, setIsDeadlinesModalOpen] = useState(false);
-  const [isGeneralRequestModalOpen, setIsGeneralRequestModalOpen] = useState(false);
+  const [isUrgentRequestOpen, setIsUrgentRequestOpen] = useState(false);
 
   const ITEMS_PER_PAGE = 6;
 
@@ -155,25 +155,25 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
-            {/* BUTTON 1: NEED AMOUNT / WORKING CAPITAL */}
+            {/* BUTTON 1: NEED URGENT MONEY (FREE ASKING FOR ANY REASON) */}
             <Button
               variant="accent"
               size="md"
-              icon={Plus}
+              icon={Banknote}
               iconPosition="left"
-              onClick={() => setIsGeneralRequestModalOpen(true)}
+              onClick={() => setIsUrgentRequestOpen(true)}
               className="flex-1 sm:flex-initial font-bold text-xs py-2.5 px-4 shadow-md cursor-pointer justify-center"
             >
-              Need Amount? (Apply Loan)
+              Need Money? (Apply Now)
             </Button>
 
-            {/* BUTTON 2: MY LOAN DEADLINES & REPAY */}
+            {/* BUTTON 2: MY LOAN DEADLINES & REPAY (NAVIGATE TO DEDICATED PAGE) */}
             <Button
               variant="secondary"
               size="md"
               icon={Calendar}
               iconPosition="left"
-              onClick={() => setIsDeadlinesModalOpen(true)}
+              onClick={() => onNavigate('farmer-loan-repayments')}
               className="flex-1 sm:flex-initial font-bold text-xs py-2.5 px-4 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center"
             >
               My Deadlines & Repay
@@ -384,12 +384,11 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
 
       </div>
 
-      {/* General / Direct Financing Request Modal */}
-      {isGeneralRequestModalOpen && (
-        <FinancingRequestModal
-          availableOrders={eligibleOrders}
+      {/* Free-Asking Urgent Loan Request Modal */}
+      {isUrgentRequestOpen && (
+        <UrgentLoanRequestModal
           currentUser={user}
-          onClose={() => setIsGeneralRequestModalOpen(false)}
+          onClose={() => setIsUrgentRequestOpen(false)}
           onSuccess={(newReq) => {
             loadData();
             setSelectedRequestForReview(newReq);
@@ -417,17 +416,6 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
           viewerRole="farmer"
           onClose={() => setSelectedRequestForReview(null)}
           onStatusUpdated={() => loadData()}
-        />
-      )}
-
-      {/* Loan Deadlines & Direct Repayment Modal */}
-      {isDeadlinesModalOpen && (
-        <LoanDeadlinesRepaymentModal
-          isOpen={isDeadlinesModalOpen}
-          requests={safeRequests}
-          currentUser={user}
-          onClose={() => setIsDeadlinesModalOpen(false)}
-          onRepaymentSuccess={() => loadData()}
         />
       )}
     </DashboardLayout>
