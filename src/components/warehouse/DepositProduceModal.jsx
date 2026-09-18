@@ -4,7 +4,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import CommoditySelect from '../ui/CommoditySelect';
 import SearchableSelect from '../ui/SearchableSelect';
-import { getWarehouses, depositProduceToWarehouse } from '../../utils/warehouses';
+import { getWarehouses, getWarehousesSync, depositProduceToWarehouse } from '../../utils/warehouses';
 
 export default function DepositProduceModal({
   preselectedWarehouse,
@@ -32,8 +32,31 @@ export default function DepositProduceModal({
     ],
   };
 
-  const rawWarehouses = getWarehouses();
-  const warehouses = Array.isArray(rawWarehouses) && rawWarehouses.length > 0 ? rawWarehouses : [defaultWarehouse];
+  const [warehouses, setWarehouses] = useState(() => {
+    const raw = getWarehousesSync();
+    return Array.isArray(raw) && raw.length > 0 ? raw : [defaultWarehouse];
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDb = async () => {
+      try {
+        const live = await getWarehouses();
+        if (isMounted && Array.isArray(live) && live.length > 0) {
+          setWarehouses(live);
+          if (!preselectedWarehouse?.id) {
+            setSelectedWarehouseId((prev) => (prev && live.some((w) => w.id === prev) ? prev : live[0].id));
+          }
+        }
+      } catch (err) {
+        console.warn('Live warehouse list fetch notice:', err);
+      }
+    };
+    fetchDb();
+    return () => {
+      isMounted = false;
+    };
+  }, [preselectedWarehouse?.id]);
 
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(
     preselectedWarehouse?.id || warehouses[0]?.id || defaultWarehouse.id
@@ -61,7 +84,7 @@ export default function DepositProduceModal({
     if (availableChambers?.length > 0 && !availableChambers.includes(chamber)) {
       setChamber(availableChambers[0]);
     }
-  }, [selectedWarehouseId]);
+  }, [selectedWarehouseId, availableChambers]);
 
   const estimatedTotalValue = (Number(quantity) || 0) * (Number(priceEstimate) || 0);
   

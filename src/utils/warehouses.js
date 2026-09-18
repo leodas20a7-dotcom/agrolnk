@@ -520,13 +520,84 @@ export const DEMO_WAREHOUSES = [
 ];
 
 /**
- * Get all available active warehouses across the Agrolnk platform.
- * Merges baseline verified accredited facilities + verified user warehouse accounts.
+ * Get all available active warehouses directly from Supabase PostgreSQL database
+ * (with baseline accredited facilities).
  */
-export function getWarehouses() {
+export async function getWarehouses() {
   const activeWarehouses = [...DEMO_WAREHOUSES];
 
-  // 1. Process from warehouse profiles
+  // 1. Fetch live from Supabase PostgreSQL 'profiles' table
+  try {
+    const { data: dbProfiles, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'warehouse');
+
+    if (!error && Array.isArray(dbProfiles) && dbProfiles.length > 0) {
+      dbProfiles.forEach((p) => {
+        const meta = p.meta || {};
+        const isVerified = p.kyc_status === 'verified' || meta.verificationStatus === 'verified';
+
+        if (isVerified) {
+          const approvedCapacity = Number(meta.totalCapacityTonnes || p.totalCapacityTonnes || 2000);
+          const baseRate = Number(meta.monthlyRatePerTonne || p.monthlyRatePerTonne || 350);
+
+          const existingIdx = activeWarehouses.findIndex(
+            (w) => w.id === p.id || (p.email && w.operatorContact?.includes(p.phone)) || w.name?.toLowerCase() === (p.company_name || meta.companyName || p.name || '').toLowerCase()
+          );
+
+          const chambersToUse = (Array.isArray(meta.storageTypes) && meta.storageTypes.length > 0)
+            ? meta.storageTypes
+            : ['Chamber A1 (Multi-Commodity)'];
+
+          const formattedChambers = Array.isArray(chambersToUse) && chambersToUse.length > 0 && typeof chambersToUse[0] === 'object'
+            ? chambersToUse.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
+            : chambersToUse;
+
+          const dynamicWh = {
+            id: p.id || `wh_${Date.now()}`,
+            name: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
+            code: `WH-${(p.district || 'TN').slice(0, 3).toUpperCase()}-${(p.id || '101').slice(0, 4).toUpperCase()}`,
+            wdraCode: meta.wdraCode || 'WDRA/2025/VERIFIED',
+            wdraRegNo: meta.wdraCode || 'WDRA/2025/VERIFIED',
+            location: p.district && p.state ? `${p.district}, ${p.state}` : (p.district || p.state || 'Tamil Nadu'),
+            district: p.district || 'Salem',
+            state: p.state || 'Tamil Nadu',
+            address: p.address ? `${p.address}${p.district ? `, ${p.district}` : ''}` : (p.district || 'Tamil Nadu'),
+            type: 'WDRA Accredited Agri Storage',
+            facilityType: 'WDRA Accredited Agri Storage',
+            capacity: `${approvedCapacity.toLocaleString('en-IN')} MT`,
+            totalCapacityTonnes: approvedCapacity,
+            occupiedTonnes: 0,
+            occupancyPct: 0,
+            occupancyPercent: 0,
+            temperatureRange: (typeof chambersToUse[0] === 'object' && chambersToUse[0]?.temp) || '2°C to 12°C',
+            humidityRange: '85% to 95% RH',
+            monthlyRatePerKg: Number((baseRate / 1000).toFixed(2)),
+            monthlyRatePerTonne: baseRate,
+            chamberRates: meta.chamberRates || {},
+            operatorContact: p.phone || meta.phone || '+91 98421 88901',
+            websiteUrl: meta.websiteUrl || '',
+            commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
+            chambers: formattedChambers,
+            isUserSubmitted: true,
+            verificationStatus: 'verified',
+            hasPendingReview: Boolean(meta.hasPendingReview),
+          };
+
+          if (existingIdx >= 0) {
+            activeWarehouses[existingIdx] = { ...activeWarehouses[existingIdx], ...dynamicWh };
+          } else {
+            activeWarehouses.push(dynamicWh);
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase getWarehouses direct query notice:', err);
+  }
+
+  // 2. Also check local profiles cache for offline/instant resilience
   try {
     const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
     const profiles = raw ? JSON.parse(raw) : {};
@@ -536,6 +607,7 @@ export function getWarehouses() {
 
       if (isVerified) {
         const approvedCapacity = Number(p.totalCapacityTonnes) || 2000;
+        const baseRate = Number(p.monthlyRatePerTonne || 350);
 
         const existingIdx = activeWarehouses.findIndex(
           (w) => w.id === p.userId || (p.email && w.operatorContact?.includes(p.phone)) || w.name?.toLowerCase() === (p.companyName || p.warehouseName || '').toLowerCase()
@@ -568,8 +640,9 @@ export function getWarehouses() {
           occupancyPercent: 0,
           temperatureRange: (typeof chambersToUse[0] === 'object' && chambersToUse[0]?.temp) || '2°C to 12°C',
           humidityRange: '85% to 95% RH',
-          monthlyRatePerKg: 0.35,
-          monthlyRatePerTonne: 350,
+          monthlyRatePerKg: Number((baseRate / 1000).toFixed(2)),
+          monthlyRatePerTonne: baseRate,
+          chamberRates: p.chamberRates || {},
           operatorContact: p.phone || '+91 98421 88901',
           websiteUrl: p.websiteUrl || '',
           commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
@@ -590,70 +663,30 @@ export function getWarehouses() {
     console.warn('Error compiling dynamic warehouse list from profiles:', err);
   }
 
-  // 2. Process from Admin KYC Registry (warehouse role accounts)
-  try {
-    const rawKyc = localStorage.getItem('agrolnk_admin_kyc_registry');
-    const kycRegistry = rawKyc ? JSON.parse(rawKyc) : [];
-
-    if (Array.isArray(kycRegistry)) {
-      kycRegistry.forEach((u) => {
-        if (u && u.role === 'warehouse' && (u.kycStatus === 'verified' || u.status === 'verified' || u.verificationStatus === 'verified')) {
-          const cap = Number(u.totalCapacityTonnes || u.capacityTonnes || 2500);
-          const existingIdx = activeWarehouses.findIndex(
-            (w) => w.id === u.id || (u.email && (w.email === u.email || w.operatorContact?.includes(u.phone))) || w.name?.toLowerCase() === (u.companyName || u.name || '').toLowerCase()
-          );
-
-          const chambers = Array.isArray(u.storageTypes) && u.storageTypes.length > 0
-            ? u.storageTypes.map((st) => typeof st === 'object' ? `${st.name} (${st.capacity}T)` : st)
-            : ['Chamber 1 - Controlled Atmosphere', 'Chamber 2 - General Storage Cell'];
-
-          const whObj = {
-            id: u.id || `wh_${Date.now()}`,
-            name: u.companyName || u.name || 'Accredited Storage Hub',
-            code: `WH-${(u.district || 'TN').slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
-            wdraCode: u.wdraCode || 'WDRA/2025/VERIFIED',
-            wdraRegNo: u.wdraCode || 'WDRA/2025/VERIFIED',
-            location: u.district && u.state ? `${u.district}, ${u.state}` : (u.district || u.state || 'Tamil Nadu'),
-            district: u.district || 'Salem',
-            state: u.state || 'Tamil Nadu',
-            address: u.address || `${u.district || 'Salem'}, Tamil Nadu`,
-            type: 'WDRA Accredited Agri Storage',
-            facilityType: 'WDRA Accredited Agri Storage',
-            capacity: `${cap.toLocaleString('en-IN')} MT`,
-            totalCapacityTonnes: cap,
-            occupiedTonnes: 0,
-            occupancyPct: 0,
-            occupancyPercent: 0,
-            temperatureRange: '2°C to 12°C',
-            humidityRange: '85% to 95% RH',
-            monthlyRatePerKg: 0.35,
-            monthlyRatePerTonne: 350,
-            operatorContact: u.phone || '+91 98421 88901',
-            websiteUrl: u.websiteUrl || '',
-            commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
-            chambers,
-            isUserSubmitted: true,
-            verificationStatus: 'verified',
-            hasPendingReview: false,
-          };
-
-          if (existingIdx >= 0) {
-            activeWarehouses[existingIdx] = { ...activeWarehouses[existingIdx], ...whObj };
-          } else {
-            activeWarehouses.push(whObj);
-          }
-        }
-      });
-    }
-  } catch (err) {
-    console.warn('Error compiling dynamic warehouse list from KYC:', err);
-  }
-
   return activeWarehouses;
 }
 
-export function getWarehouseById(id) {
-  const all = getWarehouses();
+export function getWarehousesSync() {
+  const active = [...DEMO_WAREHOUSES];
+  try {
+    const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+    Object.values(profiles).forEach((p) => {
+      if (p && (p.verificationStatus === 'verified' || p.kycStatus === 'verified')) {
+        const existingIdx = active.findIndex((w) => w.id === p.userId || w.id === p.id);
+        if (existingIdx >= 0) {
+          active[existingIdx] = { ...active[existingIdx], ...p };
+        } else {
+          active.push(p);
+        }
+      }
+    });
+  } catch {}
+  return active;
+}
+
+export function getWarehouseById(id, warehouseList = null) {
+  const all = warehouseList || getWarehousesSync();
   return all.find((w) => w.id === id) || all[0];
 }
 
