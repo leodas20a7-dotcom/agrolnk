@@ -572,7 +572,7 @@ export async function getWarehouseInventory(warehouseId) {
 const WAREHOUSE_PROFILES_KEY = 'agrolnk_warehouse_profiles';
 
 /**
- * Get warehouse profile for a specific user/operator
+ * Get warehouse profile for a specific user/operator (sync from local storage)
  */
 export function getWarehouseProfile(userId, userEmail) {
   try {
@@ -590,7 +590,71 @@ export function getWarehouseProfile(userId, userEmail) {
   }
 }
 
-export const getWarehouseOperatorProfile = getWarehouseProfile;
+/**
+ * Get warehouse operator profile from Supabase Database (with local cache fallback)
+ */
+export async function getWarehouseOperatorProfile(userIdOrEmail) {
+  if (!userIdOrEmail) return null;
+
+  try {
+    const rawTarget = String(userIdOrEmail).trim();
+    let query = supabase.from('profiles').select('*');
+    if (rawTarget.includes('@')) {
+      query = query.ilike('email', rawTarget);
+    } else {
+      query = query.eq('id', rawTarget);
+    }
+    let { data: profile, error } = await query.maybeSingle();
+
+    if (!profile && !rawTarget.includes('@')) {
+      // Try by email in case userId was actually an email or vice versa
+      const { data: byEmail } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', rawTarget)
+        .maybeSingle();
+      if (byEmail) profile = byEmail;
+    }
+
+    if (!error && profile) {
+      const meta = profile.meta || {};
+      if (meta.setupCompleted || meta.totalCapacityTonnes || profile.company_name || profile.address) {
+        const mapped = {
+          userId: profile.id,
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone || meta.phone || '',
+          operatorName: profile.name,
+          companyName: profile.company_name || meta.companyName || meta.warehouseName || '',
+          warehouseName: profile.company_name || meta.warehouseName || meta.companyName || '',
+          state: profile.state || meta.state || 'Tamil Nadu',
+          district: profile.district || meta.district || 'Salem',
+          address: profile.address || meta.address || '',
+          pincode: profile.pincode || meta.pincode || '',
+          verificationStatus: profile.kyc_status || meta.verificationStatus || 'pending',
+          setupCompleted: Boolean(meta.setupCompleted || meta.totalCapacityTonnes || profile.company_name),
+          ...meta,
+        };
+
+        // Cache locally for instant access
+        try {
+          const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+          const profiles = raw ? JSON.parse(raw) : {};
+          if (profile.id) profiles[profile.id] = mapped;
+          if (profile.email) profiles[profile.email] = mapped;
+          localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
+        } catch {}
+
+        return mapped;
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase getWarehouseOperatorProfile fetch notice:', err);
+  }
+
+  // 2. Fallback to local storage
+  return getWarehouseProfile(userIdOrEmail);
+}
 
 /**
  * Save or update warehouse profile:
@@ -655,30 +719,58 @@ export async function saveWarehouseProfile(userId, profileData) {
     }
     localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
 
-    // 1. Persist to Supabase Database 'profiles' table
+    // 1. Persist to Supabase Database 'profiles' table with full meta JSONB
     try {
       const dbPayload = {
         company_name: updated.companyName || updated.warehouseName,
         state: updated.state || 'Tamil Nadu',
         district: updated.district || 'Salem',
+        address: updated.address || '',
+        pincode: updated.pincode || '',
         kyc_status: updated.verificationStatus === 'verified' ? 'verified' : 'pending',
+        meta: {
+          totalCapacityTonnes: updated.totalCapacityTonnes,
+          storageTypes: updated.storageTypes,
+          storageTypesConfig: updated.storageTypesConfig,
+          wdraCode: updated.wdraCode,
+          gstin: updated.gstin,
+          websiteUrl: updated.websiteUrl,
+          documentNames: updated.documentNames,
+          documentUrls: updated.documentUrls,
+          setupCompleted: true,
+          verificationStatus: updated.verificationStatus,
+          hasPendingReview: updated.hasPendingReview,
+          pendingChanges: updated.pendingChanges,
+        },
         updated_at: new Date().toISOString(),
       };
 
       if (userId) {
-        await supabase
+        const { error: idErr } = await supabase
           .from('profiles')
           .update(dbPayload)
           .eq('id', userId);
+
+        if (idErr && profileData.email) {
+          await supabase
+            .from('profiles')
+            .update(dbPayload)
+            .ilike('email', profileData.email.trim());
+        }
       } else if (profileData.email) {
         await supabase
           .from('profiles')
           .update(dbPayload)
-          .eq('email', profileData.email.trim().toLowerCase());
+          .ilike('email', profileData.email.trim());
       }
     } catch (dbErr) {
       console.warn('Supabase profile database update notice:', dbErr);
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: updated }));
+      window.dispatchEvent(new CustomEvent('agrolnk_kyc_updated', { detail: updated }));
+    } catch {}
 
     // 2. Sync to Admin KYC registry
     try {

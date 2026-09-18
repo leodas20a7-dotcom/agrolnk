@@ -17,7 +17,7 @@ import {
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { supabase } from '../../lib/supabase';
-import { saveWarehouseProfile, getWarehouseProfile } from '../../utils/warehouses';
+import { saveWarehouseProfile, getWarehouseProfile, getWarehouseOperatorProfile } from '../../utils/warehouses';
 
 const STORAGE_TYPE_OPTIONS = [
   {
@@ -104,9 +104,10 @@ export default function WarehouseSetupModal({
 
   // Load existing profile if already saved
   useEffect(() => {
+    let isMounted = true;
     if (isOpen) {
-      const existing = getWarehouseProfile(user.id, user.email);
-      if (existing) {
+      const applyExistingProfile = (existing) => {
+        if (!existing || !isMounted) return;
         setCompanyName(existing.companyName || existing.warehouseName || '');
         setTotalCapacityTonnes(existing.totalCapacityTonnes ? String(existing.totalCapacityTonnes) : '');
         setWebsiteUrl(existing.websiteUrl || '');
@@ -125,13 +126,32 @@ export default function WarehouseSetupModal({
           setGstFileName(existing.documentNames.gstinCert || '');
           setInsFileName(existing.documentNames.insuranceCert || '');
         }
+      };
+
+      // 1. Check local cache first for instant populate
+      const cached = getWarehouseProfile(user.id, user.email);
+      if (cached && (cached.companyName || cached.totalCapacityTonnes)) {
+        applyExistingProfile(cached);
       } else {
-        // Pre-fill initial intuitive defaults from user name
         const defaultName = user.name ? `${user.name} Agri Logistics & Cold Storage` : 'Certified Agri Storage Terminal';
         setCompanyName(defaultName);
         setWdraCode(`WDRA/2025/${(user.district || 'TN').slice(0, 2).toUpperCase()}/${Math.floor(1000 + Math.random() * 9000)}`);
       }
+
+      // 2. Fetch latest from Supabase DB to guarantee fresh data on hard reload
+      const fetchDbProfile = async () => {
+        const identifier = user.id || user.email;
+        if (!identifier) return;
+        const dbProfile = await getWarehouseOperatorProfile(identifier);
+        if (dbProfile && (dbProfile.companyName || dbProfile.totalCapacityTonnes || dbProfile.address)) {
+          applyExistingProfile(dbProfile);
+        }
+      };
+      fetchDbProfile();
     }
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, user.id, user.email, user.name, user.district, user.state]);
 
   if (!isOpen) return null;
