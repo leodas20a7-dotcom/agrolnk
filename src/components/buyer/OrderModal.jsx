@@ -40,13 +40,19 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     if (listing && currentUser) {
       getFinancingRequests().then((all) => {
         if (!isMounted) return;
-        const applicantKey = currentUser.id || currentUser.email || '';
+        const applicantKey = String(currentUser.id || currentUser.email || '').toLowerCase();
         const found = all.find(
           (r) =>
             r.status !== 'rejected' &&
             r.status !== 'cancelled' &&
+            r.status !== 'repaid' &&
+            r.status !== 'settled' &&
+            r.status !== 'closed' &&
+            r.status !== 'completed' &&
+            !r.repaidAt &&
+            (r.status === 'pending' || r.status === 'under_review' || r.status === 'in_review') &&
             ((r.listingId && r.listingId === listing.id) ||
-             (r.commodity === listing.commodity && (r.applicantId === applicantKey || r.applicantName?.includes(currentUser.name))))
+             (r.commodity === listing.commodity && r.variety === listing.variety && (String(r.applicantId || '').toLowerCase() === applicantKey || (currentUser.name && r.applicantName?.toLowerCase().includes(currentUser.name.toLowerCase())))))
         );
         setExistingCreditReq(found || null);
       }).catch(() => {});
