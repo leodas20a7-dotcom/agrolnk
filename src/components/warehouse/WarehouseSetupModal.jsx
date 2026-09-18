@@ -79,14 +79,15 @@ export default function WarehouseSetupModal({
   const [district, setDistrict] = useState(user.district || '');
   const [state, setState] = useState(user.state || '');
   const [pincode, setPincode] = useState('');
+  const [monthlyRatePerTonne, setMonthlyRatePerTonne] = useState('350');
 
-  // Selected storage types and individual capacities
+  // Selected storage types and individual capacities & custom rates
   const [selectedTypes, setSelectedTypes] = useState({
-    cold_multichamber: { enabled: true, capacity: 1000, temp: '2°C - 8°C' },
-    dry_silos: { enabled: false, capacity: 500, temp: 'Ambient (24°C)' },
-    ca_storage: { enabled: false, capacity: 500, temp: '0°C - 2°C (CA)' },
-    open_plinth: { enabled: false, capacity: 500, temp: 'Ventilated Ambient' },
-    deep_freeze: { enabled: false, capacity: 300, temp: '-18°C' },
+    cold_multichamber: { enabled: true, capacity: 1000, temp: '2°C - 8°C', rate: 350 },
+    dry_silos: { enabled: false, capacity: 500, temp: 'Ambient (24°C)', rate: 300 },
+    ca_storage: { enabled: false, capacity: 500, temp: '0°C - 2°C (CA)', rate: 450 },
+    open_plinth: { enabled: false, capacity: 500, temp: 'Ventilated Ambient', rate: 250 },
+    deep_freeze: { enabled: false, capacity: 300, temp: '-18°C', rate: 550 },
   });
 
   // Document upload state
@@ -117,6 +118,9 @@ export default function WarehouseSetupModal({
         setDistrict(existing.district || user.district || '');
         setState(existing.state || user.state || '');
         setPincode(existing.pincode || '');
+        if (existing.monthlyRatePerTonne) {
+          setMonthlyRatePerTonne(String(existing.monthlyRatePerTonne));
+        }
 
         if (existing.storageTypesConfig) {
           setSelectedTypes(existing.storageTypesConfig);
@@ -177,6 +181,19 @@ export default function WarehouseSetupModal({
         [typeId]: {
           ...current,
           capacity: Number(value) || 0,
+        },
+      };
+    });
+  };
+
+  const handleTypeRateChange = (typeId, value) => {
+    setSelectedTypes((prev) => {
+      const current = prev[typeId] || { enabled: true, capacity: 0, temp: '', rate: 350 };
+      return {
+        ...prev,
+        [typeId]: {
+          ...current,
+          rate: Number(value) || 0,
         },
       };
     });
@@ -270,16 +287,28 @@ export default function WarehouseSetupModal({
         uploadFileToSupabase(insFileObj, 'warehouse_insurance'),
       ]);
 
-      // Formulate chamber breakdown
+      // Formulate chamber breakdown and custom chamber rates
+      const chamberRates = {};
       const formattedChambers = STORAGE_TYPE_OPTIONS.filter(
         (opt) => selectedTypes[opt.id]?.enabled
-      ).map((opt) => ({
-        id: opt.id,
-        name: opt.name,
-        temp: selectedTypes[opt.id]?.temp || opt.defaultTemp,
-        capacity: Number(selectedTypes[opt.id]?.capacity || opt.defaultCap),
-        description: opt.description,
-      }));
+      ).map((opt) => {
+        const rate = Number(selectedTypes[opt.id]?.rate || monthlyRatePerTonne || 350);
+        const chamberTitle = `${opt.name} (${selectedTypes[opt.id]?.capacity || opt.defaultCap}T - ${selectedTypes[opt.id]?.temp || opt.defaultTemp})`;
+        chamberRates[chamberTitle] = rate;
+        chamberRates[opt.name] = rate;
+        chamberRates[opt.id] = rate;
+
+        return {
+          id: opt.id,
+          name: opt.name,
+          temp: selectedTypes[opt.id]?.temp || opt.defaultTemp,
+          capacity: Number(selectedTypes[opt.id]?.capacity || opt.defaultCap),
+          rate,
+          description: opt.description,
+        };
+      });
+
+      const baseRateNum = Number(monthlyRatePerTonne) || 350;
 
       const profilePayload = {
         warehouseName: companyName.trim(),
@@ -289,6 +318,9 @@ export default function WarehouseSetupModal({
         email: user.email || '',
         phone: user.phone || '',
         totalCapacityTonnes: numCapacity,
+        monthlyRatePerTonne: baseRateNum,
+        monthlyRatePerKg: Number((baseRateNum / 1000).toFixed(2)),
+        chamberRates,
         websiteUrl: websiteUrl.trim(),
         wdraCode: wdraCode.trim() || `WDRA/2025/TN/${Math.floor(1000 + Math.random() * 9000)}`,
         gstin: gstin.trim(),
@@ -479,6 +511,64 @@ export default function WarehouseSetupModal({
                 </div>
               </div>
 
+              {/* Base Storage Tariff / Rental Rate Setting */}
+              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#10B981]" />
+                    <span className="text-xs font-bold text-[#0B3326]">
+                      Standard Storage Tariff / Rental Fee <span className="text-red-500">*</span>
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-[#10B981]">
+                    ₹{(Number(monthlyRatePerTonne || 0) / 1000).toFixed(2)} / kg / mo
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      value={monthlyRatePerTonne}
+                      onChange={(e) => setMonthlyRatePerTonne(e.target.value)}
+                      min="50"
+                      step="10"
+                      placeholder="350"
+                      required
+                      className="w-full pl-8 pr-24 py-2.5 rounded-xl border border-[#10B981]/40 bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-[#566861] font-semibold">
+                      / Tonne / Mo
+                    </span>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {['250', '300', '350', '400', '500'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setMonthlyRatePerTonne(p)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          monthlyRatePerTonne === p
+                            ? 'bg-[#0B3326] text-white shadow-2xs'
+                            : 'bg-white text-[#566861] border border-[#E5EDE8] hover:bg-[#EBF5F0] hover:text-[#0B3326]'
+                        }`}
+                      >
+                        ₹{p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-[#566861] leading-relaxed">
+                  Farmers and buyers will see this official rate when depositing produce or taking storage loans. Auto-deducted from buyer payments upon sale.
+                </p>
+              </div>
+
               {/* Physical Location */}
               <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
                 <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
@@ -546,7 +636,7 @@ export default function WarehouseSetupModal({
                     What types of storage facilities do you operate?
                   </span>
                   <p className="text-[11px] text-[#566861]">
-                    Select all that apply and specify your dedicated capacity for each chamber type.
+                    Set dedicated capacities and custom monthly rental tariffs (₹/Tonne) per chamber.
                   </p>
                 </div>
                 <Badge variant={chamberSum === Number(totalCapacityTonnes) ? 'emerald' : 'amber'} size="sm">
@@ -559,6 +649,7 @@ export default function WarehouseSetupModal({
                   const Icon = opt.icon;
                   const isChecked = selectedTypes[opt.id]?.enabled;
                   const currentCap = selectedTypes[opt.id]?.capacity || opt.defaultCap;
+                  const currentRate = selectedTypes[opt.id]?.rate || monthlyRatePerTonne || 350;
 
                   return (
                     <div
@@ -569,7 +660,7 @@ export default function WarehouseSetupModal({
                           : 'border-[#E5EDE8] bg-white hover:border-[#CBD5E1]'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         
                         <label className="flex items-start gap-3 cursor-pointer select-none flex-1">
                           <input
@@ -579,7 +670,7 @@ export default function WarehouseSetupModal({
                             className="w-4 h-4 rounded text-[#10B981] focus:ring-[#10B981] mt-0.5 cursor-pointer accent-[#10B981]"
                           />
                           <div className="space-y-0.5">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-bold text-xs text-[#0B3326]">
                                 {opt.name}
                               </span>
@@ -594,18 +685,34 @@ export default function WarehouseSetupModal({
                         </label>
 
                         {isChecked && (
-                          <div className="w-28 shrink-0 space-y-1">
-                            <span className="text-[10px] text-[#566861] block font-semibold text-right">
-                              Capacity (T)
-                            </span>
-                            <input
-                              type="number"
-                              value={currentCap}
-                              onChange={(e) => handleTypeCapacityChange(opt.id, e.target.value)}
-                              min="10"
-                              step="50"
-                              className="w-full px-2.5 py-1 rounded-lg border border-[#10B981] bg-white text-xs font-bold text-right text-[#0B3326] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
-                            />
+                          <div className="flex items-center gap-2 self-end sm:self-start">
+                            <div className="w-24 shrink-0 space-y-1">
+                              <span className="text-[10px] text-[#566861] block font-semibold text-right">
+                                Capacity (T)
+                              </span>
+                              <input
+                                type="number"
+                                value={currentCap}
+                                onChange={(e) => handleTypeCapacityChange(opt.id, e.target.value)}
+                                min="10"
+                                step="50"
+                                className="w-full px-2.5 py-1 rounded-lg border border-[#10B981] bg-white text-xs font-bold text-right text-[#0B3326] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
+                              />
+                            </div>
+
+                            <div className="w-24 shrink-0 space-y-1">
+                              <span className="text-[10px] text-[#566861] block font-semibold text-right">
+                                Rate (₹/T/mo)
+                              </span>
+                              <input
+                                type="number"
+                                value={currentRate}
+                                onChange={(e) => handleTypeRateChange(opt.id, e.target.value)}
+                                min="50"
+                                step="10"
+                                className="w-full px-2.5 py-1 rounded-lg border border-[#10B981] bg-white text-xs font-bold text-right text-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>

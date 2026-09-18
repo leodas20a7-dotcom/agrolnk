@@ -356,17 +356,27 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               WDRA License: <strong>{wdraCode}</strong> • {facilityAddress}
             </p>
 
+            {/* Active Quoted Tariff Pill */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs text-[#34D399]">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>
+                Active Tariff: <strong className="text-white">₹{profile?.monthlyRatePerTonne || 350}</strong> / Tonne / month (₹{((profile?.monthlyRatePerTonne || 350) / 1000).toFixed(2)}/kg)
+              </span>
+            </div>
+
             {profile?.websiteUrl && isSetupCompleted && (
-              <a
-                href={profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-[#34D399] hover:underline font-semibold"
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>{profile.websiteUrl}</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+              <div className="pt-0.5">
+                <a
+                  href={profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#34D399] hover:underline font-semibold"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{profile.websiteUrl}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
             )}
           </div>
 
@@ -389,7 +399,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               onClick={() => setIsSetupModalOpen(true)}
               className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white text-xs font-bold py-2.5 px-3.5 cursor-pointer w-full sm:w-auto justify-center"
             >
-              {isSetupCompleted ? 'Edit Facility & KYC' : 'Complete Setup & Go Live'}
+              {isSetupCompleted ? 'Edit Facility, Rates & KYC' : 'Complete Setup & Go Live'}
             </Button>
           </div>
         </div>
@@ -429,16 +439,16 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
 
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Stored Commodity Value</span>
+              <span className="text-xs font-semibold text-[#566861]">Monthly Storage Revenue</span>
               <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                <Sparkles className="w-4 h-4 text-[#10B981]" />
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {stats?.totalValuation ?? '₹0'}
+              ₹{Math.round(totalStoredTonnes * (profile?.monthlyRatePerTonne || 350)).toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-[#10B981] font-semibold">
-              100% Comprehensive Transit Insured
+              Projected monthly rental earnings
             </div>
           </Card>
 

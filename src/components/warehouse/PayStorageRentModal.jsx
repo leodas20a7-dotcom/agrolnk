@@ -174,44 +174,62 @@ export default function PayStorageRentModal({
         ) : (
           /* Payment Form */
           <form onSubmit={handlePay} className="flex flex-col flex-1 overflow-hidden">
-            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-left">
               
-              {/* Warehouse Facility Info */}
-              <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Building2 className="w-4 h-4 text-[#10B981]" />
-                  <div>
-                    <span className="text-xs font-bold text-[#0B3326] block">
-                      {inventory.warehouseName}
-                    </span>
-                    <span className="text-[11px] text-[#566861]">
-                      {inventory.chamber || 'Chamber Storage'} • Rate: ₹{monthlyRate}/mo
-                    </span>
+              {/* Storage Facility & Due Status Highlight */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <Building2 className="w-5 h-5 text-[#10B981] shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-[#0B3326] block">
+                        {inventory.warehouseName}
+                      </span>
+                      <span className="text-[11px] text-[#566861]">
+                        {inventory.chamber || 'General Storage Chamber'} • Rate: <strong>₹{monthlyRate}/month</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <Badge variant={dues?.daysRemaining <= 10 ? 'amber' : 'emerald'} size="sm">
+                    {dues?.daysRemaining || 0} Days Validity Left
+                  </Badge>
+                </div>
+
+                {/* 3 Simple Metric Pills */}
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#E5EDE8] text-center">
+                  <div className="p-2 rounded-xl bg-white border border-[#E5EDE8]">
+                    <span className="text-[10px] text-[#566861] block font-semibold">Days Stored</span>
+                    <span className="text-xs font-extrabold text-[#0B3326]">{dues?.daysStored || 1} Days</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-[#E5EDE8]">
+                    <span className="text-[10px] text-[#566861] block font-semibold">Daily Rent</span>
+                    <span className="text-xs font-extrabold text-[#0B3326]">₹{dues?.dailyRate || 12}/day</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#FFFBEB] border border-[#FDE68A]">
+                    <span className="text-[10px] text-[#92400E] block font-semibold">Current Due</span>
+                    <span className="text-xs font-extrabold text-[#D97706]">₹{dues?.accruedDue || 0}</span>
                   </div>
                 </div>
-                <Badge variant="emerald" size="sm">
-                  WDRA Insured
-                </Badge>
               </div>
 
-              {/* Explanatory Note on Zero Cash Upfront */}
-              <div className="p-3 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/20 flex gap-2.5 items-start text-left">
+              {/* Zero-Cash Option Tip for Local Farmers */}
+              <div className="p-3 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/25 flex gap-2.5 items-start text-left">
                 <Info className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-[#0B3326] leading-relaxed">
-                  <strong className="font-bold">Smart Option:</strong> You do not need to pay now if you plan to sell on Agrolnk! Rent is automatically deducted from buyer payment when your produce sells.
+                  <strong className="font-bold">Simple Option:</strong> You can pay online now to extend validity, OR let it auto-deduct when you sell produce to a buyer on Agrolnk (zero cash required today).
                 </p>
               </div>
 
               {/* Extension Duration Selector */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
                   Select Storage Duration Extension
                 </label>
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { days: 30, label: '30 Days (1 Mo)' },
-                    { days: 60, label: '60 Days (2 Mo)' },
-                    { days: 90, label: '90 Days (3 Mo)' },
+                    { days: 30, label: '30 Days', sub: '1 Month' },
+                    { days: 60, label: '60 Days', sub: '2 Months' },
+                    { days: 90, label: '90 Days', sub: '3 Months' },
                   ].map((opt) => (
                     <button
                       key={opt.days}
@@ -223,8 +241,9 @@ export default function PayStorageRentModal({
                           : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#10B981]/50'
                       }`}
                     >
-                      <span className="text-xs block font-bold">{opt.label}</span>
-                      <span className="text-[11px] font-semibold text-[#10B981]">
+                      <span className="text-xs block font-bold">+{opt.label}</span>
+                      <span className="text-[10px] text-[#566861] block">{opt.sub}</span>
+                      <span className="text-[11px] font-extrabold text-[#10B981] block mt-0.5">
                         ₹{Math.round((monthlyRate / 30) * opt.days)}
                       </span>
                     </button>
@@ -232,15 +251,15 @@ export default function PayStorageRentModal({
                 </div>
               </div>
 
-              {/* Payment Method Selector */}
+              {/* Payment Mode */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                  Payment Method
+                  Choose Payment Method
                 </label>
                 <div className="space-y-2">
                   <label
                     className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                      paymentMode === 'razorpay' ? 'border-[#10B981] bg-[#F2FBF6]' : 'border-[#E5EDE8]'
+                      paymentMode === 'razorpay' ? 'border-[#10B981] bg-[#F2FBF6]' : 'border-[#E5EDE8] bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -252,16 +271,20 @@ export default function PayStorageRentModal({
                         className="text-[#10B981] focus:ring-[#10B981]"
                       />
                       <div>
-                        <span className="text-xs font-bold text-[#14211D] block">Razorpay Gateway (UPI, GPay, Cards, NetBanking)</span>
-                        <span className="text-[10px] text-[#566861] block">Instant online payment verification</span>
+                        <span className="text-xs font-bold text-[#14211D] block">
+                          UPI / Google Pay / PhonePe / Cards
+                        </span>
+                        <span className="text-[10px] text-[#566861] block">
+                          Instant online payment confirmation via Razorpay Gateway
+                        </span>
                       </div>
                     </div>
-                    <Badge variant="blue" size="sm">Instant</Badge>
+                    <Badge variant="blue" size="sm">Online UPI</Badge>
                   </label>
 
                   <label
                     className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                      paymentMode === 'auto_escrow' ? 'border-[#10B981] bg-[#F2FBF6]' : 'border-[#E5EDE8]'
+                      paymentMode === 'auto_escrow' ? 'border-[#10B981] bg-[#F2FBF6]' : 'border-[#E5EDE8] bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -273,28 +296,37 @@ export default function PayStorageRentModal({
                         className="text-[#10B981] focus:ring-[#10B981]"
                       />
                       <div>
-                        <span className="text-xs font-bold text-[#14211D] block">Agrolnk Escrow Balance Deduction</span>
-                        <span className="text-[10px] text-[#566861] block">Auto-deduct from your sales payout</span>
+                        <span className="text-xs font-bold text-[#14211D] block">
+                          Auto-Deduct from Sales Balance
+                        </span>
+                        <span className="text-[10px] text-[#566861] block">
+                          Deducts automatically from your next produce sale payout
+                        </span>
                       </div>
                     </div>
-                    <Badge variant="emerald" size="sm">Zero Fee</Badge>
+                    <Badge variant="emerald" size="sm">Zero Upfront</Badge>
                   </label>
                 </div>
               </div>
 
               {/* Total Calculation Summary */}
-              <div className="p-4 rounded-2xl bg-[#0B3326] text-white flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-[#0B3326] text-white flex items-center justify-between shadow-xs">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-[#34D399] block tracking-wider">
-                    Total Storage Rent to Pay
+                    Total Storage Rent to Settle
                   </span>
-                  <span className="text-xl font-extrabold font-heading">
+                  <span className="text-2xl font-extrabold font-heading">
                     ₹{calculatedPayAmount.toLocaleString('en-IN')}
                   </span>
                 </div>
-                <span className="text-xs text-[#DCFCE7]/90 font-medium">
-                  +{extendedDays} Days Extension
-                </span>
+                <div className="text-right">
+                  <Badge variant="emerald" size="sm">
+                    +{extendedDays} Days Added
+                  </Badge>
+                  <span className="text-[10px] text-[#DCFCE7]/80 block mt-1">
+                    Safe & Insured Storage
+                  </span>
+                </div>
               </div>
             </div>
 

@@ -329,6 +329,22 @@ export async function createWarehouseReceipt(receiptData) {
   const totalQty = Number(receiptData.quantity || receiptData.totalQuantity || 1000);
   const estValue = Number(receiptData.priceEstimate ? receiptData.priceEstimate * totalQty : (receiptData.estimatedValue || totalQty * 40));
 
+  // Determine monthly storage rate from warehouse tariff or chamber tariff
+  let ratePerTonne = Number(receiptData.monthlyRatePerTonne || 350);
+  if (receiptData.warehouseId) {
+    const wh = getWarehouseById(receiptData.warehouseId);
+    if (wh) {
+      ratePerTonne = Number(wh.monthlyRatePerTonne || 350);
+      if (receiptData.chamber && wh.chamberRates && wh.chamberRates[receiptData.chamber]) {
+        ratePerTonne = Number(wh.chamberRates[receiptData.chamber]);
+      }
+    }
+  }
+
+  const calculatedMonthlyFee = Number(
+    receiptData.storageFeeMonthly || Math.round((totalQty / 1000) * ratePerTonne)
+  );
+
   const newReceipt = {
     id: generateId(),
     receiptNumber: generateReceiptNum(),
@@ -345,7 +361,7 @@ export async function createWarehouseReceipt(receiptData) {
     lockedQuantity: 0,
     unit: receiptData.unit || 'kg',
     estimatedValue: estValue,
-    storageFeeMonthly: Number(receiptData.storageFeeMonthly || Math.round((totalQty / 1000) * 350)),
+    storageFeeMonthly: calculatedMonthlyFee,
     assayedQuality: receiptData.assayedQuality || {
       moisture: '12%',
       purity: '99%',
@@ -820,6 +836,9 @@ export async function getWarehouseOperatorProfile(userIdOrEmail) {
           district: profile.district || meta.district || 'Salem',
           address: profile.address || meta.address || '',
           pincode: profile.pincode || meta.pincode || '',
+          monthlyRatePerTonne: Number(meta.monthlyRatePerTonne || 350),
+          monthlyRatePerKg: Number(meta.monthlyRatePerKg || 0.35),
+          chamberRates: meta.chamberRates || {},
           verificationStatus: profile.kyc_status || meta.verificationStatus || 'pending',
           setupCompleted: Boolean(meta.setupCompleted || meta.totalCapacityTonnes || profile.company_name),
           ...meta,
@@ -851,7 +870,7 @@ export async function getWarehouseOperatorProfile(userIdOrEmail) {
 
 /**
  * Save or update warehouse profile:
- * - Operational fields (websiteUrl, phone) reflect immediately.
+ * - Operational fields (websiteUrl, phone, monthlyRatePerTonne, chamberRates) reflect immediately.
  * - Protected fields (capacity, WDRA code, GSTIN, documents, address, storage types)
  *   are stored as Pending Changes awaiting Admin Approval if the profile was previously verified.
  */
@@ -875,6 +894,10 @@ export async function saveWarehouseProfile(userId, profileData) {
       JSON.stringify(existing.documentNames) !== JSON.stringify(profileData.documentNames)
     );
 
+    const baseRate = Number(profileData.monthlyRatePerTonne || existing.monthlyRatePerTonne || 350);
+    const kgRate = Number((baseRate / 1000).toFixed(2));
+    const chamberRates = profileData.chamberRates || existing.chamberRates || {};
+
     let updated;
 
     if (protectedFieldsChanged) {
@@ -885,6 +908,9 @@ export async function saveWarehouseProfile(userId, profileData) {
         // Operational fields update immediately
         websiteUrl: profileData.websiteUrl || existing.websiteUrl,
         phone: profileData.phone || existing.phone,
+        monthlyRatePerTonne: baseRate,
+        monthlyRatePerKg: kgRate,
+        chamberRates,
         hasPendingReview: true,
         verificationStatus: 'modification_pending',
         pendingChanges: {
@@ -900,6 +926,9 @@ export async function saveWarehouseProfile(userId, profileData) {
         ...profileData,
         userId,
         role: profileData.role || existing.role || 'warehouse',
+        monthlyRatePerTonne: baseRate,
+        monthlyRatePerKg: kgRate,
+        chamberRates,
         setupCompleted: true,
         hasPendingReview: isInitialSetup,
         verificationStatus: isInitialSetup ? 'pending' : (existing.verificationStatus || 'pending'),
@@ -932,6 +961,9 @@ export async function saveWarehouseProfile(userId, profileData) {
           websiteUrl: updated.websiteUrl,
           documentNames: updated.documentNames,
           documentUrls: updated.documentUrls,
+          monthlyRatePerTonne: updated.monthlyRatePerTonne,
+          monthlyRatePerKg: updated.monthlyRatePerKg,
+          chamberRates: updated.chamberRates,
           setupCompleted: true,
           verificationStatus: updated.verificationStatus,
           hasPendingReview: updated.hasPendingReview,

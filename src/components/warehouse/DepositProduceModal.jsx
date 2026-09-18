@@ -64,8 +64,13 @@ export default function DepositProduceModal({
   }, [selectedWarehouseId]);
 
   const estimatedTotalValue = (Number(quantity) || 0) * (Number(priceEstimate) || 0);
-  const ratePerTonne = Number(currentWarehouse?.monthlyRatePerTonne || 350);
-  const monthlyRentalEst = Math.round(((Number(quantity) || 0) / 1000) * ratePerTonne);
+  
+  // Calculate active rate per tonne based on selected chamber or warehouse baseline tariff
+  const activeChamberRate = (currentWarehouse?.chamberRates && currentWarehouse.chamberRates[chamber])
+    ? Number(currentWarehouse.chamberRates[chamber])
+    : Number(currentWarehouse?.monthlyRatePerTonne || 350);
+
+  const monthlyRentalEst = Math.round(((Number(quantity) || 0) / 1000) * activeChamberRate);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,6 +97,8 @@ export default function DepositProduceModal({
         priceEstimate: Number(priceEstimate),
         chamber,
         storageDays: Number(storageDays),
+        monthlyRatePerTonne: activeChamberRate,
+        storageFeeMonthly: monthlyRentalEst,
       };
 
       const created = await depositProduceToWarehouse(depositData);
@@ -298,8 +305,12 @@ export default function DepositProduceModal({
             </div>
             <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
               <div>
-                <span className="text-[#566861] block">Storage Rent:</span>
-                <span className="text-[10px] text-[#10B981] font-semibold">Auto-deducted upon produce sale (Zero upfront cash)</span>
+                <span className="text-[#566861] block">
+                  Storage Rent Tariff: <strong>₹{activeChamberRate} / Tonne / mo</strong> (₹{(activeChamberRate / 1000).toFixed(2)}/kg)
+                </span>
+                <span className="text-[10px] text-[#10B981] font-semibold">
+                  Auto-deducted upon produce sale (Zero upfront cash needed)
+                </span>
               </div>
               <span className="font-extrabold text-[#0B3326] text-sm">
                 ₹{monthlyRentalEst} / month
