@@ -3,6 +3,50 @@ import { supabase } from '../lib/supabase';
 import { broadcastDataChange, subscribeToCrossTabSync } from './syncChannel';
 
 const LOCAL_NOTIFICATIONS_KEY = 'agrolnk_user_notifications';
+const DISMISSED_NOTIFICATIONS_KEY = 'agrolnk_dismissed_notifications';
+const SEEDED_ROLES_KEY = 'agrolnk_seeded_user_roles';
+
+export function getDismissedNotificationIds() {
+  try {
+    const raw = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveDismissedNotificationId(id) {
+  if (!id) return;
+  try {
+    const list = getDismissedNotificationIds();
+    if (!list.includes(id)) {
+      list.push(id);
+      localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(list));
+    }
+  } catch {}
+}
+
+export function isRoleSeeded(seedKey) {
+  try {
+    const raw = localStorage.getItem(SEEDED_ROLES_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return list.includes(seedKey);
+  } catch {
+    return false;
+  }
+}
+
+export function markRoleSeeded(seedKey) {
+  if (!seedKey) return;
+  try {
+    const raw = localStorage.getItem(SEEDED_ROLES_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    if (!list.includes(seedKey)) {
+      list.push(seedKey);
+      localStorage.setItem(SEEDED_ROLES_KEY, JSON.stringify(list));
+    }
+  } catch {}
+}
 
 function generateId() {
   try {
@@ -208,30 +252,29 @@ export async function getNotificationsForUser(user) {
     if (!item || !item.id) continue;
     map.set(item.id, item);
   }
-
   let allNotifications = Array.from(map.values());
 
-  // If completely empty for this user, seed starter role notifications in-memory
-  const userHasNotifications = allNotifications.some((n) => {
-    const rId = n.recipientId ? String(n.recipientId).toLowerCase() : '';
-    const rRole = n.recipientRole ? String(n.recipientRole).toLowerCase() : '';
-    return (currentId && rId === currentId) || (rRole === currentRole);
-  });
+  const dismissedIds = new Set(getDismissedNotificationIds());
 
-  if (!userHasNotifications) {
-    const starters = getRoleStarterNotifications(user);
+  // Filter out any dismissed items first
+  allNotifications = allNotifications.filter((n) => !dismissedIds.has(n.id));
+
+  // Seed starter role notifications ONLY ONCE per user account
+  const seedKey = `${currentId || currentEmail || 'user'}_${currentRole || 'all'}`;
+  if (!isRoleSeeded(seedKey)) {
+    const starters = getRoleStarterNotifications(user).filter((n) => !dismissedIds.has(n.id));
     if (starters.length > 0) {
       allNotifications = [...starters, ...allNotifications];
-      // Save quietly to local storage without re-triggering event loop
       try {
         localStorage.setItem(LOCAL_NOTIFICATIONS_KEY, JSON.stringify(allNotifications));
       } catch {}
     }
+    markRoleSeeded(seedKey);
   }
 
   // Strict zero-conflict filtering
   const userSpecificList = allNotifications.filter((n) => {
-    if (!n) return false;
+    if (!n || dismissedIds.has(n.id)) return false;
     const rId = n.recipientId ? String(n.recipientId).toLowerCase() : '';
     const rRole = n.recipientRole ? String(n.recipientRole).toLowerCase() : '';
 
@@ -258,21 +301,18 @@ export async function getNotificationsForUser(user) {
 export async function sendNotification({
   recipientId = null,
   recipientRole = null,
-  title,
-  message,
-  type = 'general',
+  title = '',
+  message = '',
+  type = 'order',
   link = '',
   actionPayload = {},
 }) {
-  if (!title || !message) return null;
-
-  const notifId = generateId();
   const newNotif = {
-    id: notifId,
-    recipientId: recipientId || null,
-    recipientRole: recipientRole || null,
-    title: title.trim(),
-    message: message.trim(),
+    id: generateId(),
+    recipientId: recipientId ? String(recipientId) : null,
+    recipientRole: recipientRole ? String(recipientRole).toLowerCase() : null,
+    title,
+    message,
     type,
     link,
     actionPayload,
@@ -280,31 +320,27 @@ export async function sendNotification({
     createdAt: new Date().toISOString(),
   };
 
-  // 1. Save locally
   const current = getLocalNotifications();
-  const updated = [newNotif, ...current.filter((n) => n.id !== notifId)];
+  const updated = [newNotif, ...current.filter((n) => n.id !== newNotif.id)];
   saveLocalNotifications(updated);
 
-  // 2. Broadcast across tabs and active window
   broadcastDataChange('notifications', 'INSERT', newNotif);
 
-  // 3. Persist to Supabase in background
   try {
-    const dbRow = {
-      id: notifId,
-      recipient_id: recipientId || null,
-      recipient_role: recipientRole || null,
+    await supabase.from('notifications').insert({
+      id: newNotif.id,
+      recipient_id: newNotif.recipientId,
+      recipient_role: newNotif.recipientRole,
       title: newNotif.title,
       message: newNotif.message,
       type: newNotif.type,
       link: newNotif.link,
+      action_payload: newNotif.actionPayload,
       is_read: false,
       created_at: newNotif.createdAt,
-    };
-
-    await supabase.from('notifications').insert([dbRow]);
+    });
   } catch (err) {
-    console.warn('Supabase notification sync notice:', err);
+    console.warn('Supabase remote notification dispatch notice:', err);
   }
 
   return newNotif;
@@ -313,7 +349,7 @@ export async function sendNotification({
 /**
  * Mark a single notification as read
  */
-export async function markNotificationAsRead(notificationId, user) {
+export async function markNotificationAsRead(notificationId, user = null) {
   if (!notificationId) return;
 
   const current = getLocalNotifications();
@@ -333,13 +369,14 @@ export async function markNotificationAsRead(notificationId, user) {
 export async function markAllNotificationsAsRead(user) {
   if (!user) return;
   const currentId = user.id ? String(user.id).toLowerCase() : '';
+  const currentEmail = user.email ? String(user.email).toLowerCase() : '';
   const currentRole = user.role ? String(user.role).toLowerCase() : '';
 
   const current = getLocalNotifications();
   const updated = current.map((n) => {
     const rId = n.recipientId ? String(n.recipientId).toLowerCase() : '';
     const rRole = n.recipientRole ? String(n.recipientRole).toLowerCase() : '';
-    if ((currentId && rId === currentId) || (!rId && rRole === currentRole)) {
+    if ((currentId && rId === currentId) || (currentEmail && rId === currentEmail) || (!rId && rRole === currentRole)) {
       return { ...n, isRead: true };
     }
     return n;
@@ -356,10 +393,12 @@ export async function markAllNotificationsAsRead(user) {
 }
 
 /**
- * Delete / Clear a single notification
+ * Delete / Dismiss a single notification permanently
  */
 export async function deleteNotification(notificationId) {
   if (!notificationId) return;
+
+  saveDismissedNotificationId(notificationId);
 
   const current = getLocalNotifications();
   const updated = current.filter((n) => n.id !== notificationId);
@@ -369,6 +408,40 @@ export async function deleteNotification(notificationId) {
 
   try {
     await supabase.from('notifications').delete().eq('id', notificationId);
+  } catch {}
+}
+
+/**
+ * Clear all notifications for the current user permanently
+ */
+export async function clearAllNotifications(user) {
+  if (!user) return;
+  const currentId = user.id ? String(user.id).toLowerCase() : '';
+  const currentEmail = user.email ? String(user.email).toLowerCase() : '';
+  const currentRole = user.role ? String(user.role).toLowerCase() : '';
+
+  const current = getLocalNotifications();
+  const remaining = [];
+
+  for (const n of current) {
+    const rId = n.recipientId ? String(n.recipientId).toLowerCase() : '';
+    const rRole = n.recipientRole ? String(n.recipientRole).toLowerCase() : '';
+    const isTarget = (currentId && rId === currentId) || (currentEmail && rId === currentEmail) || (!rId && rRole === currentRole);
+
+    if (isTarget) {
+      saveDismissedNotificationId(n.id);
+    } else {
+      remaining.push(n);
+    }
+  }
+
+  saveLocalNotifications(remaining);
+  broadcastDataChange('notifications', 'CLEAR_ALL', { userId: user.id });
+
+  try {
+    if (user.id) {
+      await supabase.from('notifications').delete().eq('recipient_id', user.id);
+    }
   } catch {}
 }
 

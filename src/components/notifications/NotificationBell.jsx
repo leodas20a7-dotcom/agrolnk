@@ -19,7 +19,8 @@ import {
   getNotificationsForUser,
   markNotificationAsRead,
   markAllNotificationsAsRead,
-  deleteNotification
+  deleteNotification,
+  clearAllNotifications,
 } from '../../utils/notifications';
 import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
@@ -84,6 +85,11 @@ export default function NotificationBell({ currentUser, onNavigate }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
+  const handleClearAll = async () => {
+    await clearAllNotifications(user);
+    setNotifications([]);
+  };
+
   const handleItemClick = async (notif) => {
     if (!notif.isRead) {
       await markNotificationAsRead(notif.id, user);
@@ -102,8 +108,9 @@ export default function NotificationBell({ currentUser, onNavigate }) {
 
   const handleDelete = async (e, notifId) => {
     e.stopPropagation();
-    await deleteNotification(notifId);
+    // Immediate optimistic removal from state so UI updates instantly
     setNotifications((prev) => prev.filter((n) => n.id !== notifId));
+    await deleteNotification(notifId);
   };
 
   const formatTimeAgo = (dateStr) => {
@@ -190,15 +197,26 @@ export default function NotificationBell({ currentUser, onNavigate }) {
               Notifications {unreadCount > 0 ? `(${unreadCount})` : ''}
             </span>
 
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                onClick={handleMarkAllRead}
-                className="text-[11px] font-medium text-[#10B981] hover:text-[#0B3326] hover:underline cursor-pointer"
-              >
-                Mark all read
-              </button>
-            )}
+            <div className="flex items-center gap-2.5">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllRead}
+                  className="text-[11px] font-medium text-[#10B981] hover:text-[#0B3326] hover:underline cursor-pointer"
+                >
+                  Mark all read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="text-[11px] font-medium text-slate-400 hover:text-rose-600 hover:underline cursor-pointer"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Notifications List */}
