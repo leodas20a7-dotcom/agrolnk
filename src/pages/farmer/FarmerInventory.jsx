@@ -13,6 +13,7 @@ import ListFromInventoryModal from '../../components/warehouse/ListFromInventory
 import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
 import PayStorageRentModal from '../../components/warehouse/PayStorageRentModal';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
+import FarmerQuoteReviewModal from '../../components/warehouse/FarmerQuoteReviewModal';
 import {
   Building2,
   Package,
@@ -74,7 +75,9 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
   const [selectedInventoryForDetail, setSelectedInventoryForDetail] = useState(null);
   const [selectedInventoryForList, setSelectedInventoryForList] = useState(null);
   const [selectedInventoryForRent, setSelectedInventoryForRent] = useState(null);
+  const [selectedInventoryForQuoteReview, setSelectedInventoryForQuoteReview] = useState(null);
   const [inventoryForFinancing, setInventoryForFinancing] = useState(null);
+  const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all' | 'stored' | 'pending'
 
   const loadData = async () => {
     try {
@@ -98,17 +101,39 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdate = () => loadData();
+    window.addEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
+    window.addEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
+    window.addEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
+      window.removeEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
+      window.removeEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, [user.id]);
 
   const safeInventoryList = Array.isArray(inventoryList) ? inventoryList.filter(Boolean) : [];
   const safeWarehousesList = Array.isArray(warehousesList) ? warehousesList.filter(Boolean) : [];
 
-  const totalKg = safeInventoryList.reduce((sum, i) => sum + (Number(i?.totalQuantity) || 0), 0);
-  const availableKg = safeInventoryList.reduce((sum, i) => sum + (Number(i?.availableQuantity) || 0), 0);
-  const totalValuation = safeInventoryList.reduce((sum, i) => sum + (Number(i?.estimatedValue) || 0), 0);
+  const storedLots = safeInventoryList.filter((r) => r.status === 'stored' || r.status === 'partially_listed' || r.status === 'listed');
+  const pendingLots = safeInventoryList.filter((r) => r.status === 'quote_requested' || r.status === 'quote_provided' || r.status === 'in_transit');
 
-  const totalInventoryPages = Math.ceil(safeInventoryList.length / ITEMS_PER_PAGE) || 1;
-  const paginatedInventory = safeInventoryList.slice(
+  const filteredInventory = inventoryFilter === 'stored'
+    ? storedLots
+    : inventoryFilter === 'pending'
+    ? pendingLots
+    : safeInventoryList;
+
+  const totalKg = storedLots.reduce((sum, i) => sum + (Number(i?.totalQuantity) || 0), 0);
+  const availableKg = storedLots.reduce((sum, i) => sum + (Number(i?.availableQuantity) || 0), 0);
+  const totalValuation = storedLots.reduce((sum, i) => sum + (Number(i?.estimatedValue) || 0), 0);
+
+  const totalInventoryPages = Math.ceil(filteredInventory.length / ITEMS_PER_PAGE) || 1;
+  const paginatedInventory = filteredInventory.slice(
     (inventoryPage - 1) * ITEMS_PER_PAGE,
     inventoryPage * ITEMS_PER_PAGE
   );
@@ -397,20 +422,68 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  Stored Commodity Batches ({safeInventoryList.length})
+                  Stored Commodity Batches ({filteredInventory.length})
                 </h2>
                 <p className="text-xs text-[#566861]">
                   Directly list for sale or auction without moving produce from storage
                 </p>
               </div>
 
-              <ViewModeToggle
-                viewMode={viewMode}
-                onViewModeChange={handleSetViewMode}
-              />
+              <div className="flex items-center gap-3">
+                {/* Status Sub-filter pills */}
+                <div className="flex items-center gap-1.5 p-1 bg-[#F8FAF8] rounded-2xl border border-[#E5EDE8] text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInventoryFilter('all');
+                      setInventoryPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      inventoryFilter === 'all'
+                        ? 'bg-[#0B3326] text-white shadow-2xs'
+                        : 'text-[#566861] hover:text-[#0B3326]'
+                    }`}
+                  >
+                    All ({safeInventoryList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInventoryFilter('stored');
+                      setInventoryPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      inventoryFilter === 'stored'
+                        ? 'bg-[#10B981] text-white shadow-2xs'
+                        : 'text-[#566861] hover:text-[#0B3326]'
+                    }`}
+                  >
+                    In Storage ({storedLots.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInventoryFilter('pending');
+                      setInventoryPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      inventoryFilter === 'pending'
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'text-[#566861] hover:text-[#0B3326]'
+                    }`}
+                  >
+                    Quotes & Transit ({pendingLots.length})
+                  </button>
+                </div>
+
+                <ViewModeToggle
+                  viewMode={viewMode}
+                  onViewModeChange={handleSetViewMode}
+                />
+              </div>
             </div>
 
-            {safeInventoryList.length > 0 ? (
+            {filteredInventory.length > 0 ? (
               <div className="space-y-6">
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -421,6 +494,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                         onView={(inv) => setSelectedInventoryForDetail(inv)}
                         onList={(inv) => setSelectedInventoryForList(inv)}
                         onPayRent={(inv) => setSelectedInventoryForRent(inv)}
+                        onReviewQuote={(inv) => setSelectedInventoryForQuoteReview(inv)}
                         onRequestFinancing={() => onNavigate('farmer-financing')}
                       />
                     ))}
@@ -434,6 +508,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                         onView={(inv) => setSelectedInventoryForDetail(inv)}
                         onList={(inv) => setSelectedInventoryForList(inv)}
                         onPayRent={(inv) => setSelectedInventoryForRent(inv)}
+                        onReviewQuote={(inv) => setSelectedInventoryForQuoteReview(inv)}
                         onRequestFinancing={() => onNavigate('farmer-financing')}
                       />
                     ))}
@@ -443,7 +518,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                 <Pagination
                   currentPage={inventoryPage}
                   totalPages={totalInventoryPages}
-                  totalItems={safeInventoryList.length}
+                  totalItems={filteredInventory.length}
                   itemsPerPage={ITEMS_PER_PAGE}
                   onPageChange={setInventoryPage}
                 />
@@ -603,6 +678,19 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
           isOpen={Boolean(selectedInventoryForRent)}
           onClose={() => setSelectedInventoryForRent(null)}
           onSuccess={handleRentSuccess}
+        />
+      )}
+
+      {/* Farmer Quote Review Modal */}
+      {selectedInventoryForQuoteReview && (
+        <FarmerQuoteReviewModal
+          receipt={selectedInventoryForQuoteReview}
+          isOpen={Boolean(selectedInventoryForQuoteReview)}
+          onClose={() => setSelectedInventoryForQuoteReview(null)}
+          onSuccess={() => {
+            loadData();
+            setSelectedInventoryForQuoteReview(null);
+          }}
         />
       )}
     </DashboardLayout>

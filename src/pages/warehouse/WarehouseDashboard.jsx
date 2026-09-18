@@ -7,6 +7,7 @@ import AlertModal from '../../components/ui/AlertModal';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
 import WarehouseSetupModal from '../../components/warehouse/WarehouseSetupModal';
+import WarehouseInwardModal from '../../components/warehouse/WarehouseInwardModal';
 import WarehouseBatchRow from '../../components/warehouse/WarehouseBatchRow';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
@@ -73,6 +74,8 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [confirmDispatchLot, setConfirmDispatchLot] = useState(null);
   const [isDispatching, setIsDispatching] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState('');
+  const [inwardModalReceipt, setInwardModalReceipt] = useState(null);
+  const [inwardModalMode, setInwardModalMode] = useState('quote'); // 'quote' | 'inward'
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,11 +131,13 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
     };
   }, [user.id, user.email]);
 
-  const safeInventory = Array.isArray(inventory) ? inventory : [];
-  
-  // Segregate Active In-Storage vs Dispatched Lots
-  const activeLots = safeInventory.filter((r) => r.status !== 'dispatched' && r.status !== 'released');
+  // Segregate Active In-Storage vs Requests vs In-Transit vs Dispatched Lots
+  const quoteRequests = safeInventory.filter((r) => r.status === 'quote_requested');
+  const quotedPendingFarmer = safeInventory.filter((r) => r.status === 'quote_provided');
+  const inTransitLots = safeInventory.filter((r) => r.status === 'in_transit');
+  const activeLots = safeInventory.filter((r) => r.status === 'stored' || r.status === 'partially_listed' || r.status === 'listed');
   const dispatchedLots = safeInventory.filter((r) => r.status === 'dispatched' || r.status === 'released');
+  const totalInwardPending = quoteRequests.length + inTransitLots.length;
 
   const totalStoredTonnes = Number((activeLots.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
   const isSetupCompleted = Boolean(profile?.setupCompleted && Number(profile?.totalCapacityTonnes) > 0);
@@ -473,6 +478,28 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
           <button
             type="button"
+            onClick={() => setActiveTab('requests')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+              activeTab === 'requests'
+                ? 'bg-[#0B3326] text-white shadow-xs'
+                : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-[#34D399]" />
+            <span>Deposit Requests & Inward</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                activeTab === 'requests'
+                  ? 'bg-[#10B981] text-white'
+                  : 'bg-[#F8FAF8] text-[#566861]'
+              }`}
+            >
+              {totalInwardPending}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('inventory')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
               activeTab === 'inventory'
@@ -537,6 +564,182 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             </span>
           </button>
         </div>
+
+        {/* Content Section 0: Incoming Deposit Requests & Inward Pipeline */}
+        {activeTab === 'requests' && (
+          <div className="space-y-6">
+            {/* 1. Pending Quote Requests */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-[#0B3326] font-heading flex items-center gap-2">
+                    <span>1. Incoming Deposit Quote Requests</span>
+                    <Badge variant="yellow" size="sm">{quoteRequests.length} Waiting for Quote</Badge>
+                  </h2>
+                  <p className="text-xs text-[#566861]">
+                    Farmers requesting storage space. Review lot details, quote your monthly tariff, and assign chamber.
+                  </p>
+                </div>
+              </div>
+
+              {quoteRequests.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {quoteRequests.map((req) => (
+                    <Card key={req.id} hoverEffect className="p-5 bg-white border border-amber-200/80 rounded-2xl shadow-xs space-y-3 text-left">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                            {req.receiptNumber}
+                          </span>
+                          <h3 className="text-base font-bold text-[#0B3326] mt-1">
+                            {req.commodity} ({req.variety || 'Standard'})
+                          </h3>
+                          <span className="text-xs text-[#566861]">
+                            Depositor: <strong>{req.farmerName}</strong> • {req.farmerPhone}
+                          </span>
+                        </div>
+                        <Badge variant="dark" size="sm">
+                          Grade {req.grade || 'A'}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-semibold uppercase">Volume</span>
+                          <strong className="text-[#0B3326]">{Number(req.totalQuantity || 0).toLocaleString('en-IN')} {req.unit || 'kg'}</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-semibold uppercase">Est. Value</span>
+                          <strong className="text-[#10B981]">₹{Number(req.estimatedValue || 0).toLocaleString('en-IN')}</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] block font-semibold uppercase">Duration</span>
+                          <strong className="text-[#14211D]">{req.storageDays || 60} Days</strong>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#E5EDE8]">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            setInwardModalReceipt(req);
+                            setInwardModalMode('quote');
+                          }}
+                          icon={Sparkles}
+                          iconPosition="left"
+                          className="w-full justify-center text-xs font-bold py-2 bg-[#0B3326] text-white cursor-pointer shadow-xs"
+                        >
+                          Set Price Quote & Assign Chamber
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-white border border-dashed border-[#E5EDE8] text-center text-xs text-[#566861]">
+                  No pending quote requests right now. New requests submitted by farmers will appear here.
+                </div>
+              )}
+            </div>
+
+            {/* 2. Quoted Lots Waiting for Farmer Acceptance */}
+            {quotedPendingFarmer.length > 0 && (
+              <div className="space-y-3">
+                <h2 className="text-base font-bold text-[#0B3326] font-heading flex items-center gap-2">
+                  <span>2. Quotes Sent to Farmers (Awaiting Farmer Dispatch)</span>
+                  <Badge variant="blue" size="sm">{quotedPendingFarmer.length} Pending</Badge>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {quotedPendingFarmer.map((req) => (
+                    <div key={req.id} className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200 text-left space-y-2 text-xs">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-extrabold text-[#0B3326]">{req.receiptNumber} • {req.commodity}</span>
+                          <span className="text-[#566861] block">Depositor: {req.farmerName}</span>
+                        </div>
+                        <span className="font-extrabold text-blue-800 bg-white px-2 py-0.5 rounded-md border border-blue-200">
+                          Quoted: ₹{req.quotedMonthlyRent}/mo
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-[#566861]">
+                        <span>Volume: <strong>{req.totalQuantity} {req.unit}</strong></span>
+                        <span>Assigned: <strong>{req.chamber}</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. In-Transit Lots (Farmer Accepted Quote & Dispatched) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-[#0B3326] font-heading flex items-center gap-2">
+                    <span>3. Lots In Transit / Awaiting Gate Arrival</span>
+                    <Badge variant="purple" size="sm">{inTransitLots.length} In Transit</Badge>
+                  </h2>
+                  <p className="text-xs text-[#566861]">
+                    Farmers accepted your quote and dispatched goods. When the truck arrives at your gate, record weighbridge reading to issue official e-NWR.
+                  </p>
+                </div>
+              </div>
+
+              {inTransitLots.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {inTransitLots.map((req) => (
+                    <Card key={req.id} hoverEffect className="p-5 bg-white border border-purple-200/80 rounded-2xl shadow-xs space-y-3 text-left">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 flex items-center gap-1 w-fit">
+                            <Truck className="w-3.5 h-3.5" />
+                            In Transit • {req.receiptNumber}
+                          </span>
+                          <h3 className="text-base font-bold text-[#0B3326] mt-1">
+                            {req.commodity} ({req.variety || 'Standard'})
+                          </h3>
+                          <span className="text-xs text-[#566861]">
+                            Depositor: <strong>{req.farmerName}</strong> • {req.farmerPhone}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-[#566861] uppercase block font-semibold">Agreed Tariff</span>
+                          <span className="font-extrabold text-sm text-[#10B981]">₹{req.quotedMonthlyRent}/mo</span>
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-purple-50/50 border border-purple-200/60 text-xs flex items-center justify-between">
+                        <span>Expected Volume: <strong>{req.totalQuantity} {req.unit}</strong></span>
+                        <span>Reserved Chamber: <strong>{req.chamber}</strong></span>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#E5EDE8]">
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          onClick={() => {
+                            setInwardModalReceipt(req);
+                            setInwardModalMode('inward');
+                          }}
+                          icon={CheckCircle2}
+                          iconPosition="left"
+                          className="w-full justify-center text-xs font-bold py-2 shadow-xs cursor-pointer"
+                        >
+                          Confirm Gate Arrival & Issue Official e-NWR
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-white border border-dashed border-[#E5EDE8] text-center text-xs text-[#566861]">
+                  No dispatched lots currently in transit.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Content Section 1: Active In-Chamber Stored e-NWRs */}
         {activeTab === 'inventory' && (
@@ -967,6 +1170,26 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           setProfile(saved);
         }}
       />
+
+      {/* Inward Quote & Gate Arrival Verification Modal */}
+      {inwardModalReceipt && (
+        <WarehouseInwardModal
+          receipt={inwardModalReceipt}
+          mode={inwardModalMode}
+          isOpen={Boolean(inwardModalReceipt)}
+          onClose={() => setInwardModalReceipt(null)}
+          onSuccess={() => {
+            loadData(false);
+            setFeedbackToast(
+              inwardModalMode === 'quote'
+                ? 'Storage price quote sent to farmer successfully!'
+                : 'Gate inward verified & official e-NWR issued!'
+            );
+            setTimeout(() => setFeedbackToast(''), 4000);
+            setInwardModalReceipt(null);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }

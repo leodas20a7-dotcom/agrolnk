@@ -265,8 +265,18 @@ export async function getWarehouseReceipts() {
  */
 export async function getFarmerInventory(farmerId) {
   const all = await getWarehouseReceipts();
-  if (!farmerId) return [];
+  if (!farmerId) return all;
   return all.filter((r) => r.farmerId === farmerId);
+}
+
+/**
+ * Get all receipts for a specific warehouse operator
+ */
+export async function getWarehouseInventory(warehouseId) {
+  const all = await getWarehouseReceipts();
+  if (!warehouseId) return all;
+  const match = all.filter((r) => r.warehouseId === warehouseId);
+  return match.length > 0 ? match : all;
 }
 
 /**
@@ -312,6 +322,9 @@ export async function getWarehouseOperatorStats(warehouseId, profile = null) {
 /**
  * Create a new e-NWR Warehouse Receipt
  */
+/**
+ * Request produce deposit & price quote from warehouse
+ */
 export async function createWarehouseReceipt(receiptData) {
   const generateId = () => {
     try {
@@ -329,7 +342,7 @@ export async function createWarehouseReceipt(receiptData) {
   const totalQty = Number(receiptData.quantity || receiptData.totalQuantity || 1000);
   const estValue = Number(receiptData.priceEstimate ? receiptData.priceEstimate * totalQty : (receiptData.estimatedValue || totalQty * 40));
 
-  // Determine monthly storage rate from warehouse tariff or chamber tariff
+  // Determine estimated base rate from warehouse tariff or chamber tariff
   let ratePerTonne = Number(receiptData.monthlyRatePerTonne || 350);
   if (receiptData.warehouseId) {
     const wh = getWarehouseById(receiptData.warehouseId);
@@ -345,11 +358,14 @@ export async function createWarehouseReceipt(receiptData) {
     receiptData.storageFeeMonthly || Math.round((totalQty / 1000) * ratePerTonne)
   );
 
+  const initialStatus = receiptData.status || 'quote_requested';
+
   const newReceipt = {
     id: generateId(),
     receiptNumber: generateReceiptNum(),
     farmerId: receiptData.farmerId || '',
     farmerName: receiptData.farmerName || 'Depositor / Farmer',
+    farmerPhone: receiptData.farmerPhone || '+91 98400 12345',
     warehouseId: receiptData.warehouseId || '',
     warehouseName: receiptData.warehouseName || 'Agri Storage Facility',
     chamber: receiptData.chamber || 'General Storage Chamber',
@@ -361,16 +377,22 @@ export async function createWarehouseReceipt(receiptData) {
     lockedQuantity: 0,
     unit: receiptData.unit || 'kg',
     estimatedValue: estValue,
+    storageDays: Number(receiptData.storageDays || 60),
+    quotedRatePerTonne: ratePerTonne,
     storageFeeMonthly: calculatedMonthlyFee,
+    quotedMonthlyRent: calculatedMonthlyFee,
     assayedQuality: receiptData.assayedQuality || {
       moisture: '12%',
       purity: '99%',
-      grade: 'A',
-      assayStatus: 'WDRA Certified Grade A',
+      grade: receiptData.grade || 'A',
+      assayStatus: 'Pending Assayer Check',
     },
-    depositedAt: new Date().toISOString(),
-    validUntil: new Date(Date.now() + 3600000 * 24 * (receiptData.storageDays || 90)).toISOString(),
-    status: 'stored',
+    requestedAt: new Date().toISOString(),
+    depositedAt: initialStatus === 'stored' ? new Date().toISOString() : null,
+    lastRentPaidAt: initialStatus === 'stored' ? new Date().toISOString() : null,
+    validUntil: initialStatus === 'stored' ? new Date(Date.now() + 3600000 * 24 * (receiptData.storageDays || 90)).toISOString() : null,
+    status: initialStatus, // 'quote_requested' | 'quote_provided' | 'in_transit' | 'stored' | 'rejected'
+    warehouseNotes: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -412,7 +434,259 @@ export async function createWarehouseReceipt(receiptData) {
     console.warn('Supabase receipt insert notice (persisted locally):', err);
   }
 
+  // Trigger UI notification event
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_created', { detail: newReceipt }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
   return newReceipt;
+}
+
+export const requestDepositQuote = createWarehouseReceipt;
+
+/**
+ * Step 2: Warehouse Admin provides customized rent quote & assigns chamber
+ */
+export async function provideWarehouseQuote(receiptId, { quotedRatePerTonne, quotedMonthlyRent, chamber, notes }) {
+  const localList = getLocalReceipts();
+  const idx = localList.findIndex((r) => r.id === receiptId);
+  if (idx < 0) return null;
+
+  const current = localList[idx];
+  const rateTonne = Number(quotedRatePerTonne || current.quotedRatePerTonne || 350);
+  const totalQty = Number(current.totalQuantity || 1000);
+  const monthlyRent = Number(quotedMonthlyRent || Math.round((totalQty / 1000) * rateTonne));
+
+  const updated = {
+    ...current,
+    status: 'quote_provided',
+    quotedRatePerTonne: rateTonne,
+    storageFeeMonthly: monthlyRent,
+    quotedMonthlyRent: monthlyRent,
+    chamber: chamber || current.chamber,
+    warehouseNotes: notes || `Rent quoted at ₹${rateTonne}/Tonne/mo (Total ₹${monthlyRent}/mo)`,
+    quotedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  localList[idx] = updated;
+  saveLocalReceipts(localList);
+
+  try {
+    await supabase
+      .from('warehouse_receipts')
+      .update({
+        status: 'quote_provided',
+        chamber: updated.chamber,
+        storage_fee_monthly: monthlyRent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', receiptId);
+  } catch (err) {
+    console.warn('Supabase provideWarehouseQuote sync notice:', err);
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_warehouse_quote_updated', { detail: updated }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return updated;
+}
+
+/**
+ * Step 3: Farmer accepts warehouse quote & initiates goods dispatch
+ */
+export async function acceptWarehouseQuote(receiptId) {
+  const localList = getLocalReceipts();
+  const idx = localList.findIndex((r) => r.id === receiptId);
+  if (idx < 0) return null;
+
+  const current = localList[idx];
+  const updated = {
+    ...current,
+    status: 'in_transit',
+    quoteAcceptedAt: new Date().toISOString(),
+    transitDispatchedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  localList[idx] = updated;
+  saveLocalReceipts(localList);
+
+  try {
+    await supabase
+      .from('warehouse_receipts')
+      .update({
+        status: 'in_transit',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', receiptId);
+  } catch (err) {
+    console.warn('Supabase acceptWarehouseQuote sync notice:', err);
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_warehouse_quote_updated', { detail: updated }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return updated;
+}
+
+/**
+ * Farmer declines quote or cancels request
+ */
+export async function declineWarehouseQuote(receiptId, reason = 'Quote declined by depositor') {
+  const localList = getLocalReceipts();
+  const idx = localList.findIndex((r) => r.id === receiptId);
+  if (idx < 0) return null;
+
+  const current = localList[idx];
+  const updated = {
+    ...current,
+    status: 'rejected',
+    rejectionReason: reason,
+    rejectedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  localList[idx] = updated;
+  saveLocalReceipts(localList);
+
+  try {
+    await supabase
+      .from('warehouse_receipts')
+      .update({
+        status: 'rejected',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', receiptId);
+  } catch (err) {
+    console.warn('Supabase declineWarehouseQuote sync notice:', err);
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_warehouse_quote_updated', { detail: updated }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return updated;
+}
+
+/**
+ * Step 4: Warehouse confirms gate arrival, assayer check, and officially issues eNWR
+ */
+export async function confirmProduceInward(receiptId, { actualWeight, assayerGrade, moisture, chamberBay }) {
+  const localList = getLocalReceipts();
+  const idx = localList.findIndex((r) => r.id === receiptId);
+  if (idx < 0) return null;
+
+  const current = localList[idx];
+  const verifiedWeight = Number(actualWeight || current.totalQuantity || 1000);
+  const verifiedGrade = assayerGrade || current.grade || 'A';
+  const now = new Date();
+  const durationDays = Number(current.storageDays || 60);
+
+  const updated = {
+    ...current,
+    status: 'stored',
+    totalQuantity: verifiedWeight,
+    availableQuantity: verifiedWeight,
+    grade: verifiedGrade,
+    chamber: chamberBay || current.chamber,
+    assayedQuality: {
+      moisture: moisture ? `${moisture}%` : '11.8%',
+      purity: '99.2%',
+      grade: verifiedGrade,
+      assayStatus: `WDRA Certified Grade ${verifiedGrade}`,
+      assayedAt: now.toISOString(),
+    },
+    depositedAt: now.toISOString(),
+    lastRentPaidAt: now.toISOString(),
+    validUntil: new Date(now.getTime() + durationDays * 86400000).toISOString(),
+    updatedAt: now.toISOString(),
+  };
+
+  localList[idx] = updated;
+  saveLocalReceipts(localList);
+
+  try {
+    await supabase
+      .from('warehouse_receipts')
+      .update({
+        status: 'stored',
+        total_quantity: verifiedWeight,
+        available_quantity: verifiedWeight,
+        grade: verifiedGrade,
+        chamber: updated.chamber,
+        assayed_quality: updated.assayedQuality,
+        deposited_at: updated.depositedAt,
+        valid_until: updated.validUntil,
+        updated_at: updated.updatedAt,
+      })
+      .eq('id', receiptId);
+  } catch (err) {
+    console.warn('Supabase confirmProduceInward sync notice:', err);
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_stored', { detail: updated }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return updated;
+}
+
+/**
+ * Simple Monthly Rent Deadline Tracker
+ */
+export function calculateMonthlyRentDeadline(receipt) {
+  if (!receipt || receipt.status !== 'stored') return null;
+
+  const now = new Date();
+  let deposited = receipt.depositedAt ? new Date(receipt.depositedAt) : now;
+  if (isNaN(deposited.getTime())) deposited = now;
+
+  let lastPaid = receipt.lastRentPaidAt ? new Date(receipt.lastRentPaidAt) : deposited;
+  if (isNaN(lastPaid.getTime())) lastPaid = deposited;
+
+  // Next monthly due date (30 days from last paid/deposited date)
+  const nextDueDate = new Date(lastPaid.getTime() + 30 * 86400000);
+  const diffDays = Math.ceil((nextDueDate - now) / (1000 * 60 * 60 * 24));
+  const monthlyAmount = Number(receipt.storageFeeMonthly) || Math.round((Number(receipt.totalQuantity || 0) / 1000) * 350);
+
+  if (diffDays > 5) {
+    return {
+      status: 'paid',
+      label: `Paid • Next cycle in ${diffDays}d`,
+      daysRemaining: diffDays,
+      nextDueDate: nextDueDate.toISOString(),
+      monthlyAmount,
+      isDue: false,
+    };
+  } else if (diffDays >= 0) {
+    return {
+      status: 'due_soon',
+      label: diffDays === 0 ? 'Due Today' : `Due in ${diffDays}d`,
+      daysRemaining: diffDays,
+      nextDueDate: nextDueDate.toISOString(),
+      monthlyAmount,
+      isDue: true,
+    };
+  } else {
+    const overdueDays = Math.abs(diffDays);
+    return {
+      status: 'overdue',
+      label: `${overdueDays}d Overdue`,
+      daysRemaining: 0,
+      daysOverdue: overdueDays,
+      nextDueDate: nextDueDate.toISOString(),
+      monthlyAmount,
+      isDue: true,
+    };
+  }
 }
 
 // Official WDRA Accredited Certified Facilities
@@ -798,12 +1072,6 @@ export async function dispatchProduceFromWarehouse(receiptId, dispatchData = {})
   }
 
   return updatedReceipt;
-}
-
-export async function getWarehouseInventory(warehouseId) {
-  const all = await getWarehouseReceipts();
-  if (!warehouseId) return [];
-  return all.filter((r) => r.warehouseId === warehouseId);
 }
 
 const WAREHOUSE_PROFILES_KEY = 'agrolnk_warehouse_profiles';

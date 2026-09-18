@@ -10,9 +10,11 @@ import {
   ThermometerSnowflake,
   Receipt,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Truck,
+  ArrowRight
 } from 'lucide-react';
-import { calculateStorageRentalDues } from '../../utils/warehouses';
+import { calculateStorageRentalDues, calculateMonthlyRentDeadline } from '../../utils/warehouses';
 
 export default function InventoryCard({
   inventory,
@@ -20,6 +22,7 @@ export default function InventoryCard({
   onList,
   onRequestFinancing,
   onPayRent,
+  onReviewQuote,
 }) {
   if (!inventory) return null;
 
@@ -28,6 +31,11 @@ export default function InventoryCard({
     Boolean(inventory?.chamber?.toLowerCase()?.includes('cold'));
 
   const dues = calculateStorageRentalDues(inventory);
+  const deadline = calculateMonthlyRentDeadline(inventory);
+  const isStored = inventory?.status === 'stored' || inventory?.status === 'partially_listed';
+  const isQuoteProvided = inventory?.status === 'quote_provided';
+  const isQuoteRequested = inventory?.status === 'quote_requested';
+  const isInTransit = inventory?.status === 'in_transit';
 
   return (
     <Card
@@ -38,8 +46,16 @@ export default function InventoryCard({
         {/* 1. Header: Receipt ID & Status Badge */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
-              {isColdStorage ? (
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+              isStored ? 'bg-[#EBF5F0] text-[#0B3326]' : isQuoteProvided ? 'bg-blue-50 text-blue-700' : isInTransit ? 'bg-purple-50 text-purple-700' : 'bg-amber-50 text-amber-700'
+            }`}>
+              {isInTransit ? (
+                <Truck className="w-4 h-4 text-purple-600" />
+              ) : isQuoteProvided ? (
+                <Sparkles className="w-4 h-4 text-blue-600" />
+              ) : isQuoteRequested ? (
+                <Clock className="w-4 h-4 text-amber-600" />
+              ) : isColdStorage ? (
                 <ThermometerSnowflake className="w-4 h-4 text-[#10B981]" />
               ) : (
                 <Building2 className="w-4 h-4 text-[#10B981]" />
@@ -56,28 +72,41 @@ export default function InventoryCard({
           </div>
 
           <div className="flex items-center gap-1.5">
-            {dues?.isExpiringSoon && (
-              <Badge variant="amber" size="sm">
-                Expiring Soon
+            {isStored && (
+              <Badge variant="emerald" size="sm">
+                In Storage
               </Badge>
             )}
-            <Badge
-              variant={
-                inventory.status === 'stored'
-                  ? 'emerald'
-                  : inventory.status === 'partially_listed'
-                  ? 'blue'
-                  : inventory.status === 'listed'
-                  ? 'purple'
-                  : 'dark'
-              }
-              size="sm"
-            >
-              {inventory.status === 'stored' && 'In Storage'}
-              {inventory.status === 'partially_listed' && 'Partially Listed'}
-              {inventory.status === 'listed' && '100% Listed'}
-              {inventory.status === 'released' && 'Released'}
-            </Badge>
+            {isQuoteRequested && (
+              <Badge variant="yellow" size="sm">
+                Waiting for Quote
+              </Badge>
+            )}
+            {isQuoteProvided && (
+              <Badge variant="blue" size="sm">
+                Quote: ₹{inventory.quotedMonthlyRent || inventory.storageFeeMonthly}/mo
+              </Badge>
+            )}
+            {isInTransit && (
+              <Badge variant="purple" size="sm">
+                In Transit
+              </Badge>
+            )}
+            {inventory.status === 'partially_listed' && (
+              <Badge variant="blue" size="sm">
+                Partially Listed
+              </Badge>
+            )}
+            {inventory.status === 'listed' && (
+              <Badge variant="purple" size="sm">
+                100% Listed
+              </Badge>
+            )}
+            {inventory.status === 'rejected' && (
+              <Badge variant="red" size="sm">
+                Declined
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -104,7 +133,7 @@ export default function InventoryCard({
               Available
             </span>
             <span className="text-base font-extrabold text-[#0B3326] font-heading block">
-              {inventory.availableQuantity} {inventory.unit}
+              {inventory.availableQuantity || inventory.totalQuantity} {inventory.unit}
             </span>
             <span className="text-[10px] text-[#566861] block">
               Total: {inventory.totalQuantity} {inventory.unit}
@@ -134,26 +163,60 @@ export default function InventoryCard({
               </span>
             </div>
             <span className="font-bold text-[#0B3326] shrink-0">
-              ₹{dues?.monthlyRate || 350}/mo
+              ₹{Number(inventory.quotedMonthlyRent || inventory.storageFeeMonthly || dues?.monthlyRate || 350).toLocaleString('en-IN')}/mo
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-[#566861] px-2.5 py-1 rounded-xl bg-[#F2FBF6] border border-[#10B981]/15">
-            <div className="flex items-center gap-1 text-[#10B981] font-semibold">
-              <Clock className="w-3 h-3" />
-              <span>{dues?.daysRemaining} days validity left</span>
+          {/* Deadline / Cycle Indicator */}
+          {isStored && deadline && (
+            <div className="flex items-center justify-between text-[11px] text-[#566861] px-2.5 py-1 rounded-xl bg-[#F2FBF6] border border-[#10B981]/15">
+              <div className="flex items-center gap-1 text-[#10B981] font-semibold">
+                <Clock className="w-3 h-3" />
+                <span>{deadline.label}</span>
+              </div>
+              <span className="text-[10px] text-[#566861]">
+                Auto-deduct on sale
+              </span>
             </div>
-            <span className="text-[10px] text-[#566861]">
-              Auto-deduct on sale
-            </span>
-          </div>
+          )}
+
+          {isQuoteProvided && (
+            <div className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-center justify-between">
+              <span className="font-bold">Tariff Quoted by Admin</span>
+              <span className="font-extrabold text-blue-700">₹{inventory.quotedMonthlyRent}/mo</span>
+            </div>
+          )}
+
+          {isQuoteRequested && (
+            <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Awaiting warehouse admin tariff quote</span>
+            </div>
+          )}
+
+          {isInTransit && (
+            <div className="p-2 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-900 flex items-center gap-1.5">
+              <Truck className="w-3.5 h-3.5" />
+              <span>Goods in transit • Awaiting gate weighbridge</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 5. Balanced Bottom Action Bar (2-Row Action Grid) */}
+      {/* 5. Bottom Action Bar */}
       <div className="pt-3 border-t border-[#E5EDE8] space-y-2">
-        {/* Row 1: Full-width Primary Action */}
-        {inventory.availableQuantity > 0 && onList ? (
+        {isQuoteProvided && onReviewQuote ? (
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => onReviewQuote(inventory)}
+            icon={ArrowRight}
+            iconPosition="right"
+            className="w-full justify-center text-xs font-bold py-2.5 shadow-xs cursor-pointer bg-[#0B3326] text-white"
+          >
+            Review Quote & Send Goods
+          </Button>
+        ) : isStored && inventory.availableQuantity > 0 && onList ? (
           <Button
             variant="accent"
             size="md"
@@ -164,13 +227,17 @@ export default function InventoryCard({
           >
             Sell from Storage
           </Button>
+        ) : isStored ? (
+          <div className="py-2 text-center text-xs font-medium text-[#566861] bg-[#F8FAF8] rounded-xl border border-[#E5EDE8]">
+            {inventory.status === 'listed' ? '100% Listed on Market' : 'In Safe Storage'}
+          </div>
         ) : (
           <div className="py-2 text-center text-xs font-medium text-[#566861] bg-[#F8FAF8] rounded-xl border border-[#E5EDE8]">
-            {inventory.status === 'listed' ? '100% Listed on Market' : 'Fully Allocated'}
+            {isInTransit ? 'Awaiting Gate Inward' : 'Quote Pending'}
           </div>
         )}
 
-        {/* Row 2: Secondary Actions Grid */}
+        {/* Row 2: Secondary Actions */}
         <div className="grid grid-cols-3 gap-1.5">
           <Button
             variant="secondary"
@@ -183,7 +250,7 @@ export default function InventoryCard({
             Receipt
           </Button>
 
-          {onRequestFinancing && (
+          {isStored && onRequestFinancing && (
             <Button
               variant="outline"
               size="sm"
@@ -196,7 +263,7 @@ export default function InventoryCard({
             </Button>
           )}
 
-          {onPayRent && (
+          {isStored && onPayRent && (
             <Button
               variant="outline"
               size="sm"
@@ -213,4 +280,3 @@ export default function InventoryCard({
     </Card>
   );
 }
-

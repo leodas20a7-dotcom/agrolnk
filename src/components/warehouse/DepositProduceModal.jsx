@@ -156,10 +156,10 @@ export default function DepositProduceModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-[#0B3326] font-heading">
-                Deposit Produce to Warehouse
+                Deposit Produce / Request Storage Quote
               </h3>
               <span className="text-xs text-[#566861]">
-                Issue Official Warehouse Storage Receipt
+                Submit lot details for warehouse admin review & rent quote
               </span>
             </div>
           </div>
@@ -349,12 +349,15 @@ export default function DepositProduceModal({
             </div>
           )}
 
-          {/* WDRA Guarantee Banner */}
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
-            <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>
-              Warehouse storage is certified under government storage standards. Stored produce is fully insured and eligible for immediate working capital loans.
-            </span>
+          {/* 4-Step Workflow Banner */}
+          <div className="p-3.5 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 text-xs text-[#0B3326] space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-[#0B3326]">
+              <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
+              <span>How Storage Booking Works:</span>
+            </div>
+            <p className="text-[11px] text-[#566861] leading-relaxed">
+              1. Submit request ➔ 2. Warehouse sets confirmed monthly rent quote ➔ 3. You review, accept & dispatch goods ➔ 4. Official WDRA-insured <strong>e-NWR</strong> is issued upon gate arrival.
+            </p>
           </div>
 
           </div>
@@ -379,7 +382,7 @@ export default function DepositProduceModal({
               iconPosition="right"
               className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"
             >
-              {isSubmitting ? 'Issuing Receipt...' : 'Confirm Deposit & Issue Storage Receipt'}
+              {isSubmitting ? 'Sending Request...' : 'Send Deposit Request to Warehouse'}
             </Button>
           </div>
 
