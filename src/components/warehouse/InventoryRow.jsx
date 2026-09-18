@@ -11,12 +11,14 @@ export default function InventoryRow({
   onRequestFinancing,
   onPayRent,
 }) {
+  if (!inventory) return null;
+
   const isColdStorage =
-    inventory.warehouseName?.toLowerCase().includes('cold') ||
-    inventory.chamber?.toLowerCase().includes('cold');
+    Boolean(inventory?.warehouseName?.toLowerCase()?.includes('cold')) ||
+    Boolean(inventory?.chamber?.toLowerCase()?.includes('cold'));
 
   const dues = calculateStorageRentalDues(inventory);
-  const isStored = inventory.status === 'stored' || inventory.status === 'partially_listed';
+  const isStored = inventory?.status === 'stored' || inventory?.status === 'partially_listed';
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-left">

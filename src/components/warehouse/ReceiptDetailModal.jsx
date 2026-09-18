@@ -81,11 +81,18 @@ export default function ReceiptDetailModal({
                 Deposit Timestamp
               </span>
               <span className="text-xs font-semibold text-[#14211D]">
-                {new Date(inventory.depositedAt).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                {(() => {
+                  try {
+                    const d = inventory.depositedAt ? new Date(inventory.depositedAt) : new Date();
+                    return isNaN(d.getTime()) ? 'Recent Deposit' : d.toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    });
+                  } catch {
+                    return 'Recent Deposit';
+                  }
+                })()}
               </span>
             </div>
           </div>

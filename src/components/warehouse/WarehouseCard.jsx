@@ -14,15 +14,25 @@ import {
 import { openDirectChat } from '../../utils/chat';
 
 export default function WarehouseCard({ warehouse, onDeposit }) {
-  const isCold = warehouse.facilityType?.toLowerCase().includes('cold');
+  if (!warehouse) return null;
+
+  const isCold = Boolean(
+    warehouse.facilityType?.toLowerCase()?.includes('cold') ||
+    warehouse.name?.toLowerCase()?.includes('cold')
+  );
+
+  const occupancyPercent = Number(warehouse.occupancyPercent ?? warehouse.occupancyPct ?? 0);
+  const occupiedTonnes = Number(warehouse.occupiedTonnes ?? 0);
+  const totalCapacityTonnes = Number(warehouse.totalCapacityTonnes || warehouse.capacity || 2000);
+  const monthlyRatePerTonne = Number(warehouse.monthlyRatePerTonne || 350);
 
   const handleChat = () => {
     openDirectChat({
       partnerId: warehouse.id || warehouse.name?.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-      partnerName: warehouse.name,
+      partnerName: warehouse.name || 'Warehouse Operator',
       partnerRole: 'Warehouse Operator',
-      facilityName: warehouse.name,
-      initialMessage: `Hello, I am inquiring about storage capacity availability and deposit rates at ${warehouse.name}.`,
+      facilityName: warehouse.name || 'Warehouse',
+      initialMessage: `Hello, I am inquiring about storage capacity availability and deposit rates at ${warehouse.name || 'your warehouse'}.`,
     });
   };
 
@@ -42,14 +52,14 @@ export default function WarehouseCard({ warehouse, onDeposit }) {
             </div>
             <div>
               <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                {warehouse.name}
+                {warehouse.name || 'Certified Storage Hub'}
               </h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-bold text-[#10B981] uppercase tracking-wider">
-                  {warehouse.wdraCode}
+                  {warehouse.wdraCode || 'WDRA Certified'}
                 </span>
                 <span className="text-xs text-[#566861]">
-                  • {warehouse.district}, {warehouse.state}
+                  • {warehouse.district || 'District'}, {warehouse.state || 'State'}
                 </span>
               </div>
             </div>
@@ -65,7 +75,7 @@ export default function WarehouseCard({ warehouse, onDeposit }) {
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#566861] font-medium">Facility Type:</span>
             <span className="font-bold text-[#14211D] text-right truncate max-w-[200px]">
-              {warehouse.facilityType}
+              {warehouse.facilityType || 'WDRA Accredited Agri Storage'}
             </span>
           </div>
 
@@ -74,22 +84,22 @@ export default function WarehouseCard({ warehouse, onDeposit }) {
             <div className="flex items-center justify-between text-xs">
               <span className="text-[#566861] font-medium">Current Storage Capacity</span>
               <span className="font-extrabold text-[#0B3326]">
-                {warehouse.occupancyPercent}% Occupied
+                {occupancyPercent}% Occupied
               </span>
             </div>
 
             <div className="w-full bg-[#E5EDE8] h-2 rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all ${
-                  warehouse.occupancyPercent > 80 ? 'bg-[#D97706]' : 'bg-[#10B981]'
+                  occupancyPercent > 80 ? 'bg-[#D97706]' : 'bg-[#10B981]'
                 }`}
-                style={{ width: `${warehouse.occupancyPercent}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, occupancyPercent))}%` }}
               />
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-[#566861]">
-              <span>Stored: {warehouse.occupiedTonnes} T</span>
-              <span>Total: {warehouse.totalCapacityTonnes} Tonnes</span>
+              <span>Stored: {occupiedTonnes} T</span>
+              <span>Total: {totalCapacityTonnes} Tonnes</span>
             </div>
           </div>
 
@@ -97,7 +107,7 @@ export default function WarehouseCard({ warehouse, onDeposit }) {
           <div className="flex items-center justify-between pt-2 border-t border-[#E5EDE8] text-xs">
             <span className="text-[#566861]">Storage Rental Rate:</span>
             <span className="font-extrabold text-[#0B3326] font-heading text-sm">
-              ₹{warehouse.monthlyRatePerTonne} / Tonne / month
+              ₹{monthlyRatePerTonne} / Tonne / month
             </span>
           </div>
         </div>
@@ -108,7 +118,7 @@ export default function WarehouseCard({ warehouse, onDeposit }) {
             Chambers & Storage Cells
           </span>
           <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {(warehouse.chambers || ['Dry Storage', 'Cold Cell']).map((chamber, i) => (
+            {(Array.isArray(warehouse.chambers) && warehouse.chambers.length > 0 ? warehouse.chambers : ['Dry Storage', 'Cold Cell']).map((chamber, i) => (
               <span
                 key={i}
                 className="px-2.5 py-1 rounded-lg bg-[#EBF5F0] text-[#0B3326] text-[11px] font-semibold border border-[#10B981]/20"

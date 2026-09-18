@@ -83,11 +83,14 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
         getFarmerInventory(user.id),
         getWarehouses(),
       ]);
-      setInventoryList(inv || []);
-      setWarehousesList(whs || []);
-      setNotifications(getWarehouseNotifications(user.id, 'farmer'));
+      setInventoryList(Array.isArray(inv) ? inv.filter(Boolean) : []);
+      setWarehousesList(Array.isArray(whs) ? whs.filter(Boolean) : []);
+      setNotifications(getWarehouseNotifications(user.id, 'farmer') || []);
     } catch (err) {
       console.error('Error loading inventory:', err);
+      setInventoryList([]);
+      setWarehousesList([]);
+      setNotifications([]);
     } finally {
       hideGlobalLoader();
     }
@@ -97,18 +100,21 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
     loadData();
   }, [user.id]);
 
-  const totalKg = inventoryList.reduce((sum, i) => sum + (Number(i.totalQuantity) || 0), 0);
-  const availableKg = inventoryList.reduce((sum, i) => sum + (Number(i.availableQuantity) || 0), 0);
-  const totalValuation = inventoryList.reduce((sum, i) => sum + (Number(i.estimatedValue) || 0), 0);
+  const safeInventoryList = Array.isArray(inventoryList) ? inventoryList.filter(Boolean) : [];
+  const safeWarehousesList = Array.isArray(warehousesList) ? warehousesList.filter(Boolean) : [];
 
-  const totalInventoryPages = Math.ceil(inventoryList.length / ITEMS_PER_PAGE) || 1;
-  const paginatedInventory = inventoryList.slice(
+  const totalKg = safeInventoryList.reduce((sum, i) => sum + (Number(i?.totalQuantity) || 0), 0);
+  const availableKg = safeInventoryList.reduce((sum, i) => sum + (Number(i?.availableQuantity) || 0), 0);
+  const totalValuation = safeInventoryList.reduce((sum, i) => sum + (Number(i?.estimatedValue) || 0), 0);
+
+  const totalInventoryPages = Math.ceil(safeInventoryList.length / ITEMS_PER_PAGE) || 1;
+  const paginatedInventory = safeInventoryList.slice(
     (inventoryPage - 1) * ITEMS_PER_PAGE,
     inventoryPage * ITEMS_PER_PAGE
   );
 
-  const totalWarehousesPages = Math.ceil(warehousesList.length / ITEMS_PER_PAGE) || 1;
-  const paginatedWarehouses = warehousesList.slice(
+  const totalWarehousesPages = Math.ceil(safeWarehousesList.length / ITEMS_PER_PAGE) || 1;
+  const paginatedWarehouses = safeWarehousesList.slice(
     (warehousesPage - 1) * ITEMS_PER_PAGE,
     warehousesPage * ITEMS_PER_PAGE
   );
@@ -356,7 +362,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                   : 'bg-[#F8FAF8] text-[#566861]'
               }`}
             >
-              {inventoryList.length}
+              {safeInventoryList.length}
             </span>
           </button>
 
@@ -380,7 +386,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                   : 'bg-[#F8FAF8] text-[#566861]'
               }`}
             >
-              {warehousesList.length}
+              {safeWarehousesList.length}
             </span>
           </button>
         </div>
@@ -391,7 +397,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  Stored Commodity Batches ({inventoryList.length})
+                  Stored Commodity Batches ({safeInventoryList.length})
                 </h2>
                 <p className="text-xs text-[#566861]">
                   Directly list for sale or auction without moving produce from storage
@@ -404,7 +410,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
               />
             </div>
 
-            {inventoryList.length > 0 ? (
+            {safeInventoryList.length > 0 ? (
               <div className="space-y-6">
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -437,7 +443,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                 <Pagination
                   currentPage={inventoryPage}
                   totalPages={totalInventoryPages}
-                  totalItems={inventoryList.length}
+                  totalItems={safeInventoryList.length}
                   itemsPerPage={ITEMS_PER_PAGE}
                   onPageChange={setInventoryPage}
                 />
@@ -505,7 +511,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  Certified Storage Facilities ({warehousesList.length})
+                  Certified Storage Facilities ({safeWarehousesList.length})
                 </h2>
                 <p className="text-xs text-[#566861]">
                   WDRA accredited cold chain hubs, hermetic grain silos, and atmospheric vaults
@@ -513,7 +519,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
               </div>
             </div>
 
-            {warehousesList.length > 0 ? (
+            {safeWarehousesList.length > 0 ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {paginatedWarehouses.map((wh) => (
@@ -531,7 +537,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                 <Pagination
                   currentPage={warehousesPage}
                   totalPages={totalWarehousesPages}
-                  totalItems={warehousesList.length}
+                  totalItems={safeWarehousesList.length}
                   itemsPerPage={ITEMS_PER_PAGE}
                   onPageChange={setWarehousesPage}
                 />

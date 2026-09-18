@@ -69,35 +69,61 @@ function saveLocalReceipts(receipts) {
  * Calculate accrued storage rental dues and validity metrics for an e-NWR lot
  */
 export function calculateStorageRentalDues(receipt) {
-  if (!receipt) return null;
-
-  const totalQty = Number(receipt.totalQuantity || receipt.quantity || 0);
-  const monthlyRate = Number(receipt.storageFeeMonthly || Math.round((totalQty / 1000) * 350));
-  const dailyRate = monthlyRate / 30;
-
-  const depositedDate = receipt.depositedAt ? new Date(receipt.depositedAt) : new Date();
-  const lastPaidDate = receipt.lastRentPaidAt ? new Date(receipt.lastRentPaidAt) : depositedDate;
-  const now = new Date();
-
-  // Days since last rent payment
-  const daysDiff = Math.max(1, Math.ceil((now - lastPaidDate) / (1000 * 60 * 60 * 24)));
-  const accruedDue = Math.round(daysDiff * dailyRate);
-
-  // Expiry calculation
-  const validUntilDate = receipt.validUntil ? new Date(receipt.validUntil) : new Date(depositedDate.getTime() + 90 * 86400000);
-  const daysRemaining = Math.ceil((validUntilDate - now) / (1000 * 60 * 60 * 24));
-
-  return {
-    monthlyRate,
-    dailyRate: Math.round(dailyRate),
-    daysStored: daysDiff,
-    accruedDue,
-    daysRemaining: Math.max(0, daysRemaining),
-    validUntil: validUntilDate.toISOString(),
-    isExpiringSoon: daysRemaining <= 10 && daysRemaining > 0,
-    isExpired: daysRemaining <= 0,
+  const safeFallback = {
+    monthlyRate: 350,
+    dailyRate: 12,
+    daysStored: 0,
+    accruedDue: 0,
+    amountDue: 0,
+    daysRemaining: 90,
+    validUntil: new Date(Date.now() + 90 * 86400000).toISOString(),
+    isExpiringSoon: false,
+    isExpired: false,
     paymentMode: 'auto_deduct_or_direct',
   };
+
+  if (!receipt) return safeFallback;
+
+  try {
+    const totalQty = Number(receipt.totalQuantity || receipt.quantity || 0);
+    const monthlyRate = Number(receipt.storageFeeMonthly || Math.round((totalQty / 1000) * 350)) || 350;
+    const dailyRate = monthlyRate / 30;
+
+    const now = new Date();
+    let depositedDate = receipt.depositedAt ? new Date(receipt.depositedAt) : now;
+    if (isNaN(depositedDate.getTime())) depositedDate = now;
+
+    let lastPaidDate = receipt.lastRentPaidAt ? new Date(receipt.lastRentPaidAt) : depositedDate;
+    if (isNaN(lastPaidDate.getTime())) lastPaidDate = depositedDate;
+
+    // Days since last rent payment
+    const daysDiff = Math.max(1, Math.ceil((now - lastPaidDate) / (1000 * 60 * 60 * 24)));
+    const accruedDue = Math.round(daysDiff * dailyRate);
+
+    // Expiry calculation
+    let validUntilDate = receipt.validUntil ? new Date(receipt.validUntil) : new Date(depositedDate.getTime() + 90 * 86400000);
+    if (isNaN(validUntilDate.getTime())) {
+      validUntilDate = new Date(now.getTime() + 90 * 86400000);
+    }
+
+    const daysRemaining = Math.ceil((validUntilDate - now) / (1000 * 60 * 60 * 24));
+
+    return {
+      monthlyRate,
+      dailyRate: Math.round(dailyRate) || 12,
+      daysStored: isNaN(daysDiff) ? 0 : daysDiff,
+      accruedDue: isNaN(accruedDue) ? 0 : accruedDue,
+      amountDue: isNaN(accruedDue) ? 0 : accruedDue,
+      daysRemaining: isNaN(daysRemaining) ? 90 : Math.max(0, daysRemaining),
+      validUntil: isNaN(validUntilDate.getTime()) ? new Date().toISOString() : validUntilDate.toISOString(),
+      isExpiringSoon: !isNaN(daysRemaining) && daysRemaining <= 10 && daysRemaining > 0,
+      isExpired: !isNaN(daysRemaining) && daysRemaining <= 0,
+      paymentMode: 'auto_deduct_or_direct',
+    };
+  } catch (err) {
+    console.warn('Error calculating storage rental dues:', err);
+    return safeFallback;
+  }
 }
 
 /**
@@ -122,7 +148,8 @@ export async function payStorageRent(receiptId, paymentDetails = {}) {
   if (idx >= 0) {
     const existing = localList[idx];
     const prevValid = existing.validUntil ? new Date(existing.validUntil) : new Date();
-    const newValidUntil = new Date(Math.max(Date.now(), prevValid.getTime()) + (paymentRecord.extendedDays * 86400000)).toISOString();
+    const safePrevValid = isNaN(prevValid.getTime()) ? new Date() : prevValid;
+    const newValidUntil = new Date(Math.max(Date.now(), safePrevValid.getTime()) + (paymentRecord.extendedDays * 86400000)).toISOString();
 
     localList[idx] = {
       ...existing,
@@ -152,42 +179,46 @@ export async function payStorageRent(receiptId, paymentDetails = {}) {
  * Get warehouse & storage notifications and alerts
  */
 export function getWarehouseNotifications(userId, role = 'farmer') {
-  const receipts = getLocalReceipts();
+  const receipts = getLocalReceipts() || [];
   const notifications = [];
 
   receipts.forEach((r) => {
+    if (!r) return;
+    if (userId && r.farmerId && r.farmerId !== userId && role === 'farmer') return;
+
     const dues = calculateStorageRentalDues(r);
+    if (!dues) return;
 
     if (role === 'farmer') {
       if (dues.isExpiringSoon) {
         notifications.push({
-          id: `notif_exp_${r.id}`,
+          id: `notif_exp_${r.id || Math.random()}`,
           type: 'warning',
           title: 'Storage Validity Expiring Soon',
-          message: `${r.commodity} lot (${r.receiptNumber}) at ${r.warehouseName} has ${dues.daysRemaining} days remaining. Settle rent or list for direct sale.`,
+          message: `${r.commodity || 'Commodity'} lot (${r.receiptNumber || 'Receipt'}) at ${r.warehouseName || 'Warehouse'} has ${dues.daysRemaining} days remaining. Settle rent or list for direct sale.`,
           date: new Date().toISOString(),
           receiptId: r.id,
-          amountDue: dues.accruedDue,
+          amountDue: dues.accruedDue || dues.amountDue || 0,
         });
       }
       if (dues.accruedDue > 0 && dues.daysStored >= 25) {
         notifications.push({
-          id: `notif_rent_${r.id}`,
+          id: `notif_rent_${r.id || Math.random()}`,
           type: 'info',
           title: 'Monthly Storage Rent Due Reminder',
-          message: `Monthly rent of ₹${dues.accruedDue} is due for ${r.commodity} lot (${r.receiptNumber}). Auto-deduct on sale or pay online.`,
+          message: `Monthly rent of ₹${dues.accruedDue} is due for ${r.commodity || 'Commodity'} lot (${r.receiptNumber || 'Receipt'}). Auto-deduct on sale or pay online.`,
           date: new Date().toISOString(),
           receiptId: r.id,
-          amountDue: dues.accruedDue,
+          amountDue: dues.accruedDue || dues.amountDue || 0,
         });
       }
     } else if (role === 'warehouse') {
       if (r.status === 'stored') {
         notifications.push({
-          id: `wh_notif_${r.id}`,
+          id: `wh_notif_${r.id || Math.random()}`,
           type: 'success',
           title: 'Active In-Storage Produce Lot',
-          message: `${r.farmerName || 'Farmer'} deposited ${r.totalQuantity} ${r.unit} ${r.commodity} in ${r.chamber}.`,
+          message: `${r.farmerName || 'Farmer'} deposited ${r.totalQuantity || 0} ${r.unit || 'kg'} ${r.commodity || 'Produce'} in ${r.chamber || 'Chamber'}.`,
           date: r.depositedAt || new Date().toISOString(),
           receiptId: r.id,
         });

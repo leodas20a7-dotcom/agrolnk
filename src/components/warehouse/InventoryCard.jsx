@@ -21,9 +21,11 @@ export default function InventoryCard({
   onRequestFinancing,
   onPayRent,
 }) {
+  if (!inventory) return null;
+
   const isColdStorage =
-    inventory.warehouseName?.toLowerCase().includes('cold') ||
-    inventory.chamber?.toLowerCase().includes('cold');
+    Boolean(inventory?.warehouseName?.toLowerCase()?.includes('cold')) ||
+    Boolean(inventory?.chamber?.toLowerCase()?.includes('cold'));
 
   const dues = calculateStorageRentalDues(inventory);
 
