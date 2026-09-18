@@ -151,6 +151,22 @@ function getRoleStarterNotifications(user) {
     ];
   }
 
+  if (role === 'warehouse') {
+    return [
+      {
+        id: `seed_notif_wh1_${userId}`,
+        recipientId: userId,
+        recipientRole: 'warehouse',
+        title: 'Depot Vault Ready',
+        message: 'Manage produce intake receipts and e-NWR digital deposits.',
+        type: 'system',
+        link: '/warehouse-dashboard',
+        isRead: false,
+        createdAt: minsAgo(20),
+      },
+    ];
+  }
+
   return [];
 }
 
@@ -195,7 +211,7 @@ export async function getNotificationsForUser(user) {
 
   let allNotifications = Array.from(map.values());
 
-  // If completely empty for this user, seed starter role notifications
+  // If completely empty for this user, seed starter role notifications in-memory
   const userHasNotifications = allNotifications.some((n) => {
     const rId = n.recipientId ? String(n.recipientId).toLowerCase() : '';
     const rRole = n.recipientRole ? String(n.recipientRole).toLowerCase() : '';
@@ -204,8 +220,13 @@ export async function getNotificationsForUser(user) {
 
   if (!userHasNotifications) {
     const starters = getRoleStarterNotifications(user);
-    allNotifications = [...starters, ...allNotifications];
-    saveLocalNotifications(allNotifications);
+    if (starters.length > 0) {
+      allNotifications = [...starters, ...allNotifications];
+      // Save quietly to local storage without re-triggering event loop
+      try {
+        localStorage.setItem(LOCAL_NOTIFICATIONS_KEY, JSON.stringify(allNotifications));
+      } catch {}
+    }
   }
 
   // Strict zero-conflict filtering

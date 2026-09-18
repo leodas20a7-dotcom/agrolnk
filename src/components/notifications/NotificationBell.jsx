@@ -26,8 +26,6 @@ import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 export default function NotificationBell({ currentUser, onNavigate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [filter, setFilter] = useState('all'); // 'all' | 'unread'
-  const [isPinging, setIsPinging] = useState(false);
   const dropdownRef = useRef(null);
 
   const user = currentUser || { id: '', role: 'farmer' };
@@ -46,8 +44,6 @@ export default function NotificationBell({ currentUser, onNavigate }) {
 
     const handleUpdate = () => {
       loadNotifications();
-      setIsPinging(true);
-      setTimeout(() => setIsPinging(false), 3000);
     };
 
     const unsubscribe = subscribeToCrossTabSync((msg) => {
@@ -179,7 +175,7 @@ export default function NotificationBell({ currentUser, onNavigate }) {
           isOpen ? 'bg-[#F2FBF6] border-[#10B981]/40 text-[#0B3326]' : 'border-transparent'
         }`}
       >
-        <Bell className={`w-5 h-5 ${isPinging ? 'animate-bounce text-[#10B981]' : ''}`} />
+        <Bell className="w-5 h-5" />
 
         {/* Unread Counter Dot Badge */}
         {unreadCount > 0 && (
