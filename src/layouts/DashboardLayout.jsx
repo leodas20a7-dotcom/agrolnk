@@ -61,13 +61,18 @@ export default function DashboardLayout({
   useEffect(() => {
     const handleProfileUpdated = (e) => {
       if (e?.detail) {
-        setActiveUser(e.detail);
+        setActiveUser((prev) => ({
+          ...prev,
+          ...e.detail,
+          // Guarantee role is never wiped or defaulted incorrectly
+          role: e.detail.role || prev.role || currentUser?.role || getCurrentUser()?.role || 'farmer',
+        }));
         setCurrentKycStatus(getResolvedUserKycStatus(e.detail));
       }
     };
     window.addEventListener('agrolnk_user_profile_updated', handleProfileUpdated);
     return () => window.removeEventListener('agrolnk_user_profile_updated', handleProfileUpdated);
-  }, []);
+  }, [currentUser]);
 
   // Listen to KYC verification approvals / status updates globally
   useEffect(() => {
@@ -82,6 +87,7 @@ export default function DashboardLayout({
             ...prev,
             kycStatus: profile.kycStatus,
             verificationStatus: profile.kycStatus,
+            role: profile.role || prev.role || currentUser?.role || getCurrentUser()?.role || 'farmer',
           }));
         }
       } catch {}
@@ -91,6 +97,7 @@ export default function DashboardLayout({
 
     window.addEventListener('agrolnk_kyc_updated', syncKyc);
     window.addEventListener('storage', syncKyc);
+
     return () => {
       window.removeEventListener('agrolnk_kyc_updated', syncKyc);
       window.removeEventListener('storage', syncKyc);
@@ -99,6 +106,7 @@ export default function DashboardLayout({
 
   const user = {
     ...activeUser,
+    role: activeUser?.role || currentUser?.role || getCurrentUser()?.role || 'farmer',
     kycStatus: currentKycStatus,
     verificationStatus: currentKycStatus,
   };

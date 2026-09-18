@@ -285,6 +285,7 @@ export default function WarehouseSetupModal({
         warehouseName: companyName.trim(),
         companyName: companyName.trim(),
         operatorName: user.name || 'Warehouse Operator',
+        role: 'warehouse',
         email: user.email || '',
         phone: user.phone || '',
         totalCapacityTonnes: numCapacity,

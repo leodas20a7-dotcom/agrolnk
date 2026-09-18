@@ -624,6 +624,7 @@ export async function getWarehouseOperatorProfile(userIdOrEmail) {
           id: profile.id,
           email: profile.email,
           phone: profile.phone || meta.phone || '',
+          role: profile.role || 'warehouse',
           operatorName: profile.name,
           companyName: profile.company_name || meta.companyName || meta.warehouseName || '',
           warehouseName: profile.company_name || meta.warehouseName || meta.companyName || '',
@@ -653,7 +654,11 @@ export async function getWarehouseOperatorProfile(userIdOrEmail) {
   }
 
   // 2. Fallback to local storage
-  return getWarehouseProfile(userIdOrEmail);
+  const localProfile = getWarehouseProfile(userIdOrEmail);
+  if (localProfile) {
+    return { ...localProfile, role: localProfile.role || 'warehouse' };
+  }
+  return null;
 }
 
 /**
@@ -688,6 +693,7 @@ export async function saveWarehouseProfile(userId, profileData) {
       // Keep live approved profile active, but record pending modification for Admin Review
       updated = {
         ...existing,
+        role: existing.role || profileData.role || 'warehouse',
         // Operational fields update immediately
         websiteUrl: profileData.websiteUrl || existing.websiteUrl,
         phone: profileData.phone || existing.phone,
@@ -705,6 +711,7 @@ export async function saveWarehouseProfile(userId, profileData) {
         ...existing,
         ...profileData,
         userId,
+        role: profileData.role || existing.role || 'warehouse',
         setupCompleted: true,
         hasPendingReview: isInitialSetup,
         verificationStatus: isInitialSetup ? 'pending' : (existing.verificationStatus || 'pending'),
