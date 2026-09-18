@@ -174,128 +174,74 @@ export default function NotificationBell({ currentUser, onNavigate }) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+        title={unreadCount > 0 ? `${unreadCount} new notifications` : 'Notifications'}
         className={`relative p-2 rounded-2xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F2FBF6] transition-all cursor-pointer border ${
           isOpen ? 'bg-[#F2FBF6] border-[#10B981]/40 text-[#0B3326]' : 'border-transparent'
         }`}
       >
         <Bell className={`w-5 h-5 ${isPinging ? 'animate-bounce text-[#10B981]' : ''}`} />
 
-        {/* Unread Badge Counter Pill */}
+        {/* Unread Counter Dot Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#10B981] px-1 text-[10px] font-extrabold text-white shadow-sm ring-2 ring-white animate-in zoom-in-50 duration-200">
-            {unreadCount > 99 ? '99+' : unreadCount}
-            <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#34D399] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10B981]"></span>
-            </span>
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#10B981] px-1 text-[10px] font-bold text-white shadow-xs ring-2 ring-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {/* Floating Notifications Dropdown Popover */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-3xl bg-white border border-[#E5EDE8] shadow-2xl z-50 overflow-hidden text-left animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl bg-white border border-[#E5EDE8] shadow-xl z-50 overflow-hidden text-left animate-in fade-in zoom-in-95 duration-150">
           
-          {/* Popover Header */}
-          <div className="p-4 pb-3 border-b border-[#E5EDE8] bg-[#FAFBF9] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#0B3326] text-white flex items-center justify-center">
-                <Bell className="w-4 h-4 text-[#34D399]" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-[#0B3326] font-heading flex items-center gap-1.5">
-                  Notifications
-                  {unreadCount > 0 && (
-                    <span className="text-[10px] bg-[#10B981]/15 text-[#0B3326] px-2 py-0.5 rounded-full font-bold">
-                      {unreadCount} new
-                    </span>
-                  )}
-                </h4>
-                <span className="text-[10px] text-[#566861]">Real-time alerts for your desk</span>
-              </div>
-            </div>
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-[#E5EDE8] bg-[#FAFBF9] flex items-center justify-between">
+            <span className="text-xs font-bold text-[#0B3326]">
+              Notifications {unreadCount > 0 ? `(${unreadCount})` : ''}
+            </span>
 
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={handleMarkAllRead}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#10B981] hover:text-[#0B3326] hover:underline cursor-pointer"
+                className="text-[11px] font-medium text-[#10B981] hover:text-[#0B3326] hover:underline cursor-pointer"
               >
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span>Mark all read</span>
+                Mark all read
               </button>
             )}
           </div>
 
-          {/* Filter Pills */}
-          <div className="px-4 py-2 border-b border-[#E5EDE8] flex items-center gap-2 bg-white text-xs">
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                filter === 'all'
-                  ? 'bg-[#0B3326] text-white'
-                  : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#F2FBF6]'
-              }`}
-            >
-              All ({notifications.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('unread')}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                filter === 'unread'
-                  ? 'bg-[#10B981] text-white'
-                  : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#F2FBF6]'
-              }`}
-            >
-              Unread ({unreadCount})
-            </button>
-          </div>
-
-          {/* Scrollable Notification Items List */}
-          <div className="max-h-[360px] overflow-y-auto divide-y divide-[#E5EDE8]/60 overscroll-contain">
-            {filteredNotifications.length === 0 ? (
-              <div className="p-8 text-center space-y-2">
-                <div className="w-12 h-12 mx-auto rounded-full bg-[#F2FBF6] border border-[#10B981]/30 flex items-center justify-center text-[#10B981]">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <h5 className="text-xs font-bold text-[#0B3326]">You're all caught up!</h5>
-                <p className="text-[11px] text-[#566861]">
-                  {filter === 'unread'
-                    ? 'No unread notifications at the moment.'
-                    : 'New orders, deliveries, and payment alerts will show up here.'}
-                </p>
+          {/* Notifications List */}
+          <div className="max-h-[300px] overflow-y-auto divide-y divide-[#E5EDE8]/50 overscroll-contain">
+            {notifications.length === 0 ? (
+              <div className="p-6 text-center text-xs text-[#566861]">
+                <span>No new notifications.</span>
               </div>
             ) : (
-              filteredNotifications.map((notif) => (
+              notifications.map((notif) => (
                 <div
                   key={notif.id}
                   onClick={() => handleItemClick(notif)}
-                  className={`p-3.5 sm:p-4 transition-all cursor-pointer group flex items-start gap-3 relative ${
+                  className={`p-3 transition-colors cursor-pointer group flex items-start gap-2.5 relative ${
                     notif.isRead
                       ? 'bg-white hover:bg-[#F8FAF8]'
-                      : 'bg-[#F0FDF4]/70 hover:bg-[#F0FDF4]'
+                      : 'bg-emerald-50/40 hover:bg-emerald-50/70'
                   }`}
                 >
-                  {/* Category Icon Badge */}
+                  {/* Category Icon */}
                   <div
-                    className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${getTypeBg(
+                    className={`w-7 h-7 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${getTypeBg(
                       notif.type
                     )}`}
                   >
                     {getTypeIcon(notif.type)}
                   </div>
 
-                  {/* Body */}
-                  <div className="flex-1 min-w-0 pr-4">
+                  {/* Body Text */}
+                  <div className="flex-1 min-w-0 pr-3">
                     <div className="flex items-center justify-between gap-1">
                       <span
                         className={`text-xs block truncate ${
-                          notif.isRead
-                            ? 'font-bold text-[#14211D]'
-                            : 'font-extrabold text-[#0B3326]'
+                          notif.isRead ? 'font-semibold text-[#14211D]' : 'font-bold text-[#0B3326]'
                         }`}
                       >
                         {notif.title}
@@ -305,42 +251,28 @@ export default function NotificationBell({ currentUser, onNavigate }) {
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-[#566861] mt-0.5 leading-relaxed line-clamp-2">
+                    <p className="text-[11px] text-[#566861] mt-0.5 leading-snug line-clamp-2">
                       {notif.message}
                     </p>
-
-                    {notif.link && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#10B981] mt-1.5 group-hover:underline">
-                        <span>View details</span>
-                        <ChevronRight className="w-3 h-3" />
-                      </span>
-                    )}
                   </div>
 
-                  {/* Unread Indicator Dot */}
+                  {/* Unread Dot */}
                   {!notif.isRead && (
-                    <div className="w-2 h-2 rounded-full bg-[#10B981] shrink-0 mt-2 shadow-xs" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0 mt-2" />
                   )}
 
-                  {/* Delete button on hover */}
+                  {/* Delete / Dismiss on Hover */}
                   <button
                     type="button"
                     onClick={(e) => handleDelete(e, notif.id)}
-                    className="absolute right-2 top-2 p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                    className="absolute right-1.5 top-1.5 p-1 rounded-md text-slate-300 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                     title="Dismiss"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               ))
             )}
-          </div>
-
-          {/* Footer */}
-          <div className="p-2.5 bg-[#FAFBF9] border-t border-[#E5EDE8] text-center">
-            <span className="text-[10px] text-[#566861]">
-              Filtered strictly for your verified {user.role || 'user'} account
-            </span>
           </div>
 
         </div>
