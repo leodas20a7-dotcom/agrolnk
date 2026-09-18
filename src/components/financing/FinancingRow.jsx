@@ -94,18 +94,24 @@ export default function FinancingRow({
         )}
 
         <Button
-          variant={needsMarginPayment ? 'accent' : (isFinancier ? (request.status === 'approved' || request.status === 'repaid' ? 'secondary' : 'accent') : 'secondary')}
+          variant={needsMarginPayment ? 'accent' : (isFinancier ? (request.status === 'pending' || request.status === 'under_review' ? 'accent' : 'secondary') : 'secondary')}
           size="sm"
           onClick={() => onView(request)}
           icon={ArrowRight}
           iconPosition="right"
           className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
         >
-          {request.status === 'repaid'
-            ? 'View Clearance Receipt'
+          {request.status === 'repaid' || request.status === 'settled'
+            ? 'View Loan Details'
             : needsMarginPayment
             ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
-            : (isFinancier ? (request.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve') : 'View Details')}
+            : isFinancier
+            ? (request.status === 'approved' || request.status === 'disbursed'
+                ? 'View Loan Details'
+                : request.status === 'rejected'
+                ? 'Declined'
+                : 'Approve Loan')
+            : 'View Details'}
         </Button>
       </div>
     </div>

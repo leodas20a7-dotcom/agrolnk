@@ -295,7 +295,9 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                           </Badge>
                           <Badge
                             variant={
-                              req.status === 'approved'
+                              req.status === 'repaid' || req.status === 'settled'
+                                ? 'emerald'
+                                : req.status === 'approved' || req.status === 'disbursed'
                                 ? 'emerald'
                                 : req.status === 'rejected'
                                 ? 'rose'
@@ -303,7 +305,15 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                             }
                             size="sm"
                           >
-                            <span className="capitalize">{req.status.replace('_', ' ')}</span>
+                            <span className="capitalize">
+                              {req.status === 'repaid' || req.status === 'settled'
+                                ? 'Repaid'
+                                : req.status === 'approved' || req.status === 'disbursed'
+                                ? 'Approved'
+                                : req.status === 'rejected'
+                                ? 'Declined'
+                                : 'Pending Review'}
+                            </span>
                           </Badge>
                         </div>
                       </div>
@@ -311,25 +321,31 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                       {/* Financial Metrics Box */}
                       <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-[#566861]">Commodity Lot:</span>
+                          <span className="text-[#566861]">Item / Reason:</span>
                           <span className="font-bold text-[#14211D]">
-                            {req.commodity} ({req.grade})
+                            {req.commodity || req.purpose || 'Agricultural'} {req.grade ? `(${req.grade})` : ''}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-[#566861]">Underlying Trade Value:</span>
+                          <span className="text-[#566861]">Trade / Order Value:</span>
                           <span className="font-bold text-[#14211D]">
-                            ₹{req.transactionValue.toLocaleString('en-IN')}
+                            ₹{req.transactionValue ? req.transactionValue.toLocaleString('en-IN') : (req.requestedAmount || 0).toLocaleString('en-IN')}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs pt-1 border-t border-[#E5EDE8]">
-                          <span className="text-[#0B3326] font-bold">Requested Advance:</span>
+                          <span className="text-[#0B3326] font-bold">
+                            {req.status === 'repaid' || req.status === 'settled'
+                              ? 'Amount Repaid:'
+                              : req.status === 'approved'
+                              ? 'Approved Amount:'
+                              : 'Requested Amount:'}
+                          </span>
                           <span className="text-sm font-extrabold text-[#0B3326]">
-                            ₹{req.requestedAmount.toLocaleString('en-IN')}
+                            ₹{(Number(req.approvedAmount) || Number(req.requestedAmount) || 0).toLocaleString('en-IN')}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-[#566861]">LTV Collateral Ratio:</span>
+                          <span className="text-[#566861]">Loan Ratio:</span>
                           <span className="font-bold text-[#10B981]">{ltv}%</span>
                         </div>
                       </div>
@@ -338,11 +354,11 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#566861]">
                         <span className="flex items-center gap-1.5">
                           <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                          <span>Credit Score: <b className="text-[#10B981]">{req.creditScore || 780}</b></span>
+                          <span>Trust Score: <b className="text-[#10B981]">{req.creditScore || 780}</b></span>
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Lock className="w-3.5 h-3.5 text-[#10B981]" />
-                          <span>{req.collateralType || 'Escrow Lien'}</span>
+                          <span>{req.collateralType || 'Order Payment Guarantee'}</span>
                         </span>
                       </div>
 
@@ -356,17 +372,53 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     {/* Card Actions */}
                     <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
                       <span className="text-[11px] text-[#566861]">
-                        Proposed Rate: <b>{req.interestRate || 0.85}% / mo</b>
+                        {req.status === 'repaid' || req.status === 'settled' ? (
+                          <span className="text-emerald-700 font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Fully Cleared</span>
+                          </span>
+                        ) : (
+                          <>Interest: <b>{req.interestRate || 0.85}% / mo</b></>
+                        )}
                       </span>
 
-                      <Button
-                        variant={req.status === 'approved' ? 'secondary' : 'accent'}
-                        size="sm"
-                        onClick={() => setSelectedRequestForReview(req)}
-                        className="font-bold text-xs cursor-pointer"
-                      >
-                        {req.status === 'approved' ? 'View Term Sheet' : 'Underwrite & Approve'}
-                      </Button>
+                      {req.status === 'repaid' || req.status === 'settled' ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedRequestForReview(req)}
+                          className="font-bold text-xs cursor-pointer border-[#E5EDE8]"
+                        >
+                          View Loan Details
+                        </Button>
+                      ) : req.status === 'approved' || req.status === 'disbursed' ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedRequestForReview(req)}
+                          className="font-bold text-xs cursor-pointer border-[#E5EDE8]"
+                        >
+                          View Loan Details
+                        </Button>
+                      ) : req.status === 'rejected' ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled
+                          className="font-bold text-xs opacity-60"
+                        >
+                          Declined
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          onClick={() => setSelectedRequestForReview(req)}
+                          className="font-bold text-xs cursor-pointer"
+                        >
+                          Approve Loan
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );
