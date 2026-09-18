@@ -18,12 +18,31 @@ export default function DepositProduceModal({
     role: 'farmer',
   };
 
-  const warehouses = getWarehouses();
+  const defaultWarehouse = {
+    id: 'wh_salem_01',
+    name: 'Salem Agro Cold Storage & WDRA Hub',
+    district: 'Salem',
+    state: 'Tamil Nadu',
+    monthlyRatePerTonne: 350,
+    chambers: [
+      'Chamber A1 - Low Temperature (2°C - 4°C)',
+      'Chamber A2 - Controlled Atmosphere (6°C - 10°C)',
+      'Chamber B1 - Hermetic Grain Silo',
+      'Chamber B2 - Dry Spices Vault'
+    ],
+  };
+
+  const rawWarehouses = getWarehouses();
+  const warehouses = Array.isArray(rawWarehouses) && rawWarehouses.length > 0 ? rawWarehouses : [defaultWarehouse];
+
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(
-    preselectedWarehouse?.id || warehouses[0]?.id || 'wh_salem_01'
+    preselectedWarehouse?.id || warehouses[0]?.id || defaultWarehouse.id
   );
 
-  const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0];
+  const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0] || defaultWarehouse;
+  const availableChambers = (Array.isArray(currentWarehouse?.chambers) && currentWarehouse.chambers.length > 0)
+    ? currentWarehouse.chambers
+    : defaultWarehouse.chambers;
 
   const [commodity, setCommodity] = useState('');
   const [variety, setVariety] = useState('');
@@ -32,11 +51,17 @@ export default function DepositProduceModal({
   const [unit, setUnit] = useState('kg');
   const [priceEstimate, setPriceEstimate] = useState('');
   const [chamber, setChamber] = useState(
-    currentWarehouse?.chambers?.[0] || 'Chamber A1 (Dry Storage)'
+    availableChambers[0] || 'Chamber A1 (Dry Storage)'
   );
   const [storageDays, setStorageDays] = useState('60');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (availableChambers?.length > 0 && !availableChambers.includes(chamber)) {
+      setChamber(availableChambers[0]);
+    }
+  }, [selectedWarehouseId]);
 
   const estimatedTotalValue = (Number(quantity) || 0) * (Number(priceEstimate) || 0);
   const ratePerTonne = Number(currentWarehouse?.monthlyRatePerTonne || 350);
@@ -129,14 +154,16 @@ export default function DepositProduceModal({
               options={warehouses.map((wh) => ({
                 value: wh.id,
                 label: wh.name,
-                subtext: `${wh.district}, ${wh.state} • ₹${wh.monthlyRatePerTonne}/Tonne`,
-                badge: `₹${wh.monthlyRatePerTonne}/T`,
+                subtext: `${wh.district || 'District'}, ${wh.state || 'State'} • ₹${wh.monthlyRatePerTonne || 350}/Tonne`,
+                badge: `₹${wh.monthlyRatePerTonne || 350}/T`,
               }))}
               value={selectedWarehouseId}
               onChange={(val) => {
                 setSelectedWarehouseId(val);
                 const selected = warehouses.find((w) => w.id === val);
-                if (selected) setChamber(selected.chambers[0]);
+                if (selected && Array.isArray(selected.chambers) && selected.chambers.length > 0) {
+                  setChamber(selected.chambers[0]);
+                }
               }}
               placeholder="Select Storage Facility"
               searchPlaceholder="Search warehouse name, city..."
@@ -149,7 +176,7 @@ export default function DepositProduceModal({
               Storage Chamber / Cell
             </label>
             <SearchableSelect
-              options={currentWarehouse.chambers.map((ch) => ({
+              options={availableChambers.map((ch) => ({
                 value: ch,
                 label: ch,
               }))}
