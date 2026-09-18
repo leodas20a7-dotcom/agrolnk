@@ -478,6 +478,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
       {/* Pre-Buy Quality Inspection Modal */}
       <BuyerInspectionModal
         order={listing}
+        initialInspection={existingInspection}
         buyerUser={user}
         isOpen={isInspectionOpen}
         onClose={() => {
@@ -489,6 +490,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
           loadInspection();
         }}
         onProceedToBuy={() => {
+          setIsInspectionOpen(false);
           setIsModalOpen(true);
         }}
       />
