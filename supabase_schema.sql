@@ -132,9 +132,27 @@ CREATE TABLE IF NOT EXISTS public.orders (
     settlement_mode TEXT DEFAULT 'route_deferred',
     settlement_status TEXT DEFAULT 'pending_deposit' CHECK (settlement_status IN ('pending_deposit', 'captured_on_hold', 'released_to_seller', 'refunded_to_buyer')),
     delivery_otp TEXT,
+    delivery_location JSONB DEFAULT '{}'::jsonb,
+    buyer_phone TEXT,
+    buyer_email TEXT,
+    buyer_company TEXT,
+    buyer_address TEXT,
+    buyer_district TEXT,
+    buyer_state TEXT,
+    buyer_pincode TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure delivery_location and buyer address columns exist on orders table
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery_location JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_phone TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_email TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_company TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_address TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_district TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_state TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_pincode TEXT;
 
 -- ============================================================================
 -- 5. LOGISTICS & DELIVERIES

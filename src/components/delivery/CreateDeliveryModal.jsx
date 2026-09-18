@@ -16,13 +16,38 @@ export default function CreateDeliveryModal({
     role: 'farmer',
   };
 
-  const defaultPickupState = order?.pickupLocation?.state || order?.state || user?.state || '';
-  const defaultPickupDistrict = order?.pickupLocation?.district || order?.district || user?.district || '';
-  const defaultPickupAddress = order?.pickupLocation?.address || order?.village || user?.address || '';
+  const defaultPickupState = order?.pickupLocation?.state || order?.state || user?.state || 'Tamil Nadu';
+  const defaultPickupDistrict = order?.pickupLocation?.district || order?.district || user?.district || 'Salem';
+  const defaultPickupAddress = order?.pickupLocation?.address || order?.village || user?.address || 'Farmgate Primary Packing Yard';
 
-  const defaultDestState = order?.deliveryLocation?.state || '';
-  const defaultDestDistrict = order?.deliveryLocation?.district || '';
-  const defaultDestAddress = order?.deliveryLocation?.address || '';
+  const defaultDestState =
+    order?.deliveryLocation?.state ||
+    order?.buyerState ||
+    order?.destinationState ||
+    'Tamil Nadu';
+
+  const defaultDestDistrict =
+    order?.deliveryLocation?.district ||
+    order?.buyerDistrict ||
+    order?.destinationDistrict ||
+    'Chennai';
+
+  const defaultDestAddress =
+    order?.deliveryLocation?.address ||
+    order?.buyerAddress ||
+    order?.destinationAddress ||
+    'Wholesale Commercial Hub & Market Depot';
+
+  const defaultDestPincode =
+    order?.deliveryLocation?.pincode ||
+    order?.buyerPincode ||
+    '';
+
+  const buyerBusiness =
+    order?.deliveryLocation?.companyName ||
+    order?.buyerCompany ||
+    order?.buyerName ||
+    'Buyer Retail Enterprise';
 
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
@@ -51,10 +76,8 @@ export default function CreateDeliveryModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!pickupAddress.trim() || !deliveryAddress.trim()) {
-      setError('Please provide complete pickup and destination addresses.');
-      return;
-    }
+    const finalPickup = pickupAddress.trim() || defaultPickupAddress;
+    const finalDest = deliveryAddress.trim() || defaultDestAddress;
 
     setIsSubmitting(true);
 
@@ -82,12 +105,14 @@ export default function CreateDeliveryModal({
         pickupLocation: {
           state: pickupState,
           district: pickupDistrict,
-          address: pickupAddress.trim(),
+          address: finalPickup,
         },
         deliveryLocation: {
           state: deliveryState,
           district: deliveryDistrict,
-          address: deliveryAddress.trim(),
+          address: finalDest,
+          pincode: defaultDestPincode,
+          companyName: buyerBusiness,
         },
         preferredPickupDate: formattedDate,
         notes: notes.trim(),
@@ -142,7 +167,7 @@ export default function CreateDeliveryModal({
               </Badge>
             </div>
             <span className="text-xs text-[#566861]">
-              Buyer: <strong>{order?.buyerName || 'Buyer'}</strong>
+              Buyer: <strong>{order?.buyerCompany || order?.buyerName || 'Buyer'}</strong>
             </span>
           </div>
 
@@ -204,40 +229,37 @@ export default function CreateDeliveryModal({
             />
           </div>
 
-          {/* Delivery Destination Section */}
-          <div className="p-4 rounded-2xl bg-white border border-[#E5EDE8] space-y-3">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326] uppercase tracking-wider">
-              <MapPin className="w-4 h-4 text-[#0B3326]" />
-              <span>Buyer Delivery Destination</span>
+          {/* Delivery Destination Section (Read-Only Verified) */}
+          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326] uppercase tracking-wider">
+                <MapPin className="w-4 h-4 text-[#10B981]" />
+                <span>Buyer Delivery Destination</span>
+              </div>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Verified Buyer Destination
+              </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={deliveryDistrict}
-                onChange={(e) => setDeliveryDistrict(e.target.value)}
-                placeholder="District (e.g. Chennai)"
-                className="px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                required
-              />
-              <input
-                type="text"
-                value={deliveryState}
-                onChange={(e) => setDeliveryState(e.target.value)}
-                placeholder="State (e.g. Tamil Nadu)"
-                className="px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                required
-              />
-            </div>
+            <div className="p-3.5 rounded-xl bg-white border border-[#E5EDE8] space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Recipient / Shop</span>
+                  <strong className="text-[#0B3326] text-xs sm:text-sm">{buyerBusiness}</strong>
+                </div>
+                <Badge variant="blue" size="sm">
+                  <span>{deliveryDistrict}, {deliveryState}</span>
+                </Badge>
+              </div>
 
-            <input
-              type="text"
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              placeholder="Buyer Hub / Market Destination Address"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-              required
-            />
+              <div className="pt-1.5 border-t border-[#E5EDE8]/60 text-xs">
+                <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Delivery Address</span>
+                <span className="text-[#14211D] font-medium block mt-0.5">
+                  {deliveryAddress} {defaultDestPincode ? `• PIN: ${defaultDestPincode}` : ''}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Dynamic Distance & Fair Tariff Guide */}

@@ -113,9 +113,21 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         ...orderPayload,
         buyerId: user.id || '',
         buyerName: user.name || 'Buyer',
-        buyerPhone: user.phone || '',
+        buyerPhone: user.phone || orderPayload?.buyerPhone || '',
         buyerEmail: user.email || '',
-        buyerCompany: user.companyName || user.orgName || '',
+        buyerCompany: user.companyName || user.orgName || orderPayload?.buyerCompany || '',
+        buyerAddress: orderPayload?.buyerAddress || user.address || '',
+        buyerDistrict: orderPayload?.buyerDistrict || user.district || '',
+        buyerState: orderPayload?.buyerState || user.state || '',
+        buyerPincode: orderPayload?.buyerPincode || user.pincode || '',
+        deliveryLocation: orderPayload?.deliveryLocation || {
+          state: orderPayload?.buyerState || user.state || 'Tamil Nadu',
+          district: orderPayload?.buyerDistrict || user.district || 'Chennai',
+          address: orderPayload?.buyerAddress || user.address || 'Wholesale Market Hub',
+          pincode: orderPayload?.buyerPincode || user.pincode || '600001',
+          companyName: user.companyName || user.name || 'Buyer Enterprise',
+          phone: user.phone || '',
+        },
       });
 
       // Deduct quantity from live listing

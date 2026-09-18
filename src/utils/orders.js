@@ -5,6 +5,19 @@ import { getUserBankDetails } from './bankDetails';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
+  const deliveryLocation = row.delivery_location || (
+    row.buyer_address || row.buyer_district || row.buyer_state
+      ? {
+          state: row.buyer_state || row.state || '',
+          district: row.buyer_district || row.district || '',
+          address: row.buyer_address || '',
+          pincode: row.buyer_pincode || '',
+          companyName: row.buyer_company || '',
+          phone: row.buyer_phone || '',
+        }
+      : null
+  );
+
   return {
     id: row.id,
     orderNumber: row.order_number,
@@ -15,6 +28,11 @@ function mapOrderFromDb(row) {
     buyerPhone: row.buyer_phone || row.buyerPhone || row.meta?.buyer_phone || row.meta?.buyerPhone || null,
     buyerEmail: row.buyer_email || row.buyerEmail || row.meta?.buyer_email || row.meta?.buyerEmail || null,
     buyerCompany: row.buyer_company || row.buyerCompany || row.meta?.buyer_company || row.meta?.buyerCompany || null,
+    buyerAddress: row.buyer_address || deliveryLocation?.address || null,
+    buyerDistrict: row.buyer_district || deliveryLocation?.district || null,
+    buyerState: row.buyer_state || deliveryLocation?.state || null,
+    buyerPincode: row.buyer_pincode || deliveryLocation?.pincode || null,
+    deliveryLocation: deliveryLocation,
     farmerId: row.farmer_id,
     farmerName: row.farmer_name,
     commodity: row.commodity,
@@ -288,6 +306,15 @@ export async function createOrder(orderData) {
     const orderNumber = orderData.orderNumber || generateOrderNum();
     const isTradeCredit = orderData.paymentMode === 'trade_credit';
 
+    const deliveryLocation = orderData.deliveryLocation || {
+      state: orderData.buyerState || orderData.deliveryState || orderData.state || '',
+      district: orderData.buyerDistrict || orderData.deliveryDistrict || orderData.district || '',
+      address: orderData.buyerAddress || orderData.deliveryAddress || '',
+      pincode: orderData.buyerPincode || orderData.deliveryPincode || '',
+      companyName: orderData.buyerCompany || '',
+      phone: orderData.buyerPhone || '',
+    };
+
     const localItem = {
       id: orderId,
       orderNumber: orderNumber,
@@ -298,6 +325,11 @@ export async function createOrder(orderData) {
       buyerPhone: orderData.buyerPhone || '',
       buyerEmail: orderData.buyerEmail || '',
       buyerCompany: orderData.buyerCompany || '',
+      buyerAddress: orderData.buyerAddress || deliveryLocation.address || '',
+      buyerDistrict: orderData.buyerDistrict || deliveryLocation.district || '',
+      buyerState: orderData.buyerState || deliveryLocation.state || '',
+      buyerPincode: orderData.buyerPincode || deliveryLocation.pincode || '',
+      deliveryLocation: deliveryLocation,
       farmerId: orderData.farmerId || null,
       farmerName: orderData.farmerName || 'Verified Producer',
       commodity: orderData.commodity || 'Produce',
@@ -334,6 +366,14 @@ const isUuid = (str) =>
       auction_id: isUuid(orderData.auctionId) ? orderData.auctionId : null,
       buyer_id: isUuid(orderData.buyerId) ? orderData.buyerId : null,
       buyer_name: orderData.buyerName || 'Buyer',
+      buyer_phone: orderData.buyerPhone || '',
+      buyer_email: orderData.buyerEmail || '',
+      buyer_company: orderData.buyerCompany || '',
+      buyer_address: orderData.buyerAddress || deliveryLocation.address || '',
+      buyer_district: orderData.buyerDistrict || deliveryLocation.district || '',
+      buyer_state: orderData.buyerState || deliveryLocation.state || '',
+      buyer_pincode: orderData.buyerPincode || deliveryLocation.pincode || '',
+      delivery_location: deliveryLocation,
       farmer_id: isUuid(orderData.farmerId) ? orderData.farmerId : null,
       farmer_name: orderData.farmerName || 'Verified Producer',
       commodity: orderData.commodity || 'Produce',
