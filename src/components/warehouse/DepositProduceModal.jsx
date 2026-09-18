@@ -271,8 +271,8 @@ export default function DepositProduceModal({
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="e.g. 1000"
-                min="1"
-                step="10"
+                min="0.1"
+                step="any"
                 className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
                 required
               />
@@ -287,8 +287,8 @@ export default function DepositProduceModal({
                 value={priceEstimate}
                 onChange={(e) => setPriceEstimate(e.target.value)}
                 placeholder="e.g. 42"
-                min="1"
-                step="1"
+                min="0.01"
+                step="any"
                 className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
                 required
               />

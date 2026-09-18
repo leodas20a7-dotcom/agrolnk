@@ -326,7 +326,7 @@ export default function TransportQuoteModal({
               <input
                 type="number"
                 min="0"
-                step="10"
+                step="any"
                 placeholder="0"
                 value={freightAmount}
                 onFocus={() => {

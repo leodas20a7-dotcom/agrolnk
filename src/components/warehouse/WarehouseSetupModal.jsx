@@ -481,8 +481,8 @@ export default function WarehouseSetupModal({
                       type="number"
                       value={totalCapacityTonnes}
                       onChange={(e) => setTotalCapacityTonnes(e.target.value)}
-                      min="10"
-                      step="10"
+                      min="1"
+                      step="any"
                       placeholder="e.g. 2000"
                       required
                       className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
@@ -534,8 +534,8 @@ export default function WarehouseSetupModal({
                       type="number"
                       value={monthlyRatePerTonne}
                       onChange={(e) => setMonthlyRatePerTonne(e.target.value)}
-                      min="50"
-                      step="10"
+                      min="1"
+                      step="any"
                       placeholder="350"
                       required
                       className="w-full pl-8 pr-24 py-2.5 rounded-xl border border-[#10B981]/40 bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
@@ -708,8 +708,8 @@ export default function WarehouseSetupModal({
                                 type="number"
                                 value={currentRate}
                                 onChange={(e) => handleTypeRateChange(opt.id, e.target.value)}
-                                min="50"
-                                step="10"
+                                min="1"
+                                step="any"
                                 className="w-full px-2.5 py-1 rounded-lg border border-[#10B981] bg-white text-xs font-bold text-right text-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
                               />
                             </div>
