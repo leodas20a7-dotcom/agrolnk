@@ -189,7 +189,7 @@ export default function NotificationBell({ currentUser, onNavigate }) {
 
       {/* Floating Notifications Dropdown Popover */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl bg-white border border-[#E5EDE8] shadow-xl z-50 overflow-hidden text-left animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xl z-50 overflow-hidden text-left animate-in fade-in zoom-in-95 duration-150 max-w-[calc(100vw-24px)] mx-auto sm:mx-0">
           
           {/* Header */}
           <div className="px-4 py-3 border-b border-[#E5EDE8] bg-[#FAFBF9] flex items-center justify-between">
@@ -220,7 +220,7 @@ export default function NotificationBell({ currentUser, onNavigate }) {
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-[300px] overflow-y-auto divide-y divide-[#E5EDE8]/50 overscroll-contain">
+          <div className="max-h-[340px] overflow-y-auto divide-y divide-[#E5EDE8]/50 overscroll-contain">
             {notifications.length === 0 ? (
               <div className="p-6 text-center text-xs text-[#566861]">
                 <span>No new notifications.</span>
@@ -246,7 +246,7 @@ export default function NotificationBell({ currentUser, onNavigate }) {
                   </div>
 
                   {/* Body Text */}
-                  <div className="flex-1 min-w-0 pr-3">
+                  <div className="flex-1 min-w-0 pr-4">
                     <div className="flex items-center justify-between gap-1">
                       <span
                         className={`text-xs block truncate ${
@@ -270,14 +270,14 @@ export default function NotificationBell({ currentUser, onNavigate }) {
                     <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0 mt-2" />
                   )}
 
-                  {/* Delete / Dismiss on Hover */}
+                  {/* Delete / Dismiss Button (Visible by default on touch screens, on hover on desktop) */}
                   <button
                     type="button"
                     onClick={(e) => handleDelete(e, notif.id)}
-                    className="absolute right-1.5 top-1.5 p-1 rounded-md text-slate-300 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className="absolute right-1.5 top-1.5 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
                     title="Dismiss"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))
