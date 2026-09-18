@@ -21,6 +21,35 @@ export default function SelfTransportModal({
 
   if (!order) return null;
 
+  const defaultDestState =
+    order?.deliveryLocation?.state ||
+    order?.buyerState ||
+    order?.destinationState ||
+    'Tamil Nadu';
+
+  const defaultDestDistrict =
+    order?.deliveryLocation?.district ||
+    order?.buyerDistrict ||
+    order?.destinationDistrict ||
+    'Chennai';
+
+  const defaultDestAddress =
+    order?.deliveryLocation?.address ||
+    order?.buyerAddress ||
+    order?.destinationAddress ||
+    'Wholesale Commercial Hub & Market Depot';
+
+  const defaultDestPincode =
+    order?.deliveryLocation?.pincode ||
+    order?.buyerPincode ||
+    '';
+
+  const buyerBusiness =
+    order?.deliveryLocation?.companyName ||
+    order?.buyerCompany ||
+    order?.buyerName ||
+    'Buyer Retail Enterprise';
+
   const validate = () => {
     const cleanVehicle = vehicleNumber.trim().toUpperCase();
     if (!cleanVehicle) {
@@ -50,14 +79,26 @@ export default function SelfTransportModal({
     try {
       const cleanVehicle = vehicleNumber.trim().toUpperCase();
       
-      // 1. Create or update delivery record in Supabase with vehicle details
-      const deliveryRecord = await createOrUpdateSelfTransport(order, {
-        vehicleNumber: cleanVehicle,
-        driverName: driverName.trim(),
-        driverPhone: driverPhone.trim(),
-        dispatchTime,
-        notes: notes.trim(),
-      });
+      // 1. Create or update delivery record in Supabase with vehicle details and delivery location
+      const deliveryRecord = await createOrUpdateSelfTransport(
+        {
+          ...order,
+          deliveryLocation: {
+            state: defaultDestState,
+            district: defaultDestDistrict,
+            address: defaultDestAddress,
+            pincode: defaultDestPincode,
+            companyName: buyerBusiness,
+          },
+        },
+        {
+          vehicleNumber: cleanVehicle,
+          driverName: driverName.trim(),
+          driverPhone: driverPhone.trim(),
+          dispatchTime,
+          notes: notes.trim(),
+        }
+      );
 
       // 2. Advance order status to in_transit
       await updateOrderStatus(order.id, 'in_transit');
@@ -107,7 +148,7 @@ export default function SelfTransportModal({
               {order.commodity} ({order.variety || 'Standard'}, Grade {order.grade || 'A'})
             </span>
             <span className="text-[#566861]">
-              Buyer: <strong>{order.buyerName || 'Buyer'}</strong>
+              Buyer: <strong>{buyerBusiness}</strong>
             </span>
           </div>
           <div className="text-right">
@@ -115,6 +156,31 @@ export default function SelfTransportModal({
             <span className="text-sm font-extrabold text-[#0B3326]">
               {order.quantity} {order.unit || 'kg'}
             </span>
+          </div>
+        </div>
+
+        {/* Buyer Delivery Destination (Read-Only) */}
+        <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold text-[#0B3326] uppercase tracking-wider text-[11px]">
+              <MapPin className="w-3.5 h-3.5 text-[#10B981]" />
+              <span>Buyer Delivery Destination</span>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              Verified Destination
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[#14211D] text-xs sm:text-sm">{buyerBusiness}</span>
+              <Badge variant="blue" size="sm">
+                <span>{defaultDestDistrict}, {defaultDestState}</span>
+              </Badge>
+            </div>
+            <p className="text-[#566861] text-xs leading-relaxed">
+              {defaultDestAddress} {defaultDestPincode ? `• PIN: ${defaultDestPincode}` : ''}
+            </p>
           </div>
         </div>
 

@@ -87,8 +87,16 @@ export default function OrderSummary({
     : order.district ? `${order.district}, ${order.state || 'India'}` : 'Origin Farmgate';
 
   const destStr = typeof order.deliveryLocation === 'object'
-    ? `${order.deliveryLocation?.district || 'Chennai'}, ${order.deliveryLocation?.state || 'Tamil Nadu'}`
-    : 'Destination Wholesale Terminal';
+    ? `${order.deliveryLocation?.district || order.buyerDistrict || 'Chennai'}, ${order.deliveryLocation?.state || order.buyerState || 'Tamil Nadu'}`
+    : `${order.buyerDistrict || 'Chennai'}, ${order.buyerState || 'Tamil Nadu'}`;
+
+  const pickupAddressFull = typeof order.pickupLocation === 'object'
+    ? `${order.pickupLocation?.address || ''}${order.pickupLocation?.address ? ', ' : ''}${order.pickupLocation?.district || order.district || 'Salem'}, ${order.pickupLocation?.state || order.state || 'Tamil Nadu'}`
+    : `${order.district || 'Salem'}, ${order.state || 'Tamil Nadu'}`;
+
+  const destAddressFull = typeof order.deliveryLocation === 'object'
+    ? `${order.deliveryLocation?.address || order.buyerAddress || 'Wholesale Market Hub'}${order.deliveryLocation?.address || order.buyerAddress ? ', ' : ''}${order.deliveryLocation?.district || order.buyerDistrict || 'Chennai'}, ${order.deliveryLocation?.state || order.buyerState || 'Tamil Nadu'}${order.deliveryLocation?.pincode ? ` (${order.deliveryLocation.pincode})` : ''}`
+    : `${order.buyerAddress ? `${order.buyerAddress}, ` : ''}${order.buyerDistrict || 'Chennai'}, ${order.buyerState || 'Tamil Nadu'}`;
 
   const isFarmerFinancing = Boolean(
     !isBuyer &&
@@ -193,6 +201,19 @@ export default function OrderSummary({
               {isBuyer && isBuyerFinanced ? '30 Days Net Repayment' : 'Held safely until delivery'}
             </span>
           </div>
+        </div>
+
+        {/* Full Delivery Route & Destination (Read-Only) */}
+        <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
+            <span className="text-[#566861]">
+              <strong>{viewerRole === 'farmer' ? 'Delivery Destination' : 'Farmgate Pickup'}:</strong> {viewerRole === 'farmer' ? destAddressFull : pickupAddressFull}
+            </span>
+          </div>
+          <Badge variant="blue" size="sm">
+            <span>{viewerRole === 'farmer' ? destStr : pickupStr}</span>
+          </Badge>
         </div>
 
         {/* Sleek Credit Facility Tag (If credit is active) */}
