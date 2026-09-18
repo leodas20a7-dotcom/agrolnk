@@ -79,11 +79,6 @@ export default function NotificationBell({ currentUser, onNavigate }) {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (filter === 'unread') return !n.isRead;
-    return true;
-  });
-
   const handleMarkAllRead = async () => {
     await markAllNotificationsAsRead(user);
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
