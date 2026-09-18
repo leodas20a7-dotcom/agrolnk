@@ -415,13 +415,29 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
 
 export function getUserChannelKeys(currentUser) {
   const defaultKeys = ['agrolnk_support_desk'];
+  if (!currentUser) return defaultKeys;
+
+  const idStr = currentUser.id ? String(currentUser.id).toLowerCase().replace(/[^a-z0-9]/g, '_') : '';
+  const emailStr = currentUser.email ? String(currentUser.email).toLowerCase().replace(/[^a-z0-9]/g, '_') : '';
+  const nameStr = currentUser.name ? String(currentUser.name).toLowerCase().replace(/[^a-z0-9]/g, '_') : '';
+
   const threads = getStoredThreads();
   const allStored = Object.keys(threads);
-  return Array.from(new Set([...defaultKeys, ...allStored]));
+
+  const matched = allStored.filter((key) => {
+    if (key === 'agrolnk_support_desk') return true;
+    if (idStr && key.includes(idStr)) return true;
+    if (emailStr && key.includes(emailStr)) return true;
+    if (nameStr && nameStr.length >= 3 && key.includes(nameStr)) return true;
+    return false;
+  });
+
+  return Array.from(new Set([...defaultKeys, ...matched]));
 }
 
 export function getTotalPlatformUnreadCount(currentUser) {
-  const currentUserId = currentUser?.id || 'usr_current';
+  if (!currentUser) return 0;
+  const currentUserId = currentUser.id || 'usr_current';
   const allowedThreadKeys = getUserChannelKeys(currentUser);
   const threads = getStoredThreads();
 
