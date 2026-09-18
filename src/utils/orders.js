@@ -3,6 +3,7 @@ import { createDelivery } from './deliveries';
 import { processLiveEscrowDeposit, processLiveEscrowRelease } from './escrowApi';
 import { getUserBankDetails } from './bankDetails';
 import { broadcastDataChange } from './syncChannel';
+import { sendNotification } from './notifications';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -427,6 +428,20 @@ const isUuid = (str) =>
       window.dispatchEvent(new Event('storage'));
     }
 
+    // Dispatch targeted notification to Producer
+    try {
+      sendNotification({
+        recipientId: localItem.farmerId,
+        recipientRole: 'farmer',
+        title: `New Purchase Order ${localItem.orderNumber}`,
+        message: `Order for ${localItem.quantity} ${localItem.unit} of ${localItem.commodity} received from ${localItem.buyerName}. Total ₹${localItem.totalAmount.toLocaleString('en-IN')} escrow funded.`,
+        type: 'order',
+        link: '/farmer-orders',
+      });
+    } catch (notifErr) {
+      console.warn('Order notification notice:', notifErr);
+    }
+
     return localItem;
   } catch (err) {
     console.error('Error creating order:', err);
@@ -632,6 +647,17 @@ export async function confirmOrderReceipt(orderId) {
       window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: resolved }));
       window.dispatchEvent(new Event('storage'));
     }
+
+    try {
+      sendNotification({
+        recipientId: resolved.farmerId,
+        recipientRole: 'farmer',
+        title: `Produce Arrival Confirmed: ${resolved.orderNumber}`,
+        message: `Buyer ${resolved.buyerName || 'Buyer'} has inspected and confirmed produce arrival. Escrow release is being finalized.`,
+        type: 'order',
+        link: '/farmer-orders',
+      });
+    } catch (notifErr) {}
 
     return resolved;
   } catch (err) {

@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { createOrUpdateSelfTransport } from '../../utils/deliveries';
 import { updateOrderStatus } from '../../utils/orders';
+import { sendNotification } from '../../utils/notifications';
 
 export default function SelfTransportModal({
   order,
@@ -102,6 +103,18 @@ export default function SelfTransportModal({
 
       // 2. Advance order status to in_transit
       await updateOrderStatus(order.id, 'in_transit');
+
+      // 3. Notify Buyer with Vehicle registration details
+      try {
+        sendNotification({
+          recipientId: order.buyerId,
+          recipientRole: 'buyer',
+          title: `Transport Dispatched: ${order.orderNumber}`,
+          message: `Producer has dispatched your consignment of ${order.quantity} ${order.unit || 'kg'} ${order.commodity} in vehicle ${cleanVehicle}.${driverName ? ` Driver: ${driverName}.` : ''}`,
+          type: 'delivery',
+          link: '/buyer-orders',
+        });
+      } catch (notifErr) {}
 
       setIsSubmitting(false);
       onSuccess?.(deliveryRecord);

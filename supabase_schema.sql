@@ -604,6 +604,37 @@ BEGIN
     ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouse_receipts;
     END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notifications'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+    END IF;
 END $$;
+
+-- ============================================================================
+-- 14. NOTIFICATIONS REGISTRY TABLE
+-- Strict role and user-targeted notifications
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id TEXT PRIMARY KEY,
+    recipient_id TEXT,
+    recipient_role TEXT,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT DEFAULT 'general',
+    link TEXT,
+    action_payload JSONB DEFAULT '{}'::jsonb,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read notifications" ON public.notifications FOR SELECT USING (true);
+CREATE POLICY "Allow public insert notifications" ON public.notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update notifications" ON public.notifications FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete notifications" ON public.notifications FOR DELETE USING (true);
+
 
 

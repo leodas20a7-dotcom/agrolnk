@@ -32,6 +32,7 @@ import { logoutUser, getCurrentUser, getResolvedUserKycStatus, fetchCurrentProfi
 import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
 import UserProfileModal from '../components/profile/UserProfileModal';
+import NotificationBell from '../components/notifications/NotificationBell';
 import { getTotalPlatformUnreadCount, subscribeToGlobalUnreadMessages } from '../utils/chat';
 
 export default function DashboardLayout({
@@ -520,6 +521,12 @@ export default function DashboardLayout({
                   );
                 })()
               )}
+
+              {/* Header Real-Time Notification Bell */}
+              <NotificationBell
+                currentUser={user}
+                onNavigate={onNavigate}
+              />
 
               {/* User Avatar & Name Clickable Button */}
               <button
