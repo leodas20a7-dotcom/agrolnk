@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { createDelivery } from './deliveries';
 import { processLiveEscrowDeposit, processLiveEscrowRelease } from './escrowApi';
 import { getUserBankDetails } from './bankDetails';
+import { broadcastDataChange } from './syncChannel';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -834,6 +835,7 @@ if (typeof window !== 'undefined') {
           if (payload.new) {
             const mapped = mapOrderFromDb(payload.new);
             saveLocalOrder(mapped);
+            broadcastDataChange('orders', payload.eventType || 'UPDATE', mapped);
             window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
             window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
           }

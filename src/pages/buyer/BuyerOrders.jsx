@@ -31,26 +31,28 @@ import {
 import { getBuyerOrders, confirmOrderReceipt } from '../../utils/orders';
 import { confirmBuyerReceipt } from '../../utils/deliveries';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
 export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedOrder, setSelectedOrder] = useState(navState?.newOrder || null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // In-order financing modals
   const [orderForFinancing, setOrderForFinancing] = useState(null);
   const [requestForReview, setRequestForReview] = useState(null);
 
-  // In-order delivery modals
+  // In-order delivery modal
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
 
-  // In-order inspection modal
+  // In-order physical arrival inspection & acceptance modal
   const [orderForInspection, setOrderForInspection] = useState(null);
 
   const fetchOrders = async (showFlash = false) => {
     if (showFlash) {
-      showGlobalLoader('Loading Procurement Agreements...', 'Fetching order contracts & delivery OTP milestones...');
+      showGlobalLoader('Loading Orders...', 'Fetching procurement records & escrow agreements...');
     }
     try {
       const data = await getBuyerOrders(user.id, user);
@@ -71,19 +73,39 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   useEffect(() => {
     fetchOrders(true);
 
-    const handleUpdated = () => {
+    const handleUpdated = (payload) => {
+      const item = payload?.data || payload?.detail;
+      if (item && (item.id || item.orderNumber)) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === item.id || o.orderNumber === item.orderNumber ? { ...o, ...item } : o))
+        );
+        setSelectedOrder((prev) =>
+          prev && (prev.id === item.id || prev.orderNumber === item.orderNumber) ? { ...prev, ...item } : prev
+        );
+      }
       fetchOrders(false);
     };
 
+    const unsubscribeCrossTab = subscribeToCrossTabSync((msg) => {
+      if (msg.domain === 'orders' || msg.domain === 'deliveries' || msg.domain === 'financing') {
+        handleUpdated(msg);
+      }
+    });
+
     window.addEventListener('agrolnk_orders_updated', handleUpdated);
     window.addEventListener('agrolnk_order_updated', handleUpdated);
+    window.addEventListener('agrolnk_deliveries_updated', handleUpdated);
+    window.addEventListener('agrolnk_delivery_updated', handleUpdated);
     window.addEventListener('agrolnk_financing_updated', handleUpdated);
     window.addEventListener('storage', handleUpdated);
 
     return () => {
       hideGlobalLoader();
+      unsubscribeCrossTab();
       window.removeEventListener('agrolnk_orders_updated', handleUpdated);
       window.removeEventListener('agrolnk_order_updated', handleUpdated);
+      window.removeEventListener('agrolnk_deliveries_updated', handleUpdated);
+      window.removeEventListener('agrolnk_delivery_updated', handleUpdated);
       window.removeEventListener('agrolnk_financing_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
     };

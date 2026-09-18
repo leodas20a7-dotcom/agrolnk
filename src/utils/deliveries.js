@@ -1,5 +1,6 @@
 // Agrolnk Supabase Deliveries & Logistics Engine
 import { supabase } from '../lib/supabase';
+import { broadcastDataChange } from './syncChannel';
 
 function mapDeliveryFromDb(row) {
   if (!row) return null;
@@ -820,3 +821,26 @@ export async function getDeliveryById(deliveryId) {
 }
 
 export { initiateRazorpayTransportCheckout } from './razorpayRouteClient';
+
+// Setup Supabase Realtime Subscription for Deliveries Table
+if (typeof window !== 'undefined') {
+  try {
+    supabase
+      .channel('public:deliveries')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deliveries' },
+        (payload) => {
+          if (payload.new) {
+            const mapped = mapDeliveryFromDb(payload.new);
+            broadcastDataChange('deliveries', payload.eventType || 'UPDATE', mapped);
+            window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: mapped }));
+            window.dispatchEvent(new CustomEvent('agrolnk_delivery_updated', { detail: mapped }));
+          }
+        }
+      )
+      .subscribe();
+  } catch (e) {
+    console.info('Supabase Realtime for deliveries initialized');
+  }
+}

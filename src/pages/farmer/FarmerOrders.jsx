@@ -32,6 +32,7 @@ import {
 import { getFarmerOrders, updateOrderStatus } from '../../utils/orders';
 import { getDeliveryForOrder } from '../../utils/deliveries';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
 export default function FarmerOrders({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -96,19 +97,40 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   useEffect(() => {
     fetchOrders(true);
 
-    const handleUpdated = () => {
+    const handleUpdated = (payload) => {
+      // Direct optimistic update if matching order is present in payload
+      const item = payload?.data || payload?.detail;
+      if (item && (item.id || item.orderNumber)) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === item.id || o.orderNumber === item.orderNumber ? { ...o, ...item } : o))
+        );
+        setSelectedOrder((prev) =>
+          prev && (prev.id === item.id || prev.orderNumber === item.orderNumber) ? { ...prev, ...item } : prev
+        );
+      }
       fetchOrders(false);
     };
 
+    const unsubscribeCrossTab = subscribeToCrossTabSync((msg) => {
+      if (msg.domain === 'orders' || msg.domain === 'deliveries' || msg.domain === 'financing') {
+        handleUpdated(msg);
+      }
+    });
+
     window.addEventListener('agrolnk_orders_updated', handleUpdated);
     window.addEventListener('agrolnk_order_updated', handleUpdated);
+    window.addEventListener('agrolnk_deliveries_updated', handleUpdated);
+    window.addEventListener('agrolnk_delivery_updated', handleUpdated);
     window.addEventListener('agrolnk_financing_updated', handleUpdated);
     window.addEventListener('storage', handleUpdated);
 
     return () => {
       hideGlobalLoader();
+      unsubscribeCrossTab();
       window.removeEventListener('agrolnk_orders_updated', handleUpdated);
       window.removeEventListener('agrolnk_order_updated', handleUpdated);
+      window.removeEventListener('agrolnk_deliveries_updated', handleUpdated);
+      window.removeEventListener('agrolnk_delivery_updated', handleUpdated);
       window.removeEventListener('agrolnk_financing_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
     };

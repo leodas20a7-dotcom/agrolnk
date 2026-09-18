@@ -1,5 +1,6 @@
 // Agrolnk Supabase Trade Financing Engine
 import { supabase } from '../lib/supabase';
+import { broadcastDataChange } from './syncChannel';
 
 function mapFinancingFromDb(row) {
   if (!row) return null;
@@ -791,3 +792,26 @@ export async function getFinancingStats() {
     };
   }
 }
+
+// Setup Supabase Realtime Subscription for Financing Requests Table
+if (typeof window !== 'undefined') {
+  try {
+    supabase
+      .channel('public:financing_requests')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'financing_requests' },
+        (payload) => {
+          if (payload.new) {
+            const mapped = mapFinancingFromDb(payload.new);
+            broadcastDataChange('financing', payload.eventType || 'UPDATE', mapped);
+            window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: mapped }));
+          }
+        }
+      )
+      .subscribe();
+  } catch (e) {
+    console.info('Supabase Realtime for financing initialized');
+  }
+}
+

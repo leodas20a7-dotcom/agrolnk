@@ -37,6 +37,7 @@ import {
 } from '../../utils/financing';
 import { getTimeGreeting } from '../../utils/greeting';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
 export default function FinancierDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -121,15 +122,28 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   useEffect(() => {
     loadData();
 
-    const handleUpdated = () => {
+    const handleUpdated = (payload) => {
+      const item = payload?.data || payload?.detail;
+      if (item && item.id) {
+        setRequests((prev) =>
+          prev.map((r) => (r.id === item.id || r.requestNumber === item.requestNumber ? { ...r, ...item } : r))
+        );
+      }
       loadData();
     };
+
+    const unsubscribeCrossTab = subscribeToCrossTabSync((msg) => {
+      if (msg.domain === 'financing' || msg.domain === 'orders') {
+        handleUpdated(msg);
+      }
+    });
 
     window.addEventListener('agrolnk_financing_updated', handleUpdated);
     window.addEventListener('agrolnk_orders_updated', handleUpdated);
     window.addEventListener('storage', handleUpdated);
 
     return () => {
+      unsubscribeCrossTab();
       window.removeEventListener('agrolnk_financing_updated', handleUpdated);
       window.removeEventListener('agrolnk_orders_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);

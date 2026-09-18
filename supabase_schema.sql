@@ -548,14 +548,62 @@ VALUES ('proof', 'proof', true, 52428800, null)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- Allow public read access to KYC proof documents
-CREATE POLICY "Public Read KYC Proofs" 
-ON storage.objects FOR SELECT 
-TO public 
-USING (bucket_id = 'proof');
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Public Read KYC Proofs'
+    ) THEN
+        CREATE POLICY "Public Read KYC Proofs" ON storage.objects FOR SELECT TO public USING (bucket_id = 'proof');
+    END IF;
 
--- Allow authenticated/anon uploads to proof bucket
-CREATE POLICY "Public & Auth Upload KYC Proofs" 
-ON storage.objects FOR INSERT 
-TO public 
-WITH CHECK (bucket_id = 'proof');
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Public & Auth Upload KYC Proofs'
+    ) THEN
+        CREATE POLICY "Public & Auth Upload KYC Proofs" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'proof');
+    END IF;
+END $$;
+
+-- ============================================================================
+-- 13. SUPABASE REALTIME REPLICATION (Instant Updates Without Refresh)
+-- Enables WebSocket CDC for live orders, deliveries, loans & listings
+-- ============================================================================
+DO $$
+BEGIN
+    -- Enable realtime publication for core platform tables if not already present
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'orders'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'deliveries'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.deliveries;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'financing_requests'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.financing_requests;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'listings'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.listings;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'warehouse_receipts'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouse_receipts;
+    END IF;
+END $$;
+
 

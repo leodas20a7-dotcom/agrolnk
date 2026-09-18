@@ -44,6 +44,7 @@ import {
 import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
 export default function TransporterDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -154,8 +155,35 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     loadData(true);
+
+    const handleDeliverySync = (payload) => {
+      const item = payload?.data || payload?.detail;
+      if (item && item.id) {
+        setDeliveries((prev) =>
+          prev.map((d) => (d.id === item.id || d.deliveryNumber === item.deliveryNumber ? { ...d, ...item } : d))
+        );
+      }
+      loadData(false);
+    };
+
+    const unsubscribeCrossTab = subscribeToCrossTabSync((msg) => {
+      if (msg.domain === 'deliveries' || msg.domain === 'orders') {
+        handleDeliverySync(msg);
+      }
+    });
+
+    window.addEventListener('agrolnk_deliveries_updated', handleDeliverySync);
+    window.addEventListener('agrolnk_delivery_updated', handleDeliverySync);
+    window.addEventListener('agrolnk_orders_updated', handleDeliverySync);
+    window.addEventListener('storage', handleDeliverySync);
+
     return () => {
       hideGlobalLoader();
+      unsubscribeCrossTab();
+      window.removeEventListener('agrolnk_deliveries_updated', handleDeliverySync);
+      window.removeEventListener('agrolnk_delivery_updated', handleDeliverySync);
+      window.removeEventListener('agrolnk_orders_updated', handleDeliverySync);
+      window.removeEventListener('storage', handleDeliverySync);
     };
   }, [user.id]);
 
