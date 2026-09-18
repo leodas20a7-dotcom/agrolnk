@@ -114,13 +114,13 @@ export default function SelfTransportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-center justify-center">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-[#E5EDE8] shadow-2xl space-y-5 text-left my-4 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-3 sm:p-6 flex justify-center items-start sm:items-center">
+      <div className="bg-white rounded-3xl max-w-lg w-full border border-[#E5EDE8] shadow-2xl text-left my-auto max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+        {/* Fixed Header */}
+        <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#E5EDE8] bg-white shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-[#34D399] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0">
               <Truck className="w-5 h-5" />
             </div>
             <div>
@@ -134,152 +134,155 @@ export default function SelfTransportModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer shrink-0"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Consignment Brief Card */}
-        <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs">
-          <div>
-            <span className="font-bold text-[#0B3326] block text-sm">
-              {order.commodity} ({order.variety || 'Standard'}, Grade {order.grade || 'A'})
-            </span>
-            <span className="text-[#566861]">
-              Buyer: <strong>{buyerBusiness}</strong>
-            </span>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] text-[#566861] block uppercase font-semibold">Load Volume</span>
-            <span className="text-sm font-extrabold text-[#0B3326]">
-              {order.quantity} {order.unit || 'kg'}
-            </span>
-          </div>
-        </div>
-
-        {/* Buyer Delivery Destination (Read-Only) */}
-        <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 font-bold text-[#0B3326] uppercase tracking-wider text-[11px]">
-              <MapPin className="w-3.5 h-3.5 text-[#10B981]" />
-              <span>Buyer Delivery Destination</span>
+        {/* Scrollable Form & Content Body */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+            {/* Consignment Brief Card */}
+            <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-[#0B3326] block text-sm">
+                  {order.commodity} ({order.variety || 'Standard'}, Grade {order.grade || 'A'})
+                </span>
+                <span className="text-[#566861]">
+                  Buyer: <strong>{buyerBusiness}</strong>
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-[#566861] block uppercase font-semibold">Load Volume</span>
+                <span className="text-sm font-extrabold text-[#0B3326]">
+                  {order.quantity} {order.unit || 'kg'}
+                </span>
+              </div>
             </div>
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              Verified Destination
-            </span>
-          </div>
 
-          <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#14211D] text-xs sm:text-sm">{buyerBusiness}</span>
-              <Badge variant="blue" size="sm">
-                <span>{defaultDestDistrict}, {defaultDestState}</span>
-              </Badge>
+            {/* Buyer Delivery Destination (Read-Only) */}
+            <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-[#0B3326] uppercase tracking-wider text-[11px]">
+                  <MapPin className="w-3.5 h-3.5 text-[#10B981]" />
+                  <span>Buyer Delivery Destination</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  Verified Destination
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#14211D] text-xs sm:text-sm">{buyerBusiness}</span>
+                  <Badge variant="blue" size="sm">
+                    <span>{defaultDestDistrict}, {defaultDestState}</span>
+                  </Badge>
+                </div>
+                <p className="text-[#566861] text-xs leading-relaxed">
+                  {defaultDestAddress} {defaultDestPincode ? `• PIN: ${defaultDestPincode}` : ''}
+                </p>
+              </div>
             </div>
-            <p className="text-[#566861] text-xs leading-relaxed">
-              {defaultDestAddress} {defaultDestPincode ? `• PIN: ${defaultDestPincode}` : ''}
-            </p>
-          </div>
-        </div>
 
-        {/* Error Notice */}
-        {error && (
-          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+            {/* Error Notice */}
+            {error && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* Vehicle Registration Number */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-[#0B3326] flex items-center justify-between">
-              <span>Vehicle / Lorry Registration Number</span>
-              <span className="text-red-500 font-bold">* Required</span>
-            </label>
-            <div className="relative">
-              <Truck className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                required
-                value={vehicleNumber}
-                onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                placeholder="e.g. TN 28 AB 4092 or KA 04 E 1234"
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-mono font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] uppercase tracking-wider"
-              />
-            </div>
-            <span className="text-[11px] text-[#566861]">
-              This registration number is shared with the buyer for warehouse security & gate pass clearance.
-            </span>
-          </div>
-
-          {/* Driver Name & Phone Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Vehicle Registration Number */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-[#0B3326] block">
-                Driver / Handler Name
+              <label className="text-xs font-bold text-[#0B3326] flex items-center justify-between">
+                <span>Vehicle / Lorry Registration Number</span>
+                <span className="text-red-500 font-bold">* Required</span>
               </label>
               <div className="relative">
-                <User className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                <Truck className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
-                  placeholder="e.g. M. Murugan"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  required
+                  value={vehicleNumber}
+                  onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                  placeholder="e.g. TN 28 AB 4092 or KA 04 E 1234"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-mono font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] uppercase tracking-wider"
                 />
+              </div>
+              <span className="text-[11px] text-[#566861] block">
+                This registration number is shared with the buyer for warehouse security & gate pass clearance.
+              </span>
+            </div>
+
+            {/* Driver Name & Phone Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#0B3326] block">
+                  Driver / Handler Name
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={driverName}
+                    onChange={(e) => setDriverName(e.target.value)}
+                    placeholder="e.g. M. Murugan"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#0B3326] block">
+                  Driver Contact Phone
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={driverPhone}
+                    onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="9823983333 (10 digits)"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  />
+                </div>
               </div>
             </div>
 
+            {/* Dispatch Timing */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#0B3326] block">
-                Driver Contact Phone
+                Dispatch Schedule
               </label>
               <div className="relative">
-                <Phone className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                <Calendar className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
-                  type="tel"
-                  maxLength={10}
-                  value={driverPhone}
-                  onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="9823983333 (10 digits)"
+                  type="text"
+                  value={dispatchTime}
+                  onChange={(e) => setDispatchTime(e.target.value)}
+                  placeholder="e.g. Immediate / Departing 4:00 PM Today"
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
               </div>
             </div>
-          </div>
 
-          {/* Dispatch Timing */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-[#0B3326] block">
-              Dispatch Schedule
-            </label>
-            <div className="relative">
-              <Calendar className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={dispatchTime}
-                onChange={(e) => setDispatchTime(e.target.value)}
-                placeholder="e.g. Immediate / Departing 4:00 PM Today"
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-              />
+            {/* Buyer Notification Notice Box */}
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                Buyer <strong>{order.buyerName || 'Buyer'}</strong> will receive real-time notification with this vehicle number to prepare receiving at destination.
+              </span>
             </div>
           </div>
 
-          {/* Buyer Notification Notice Box */}
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              Buyer <strong>{order.buyerName || 'Buyer'}</strong> will receive real-time notification with this vehicle number to prepare receiving at destination.
-            </span>
-          </div>
-
-          {/* Modal Actions */}
-          <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 border-t border-[#E5EDE8]">
+          {/* Fixed Footer Actions */}
+          <div className="p-4 sm:p-5 border-t border-[#E5EDE8] bg-[#FAFBF9] shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
             <Button
               type="button"
               variant="ghost"
