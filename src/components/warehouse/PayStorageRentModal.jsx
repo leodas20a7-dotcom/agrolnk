@@ -256,55 +256,63 @@ export default function PayStorageRentModal({
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
                   Choose Payment Method
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <label
-                    className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                      paymentMode === 'razorpay' ? 'border-[#10B981] bg-[#F2FBF6]' : 'border-[#E5EDE8] bg-white'
+                    className={`flex items-start justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      paymentMode === 'razorpay' ? 'border-[#10B981] bg-[#F2FBF6] shadow-xs' : 'border-[#E5EDE8] bg-white hover:border-[#10B981]/50'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-start gap-3">
                       <input
                         type="radio"
                         name="payMode"
                         checked={paymentMode === 'razorpay'}
                         onChange={() => setPaymentMode('razorpay')}
-                        className="text-[#10B981] focus:ring-[#10B981]"
+                        className="mt-0.5 text-[#10B981] focus:ring-[#10B981]"
                       />
                       <div>
-                        <span className="text-xs font-bold text-[#14211D] block">
-                          UPI / Google Pay / PhonePe / Cards
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-extrabold text-[#14211D]">
+                            Razorpay Secure Pay
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#0C2340] text-white tracking-wide">
+                            Razorpay
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#0B3326] font-medium block mt-0.5">
+                          UPI (GPay, PhonePe, Paytm) • Cards • NetBanking • Wallets
                         </span>
-                        <span className="text-[10px] text-[#566861] block">
-                          Instant online payment confirmation via Razorpay Gateway
+                        <span className="text-[10px] text-[#566861] block mt-0.5">
+                          Instant online settlement & live validity extension
                         </span>
                       </div>
                     </div>
-                    <Badge variant="blue" size="sm">Online UPI</Badge>
+                    <Badge variant="blue" size="sm">Online Payment</Badge>
                   </label>
 
                   <label
-                    className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                      paymentMode === 'auto_escrow' ? 'border-[#10B981] bg-[#F2FBF6]' : 'border-[#E5EDE8] bg-white'
+                    className={`flex items-start justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      paymentMode === 'auto_escrow' ? 'border-[#10B981] bg-[#F2FBF6] shadow-xs' : 'border-[#E5EDE8] bg-white hover:border-[#10B981]/50'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-start gap-3">
                       <input
                         type="radio"
                         name="payMode"
                         checked={paymentMode === 'auto_escrow'}
                         onChange={() => setPaymentMode('auto_escrow')}
-                        className="text-[#10B981] focus:ring-[#10B981]"
+                        className="mt-0.5 text-[#10B981] focus:ring-[#10B981]"
                       />
                       <div>
                         <span className="text-xs font-bold text-[#14211D] block">
-                          Auto-Deduct from Sales Balance
+                          Auto-Deduct from Next Produce Sale
                         </span>
-                        <span className="text-[10px] text-[#566861] block">
-                          Deducts automatically from your next produce sale payout
+                        <span className="text-[11px] text-[#566861] block mt-0.5">
+                          No cash needed today — rent automatically deducts when your produce sells
                         </span>
                       </div>
                     </div>
-                    <Badge variant="emerald" size="sm">Zero Upfront</Badge>
+                    <Badge variant="emerald" size="sm">Zero Cash Today</Badge>
                   </label>
                 </div>
               </div>
