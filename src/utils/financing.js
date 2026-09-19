@@ -721,27 +721,62 @@ export async function getFinancingRequestById(id) {
   }
 }
 
+const LIQUIDITY_POOL_KEY = 'agrolnk_financier_liquidity_pool';
+
 /**
  * Get liquidity pool details
  */
 export function getLiquidityPool() {
-  return {
-    totalCommitted: 10000000,
-    availableLiquidity: 7500000,
-    deployedLiquidity: 2500000,
-    utilizationRate: 25,
-    weightedAvgReturn: 0.95, // 0.95% per month
-    nonPerformingRate: 0.0,
-    activeTranches: 4,
-  };
+  try {
+    const raw = localStorage.getItem(LIQUIDITY_POOL_KEY);
+    const poolData = raw ? JSON.parse(raw) : null;
+    const totalCommitted = Number(poolData?.totalCommitted) || 10000000;
+    return {
+      totalCommitted,
+      availableLiquidity: poolData?.availableLiquidity || (totalCommitted * 0.75),
+      deployedLiquidity: poolData?.deployedLiquidity || (totalCommitted * 0.25),
+      utilizationRate: 25,
+      weightedAvgReturn: 0.95, // 0.95% per month
+      nonPerformingRate: 0.0,
+      activeTranches: 4,
+      lastAllocatedAt: poolData?.lastAllocatedAt || null,
+      lastAllocatedAmount: poolData?.lastAllocatedAmount || 0,
+    };
+  } catch {
+    return {
+      totalCommitted: 10000000,
+      availableLiquidity: 7500000,
+      deployedLiquidity: 2500000,
+      utilizationRate: 25,
+      weightedAvgReturn: 0.95, // 0.95% per month
+      nonPerformingRate: 0.0,
+      activeTranches: 4,
+    };
+  }
 }
 
 export function addLiquidityPoolFunds(amount) {
-  return {
-    success: true,
-    addedAmount: Number(amount),
-    newCommitted: 10000000 + Number(amount),
+  const numAmount = Number(amount) || 0;
+  const currentPool = getLiquidityPool();
+  const newCommitted = (currentPool.totalCommitted || 10000000) + numAmount;
+  
+  const updated = {
+    ...currentPool,
+    totalCommitted: newCommitted,
+    availableLiquidity: (currentPool.availableLiquidity || 7500000) + numAmount,
+    lastAllocatedAt: new Date().toISOString(),
+    lastAllocatedAmount: numAmount,
   };
+
+  try {
+    localStorage.setItem(LIQUIDITY_POOL_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updated }));
+    window.dispatchEvent(new Event('storage'));
+  } catch (err) {
+    console.warn('Failed to save liquidity pool:', err);
+  }
+
+  return updated;
 }
 
 /**
@@ -762,6 +797,9 @@ export async function getFinancingStats() {
       return sum + (Number(r.repaymentInterest) || mat.interest || 0);
     }, 0);
 
+    const pool = getLiquidityPool();
+    const totalCommittedPool = pool.totalCommitted || 10000000;
+
     return {
       pendingRequestsCount: pending.length,
       pendingRequestsAmount: totalPending,
@@ -771,8 +809,8 @@ export async function getFinancingStats() {
       repaidLoansCount: repaid.length,
       recoveredPrincipal,
       realizedInterestYield,
-      totalCommittedPool: 10000000,
-      availableLiquidity: Math.max(0, 10000000 - totalApproved + recoveredPrincipal),
+      totalCommittedPool,
+      availableLiquidity: Math.max(0, totalCommittedPool - totalApproved + recoveredPrincipal),
       averageInterestRate: 0.85, // 0.85% per month
     };
   } catch (err) {

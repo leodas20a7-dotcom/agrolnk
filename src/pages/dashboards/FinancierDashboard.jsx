@@ -140,12 +140,14 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
     window.addEventListener('agrolnk_financing_updated', handleUpdated);
     window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('agrolnk_liquidity_updated', handleUpdated);
     window.addEventListener('storage', handleUpdated);
 
     return () => {
       unsubscribeCrossTab();
       window.removeEventListener('agrolnk_financing_updated', handleUpdated);
       window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('agrolnk_liquidity_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
     };
   }, []);
