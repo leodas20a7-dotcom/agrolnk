@@ -146,6 +146,13 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const totalCapacityTonnes = isSetupCompleted ? Number(profile.totalCapacityTonnes) : 0;
   const occupancyPercent = totalCapacityTonnes > 0 ? Number(((totalStoredTonnes / totalCapacityTonnes) * 100).toFixed(1)) : 0;
 
+  const userKycStatus = getResolvedUserKycStatus(user);
+  const profileKycStatus = profile?.verificationStatus || profile?.kycStatus || userKycStatus || 'pending';
+  const isKycVerified = profileKycStatus === 'verified' || userKycStatus === 'verified';
+  const isModificationPending = isKycVerified && Boolean(profile?.hasPendingReview || profileKycStatus === 'modification_pending');
+  const isKycPending = !isKycVerified && (profileKycStatus === 'pending' || profile?.hasPendingReview || Boolean(profile?.setupCompleted));
+  const isKycRejected = profileKycStatus === 'rejected' || userKycStatus === 'rejected';
+
   const warehouseName = isSetupCompleted
     ? (profile?.companyName || profile?.warehouseName || 'Agri Storage Hub')
     : (user.companyName || profile?.companyName || profile?.warehouseName || (user.name ? `${user.name} Agri Logistics` : 'Agri Storage Terminal'));
@@ -298,7 +305,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         )}
 
         {/* Pending Modification Review Banner (If active warehouse submitted revisions) */}
-        {isSetupCompleted && (profile?.hasPendingReview || profile?.verificationStatus === 'modification_pending') && (
+        {isModificationPending && (
           <div className="p-4 sm:p-5 rounded-3xl bg-[#EFF6FF] border-2 border-[#3B82F6]/40 text-[#1E40AF] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-xs">
@@ -331,6 +338,40 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           </div>
         )}
 
+        {/* Initial Setup Done but KYC Pending Review Banner */}
+        {isSetupCompleted && isKycPending && !isModificationPending && (
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#FEF3C7] border-2 border-[#F59E0B]/50 text-[#92400E] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#D97706] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Clock className="w-5 h-5 text-white" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-bold text-sm text-[#92400E]">
+                    Facility Under Compliance & WDRA Verification
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full bg-[#FDE68A] text-[#92400E] text-[10px] font-extrabold uppercase border border-[#FCD34D]">
+                    Hidden From Marketplace
+                  </span>
+                </div>
+                <p className="text-xs text-[#78350F] leading-relaxed">
+                  Your facility details, capacity (<strong>{totalCapacityTonnes} Tonnes</strong>), and WDRA accreditation documents are under Administrative Review. <strong>Your warehouse will remain hidden from farmers and buyers until approved.</strong>
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Eye}
+              iconPosition="left"
+              onClick={() => setIsSetupModalOpen(true)}
+              className="font-bold text-xs py-2 px-3.5 shrink-0 cursor-pointer border-[#FCD34D] bg-white text-[#92400E] hover:bg-[#FEF3C7]"
+            >
+              Review Details
+            </Button>
+          </div>
+        )}
+
         {/* Top Header Banner */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2 max-w-2xl text-left">
@@ -338,16 +379,22 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
                 <Building2 className="w-3.5 h-3.5" /> Warehouse Storage & Facility Hub
               </div>
-              {isSetupCompleted ? (
-                profile?.hasPendingReview || profile?.verificationStatus === 'modification_pending' ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
-                    <Clock className="w-3 h-3" /> Live (Revision Under Review)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
-                    <CheckCircle2 className="w-3 h-3" /> Live & Verified
-                  </span>
-                )
+              {isModificationPending ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
+                  <Clock className="w-3 h-3" /> Live (Revision Under Review)
+                </span>
+              ) : isKycVerified ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
+                  <CheckCircle2 className="w-3 h-3" /> Live & WDRA Verified
+                </span>
+              ) : isKycRejected ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
+                  <AlertCircle className="w-3 h-3" /> KYC Rejected (Resubmission Required)
+                </span>
+              ) : isKycPending ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
+                  <Clock className="w-3 h-3" /> Under Admin KYC Review (Hidden from Farmers)
+                </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
                   <AlertCircle className="w-3 h-3" /> Offline & Hidden (Setup Pending)

@@ -275,8 +275,7 @@ export async function getFarmerInventory(farmerId) {
 export async function getWarehouseInventory(warehouseId) {
   const all = await getWarehouseReceipts();
   if (!warehouseId) return all;
-  const match = all.filter((r) => r.warehouseId === warehouseId);
-  return match.length > 0 ? match : all;
+  return all.filter((r) => r.warehouseId === warehouseId);
 }
 
 /**
