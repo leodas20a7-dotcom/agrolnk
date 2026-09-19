@@ -11,6 +11,7 @@ import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
+import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTermAcceptanceModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import BuyerInspectionModal from '../../components/inspection/BuyerInspectionModal';
 import {
@@ -43,6 +44,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   // In-order financing modals
   const [orderForFinancing, setOrderForFinancing] = useState(null);
   const [requestForReview, setRequestForReview] = useState(null);
+  const [selectedOfferForAcceptance, setSelectedOfferForAcceptance] = useState(null);
 
   // In-order delivery modal
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
@@ -380,7 +382,13 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
               order={selectedOrder}
               viewerRole="buyer"
               onRequestFinancing={(ord) => setOrderForFinancing(ord)}
-              onViewFinancing={(req) => setRequestForReview(req)}
+              onViewFinancing={(req) => {
+                if (req?.status === 'offer_received') {
+                  setSelectedOfferForAcceptance(req);
+                } else {
+                  setRequestForReview(req);
+                }
+              }}
               onViewDelivery={(dlv) => setDeliveryForDetail(dlv)}
               onConfirmReceipt={(dlv) => handleConfirmOrderReceipt(dlv)}
               onInspectQuality={(ord) => setOrderForInspection(ord)}
@@ -497,6 +505,19 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
             if (record.status === 'passed') {
               handleConfirmOrderReceipt(orderForInspection);
             }
+          }}
+        />
+      )}
+
+      {/* Borrower Term Sheet Review & Confirmation Modal */}
+      {selectedOfferForAcceptance && (
+        <BorrowerTermAcceptanceModal
+          isOpen={!!selectedOfferForAcceptance}
+          request={selectedOfferForAcceptance}
+          onClose={() => setSelectedOfferForAcceptance(null)}
+          onUpdated={() => {
+            fetchOrders();
+            setSelectedOfferForAcceptance(null);
           }}
         />
       )}
