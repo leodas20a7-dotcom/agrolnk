@@ -14,12 +14,10 @@ import {
   Lock,
   ArrowRight,
   CheckCircle2,
-  Layers,
-  Trash2
+  Layers
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { deleteWarehouseReceipt } from '../../utils/warehouses';
 
 export default function ReceiptDetailModal({
   inventory,
@@ -28,17 +26,8 @@ export default function ReceiptDetailModal({
   onList,
   onPayRent,
   onRequestFinancing,
-  onDeleted,
 }) {
   if (!inventory) return null;
-
-  const handleDelete = async () => {
-    if (window.confirm(`Are you sure you want to delete receipt ${inventory.receiptNumber || inventory.id}? This lot will be permanently removed.`)) {
-      await deleteWarehouseReceipt(inventory.id || inventory.receiptNumber);
-      onDeleted?.(inventory);
-      onClose();
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
@@ -249,17 +238,6 @@ export default function ReceiptDetailModal({
                 e-NWR Financing
               </Button>
             )}
-
-            <Button
-              variant="outline"
-              size="md"
-              onClick={handleDelete}
-              icon={Trash2}
-              iconPosition="left"
-              className="font-bold py-2.5 px-3.5 cursor-pointer text-xs text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-            >
-              Delete
-            </Button>
           </div>
         </div>
 
