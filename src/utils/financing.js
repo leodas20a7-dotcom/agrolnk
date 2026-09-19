@@ -217,15 +217,6 @@ export async function getFinancingRequests() {
   const mergedRemote = remote.map((r) => {
     const localMatch = localMap.get(r.id) || localMap.get(r.requestNumber) || (r.orderNumber && localMap.get(r.orderNumber)) || (r.orderId && localMap.get(r.orderId));
     if (localMatch) {
-      // Remote terminal state (approved/rejected/disbursed) ALWAYS takes precedence over stale local 'pending'
-      const resolvedStatus = (r.status && r.status !== 'pending')
-        ? r.status
-        : (localMatch.status || r.status || 'pending');
-
-      const resolvedApprovedAmount = (r.approvedAmount && Number(r.approvedAmount) > 0)
-        ? r.approvedAmount
-        : (localMatch.approvedAmount || r.approvedAmount || r.requestedAmount);
-
       const appId = String(r.applicantId || localMatch.applicantId || '').toLowerCase();
       const appName = String(r.applicantName || localMatch.applicantName || '').toLowerCase();
       const resolvedKyc = r.applicantKycStatus || localMatch.applicantKycStatus || kycMap.get(appId) || kycMap.get(appName) || 'pending';
@@ -233,15 +224,22 @@ export async function getFinancingRequests() {
       return {
         ...localMatch,
         ...r,
+        status: r.status || localMatch.status || 'pending',
         financierId: r.financierId || localMatch.financierId || null,
         financierName: r.financierName || localMatch.financierName || null,
         financierEmail: r.financierEmail || localMatch.financierEmail || null,
         applicantKycStatus: resolvedKyc,
-        approvedAmount: resolvedApprovedAmount,
+        approvedAmount: r.approvedAmount || localMatch.approvedAmount || r.requestedAmount,
+        offeredAmount: r.offeredAmount || localMatch.offeredAmount || r.approvedAmount || r.requestedAmount,
+        interestRate: r.interestRate !== undefined ? Number(r.interestRate) : localMatch.interestRate || 0.85,
+        tenorDays: r.tenorDays !== undefined ? Number(r.tenorDays) : localMatch.tenorDays || 30,
+        offerNotes: r.offerNotes || localMatch.offerNotes || null,
+        offeredAt: r.offeredAt || localMatch.offeredAt || null,
+        borrowerAcceptedAt: r.borrowerAcceptedAt || localMatch.borrowerAcceptedAt || null,
+        disbursedAt: r.disbursedAt || localMatch.disbursedAt || null,
         marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
         escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
         paymentId: r.paymentId || localMatch.paymentId || null,
-        status: resolvedStatus,
       };
     }
 
