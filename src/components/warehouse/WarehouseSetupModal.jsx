@@ -617,6 +617,12 @@ export default function WarehouseSetupModal({
                       </span>
                     </div>
                   </div>
+
+                  {/* Multi-Storage Helper Notice */}
+                  <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/70 text-[11px] text-[#065F46] leading-relaxed">
+                    <span className="font-bold shrink-0">💡 Multi-Storage Tip:</span>
+                    <span>This is your facility baseline price. If you operate different chambers (e.g. <strong>Dry Grain Silos @ ₹200</strong> vs <strong>Cold Storage @ ₹350</strong> vs <strong>CA Vault @ ₹480</strong>), you can customize individual room prices in <strong>Step 2 (Storage Types)</strong>.</span>
+                  </div>
                 </div>
 
                 {/* Additional Commercial Terms: Min Billing & Handling */}
@@ -828,7 +834,7 @@ export default function WarehouseSetupModal({
                               />
                             </div>
 
-                            <div className="w-24 shrink-0 space-y-1">
+                            <div className="w-28 shrink-0 space-y-1">
                               <span className="text-[10px] text-[#566861] block font-semibold text-right">
                                 Rate (₹/T/mo)
                               </span>
@@ -840,6 +846,9 @@ export default function WarehouseSetupModal({
                                 step="any"
                                 className="w-full px-2.5 py-1 rounded-lg border border-[#10B981] bg-white text-xs font-bold text-right text-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
                               />
+                              <span className="text-[10px] text-[#059669] block font-bold text-right">
+                                ₹{(Number(currentRate || 0) / 1000).toFixed(2)}/kg
+                              </span>
                             </div>
                           </div>
                         )}

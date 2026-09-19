@@ -72,6 +72,23 @@ export default function DepositProduceModal({
     }
   }, [selectedWarehouseId, availableChambers]);
 
+  const handleCommodityChange = (val) => {
+    setCommodity(val);
+    if (!val || availableChambers.length <= 1) return;
+
+    const lower = val.toLowerCase();
+    const isColdCommodity = ['tomato', 'potato', 'onion', 'apple', 'fruits', 'vegetables', 'chilli', 'ginger', 'garlic'].some((k) => lower.includes(k));
+    const isDryCommodity = ['wheat', 'paddy', 'rice', 'grain', 'maize', 'pulses', 'cotton', 'soybean', 'turmeric'].some((k) => lower.includes(k));
+
+    if (isColdCommodity) {
+      const matchCold = availableChambers.find((ch) => ch.toLowerCase().includes('cold') || ch.toLowerCase().includes('atmosphere') || ch.toLowerCase().includes('freeze') || ch.toLowerCase().includes('temp'));
+      if (matchCold) setChamber(matchCold);
+    } else if (isDryCommodity) {
+      const matchDry = availableChambers.find((ch) => ch.toLowerCase().includes('silo') || ch.toLowerCase().includes('dry') || ch.toLowerCase().includes('grain') || ch.toLowerCase().includes('hermetic') || ch.toLowerCase().includes('spices'));
+      if (matchDry) setChamber(matchDry);
+    }
+  };
+
   const estimatedTotalValue = (Number(quantity) || 0) * (Number(priceEstimate) || 0);
   
   // Calculate active rate per tonne based on selected chamber or warehouse baseline tariff
@@ -209,10 +226,20 @@ export default function DepositProduceModal({
               Storage Chamber / Cell
             </label>
             <SearchableSelect
-              options={availableChambers.map((ch) => ({
-                value: ch,
-                label: ch,
-              }))}
+              options={availableChambers.map((ch) => {
+                const chamberRate = (currentWarehouse?.chamberRates && currentWarehouse.chamberRates[ch])
+                  ? Number(currentWarehouse.chamberRates[ch])
+                  : Number(currentWarehouse?.monthlyRatePerTonne || 350);
+                const kgRate = (chamberRate / 1000).toFixed(2);
+                const bagRate = Math.round(chamberRate / 20);
+
+                return {
+                  value: ch,
+                  label: ch,
+                  subtext: `Tariff: ₹${chamberRate}/Tonne/mo (₹${kgRate}/kg · ₹${bagRate}/50kg bag)`,
+                  badge: `₹${chamberRate}/T`,
+                };
+              })}
               value={chamber}
               onChange={(val) => setChamber(val)}
               placeholder="Select Chamber"
@@ -228,7 +255,7 @@ export default function DepositProduceModal({
               </label>
               <CommoditySelect
                 value={commodity}
-                onChange={(val) => setCommodity(val)}
+                onChange={handleCommodityChange}
                 userId={user.id}
                 placeholder="Select Crop..."
                 required
