@@ -20,6 +20,7 @@ import {
   Building2
 } from 'lucide-react';
 import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities, saveListingDraft, getListingDraft, clearListingDraft } from '../../utils/listings';
+import { uploadProduceImage } from '../../utils/imageUpload';
 import { createAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
@@ -130,15 +131,28 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     }
   };
 
-  const handleCustomImage = (e) => {
+  const handleCustomImage = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const previewUrl = URL.createObjectURL(file);
+      const localPreview = URL.createObjectURL(file);
       setFormData((prev) => ({
         ...prev,
-        images: [previewUrl],
+        images: [localPreview],
         isDefaultImage: false,
       }));
+
+      try {
+        const permanentUrl = await uploadProduceImage(file);
+        if (permanentUrl) {
+          setFormData((prev) => ({
+            ...prev,
+            images: [permanentUrl],
+            isDefaultImage: false,
+          }));
+        }
+      } catch (err) {
+        console.warn('Image upload error:', err);
+      }
     }
   };
 

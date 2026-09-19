@@ -5,6 +5,7 @@ import Button from '../ui/Button';
 import CommoditySelect from '../ui/CommoditySelect';
 import SearchableSelect from '../ui/SearchableSelect';
 import { COMMODITY_IMAGES } from '../../utils/listings';
+import { uploadProduceImage } from '../../utils/imageUpload';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
   const grades = ['Grade A', 'Grade B', 'Grade C'];
@@ -13,11 +14,20 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
   const estimatedValue =
     Number(formData.quantity || 0) * Number(formData.price || 0);
 
-  const handleCustomImage = (e) => {
+  const handleCustomImage = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       const previewUrl = URL.createObjectURL(file);
       onImageChange(previewUrl, false);
+
+      try {
+        const permanentUrl = await uploadProduceImage(file);
+        if (permanentUrl) {
+          onImageChange(permanentUrl, false);
+        }
+      } catch (err) {
+        console.warn('Produce image upload error:', err);
+      }
     }
   };
 
