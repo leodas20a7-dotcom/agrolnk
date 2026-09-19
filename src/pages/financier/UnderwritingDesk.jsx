@@ -104,6 +104,10 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
     const matchesStatus =
       selectedStatusFilter === 'all' ||
       (selectedStatusFilter === 'pending' && (r.status === 'pending' || r.status === 'under_review')) ||
+      (selectedStatusFilter === 'offer_received' && r.status === 'offer_received') ||
+      (selectedStatusFilter === 'borrower_accepted' && r.status === 'borrower_accepted') ||
+      (selectedStatusFilter === 'approved' && (r.status === 'approved' || r.status === 'disbursed')) ||
+      (selectedStatusFilter === 'repaid' && (r.status === 'repaid' || r.status === 'settled')) ||
       r.status === selectedStatusFilter;
     const matchesCommodity = selectedCommodity === 'all' || (r.commodity || '').includes(selectedCommodity);
 
@@ -113,8 +117,8 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
       return false;
     }
 
-    // Financier Isolation: If already approved/disbursed, only show if assigned to this institution or unassigned
-    if ((r.status === 'approved' || r.status === 'disbursed') && user.id && r.financierId && r.financierId !== user.id) {
+    // Financier Isolation: If request is locked to a specific financier (offer sent, borrower accepted, or disbursed), only show if assigned to this institution
+    if (r.financierId && user.id && r.financierId !== user.id) {
       return false;
     }
 
@@ -130,13 +134,13 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
               <Landmark className="w-3.5 h-3.5" />
-              <span>Loan Applications</span>
+              <span>Loan Applications & Escrow Desk</span>
             </div>
             <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
-              Loan Requests & Approvals
+              Credit Assessment & Lending Desk
             </h1>
             <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
-              Review funding requests from farmers and urban retailers, and approve loans directly.
+              Review verified borrower applications, quote competitive term-sheets, and disburse capital into Escrow.
             </p>
           </div>
 
@@ -209,7 +213,27 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Waiting Approval ({roleScopedRequests.filter((r) => r.status === 'pending' || r.status === 'under_review').length})
+                New Applications ({roleScopedRequests.filter((r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified').length})
+              </button>
+              <button
+                onClick={() => setSelectedStatusFilter('offer_received')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  selectedStatusFilter === 'offer_received'
+                    ? 'bg-amber-100 text-amber-900 font-bold'
+                    : 'text-[#566861] hover:bg-gray-100'
+                }`}
+              >
+                Offer Sent ({roleScopedRequests.filter((r) => r.status === 'offer_received').length})
+              </button>
+              <button
+                onClick={() => setSelectedStatusFilter('borrower_accepted')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  selectedStatusFilter === 'borrower_accepted'
+                    ? 'bg-emerald-600 text-white font-bold'
+                    : 'text-[#566861] hover:bg-gray-100'
+                }`}
+              >
+                Ready to Disburse ({roleScopedRequests.filter((r) => r.status === 'borrower_accepted').length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('approved')}
@@ -219,7 +243,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Approved ({roleScopedRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed').length})
+                Disbursed Active ({roleScopedRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed').length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('repaid')}

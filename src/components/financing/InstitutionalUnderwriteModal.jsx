@@ -15,9 +15,10 @@ import {
   FileCheck,
   XCircle,
   Zap,
-  Lock
+  Lock,
+  ArrowRight
 } from 'lucide-react';
-import { underwriteLoan, updateFinancingStatus } from '../../utils/financing';
+import { submitFinancierOffer, disburseAcceptedLoan, updateFinancingStatus } from '../../utils/financing';
 import { initiateFinancierEscrowDisbursement } from '../../utils/razorpayRouteClient';
 
 export default function InstitutionalUnderwriteModal({
@@ -38,11 +39,11 @@ export default function InstitutionalUnderwriteModal({
 
   useEffect(() => {
     if (request) {
-      setApprovedAmount(request.approvedAmount || request.requestedAmount || 50000);
+      setApprovedAmount(request.offeredAmount || request.approvedAmount || request.requestedAmount || 50000);
       setInterestRate(request.interestRate || 0.85);
       setTenorDays(request.tenorDays || 30);
       setRiskRating(request.riskRating || 'Low (Tier 1)');
-      setReviewNotes(request.notes || '');
+      setReviewNotes(request.offerNotes || request.reviewNotes || request.notes || '');
       setActionSuccess(null);
       setError('');
       setIsSubmitting(false);
@@ -57,7 +58,46 @@ export default function InstitutionalUnderwriteModal({
   );
   const totalSettlementReturn = approvedAmount + estimatedInterestReturn;
 
-  const handleApprove = (e) => {
+  const isAcceptedByBorrower = request?.status === 'borrower_accepted';
+  const isOfferPending = request?.status === 'offer_received';
+  const isRepaid = request?.status === 'repaid' || request?.status === 'settled';
+  const isDisbursed = request?.status === 'disbursed' || request?.status === 'approved';
+  const isPending = !isRepaid && !isDisbursed && !isAcceptedByBorrower && request?.status !== 'rejected';
+
+  const handleSendOffer = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await submitFinancierOffer(request.id || request.requestNumber, {
+        offeredAmount: Number(approvedAmount),
+        interestRate: Number(interestRate),
+        tenorDays: Number(tenorDays),
+        reviewNotes: reviewNotes || `Term-sheet offer sent: ₹${Number(approvedAmount).toLocaleString('en-IN')} @ ${interestRate}%/mo for ${tenorDays} days.`,
+        financierId: currentUser?.id || currentUser?.email || 'default',
+        financierName: currentUser?.name || currentUser?.company_name || 'Financial Institution',
+        financierEmail: currentUser?.email || null,
+      });
+
+      setActionSuccess(
+        `Term-sheet offer for ₹${Number(approvedAmount).toLocaleString('en-IN')} sent to borrower for confirmation!`
+      );
+
+      setTimeout(() => {
+        onUpdated?.();
+        onClose();
+        setActionSuccess(null);
+        setIsSubmitting(false);
+      }, 1500);
+    } catch (err) {
+      console.error('Error submitting offer:', err);
+      setError('Failed to send term-sheet offer.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDisburseEscrow = (e) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
@@ -69,13 +109,8 @@ export default function InstitutionalUnderwriteModal({
       financierUser: currentUser,
       onSuccess: async (paymentData) => {
         try {
-          await underwriteLoan(request.id, {
-            status: 'approved',
+          await disburseAcceptedLoan(request.id || request.requestNumber, {
             approvedAmount: Number(approvedAmount),
-            interestRate: Number(interestRate),
-            tenorDays: Number(tenorDays),
-            riskRating,
-            reviewNotes: reviewNotes || `Loan disbursed to escrow via Razorpay Route. UTR: ${paymentData?.bankUtr || 'UTR-ESCROW-PAID'}.`,
             bankUtr: paymentData?.bankUtr,
             razorpayPaymentId: paymentData?.razorpay_payment_id,
             financierId: currentUser?.id || currentUser?.email || 'default',
@@ -94,8 +129,8 @@ export default function InstitutionalUnderwriteModal({
             setIsSubmitting(false);
           }, 1500);
         } catch (err) {
-          console.error('Error underwriting after payment:', err);
-          setError('Failed to record approved underwriting status.');
+          console.error('Error recording disbursement:', err);
+          setError('Failed to record disbursement status.');
           setIsSubmitting(false);
         }
       },
@@ -111,13 +146,7 @@ export default function InstitutionalUnderwriteModal({
   const handleReject = async () => {
     setIsSubmitting(true);
     try {
-      await underwriteLoan(request.id, {
-        status: 'rejected',
-        reviewNotes: reviewNotes || 'Application declined by risk policy.',
-        financierId: currentUser?.id || currentUser?.email || 'default',
-        financierName: currentUser?.name || currentUser?.company_name || 'Financial Institution',
-        financierEmail: currentUser?.email || null,
-      });
+      await updateFinancingStatus(request.id || request.requestNumber, 'rejected', reviewNotes || 'Application declined by risk policy.');
       setActionSuccess('Application marked as declined.');
       setTimeout(() => {
         onUpdated?.();
@@ -134,10 +163,6 @@ export default function InstitutionalUnderwriteModal({
 
   if (!request) return null;
 
-  const isRepaid = request.status === 'repaid' || request.status === 'settled';
-  const isApproved = request.status === 'approved' || request.status === 'disbursed';
-  const isPending = !isRepaid && !isApproved && request.status !== 'rejected';
-
   return (
     <Modal
       isOpen={isOpen}
@@ -145,9 +170,13 @@ export default function InstitutionalUnderwriteModal({
       title={
         isRepaid
           ? `Loan Cleared & Repaid — ${request.requestNumber}`
-          : isApproved
+          : isAcceptedByBorrower
+          ? `Borrower Accepted Terms! — Disburse to Escrow`
+          : isDisbursed
           ? `Active Loan Details — ${request.requestNumber}`
-          : `Approve Loan — ${request.requestNumber}`
+          : isOfferPending
+          ? `Term-Sheet Sent — Awaiting Borrower Confirmation`
+          : `Structure Term-Sheet Offer — ${request.requestNumber}`
       }
       subtitle={`Applicant: ${request.applicantName} (${request.applicantRole?.toUpperCase() || 'USER'}) • Order ${request.orderNumber || 'Working Capital'}`}
       icon={isRepaid ? CheckCircle2 : Landmark}
@@ -178,7 +207,7 @@ export default function InstitutionalUnderwriteModal({
               <span>Loan Fully Cleared & Settled</span>
             </div>
             <p className="text-xs text-emerald-700 leading-relaxed">
-              The borrower has fully repaid the principal amount along with interest returns via {request.repaymentMethod ? request.repaymentMethod.toUpperCase() : 'Razorpay Gateway'}. No further action is required.
+              The borrower has fully repaid the principal amount along with interest returns via {request.repaymentMethod ? request.repaymentMethod.toUpperCase() : 'Razorpay Gateway'}. Recovered funds have been returned to your available liquidity pool.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-emerald-200/60 text-xs text-center">
               <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-200">
@@ -214,15 +243,28 @@ export default function InstitutionalUnderwriteModal({
           </div>
         )}
 
+        {/* Banner for Borrower-Accepted Loan (Ready for Escrow Disbursement) */}
+        {isAcceptedByBorrower && (
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-2">
+            <div className="flex items-center gap-2 font-bold text-sm text-emerald-900">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>Borrower Confirmed Terms — Ready for Escrow Disbursement</span>
+            </div>
+            <p className="text-xs text-emerald-800 leading-relaxed">
+              The borrower ({request.applicantName}) has officially accepted your term-sheet (₹{approvedAmount.toLocaleString('en-IN')} @ {interestRate}%/month for {tenorDays} days). Click below to disburse the capital into Escrow via Razorpay Route.
+            </p>
+          </div>
+        )}
+
         {/* Read-Only Banner for Approved Active Loan */}
-        {isApproved && (
+        {isDisbursed && (
           <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 text-[#0B3326] space-y-2">
             <div className="flex items-center gap-2 font-bold text-sm text-[#0B3326]">
               <ShieldCheck className="w-5 h-5 text-[#10B981] shrink-0" />
-              <span>Active Loan Facility Disbursed</span>
+              <span>Active Loan Facility Disbursed to Escrow</span>
             </div>
             <p className="text-xs text-[#566861] leading-relaxed">
-              This loan of ₹{(Number(request.approvedAmount) || 0).toLocaleString('en-IN')} was approved at {request.interestRate || 0.85}%/month with a tenor of {request.tenorDays || 30} days. Repayment is scheduled upon trade completion.
+              This loan of ₹{(Number(request.approvedAmount) || 0).toLocaleString('en-IN')} is active at {request.interestRate || 0.85}%/month with a tenor of {request.tenorDays || 30} days. Repayment will settle automatically upon trade maturity.
             </p>
           </div>
         )}
@@ -278,20 +320,20 @@ export default function InstitutionalUnderwriteModal({
           </div>
         </div>
 
-        {/* Pending Loan Form */}
-        {isPending ? (
-          <form onSubmit={handleApprove} className="space-y-6">
+        {/* Pending Loan or Borrower-Accepted Form */}
+        {isPending || isAcceptedByBorrower ? (
+          <form onSubmit={isAcceptedByBorrower ? handleDisburseEscrow : handleSendOffer} className="space-y-6">
             {/* Credit Structuring Controls */}
             <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#0B3326]">
-                Loan Amount & Terms
+                {isAcceptedByBorrower ? 'Agreed Loan Terms' : 'Structure Term-Sheet Offer'}
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Approved Amount */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-[#14211D] flex items-center justify-between">
-                    <span>Amount to Send (₹)</span>
+                    <span>Offered Amount (₹)</span>
                     <span className="text-[10px] text-[#10B981]">{ltv}% of total</span>
                   </label>
                   <input
@@ -300,7 +342,8 @@ export default function InstitutionalUnderwriteModal({
                     onChange={(e) => setApprovedAmount(Number(e.target.value))}
                     max={totalValue * 0.95}
                     min={1000}
-                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    disabled={isAcceptedByBorrower}
+                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] disabled:opacity-80"
                     required
                   />
                 </div>
@@ -308,7 +351,7 @@ export default function InstitutionalUnderwriteModal({
                 {/* Interest Rate Monthly */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-[#14211D] flex items-center justify-between">
-                    <span>Monthly Profit Rate (%)</span>
+                    <span>Monthly Rate (%)</span>
                     <span className="text-[10px] text-[#10B981] font-semibold">/ month</span>
                   </label>
                   <input
@@ -318,7 +361,8 @@ export default function InstitutionalUnderwriteModal({
                     onChange={(e) => setInterestRate(Number(e.target.value))}
                     min={0.1}
                     max={5.0}
-                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    disabled={isAcceptedByBorrower}
+                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] disabled:opacity-80"
                     required
                   />
                 </div>
@@ -332,7 +376,8 @@ export default function InstitutionalUnderwriteModal({
                   <select
                     value={tenorDays}
                     onChange={(e) => setTenorDays(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    disabled={isAcceptedByBorrower}
+                    className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] disabled:opacity-80"
                   >
                     <option value={15}>15 Days</option>
                     <option value={30}>30 Days (1 Month)</option>
@@ -346,19 +391,19 @@ export default function InstitutionalUnderwriteModal({
               {/* Underwriting Yield Simulation */}
               <div className="p-3.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/20 grid grid-cols-3 gap-2 text-center text-xs">
                 <div>
-                  <span className="text-[10px] text-[#566861] block font-medium">Money Sent</span>
+                  <span className="text-[10px] text-[#566861] block font-medium">Capital to Disburse</span>
                   <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
                     ₹{approvedAmount.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-[#566861] block font-semibold">Profit to Earn</span>
+                  <span className="text-[10px] text-[#566861] block font-semibold">Profit Return</span>
                   <span className="font-bold text-emerald-700 text-xs sm:text-sm">
                     +₹{estimatedInterestReturn.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-[#566861] block font-bold">Total to Collect</span>
+                  <span className="text-[10px] text-[#566861] block font-bold">Total Collection</span>
                   <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
                     ₹{totalSettlementReturn.toLocaleString('en-IN')}
                   </span>
@@ -369,14 +414,15 @@ export default function InstitutionalUnderwriteModal({
             {/* Risk & Review Notes */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#14211D] block">
-                Approval Notes (Optional)
+                Offer Notes (Sent to Borrower)
               </label>
               <textarea
                 value={reviewNotes}
                 onChange={(e) => setReviewNotes(e.target.value)}
                 rows={2}
-                placeholder="e.g. Approved for trade working capital."
-                className="w-full p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                disabled={isAcceptedByBorrower}
+                placeholder="e.g. Competitive agri-working capital loan terms."
+                className="w-full p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] disabled:opacity-80"
               />
             </div>
 
@@ -384,7 +430,9 @@ export default function InstitutionalUnderwriteModal({
             <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#061B14] text-white text-xs">
               <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
               <span className="text-[#DCFCE7]/90 text-[11px] leading-relaxed">
-                Approving this will transfer funds to the applicant and create a repayment schedule with interest.
+                {isAcceptedByBorrower
+                  ? 'Borrower has confirmed this loan. Clicking below will open the payment gateway and disburse capital into Escrow.'
+                  : 'Submitting this offer will notify the borrower to review and accept your quoted terms before any funds move.'}
               </span>
             </div>
 
@@ -414,12 +462,16 @@ export default function InstitutionalUnderwriteModal({
                   type="submit"
                   variant="accent"
                   size="sm"
-                  icon={CheckCircle2}
+                  icon={isAcceptedByBorrower ? Zap : CheckCircle2}
                   iconPosition="right"
                   disabled={isSubmitting}
                   className="font-bold cursor-pointer justify-center w-full sm:w-auto text-xs"
                 >
-                  {isSubmitting ? 'Transferring Money...' : `Approve & Transfer ₹${approvedAmount.toLocaleString('en-IN')}`}
+                  {isSubmitting
+                    ? (isAcceptedByBorrower ? 'Disbursing...' : 'Sending Quote...')
+                    : isAcceptedByBorrower
+                    ? `Disburse ₹${approvedAmount.toLocaleString('en-IN')} to Escrow`
+                    : `Send Term-Sheet to Borrower (₹${approvedAmount.toLocaleString('en-IN')})`}
                 </Button>
               </div>
             </div>

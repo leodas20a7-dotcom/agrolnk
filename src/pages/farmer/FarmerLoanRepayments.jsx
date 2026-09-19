@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Pagination from '../../components/ui/Pagination';
 import UrgentLoanRequestModal from '../../components/financing/UrgentLoanRequestModal';
+import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTermAcceptanceModal';
 import {
   Calendar,
   ArrowLeft,
@@ -22,7 +23,8 @@ import {
   FileText,
   Printer,
   Sparkles,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { getFarmerFinancingRequests, calculateLoanMaturity, repayFinancingLoan } from '../../utils/financing';
 import { initiateRazorpayLoanRepaymentCheckout } from '../../utils/razorpayRouteClient';
@@ -33,6 +35,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
 
   const [requests, setRequests] = useState([]);
   const [selectedLoanForDetail, setSelectedLoanForDetail] = useState(null);
+  const [selectedOfferForAcceptance, setSelectedOfferForAcceptance] = useState(null);
   const [isUrgentRequestOpen, setIsUrgentRequestOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'repaid' | 'all'
   const [currentPage, setCurrentPage] = useState(1);
@@ -129,7 +132,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
             loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
             orderNumber: loan.orderNumber || 'Working Capital Facility',
             borrowerName: user.name || loan.applicantName || 'Farmer Partner',
-            institutionName: 'Samunnati / NABARD Agri-Finance Desk',
+            institutionName: loan.financierName || 'Institutional Lender Desk',
             principalAmount: maturity.principal,
             interestAmount: maturity.interest,
             totalPaid: maturity.totalDue,
@@ -161,7 +164,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
         method: paymentMethod,
         txnId,
         amount: maturity.totalDue,
-        notes: `Direct institutional loan repayment by ${user.name} via ${paymentMethod.toUpperCase()}`,
+        notes: `Direct institutional loan repayment to ${loan.financierName || 'Lender'} by ${user.name} via ${paymentMethod.toUpperCase()}`,
       });
 
       const receipt = {
@@ -169,7 +172,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
         loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
         orderNumber: loan.orderNumber || 'Working Capital Facility',
         borrowerName: user.name || loan.applicantName || 'Farmer Partner',
-        institutionName: 'Samunnati / NABARD Agri-Finance Desk',
+        institutionName: loan.financierName || 'Institutional Lender Desk',
         principalAmount: maturity.principal,
         interestAmount: maturity.interest,
         totalPaid: maturity.totalDue,
@@ -651,6 +654,19 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
           onClose={() => setIsUrgentRequestOpen(false)}
           onSuccess={() => {
             loadData(false);
+          }}
+        />
+      )}
+
+      {/* Borrower Term Sheet Review & Lender Confirmation Modal */}
+      {selectedOfferForAcceptance && (
+        <BorrowerTermAcceptanceModal
+          isOpen={!!selectedOfferForAcceptance}
+          request={selectedOfferForAcceptance}
+          onClose={() => setSelectedOfferForAcceptance(null)}
+          onUpdated={() => {
+            loadData(false);
+            setSelectedOfferForAcceptance(null);
           }}
         />
       )}

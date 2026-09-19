@@ -11,6 +11,7 @@ import FinancingRequestModal from '../../components/financing/FinancingRequestMo
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import FinancingStatusBadge from '../../components/financing/FinancingStatusBadge';
 import UrgentLoanRequestModal from '../../components/financing/UrgentLoanRequestModal';
+import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTermAcceptanceModal';
 import {
   Landmark,
   ArrowLeft,
@@ -25,7 +26,9 @@ import {
   DollarSign,
   Calendar,
   CreditCard,
-  Banknote
+  Banknote,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { getFarmerOrders } from '../../utils/orders';
 import { getFarmerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
@@ -57,6 +60,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
     navState?.orderForFinancing || null
   );
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
+  const [selectedOfferForAcceptance, setSelectedOfferForAcceptance] = useState(null);
   const [isUrgentRequestOpen, setIsUrgentRequestOpen] = useState(false);
 
   const ITEMS_PER_PAGE = 6;
@@ -191,6 +195,42 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
             </Button>
           </div>
         </div>
+
+        {/* Term-Sheet Offer Confirmation Alert Banner */}
+        {safeRequests.filter(r => r.status === 'offer_received').length > 0 && (
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-900 to-emerald-950 text-white border-2 border-emerald-500/60 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-pulse-subtle">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-400/30">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/30 text-[11px] font-bold text-emerald-300">
+                  ACTION REQUIRED
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  Institutional Loan Offer Received!
+                </h3>
+                <p className="text-xs text-emerald-200/90 leading-relaxed max-w-2xl">
+                  A financial institution has approved your request and sent a term-sheet quote. Review the offered amount and interest rate, and confirm acceptance to lock your lender and receive funds in Escrow.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="accent"
+              size="md"
+              icon={ArrowRight}
+              iconPosition="right"
+              onClick={() => {
+                const pendingOffer = safeRequests.find(r => r.status === 'offer_received');
+                if (pendingOffer) setSelectedOfferForAcceptance(pendingOffer);
+              }}
+              className="shrink-0 font-extrabold text-xs py-2.5 px-5 shadow-md cursor-pointer whitespace-nowrap"
+            >
+              Review & Confirm Terms
+            </Button>
+          </div>
+        )}
 
         {/* Profile KYC Notice if borrower KYC is pending */}
         {user && (user.kycStatus === 'pending' || user.kyc_status === 'pending' || user.verificationStatus === 'pending') && (
@@ -359,7 +399,13 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
                       key={request.id}
                       request={request}
                       viewerRole="farmer"
-                      onView={(item) => setSelectedRequestForReview(item)}
+                      onView={(item) => {
+                        if (item.status === 'offer_received') {
+                          setSelectedOfferForAcceptance(item);
+                        } else {
+                          setSelectedRequestForReview(item);
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -370,7 +416,13 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
                       key={request.id}
                       request={request}
                       viewerRole="farmer"
-                      onView={(item) => setSelectedRequestForReview(item)}
+                      onView={(item) => {
+                        if (item.status === 'offer_received') {
+                          setSelectedOfferForAcceptance(item);
+                        } else {
+                          setSelectedRequestForReview(item);
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -418,6 +470,19 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
           onSuccess={(newReq) => {
             loadData();
             setSelectedRequestForReview(newReq);
+          }}
+        />
+      )}
+
+      {/* Borrower Term Sheet Review & Lender Confirmation Modal */}
+      {selectedOfferForAcceptance && (
+        <BorrowerTermAcceptanceModal
+          isOpen={!!selectedOfferForAcceptance}
+          request={selectedOfferForAcceptance}
+          onClose={() => setSelectedOfferForAcceptance(null)}
+          onUpdated={() => {
+            loadData();
+            setSelectedOfferForAcceptance(null);
           }}
         />
       )}

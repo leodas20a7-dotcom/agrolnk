@@ -94,7 +94,15 @@ export default function FinancingRow({
         )}
 
         <Button
-          variant={needsMarginPayment ? 'accent' : (isFinancier ? (request.status === 'pending' || request.status === 'under_review' ? 'accent' : 'secondary') : 'secondary')}
+          variant={
+            needsMarginPayment
+              ? 'accent'
+              : !isFinancier && request.status === 'offer_received'
+              ? 'accent'
+              : isFinancier && (request.status === 'pending' || request.status === 'under_review' || request.status === 'borrower_accepted')
+              ? 'accent'
+              : 'secondary'
+          }
           size="sm"
           onClick={() => onView(request)}
           icon={ArrowRight}
@@ -102,15 +110,21 @@ export default function FinancingRow({
           className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
         >
           {request.status === 'repaid' || request.status === 'settled'
-            ? 'View Loan Details'
+            ? 'View Details'
+            : !isFinancier && request.status === 'offer_received'
+            ? 'Review & Accept Offer'
             : needsMarginPayment
             ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
             : isFinancier
-            ? (request.status === 'approved' || request.status === 'disbursed'
-                ? 'View Loan Details'
+            ? (request.status === 'borrower_accepted'
+                ? 'Disburse to Escrow'
+                : request.status === 'offer_received'
+                ? 'Offer Sent (Awaiting)'
+                : request.status === 'approved' || request.status === 'disbursed'
+                ? 'Active Loan'
                 : request.status === 'rejected'
                 ? 'Declined'
-                : 'Approve Loan')
+                : 'Structure Quote')
             : 'View Details'}
         </Button>
       </div>

@@ -104,7 +104,15 @@ export default function FinancingCard({
         </div>
 
         <Button
-          variant={needsMarginPayment ? 'accent' : (viewerRole === 'financier' ? 'primary' : 'secondary')}
+          variant={
+            needsMarginPayment
+              ? 'accent'
+              : viewerRole !== 'financier' && request.status === 'offer_received'
+              ? 'accent'
+              : viewerRole === 'financier' && (request.status === 'pending' || request.status === 'under_review' || request.status === 'borrower_accepted')
+              ? 'primary'
+              : 'secondary'
+          }
           size="sm"
           onClick={() => onView(request)}
           icon={ArrowRight}
@@ -113,7 +121,17 @@ export default function FinancingCard({
         >
           {needsMarginPayment
             ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
-            : (viewerRole === 'financier' ? 'Review Application' : 'View Details')}
+            : viewerRole !== 'financier' && request.status === 'offer_received'
+            ? 'Review & Accept Offer'
+            : viewerRole === 'financier'
+            ? (request.status === 'borrower_accepted'
+                ? 'Disburse to Escrow'
+                : request.status === 'offer_received'
+                ? 'Offer Sent (Awaiting)'
+                : request.status === 'approved' || request.status === 'disbursed'
+                ? 'Active Loan'
+                : 'Structure Quote')
+            : 'View Details'}
         </Button>
       </div>
     </Card>

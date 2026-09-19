@@ -131,7 +131,7 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
             loanNumber: loan.requestNumber || `#TC-${String(loan.id || '').slice(0, 6)}`,
             orderNumber: loan.orderNumber || 'Marketplace Purchase',
             borrowerName: user.name || loan.applicantName || 'Wholesale Buyer',
-            institutionName: 'Samunnati / HDFC Institutional Credit Desk',
+            institutionName: loan.financierName || 'Institutional Credit Desk',
             principalAmount: maturity.principal,
             interestAmount: maturity.interest,
             totalPaid: maturity.totalDue,
@@ -163,7 +163,7 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
         method: paymentMethod,
         txnId,
         amount: maturity.totalDue,
-        notes: `Trade credit repayment by buyer ${user.name} via ${paymentMethod.toUpperCase()}`,
+        notes: `Trade credit repayment to ${loan.financierName || 'NBFC'} by buyer ${user.name} via ${paymentMethod.toUpperCase()}`,
       });
 
       const receipt = {
@@ -171,7 +171,7 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
         loanNumber: loan.requestNumber || `#TC-${String(loan.id || '').slice(0, 6)}`,
         orderNumber: loan.orderNumber || 'Marketplace Purchase',
         borrowerName: user.name || loan.applicantName || 'Wholesale Buyer',
-        institutionName: 'Samunnati / HDFC Institutional Credit Desk',
+        institutionName: loan.financierName || 'Institutional Credit Desk',
         principalAmount: maturity.principal,
         interestAmount: maturity.interest,
         totalPaid: maturity.totalDue,

@@ -14,6 +14,14 @@ function mapFinancingFromDb(row) {
     financierId: row.financier_id || null,
     financierName: row.financier_name || null,
     financierEmail: row.financier_email || null,
+    interestRate: Number(row.interest_rate || 0.85),
+    tenorDays: Number(row.tenor_days || 30),
+    offeredAmount: Number(row.offered_amount || row.approved_amount || row.requested_amount),
+    offerNotes: row.offer_notes || null,
+    offeredAt: row.offered_at || null,
+    borrowerAcceptedAt: row.borrower_accepted_at || null,
+    disbursedAt: row.disbursed_at || null,
+    bankUtr: row.bank_utr || null,
     orderId: row.order_id,
     orderNumber: row.order_number,
     receiptId: row.receipt_id,
@@ -92,6 +100,14 @@ function saveLocalFinancingRequest(item) {
       financierName: item.financierName || existingItem?.financierName || null,
       financierEmail: item.financierEmail || existingItem?.financierEmail || null,
       applicantKycStatus: item.applicantKycStatus || existingItem?.applicantKycStatus || null,
+      interestRate: item.interestRate !== undefined ? Number(item.interestRate) : existingItem?.interestRate || 0.85,
+      tenorDays: item.tenorDays !== undefined ? Number(item.tenorDays) : existingItem?.tenorDays || 30,
+      offeredAmount: item.offeredAmount !== undefined ? Number(item.offeredAmount) : existingItem?.offeredAmount || item.approvedAmount || item.requestedAmount,
+      offerNotes: item.offerNotes || existingItem?.offerNotes || null,
+      offeredAt: item.offeredAt || existingItem?.offeredAt || null,
+      borrowerAcceptedAt: item.borrowerAcceptedAt || existingItem?.borrowerAcceptedAt || null,
+      disbursedAt: item.disbursedAt || existingItem?.disbursedAt || null,
+      bankUtr: item.bankUtr || existingItem?.bankUtr || null,
       marginPaid: Boolean(item.marginPaid || existingItem?.marginPaid),
       escrowFunded: Boolean(item.escrowFunded || existingItem?.escrowFunded),
       paymentId: item.paymentId || existingItem?.paymentId || null,
@@ -519,6 +535,30 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
     if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
       updatePayload.approved_amount = Number(approvalData.approvedAmount);
     }
+    if (approvalData.offeredAmount !== undefined && approvalData.offeredAmount !== null) {
+      updatePayload.offered_amount = Number(approvalData.offeredAmount);
+    }
+    if (approvalData.interestRate !== undefined) {
+      updatePayload.interest_rate = Number(approvalData.interestRate);
+    }
+    if (approvalData.tenorDays !== undefined) {
+      updatePayload.tenor_days = Number(approvalData.tenorDays);
+    }
+    if (approvalData.offerNotes) {
+      updatePayload.offer_notes = approvalData.offerNotes;
+    }
+    if (approvalData.offeredAt) {
+      updatePayload.offered_at = approvalData.offeredAt;
+    }
+    if (approvalData.borrowerAcceptedAt) {
+      updatePayload.borrower_accepted_at = approvalData.borrowerAcceptedAt;
+    }
+    if (approvalData.disbursedAt) {
+      updatePayload.disbursed_at = approvalData.disbursedAt;
+    }
+    if (approvalData.bankUtr) {
+      updatePayload.bank_utr = approvalData.bankUtr;
+    }
     if (approvalData.financierId) {
       updatePayload.financier_id = approvalData.financierId;
     }
@@ -609,7 +649,73 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 }
 
 /**
- * Repay financing loan directly to financial institution with principal + interest breakdown
+ * Step 1: Financier submits a Term-Sheet Quote / Offer to the borrower
+ */
+export async function submitFinancierOffer(requestId, offerData = {}) {
+  const offeredAmount = Number(offerData.offeredAmount || offerData.approvedAmount || 50000);
+  const interestRate = Number(offerData.interestRate || 0.85);
+  const tenorDays = Number(offerData.tenorDays || 30);
+  
+  return underwriteFinancingRequest(requestId, {
+    status: 'offer_received',
+    offeredAmount,
+    approvedAmount: offeredAmount,
+    interestRate,
+    tenorDays,
+    offerNotes: offerData.reviewNotes || offerData.offerNotes || 'Term-sheet loan offer sent by financial institution.',
+    offeredAt: new Date().toISOString(),
+    financierId: offerData.financierId || 'default',
+    financierName: offerData.financierName || 'Financial Institution',
+    financierEmail: offerData.financierEmail || null,
+  });
+}
+
+/**
+ * Step 2: Borrower (Farmer or Retailer) accepts the Term-Sheet Offer and locks the lender
+ */
+export async function acceptFinancierOffer(requestId, acceptanceNotes = '') {
+  return underwriteFinancingRequest(requestId, {
+    status: 'borrower_accepted',
+    borrowerAcceptedAt: new Date().toISOString(),
+    reviewNotes: acceptanceNotes || 'Borrower accepted terms. Ready for escrow disbursement.',
+  });
+}
+
+/**
+ * Step 3: Accepted Financier disburses the loan capital into Escrow via Razorpay Route
+ */
+export async function disburseAcceptedLoan(requestId, paymentData = {}) {
+  const disbAmount = Number(paymentData.approvedAmount || paymentData.offeredAmount || 0);
+  
+  // Deduct from this specific financial institution's available liquidity pool
+  if (paymentData.financierId && typeof window !== 'undefined') {
+    try {
+      const pool = getLiquidityPool(paymentData.financierId);
+      const key = getLiquidityPoolKey(paymentData.financierId);
+      const updatedPool = {
+        ...pool,
+        availableLiquidity: Math.max(0, (Number(pool.availableLiquidity) || 0) - disbAmount),
+        deployedLiquidity: (Number(pool.deployedLiquidity) || 0) + disbAmount,
+      };
+      localStorage.setItem(key, JSON.stringify(updatedPool));
+      window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updatedPool }));
+    } catch {}
+  }
+
+  return underwriteFinancingRequest(requestId, {
+    status: 'disbursed',
+    disbursedAt: new Date().toISOString(),
+    bankUtr: paymentData.bankUtr || `UTR${Date.now()}`,
+    paymentId: paymentData.razorpayPaymentId || paymentData.paymentId || null,
+    reviewNotes: `Escrow funded and capital disbursed via Razorpay Route. UTR: ${paymentData.bankUtr || 'UTR-ESCROW-PAID'}`,
+    financierId: paymentData.financierId,
+    financierName: paymentData.financierName,
+    financierEmail: paymentData.financierEmail,
+  });
+}
+
+/**
+ * Repay financing loan directly to the specific financial institution that funded it
  */
 export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
   try {
@@ -622,6 +728,9 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
     const principal = Number(repaymentDetails.principal || maturity.principal || totalAmount);
     const interest = Number(repaymentDetails.interest || maturity.interest || Math.max(0, totalAmount - principal));
 
+    const targetFinancierId = existing?.financierId || repaymentDetails.financierId || 'default';
+    const targetFinancierName = existing?.financierName || repaymentDetails.financierName || 'Financial Institution';
+
     const repaymentData = {
       status: 'repaid',
       repaidAt: new Date().toISOString(),
@@ -630,9 +739,27 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
       repaymentAmount: totalAmount,
       repaymentPrincipal: principal,
       repaymentInterest: interest,
-      repaymentNotes: repaymentDetails.notes || `Full settlement of ₹${totalAmount.toLocaleString('en-IN')} (Principal: ₹${principal.toLocaleString('en-IN')}, Interest: ₹${interest.toLocaleString('en-IN')}) with financial institution.`,
+      financierId: targetFinancierId,
+      financierName: targetFinancierName,
+      financierEmail: existing?.financierEmail || null,
+      repaymentNotes: repaymentDetails.notes || `Full settlement of ₹${totalAmount.toLocaleString('en-IN')} (Principal: ₹${principal.toLocaleString('en-IN')}, Interest: ₹${interest.toLocaleString('en-IN')}) with ${targetFinancierName}.`,
       updatedAt: new Date().toISOString(),
     };
+
+    // Replenish ONLY the specific financial institution's liquidity pool with the recovered principal!
+    if (targetFinancierId && typeof window !== 'undefined') {
+      try {
+        const pool = getLiquidityPool(targetFinancierId);
+        const key = getLiquidityPoolKey(targetFinancierId);
+        const updatedPool = {
+          ...pool,
+          availableLiquidity: (Number(pool.availableLiquidity) || 0) + principal,
+          deployedLiquidity: Math.max(0, (Number(pool.deployedLiquidity) || 0) - principal),
+        };
+        localStorage.setItem(key, JSON.stringify(updatedPool));
+        window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updatedPool }));
+      } catch {}
+    }
 
     const updated = await underwriteFinancingRequest(requestId, repaymentData);
     if (typeof window !== 'undefined') {

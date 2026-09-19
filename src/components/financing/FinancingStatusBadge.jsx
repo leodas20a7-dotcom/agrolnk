@@ -24,6 +24,18 @@ export default function FinancingStatusBadge({ status, applicantKycStatus, size 
       icon: Clock,
       dot: true,
     },
+    offer_received: {
+      label: 'Term-Sheet Offer Received',
+      variant: 'amber',
+      icon: Clock,
+      dot: true,
+    },
+    borrower_accepted: {
+      label: 'Terms Accepted (Ready to Disburse)',
+      variant: 'emerald',
+      icon: CheckCircle2,
+      dot: true,
+    },
     approved: {
       label: 'Funding Approved',
       variant: 'emerald',

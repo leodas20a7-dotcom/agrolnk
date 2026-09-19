@@ -160,7 +160,12 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
     (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
   );
 
-  // Active and repaid loans scoped to this specific financial institution
+  // Active, accepted, and repaid loans scoped to this specific financial institution
+  const readyToDisburseLoans = safeRequests.filter(
+    (r) => r.status === 'borrower_accepted' &&
+           (!user.id || r.financierId === user.id || !r.financierId)
+  );
+
   const activeLoans = safeRequests.filter(
     (r) => (r.status === 'approved' || r.status === 'disbursed') &&
            (!user.id || r.financierId === user.id || !r.financierId)
@@ -268,6 +273,39 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
               {currentKycStatus === 'pending' ? 'View' : 'Verify Now'}
+            </Button>
+          </div>
+        )}
+
+        {/* Ready to Disburse Banner */}
+        {readyToDisburseLoans.length > 0 && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950 via-[#0B3326] to-[#0F4A37] text-white border-2 border-emerald-500/60 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-400/30">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/30 text-[11px] font-bold text-emerald-300">
+                  ACTION REQUIRED &bull; READY TO DISBURSE
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  {readyToDisburseLoans.length} Borrower(s) Confirmed Loan Terms!
+                </h3>
+                <p className="text-xs text-emerald-200/90 leading-relaxed max-w-2xl">
+                  Borrower confirmed your quoted interest & repayment schedule. Complete Escrow disbursement via Razorpay Route to activate financing.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="accent"
+              size="md"
+              icon={ArrowRight}
+              iconPosition="right"
+              onClick={() => setSelectedRequestForReview(readyToDisburseLoans[0])}
+              className="shrink-0 font-extrabold text-xs py-2.5 px-5 shadow-md cursor-pointer whitespace-nowrap"
+            >
+              Disburse ₹{Number(readyToDisburseLoans[0].offeredAmount || readyToDisburseLoans[0].approvedAmount || readyToDisburseLoans[0].requestedAmount || 0).toLocaleString('en-IN')} Now
             </Button>
           </div>
         )}

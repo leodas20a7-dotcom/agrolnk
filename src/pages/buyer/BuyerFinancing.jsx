@@ -5,9 +5,9 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import FinancingCard from '../../components/financing/FinancingCard';
 import FinancingRow from '../../components/financing/FinancingRow';
-import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FinancingReviewModal from '../../components/financing/FinancingReviewModal';
 import FinancingStatusBadge from '../../components/financing/FinancingStatusBadge';
+import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTermAcceptanceModal';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
@@ -21,7 +21,9 @@ import {
   ShieldCheck,
   Compass,
   Gavel,
-  Calendar
+  Calendar,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
@@ -33,6 +35,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
   const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
+  const [selectedOfferForAcceptance, setSelectedOfferForAcceptance] = useState(null);
 
   const loadData = async () => {
     try {
@@ -136,6 +139,42 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
           </div>
         </div>
 
+        {/* Term-Sheet Offer Confirmation Alert Banner */}
+        {safeRequests.filter(r => r.status === 'offer_received').length > 0 && (
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-900 to-emerald-950 text-white border-2 border-emerald-500/60 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-400/30">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/30 text-[11px] font-bold text-emerald-300">
+                  ACTION REQUIRED
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  Institutional Trade Credit Offer Received!
+                </h3>
+                <p className="text-xs text-emerald-200/90 leading-relaxed max-w-2xl">
+                  A lending institution has approved your trade credit and provided term-sheet quotes. Review interest rates & repayment deadlines to lock your lender and disburse.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="accent"
+              size="md"
+              icon={ArrowRight}
+              iconPosition="right"
+              onClick={() => {
+                const pendingOffer = safeRequests.find(r => r.status === 'offer_received');
+                if (pendingOffer) setSelectedOfferForAcceptance(pendingOffer);
+              }}
+              className="shrink-0 font-extrabold text-xs py-2.5 px-5 shadow-md cursor-pointer whitespace-nowrap"
+            >
+              Review & Confirm Terms
+            </Button>
+          </div>
+        )}
+
         {/* 3 Core Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           
@@ -213,7 +252,13 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
                       key={request.id}
                       request={request}
                       viewerRole="buyer"
-                      onView={(item) => setSelectedRequestForReview(item)}
+                      onView={(item) => {
+                        if (item.status === 'offer_received') {
+                          setSelectedOfferForAcceptance(item);
+                        } else {
+                          setSelectedRequestForReview(item);
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -224,7 +269,13 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
                       key={request.id}
                       request={request}
                       viewerRole="buyer"
-                      onView={(item) => setSelectedRequestForReview(item)}
+                      onView={(item) => {
+                        if (item.status === 'offer_received') {
+                          setSelectedOfferForAcceptance(item);
+                        } else {
+                          setSelectedRequestForReview(item);
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -251,6 +302,19 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
         </div>
 
       </div>
+
+      {/* Borrower Term Sheet Review & Confirmation Modal */}
+      {selectedOfferForAcceptance && (
+        <BorrowerTermAcceptanceModal
+          isOpen={!!selectedOfferForAcceptance}
+          request={selectedOfferForAcceptance}
+          onClose={() => setSelectedOfferForAcceptance(null)}
+          onUpdated={() => {
+            loadData();
+            setSelectedOfferForAcceptance(null);
+          }}
+        />
+      )}
 
       {/* Review / Status Modal */}
       {selectedRequestForReview && (
