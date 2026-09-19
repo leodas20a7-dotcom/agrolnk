@@ -40,7 +40,8 @@ import {
   LogOut,
   X,
   RefreshCw,
-  QrCode
+  QrCode,
+  Sparkles,
 } from 'lucide-react';
 import {
   getWarehouseOperatorStats,
