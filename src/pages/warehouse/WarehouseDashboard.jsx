@@ -53,6 +53,7 @@ import {
   dispatchProduceFromWarehouse,
 } from '../../utils/warehouses';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import { supabase } from '../../lib/supabase';
 
 export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -116,18 +117,41 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   useEffect(() => {
     loadData(true);
 
-    const handleKycUpdate = () => {
+    const handleInstantUpdate = () => {
       loadData(false);
     };
 
-    window.addEventListener('agrolnk_kyc_updated', handleKycUpdate);
-    window.addEventListener('storage', handleKycUpdate);
-    window.addEventListener('agrolnk_user_profile_updated', handleKycUpdate);
+    // 1. Listen to all local custom events for instant zero-latency UI sync
+    window.addEventListener('agrolnk_kyc_updated', handleInstantUpdate);
+    window.addEventListener('agrolnk_user_profile_updated', handleInstantUpdate);
+    window.addEventListener('agrolnk_warehouse_profile_updated', handleInstantUpdate);
+    window.addEventListener('agrolnk_warehouse_receipt_created', handleInstantUpdate);
+    window.addEventListener('agrolnk_warehouse_quote_updated', handleInstantUpdate);
+    window.addEventListener('agrolnk_warehouse_receipt_stored', handleInstantUpdate);
+    window.addEventListener('agrolnk_warehouse_receipt_deleted', handleInstantUpdate);
+    window.addEventListener('storage', handleInstantUpdate);
+
+    // 2. Listen to live Supabase Realtime changes across tabs & devices
+    const channel = supabase
+      .channel(`wh_dashboard_realtime_${user.id || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, () => {
+        loadData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        loadData(false);
+      })
+      .subscribe();
 
     return () => {
-      window.removeEventListener('agrolnk_kyc_updated', handleKycUpdate);
-      window.removeEventListener('storage', handleKycUpdate);
-      window.removeEventListener('agrolnk_user_profile_updated', handleKycUpdate);
+      window.removeEventListener('agrolnk_kyc_updated', handleInstantUpdate);
+      window.removeEventListener('agrolnk_user_profile_updated', handleInstantUpdate);
+      window.removeEventListener('agrolnk_warehouse_profile_updated', handleInstantUpdate);
+      window.removeEventListener('agrolnk_warehouse_receipt_created', handleInstantUpdate);
+      window.removeEventListener('agrolnk_warehouse_quote_updated', handleInstantUpdate);
+      window.removeEventListener('agrolnk_warehouse_receipt_stored', handleInstantUpdate);
+      window.removeEventListener('agrolnk_warehouse_receipt_deleted', handleInstantUpdate);
+      window.removeEventListener('storage', handleInstantUpdate);
+      supabase.removeChannel(channel);
       hideGlobalLoader();
     };
   }, [user.id, user.email]);

@@ -40,6 +40,7 @@ import {
   getWarehouseNotifications
 } from '../../utils/warehouses';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { supabase } from '../../lib/supabase';
 
 export default function FarmerInventory({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -107,14 +108,30 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
     window.addEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_deleted', handleUpdate);
+    window.addEventListener('agrolnk_warehouse_profile_updated', handleUpdate);
+    window.addEventListener('agrolnk_kyc_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
+
+    // Supabase Realtime channel for live cross-device sync
+    const channel = supabase
+      .channel(`farmer_inventory_realtime_${user.id || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, () => {
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        loadData();
+      })
+      .subscribe();
 
     return () => {
       window.removeEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_deleted', handleUpdate);
+      window.removeEventListener('agrolnk_warehouse_profile_updated', handleUpdate);
+      window.removeEventListener('agrolnk_kyc_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      supabase.removeChannel(channel);
       hideGlobalLoader();
     };
   }, [user.id]);

@@ -32,6 +32,7 @@ import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { supabase } from '../../lib/supabase';
 
 export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -90,12 +91,23 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     };
 
     window.addEventListener('agrolnk_kyc_updated', handleUpdate);
+    window.addEventListener('agrolnk_user_profile_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
+
+    // Supabase Realtime channel for live admin queue updates
+    const channel = supabase
+      .channel('admin_kyc_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        loadKYC(false);
+      })
+      .subscribe();
 
     return () => {
       hideGlobalLoader();
       window.removeEventListener('agrolnk_kyc_updated', handleUpdate);
+      window.removeEventListener('agrolnk_user_profile_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      supabase.removeChannel(channel);
     };
   }, []);
 
