@@ -74,13 +74,16 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
     };
   }, []);
 
+  const matchesFinancier = (r) => {
+    if (!user || (!user.id && !user.email)) return false;
+    return (user.id && r.financierId === user.id) || (user.email && r.financierEmail === user.email);
+  };
+
   const activeLoans = allLoans.filter(
-    (r) => (r.status === 'approved' || r.status === 'disbursed') &&
-           (!user.id || r.financierId === user.id || !r.financierId)
+    (r) => (r.status === 'approved' || r.status === 'disbursed') && matchesFinancier(r)
   );
   const repaidLoans = allLoans.filter(
-    (r) => (r.status === 'repaid' || r.status === 'settled') &&
-           (!user.id || r.financierId === user.id || !r.financierId)
+    (r) => (r.status === 'repaid' || r.status === 'settled') && matchesFinancier(r)
   );
 
   const totalActivePrincipal = activeLoans.reduce(

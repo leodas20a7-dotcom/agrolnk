@@ -160,20 +160,22 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
     (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
   );
 
-  // Active, accepted, and repaid loans scoped to this specific financial institution
+  const matchesFinancier = (r) => {
+    if (!user || (!user.id && !user.email)) return false;
+    return (user.id && r.financierId === user.id) || (user.email && r.financierEmail === user.email);
+  };
+
+  // Active, accepted, and repaid loans scoped strictly to this specific financial institution
   const readyToDisburseLoans = safeRequests.filter(
-    (r) => r.status === 'borrower_accepted' &&
-           (!user.id || r.financierId === user.id || !r.financierId)
+    (r) => r.status === 'borrower_accepted' && matchesFinancier(r)
   );
 
   const activeLoans = safeRequests.filter(
-    (r) => (r.status === 'approved' || r.status === 'disbursed') &&
-           (!user.id || r.financierId === user.id || !r.financierId)
+    (r) => (r.status === 'approved' || r.status === 'disbursed') && matchesFinancier(r)
   );
 
   const repaidLoans = safeRequests.filter(
-    (r) => (r.status === 'repaid' || r.status === 'settled') &&
-           (!user.id || r.financierId === user.id || !r.financierId)
+    (r) => (r.status === 'repaid' || r.status === 'settled') && matchesFinancier(r)
   );
 
   const totalPool = Number(pool?.totalCommitted) || 0;

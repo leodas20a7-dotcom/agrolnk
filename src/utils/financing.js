@@ -1004,19 +1004,19 @@ export async function getFinancingStats(financierId) {
       (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
     );
 
-    // Scoped approved & active loans for this financier (or legacy unassigned)
+    // Scoped approved & active loans strictly for this financier
     const approved = all.filter((r) => {
       const isStatusMatch = r.status === 'approved' || r.status === 'disbursed';
       if (!isStatusMatch) return false;
       if (!financierId) return true;
-      return r.financierId === financierId || !r.financierId;
+      return r.financierId === financierId || r.financierEmail === financierId;
     });
 
     const repaid = all.filter((r) => {
       const isStatusMatch = r.status === 'repaid' || r.status === 'settled';
       if (!isStatusMatch) return false;
       if (!financierId) return true;
-      return r.financierId === financierId || !r.financierId;
+      return r.financierId === financierId || r.financierEmail === financierId;
     });
 
     const totalApproved = approved.reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
