@@ -159,7 +159,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const activeLoans = safeRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed');
   const repaidLoans = safeRequests.filter((r) => r.status === 'repaid' || r.status === 'settled');
 
-  const totalPool = pool?.totalCommitted || 10000000;
+  const totalPool = Number(pool?.totalCommitted) || 0;
   const totalDeployed = activeLoans.reduce(
     (sum, l) => sum + (Number(l.approvedAmount) || Number(l.requestedAmount) || 0),
     0
@@ -173,7 +173,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
     : repaidLoans.reduce((sum, r) => sum + (Number(r.repaymentInterest) || 0), 0);
 
   const availablePool = Math.max(0, totalPool - totalDeployed + recoveredPrincipal);
-  const liquidPct = totalPool > 0 ? ((availablePool / totalPool) * 100).toFixed(1) : 100;
+  const liquidPct = totalPool > 0 ? ((availablePool / totalPool) * 100).toFixed(1) : '0.0';
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>

@@ -730,27 +730,27 @@ export function getLiquidityPool() {
   try {
     const raw = localStorage.getItem(LIQUIDITY_POOL_KEY);
     const poolData = raw ? JSON.parse(raw) : null;
-    const totalCommitted = Number(poolData?.totalCommitted) || 10000000;
+    const totalCommitted = Number(poolData?.totalCommitted) || 0;
     return {
       totalCommitted,
-      availableLiquidity: poolData?.availableLiquidity || (totalCommitted * 0.75),
-      deployedLiquidity: poolData?.deployedLiquidity || (totalCommitted * 0.25),
-      utilizationRate: 25,
+      availableLiquidity: poolData?.availableLiquidity !== undefined ? Number(poolData.availableLiquidity) : totalCommitted,
+      deployedLiquidity: poolData?.deployedLiquidity !== undefined ? Number(poolData.deployedLiquidity) : 0,
+      utilizationRate: totalCommitted > 0 ? Math.round(((Number(poolData?.deployedLiquidity) || 0) / totalCommitted) * 100) : 0,
       weightedAvgReturn: 0.95, // 0.95% per month
       nonPerformingRate: 0.0,
-      activeTranches: 4,
+      activeTranches: poolData?.activeTranches || (totalCommitted > 0 ? 1 : 0),
       lastAllocatedAt: poolData?.lastAllocatedAt || null,
       lastAllocatedAmount: poolData?.lastAllocatedAmount || 0,
     };
   } catch {
     return {
-      totalCommitted: 10000000,
-      availableLiquidity: 7500000,
-      deployedLiquidity: 2500000,
-      utilizationRate: 25,
+      totalCommitted: 0,
+      availableLiquidity: 0,
+      deployedLiquidity: 0,
+      utilizationRate: 0,
       weightedAvgReturn: 0.95, // 0.95% per month
       nonPerformingRate: 0.0,
-      activeTranches: 4,
+      activeTranches: 0,
     };
   }
 }
@@ -758,12 +758,14 @@ export function getLiquidityPool() {
 export function addLiquidityPoolFunds(amount) {
   const numAmount = Number(amount) || 0;
   const currentPool = getLiquidityPool();
-  const newCommitted = (currentPool.totalCommitted || 10000000) + numAmount;
+  const newCommitted = (Number(currentPool.totalCommitted) || 0) + numAmount;
+  const newAvailable = (Number(currentPool.availableLiquidity) || 0) + numAmount;
   
   const updated = {
     ...currentPool,
     totalCommitted: newCommitted,
-    availableLiquidity: (currentPool.availableLiquidity || 7500000) + numAmount,
+    availableLiquidity: newAvailable,
+    activeTranches: (currentPool.activeTranches || 0) + 1,
     lastAllocatedAt: new Date().toISOString(),
     lastAllocatedAmount: numAmount,
   };
@@ -798,7 +800,7 @@ export async function getFinancingStats() {
     }, 0);
 
     const pool = getLiquidityPool();
-    const totalCommittedPool = pool.totalCommitted || 10000000;
+    const totalCommittedPool = pool.totalCommitted || 0;
 
     return {
       pendingRequestsCount: pending.length,
@@ -824,8 +826,8 @@ export async function getFinancingStats() {
       repaidLoansCount: 0,
       recoveredPrincipal: 0,
       realizedInterestYield: 0,
-      totalCommittedPool: 10000000,
-      availableLiquidity: 10000000,
+      totalCommittedPool: 0,
+      availableLiquidity: 0,
       averageInterestRate: 0.85,
     };
   }
