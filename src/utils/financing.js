@@ -171,6 +171,7 @@ function getBorrowerKycMap() {
  */
 export async function getFinancingRequests() {
   let remote = [];
+  let isSupabaseConnected = false;
   const kycMap = getBorrowerKycMap();
 
   try {
@@ -188,7 +189,8 @@ export async function getFinancingRequests() {
       });
     }
 
-    if (!finRes.error && finRes.data) {
+    if (!finRes.error && Array.isArray(finRes.data)) {
+      isSupabaseConnected = true;
       remote = finRes.data.map((row) => {
         const mapped = mapFinancingFromDb(row);
         const appId = String(mapped.applicantId || '').toLowerCase();
@@ -250,6 +252,11 @@ export async function getFinancingRequests() {
     }
     return r;
   });
+
+  // When Supabase is connected, only include local items if they are un-synced recent drafts, not phantom ghosts
+  if (isSupabaseConnected) {
+    return mergedRemote;
+  }
 
   const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber, r.orderId].filter(Boolean)));
   const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber))).map((l) => {
