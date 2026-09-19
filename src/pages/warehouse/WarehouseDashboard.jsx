@@ -132,6 +132,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   }, [user.id, user.email]);
 
   // Segregate Active In-Storage vs Requests vs In-Transit vs Dispatched Lots
+  const safeInventory = Array.isArray(inventory) ? inventory : [];
   const quoteRequests = safeInventory.filter((r) => r.status === 'quote_requested');
   const quotedPendingFarmer = safeInventory.filter((r) => r.status === 'quote_provided');
   const inTransitLots = safeInventory.filter((r) => r.status === 'in_transit');
