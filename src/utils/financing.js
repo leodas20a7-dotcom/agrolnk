@@ -528,7 +528,8 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
           (reqNum && r.requestNumber === reqNum) ||
           (ordNum && (r.orderNumber === ordNum || r.orderId === ordNum))
       );
-      if (target && typeof window !== 'undefined') {
+      if (typeof window !== 'undefined') {
+        broadcastDataChange('financing', 'UPDATE', target || { id: requestId, status: nextStatus });
         window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: target }));
         window.dispatchEvent(new Event('storage'));
       }

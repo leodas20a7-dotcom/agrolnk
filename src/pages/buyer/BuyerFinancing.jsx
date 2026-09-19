@@ -28,6 +28,8 @@ import {
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { subscribeToCrossTabSync } from '../../utils/syncChannel';
+import { supabase } from '../../lib/supabase';
 
 export default function BuyerFinancing({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
@@ -37,9 +39,11 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
   const [selectedOfferForAcceptance, setSelectedOfferForAcceptance] = useState(null);
 
-  const loadData = async () => {
+  const loadData = async (showFlash = false) => {
     try {
-      showGlobalLoader('Loading Trade Credit...', 'Fetching approved loans & repayment status...');
+      if (showFlash) {
+        showGlobalLoader('Loading Trade Credit...', 'Fetching approved loans & repayment status...');
+      }
       const [orderData, requestData] = await Promise.all([
         getBuyerOrders(user.id),
         getBuyerFinancingRequests(user.id, user),
@@ -49,21 +53,39 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
     } catch (err) {
       console.error('Error loading buyer financing:', err);
     } finally {
-      hideGlobalLoader();
+      if (showFlash) hideGlobalLoader();
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
 
     const handleUpdated = () => {
-      loadData();
+      loadData(false);
     };
+
+    const unsubscribeCrossTab = subscribeToCrossTabSync((msg) => {
+      if (msg.domain === 'financing' || msg.domain === 'orders') {
+        handleUpdated();
+      }
+    });
+
+    const channel = supabase
+      .channel('public:financing_requests:buyer')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'financing_requests' },
+        () => handleUpdated()
+      )
+      .subscribe();
 
     window.addEventListener('agrolnk_financing_updated', handleUpdated);
     window.addEventListener('agrolnk_orders_updated', handleUpdated);
     window.addEventListener('storage', handleUpdated);
     return () => {
+      hideGlobalLoader();
+      unsubscribeCrossTab();
+      supabase.removeChannel(channel);
       window.removeEventListener('agrolnk_financing_updated', handleUpdated);
       window.removeEventListener('agrolnk_orders_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
