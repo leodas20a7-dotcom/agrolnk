@@ -56,46 +56,7 @@ function mapFinancingFromDb(row) {
   };
 }
 
-export const LOCAL_FINANCING_KEY = 'agrolnk_financing_requests_local';
-
-export function clearFinancingCache() {
-  try {
-    localStorage.removeItem(LOCAL_FINANCING_KEY);
-    localStorage.removeItem('agrolnk_disbursements');
-    localStorage.removeItem('agrolnk_liquidity_pools');
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: {} }));
-      window.dispatchEvent(new Event('storage'));
-    }
-  } catch {}
-}
-
-export async function deleteFinancingRequest(requestId) {
-  try {
-    if (requestId) {
-      if (isUuid(requestId)) {
-        await supabase.from('financing_requests').delete().eq('id', requestId);
-      } else {
-        await supabase.from('financing_requests').delete().or(`request_number.eq.${requestId},order_number.eq.${requestId}`);
-      }
-    }
-    const local = getLocalFinancingRequests();
-    const updated = local.filter((r) => r.id !== requestId && r.requestNumber !== requestId && r.orderNumber !== requestId);
-    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(updated));
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: { id: requestId } }));
-      window.dispatchEvent(new Event('storage'));
-    }
-  } catch (err) {
-    console.warn('Error deleting financing request:', err);
-  }
-}
-
-if (typeof window !== 'undefined') {
-  window.clearFinancingCache = clearFinancingCache;
-  window.deleteFinancingRequest = deleteFinancingRequest;
-}
+const LOCAL_FINANCING_KEY = 'agrolnk_financing_requests_local';
 
 function getLocalFinancingRequests() {
   try {
@@ -643,22 +604,45 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 
     // Update in Supabase across ID, request_number, or order_number
     try {
-      let query;
-      if (isUuid(requestId)) {
-        query = supabase
-          .from('financing_requests')
-          .update(updatePayload)
-          .eq('id', requestId);
-      } else {
-        query = supabase
-          .from('financing_requests')
-          .update(updatePayload)
-          .or(`request_number.eq.${requestId},order_number.eq.${requestId}`);
-      }
+      const cleanKey = String(requestId || '').trim();
+      const rawNumber = cleanKey.replace(/^#/, '');
+      const hashedNumber = `#${rawNumber}`;
+      const targetId = approvalData.id || (isUuid(cleanKey) ? cleanKey : null);
+      const targetReqNum = approvalData.requestNumber || hashedNumber;
+      const targetOrdNum = approvalData.orderNumber || (cleanKey.startsWith('#AGM-') ? cleanKey : null);
 
-      const { error: updateErr } = await query;
+      const runUpdate = async (payload) => {
+        // 1. If we have a valid UUID ID
+        if (targetId && isUuid(targetId)) {
+          const res = await supabase.from('financing_requests').update(payload).eq('id', targetId).select();
+          if (res.data && res.data.length > 0) return res;
+        }
+
+        // 2. Try matching by request_number with hash
+        const res1 = await supabase.from('financing_requests').update(payload).eq('request_number', hashedNumber).select();
+        if (res1.data && res1.data.length > 0) return res1;
+
+        // 3. Try matching by request_number without hash
+        const res2 = await supabase.from('financing_requests').update(payload).eq('request_number', rawNumber).select();
+        if (res2.data && res2.data.length > 0) return res2;
+
+        // 4. Try matching by order_number if available
+        if (targetOrdNum) {
+          const rawOrd = targetOrdNum.replace(/^#/, '');
+          const res3 = await supabase.from('financing_requests').update(payload).eq('order_number', `#${rawOrd}`).select();
+          if (res3.data && res3.data.length > 0) return res3;
+
+          const res4 = await supabase.from('financing_requests').update(payload).eq('order_number', rawOrd).select();
+          if (res4.data && res4.data.length > 0) return res4;
+        }
+
+        // 5. General match attempt
+        return await supabase.from('financing_requests').update(payload).eq('id', cleanKey);
+      };
+
+      const { error: updateErr } = await runUpdate(updatePayload);
       if (updateErr) {
-        // Fallback in case custom margin/repayment columns are pending SQL schema migration
+        console.warn('Full payload update error, retrying basic payload:', updateErr);
         const basicPayload = {
           status: nextStatus,
           review_notes: nextNotes,
@@ -667,14 +651,14 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
         if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
           basicPayload.approved_amount = Number(approvalData.approvedAmount);
         }
+        if (approvalData.offeredAmount !== undefined && approvalData.offeredAmount !== null) {
+          basicPayload.offered_amount = Number(approvalData.offeredAmount);
+        }
         if (approvalData.financierId) basicPayload.financier_id = approvalData.financierId;
         if (approvalData.financierName) basicPayload.financier_name = approvalData.financierName;
         if (approvalData.financierEmail) basicPayload.financier_email = approvalData.financierEmail;
-        if (isUuid(requestId)) {
-          await supabase.from('financing_requests').update(basicPayload).eq('id', requestId);
-        } else {
-          await supabase.from('financing_requests').update(basicPayload).or(`request_number.eq.${requestId},order_number.eq.${requestId}`);
-        }
+        
+        await runUpdate(basicPayload);
       }
     } catch (dbErr) {
       console.warn('Supabase financing table update note:', dbErr);
