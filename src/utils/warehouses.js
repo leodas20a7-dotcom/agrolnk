@@ -217,9 +217,12 @@ export function getWarehouseNotifications(userId, role = 'farmer') {
   const receipts = getLocalReceipts() || [];
   const notifications = [];
 
+  if (!userId) return [];
+
   receipts.forEach((r) => {
     if (!r) return;
-    if (userId && r.farmerId && r.farmerId !== userId && role === 'farmer') return;
+    if (role === 'farmer' && r.farmerId && r.farmerId !== userId) return;
+    if (role === 'warehouse' && r.warehouseId && r.warehouseId !== userId) return;
 
     const dues = calculateStorageRentalDues(r);
     if (!dues) return;
@@ -296,20 +299,20 @@ export async function getWarehouseReceipts() {
 }
 
 /**
- * Get warehouse inventory receipts for a farmer
+ * Get warehouse inventory receipts for a farmer (Strictly filtered by farmerId)
  */
 export async function getFarmerInventory(farmerId) {
+  if (!farmerId) return [];
   const all = await getWarehouseReceipts();
-  if (!farmerId) return all;
   return all.filter((r) => r.farmerId === farmerId);
 }
 
 /**
- * Get all receipts for a specific warehouse operator
+ * Get all receipts for a specific warehouse operator (Strictly filtered by warehouseId)
  */
 export async function getWarehouseInventory(warehouseId) {
+  if (!warehouseId) return [];
   const all = await getWarehouseReceipts();
-  if (!warehouseId) return all;
   return all.filter((r) => r.warehouseId === warehouseId);
 }
 
