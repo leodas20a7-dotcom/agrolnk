@@ -89,11 +89,16 @@ export default function DepositProduceModal({
   const estimatedTotalValue = (Number(quantity) || 0) * (Number(priceEstimate) || 0);
   
   // Calculate active rate per tonne based on selected chamber or warehouse baseline tariff
-  const activeChamberRate = (currentWarehouse?.chamberRates && currentWarehouse.chamberRates[chamber])
+  const baseChamberRate = (currentWarehouse?.chamberRates && currentWarehouse.chamberRates[chamber])
     ? Number(currentWarehouse.chamberRates[chamber])
     : Number(currentWarehouse?.monthlyRatePerTonne || 350);
 
-  const monthlyRentalEst = Math.round(((Number(quantity) || 0) / 1000) * activeChamberRate);
+  const depositTonnes = (Number(quantity) || 0) / 1000;
+  const isBulkDiscountEligible = Boolean(currentWarehouse?.enableBulkDiscount) && depositTonnes >= (Number(currentWarehouse?.bulkDiscountThreshold) || 50);
+  const appliedDiscountPct = isBulkDiscountEligible ? (Number(currentWarehouse?.bulkDiscountRate) || 10) : 0;
+  const effectiveRatePerTonne = appliedDiscountPct > 0 ? Math.round(baseChamberRate * (1 - appliedDiscountPct / 100)) : baseChamberRate;
+
+  const monthlyRentalEst = Math.round(depositTonnes * effectiveRatePerTonne);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,8 +125,10 @@ export default function DepositProduceModal({
         priceEstimate: Number(priceEstimate),
         chamber,
         storageDays: Number(storageDays),
-        monthlyRatePerTonne: activeChamberRate,
+        monthlyRatePerTonne: effectiveRatePerTonne,
         storageFeeMonthly: monthlyRentalEst,
+        minBillingDays: currentWarehouse?.minBillingDays || 0,
+        handlingFeePerTonne: currentWarehouse?.handlingFeePerTonne || 0,
       };
 
       const created = await depositProduceToWarehouse(depositData);
@@ -326,18 +333,42 @@ export default function DepositProduceModal({
                 ₹{estimatedTotalValue.toLocaleString('en-IN')}
               </span>
             </div>
-            <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
+            <div className="flex items-start justify-between pt-2 border-t border-[#E5EDE8]">
               <div>
-                <span className="text-[#566861] block">
-                  Storage Rent Tariff: <strong>₹{activeChamberRate} / Tonne / mo</strong> (₹{(activeChamberRate / 1000).toFixed(2)}/kg)
-                </span>
-                <span className="text-[10px] text-[#10B981] font-semibold">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[#566861]">Chamber Tariff:</span>
+                  <strong className="text-[#0B3326]">
+                    ₹{effectiveRatePerTonne} / Tonne / mo
+                  </strong>
+                  <span className="text-[11px] text-[#566861]">
+                    (₹{(effectiveRatePerTonne / 1000).toFixed(2)}/kg · ₹{Math.round(effectiveRatePerTonne / 20)}/50kg bag)
+                  </span>
+                  {appliedDiscountPct > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      {appliedDiscountPct}% Bulk Discount Applied
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1 text-[11px] text-[#566861] flex-wrap">
+                  {currentWarehouse?.minBillingDays > 0 && (
+                    <span>Min Billing: <strong>{currentWarehouse.minBillingDays} Days</strong></span>
+                  )}
+                  {currentWarehouse?.handlingFeePerTonne > 0 && (
+                    <span>· Gate Hamali: <strong>₹{currentWarehouse.handlingFeePerTonne}/Tonne</strong></span>
+                  )}
+                </div>
+                <span className="text-[10px] text-[#10B981] font-semibold block mt-1">
                   Settle monthly rent online via Razorpay (UPI, GPay, Cards)
                 </span>
               </div>
-              <span className="font-extrabold text-[#0B3326] text-sm">
-                ₹{monthlyRentalEst} / month
-              </span>
+              <div className="text-right shrink-0">
+                <span className="font-extrabold text-[#0B3326] text-sm block">
+                  ₹{monthlyRentalEst.toLocaleString('en-IN')} / mo
+                </span>
+                <span className="text-[10px] text-[#566861]">
+                  Est. Rent Quote
+                </span>
+              </div>
             </div>
           </div>
 

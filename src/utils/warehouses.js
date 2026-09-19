@@ -344,6 +344,8 @@ export async function createWarehouseReceipt(receiptData) {
 
   // Determine estimated base rate from warehouse tariff or chamber tariff
   let ratePerTonne = Number(receiptData.monthlyRatePerTonne || 350);
+  let minBillingDays = Number(receiptData.minBillingDays || 0);
+  let handlingFeePerTonne = Number(receiptData.handlingFeePerTonne || 0);
   if (receiptData.warehouseId) {
     const wh = getWarehouseById(receiptData.warehouseId);
     if (wh) {
@@ -351,6 +353,12 @@ export async function createWarehouseReceipt(receiptData) {
       if (receiptData.chamber && wh.chamberRates && wh.chamberRates[receiptData.chamber]) {
         ratePerTonne = Number(wh.chamberRates[receiptData.chamber]);
       }
+      if (wh.enableBulkDiscount && (totalQty / 1000) >= (Number(wh.bulkDiscountThreshold) || 50)) {
+        const discountPct = Number(wh.bulkDiscountRate) || 10;
+        ratePerTonne = Math.round(ratePerTonne * (1 - discountPct / 100));
+      }
+      minBillingDays = Number(wh.minBillingDays || 0);
+      handlingFeePerTonne = Number(wh.handlingFeePerTonne || 0);
     }
   }
 
@@ -850,6 +858,11 @@ export async function getWarehouses() {
             monthlyRatePerKg: Number((baseRate / 1000).toFixed(2)),
             monthlyRatePerTonne: baseRate,
             chamberRates: meta.chamberRates || {},
+            minBillingDays: Number(meta.minBillingDays || p.minBillingDays || 0),
+            handlingFeePerTonne: Number(meta.handlingFeePerTonne || p.handlingFeePerTonne || 0),
+            enableBulkDiscount: Boolean(meta.enableBulkDiscount || p.enableBulkDiscount || false),
+            bulkDiscountThreshold: Number(meta.bulkDiscountThreshold || p.bulkDiscountThreshold || 50),
+            bulkDiscountRate: Number(meta.bulkDiscountRate || p.bulkDiscountRate || 10),
             operatorContact: p.phone || meta.phone || '+91 98421 88901',
             websiteUrl: meta.websiteUrl || '',
             commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
@@ -917,6 +930,11 @@ export async function getWarehouses() {
           monthlyRatePerKg: Number((baseRate / 1000).toFixed(2)),
           monthlyRatePerTonne: baseRate,
           chamberRates: p.chamberRates || {},
+          minBillingDays: Number(p.minBillingDays || 0),
+          handlingFeePerTonne: Number(p.handlingFeePerTonne || 0),
+          enableBulkDiscount: Boolean(p.enableBulkDiscount || false),
+          bulkDiscountThreshold: Number(p.bulkDiscountThreshold || 50),
+          bulkDiscountRate: Number(p.bulkDiscountRate || 10),
           operatorContact: p.phone || '+91 98421 88901',
           websiteUrl: p.websiteUrl || '',
           commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],

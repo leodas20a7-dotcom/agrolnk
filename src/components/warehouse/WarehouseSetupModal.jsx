@@ -80,14 +80,19 @@ export default function WarehouseSetupModal({
   const [state, setState] = useState(user.state || '');
   const [pincode, setPincode] = useState('');
   const [monthlyRatePerTonne, setMonthlyRatePerTonne] = useState('350');
+  const [minBillingDays, setMinBillingDays] = useState('15');
+  const [handlingFeePerTonne, setHandlingFeePerTonne] = useState('0');
+  const [enableBulkDiscount, setEnableBulkDiscount] = useState(false);
+  const [bulkDiscountThreshold, setBulkDiscountThreshold] = useState('50');
+  const [bulkDiscountRate, setBulkDiscountRate] = useState('300');
 
   // Selected storage types and individual capacities & custom rates
   const [selectedTypes, setSelectedTypes] = useState({
     cold_multichamber: { enabled: true, capacity: 1000, temp: '2°C - 8°C', rate: 350 },
-    dry_silos: { enabled: false, capacity: 500, temp: 'Ambient (24°C)', rate: 300 },
+    dry_silos: { enabled: false, capacity: 500, temp: 'Ambient (24°C)', rate: 250 },
     ca_storage: { enabled: false, capacity: 500, temp: '0°C - 2°C (CA)', rate: 450 },
-    open_plinth: { enabled: false, capacity: 500, temp: 'Ventilated Ambient', rate: 250 },
-    deep_freeze: { enabled: false, capacity: 300, temp: '-18°C', rate: 550 },
+    open_plinth: { enabled: false, capacity: 500, temp: 'Ventilated Ambient', rate: 200 },
+    deep_freeze: { enabled: false, capacity: 300, temp: '-18°C', rate: 650 },
   });
 
   // Document upload state
@@ -120,6 +125,21 @@ export default function WarehouseSetupModal({
         setPincode(existing.pincode || '');
         if (existing.monthlyRatePerTonne) {
           setMonthlyRatePerTonne(String(existing.monthlyRatePerTonne));
+        }
+        if (existing.minBillingDays !== undefined) {
+          setMinBillingDays(String(existing.minBillingDays));
+        }
+        if (existing.handlingFeePerTonne !== undefined) {
+          setHandlingFeePerTonne(String(existing.handlingFeePerTonne));
+        }
+        if (existing.enableBulkDiscount !== undefined) {
+          setEnableBulkDiscount(Boolean(existing.enableBulkDiscount));
+        }
+        if (existing.bulkDiscountThreshold) {
+          setBulkDiscountThreshold(String(existing.bulkDiscountThreshold));
+        }
+        if (existing.bulkDiscountRate) {
+          setBulkDiscountRate(String(existing.bulkDiscountRate));
         }
 
         if (existing.storageTypesConfig) {
@@ -320,6 +340,11 @@ export default function WarehouseSetupModal({
         totalCapacityTonnes: numCapacity,
         monthlyRatePerTonne: baseRateNum,
         monthlyRatePerKg: Number((baseRateNum / 1000).toFixed(2)),
+        minBillingDays: Number(minBillingDays || 0),
+        handlingFeePerTonne: Number(handlingFeePerTonne || 0),
+        enableBulkDiscount: Boolean(enableBulkDiscount),
+        bulkDiscountThreshold: Number(bulkDiscountThreshold || 50),
+        bulkDiscountRate: Number(bulkDiscountRate || 0),
         chamberRates,
         websiteUrl: websiteUrl.trim(),
         wdraCode: wdraCode.trim() || `WDRA/2025/TN/${Math.floor(1000 + Math.random() * 9000)}`,
@@ -511,62 +536,165 @@ export default function WarehouseSetupModal({
                 </div>
               </div>
 
-              {/* Base Storage Tariff / Rental Rate Setting */}
-              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 space-y-3">
+              {/* Base Storage Tariff & Commercial Terms Setting */}
+              <div className="p-4.5 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#10B981]" />
                     <span className="text-xs font-bold text-[#0B3326]">
-                      Standard Storage Tariff / Rental Fee <span className="text-red-500">*</span>
+                      Standard Storage Tariff & Commercial Terms <span className="text-red-500">*</span>
                     </span>
                   </div>
-                  <span className="text-[11px] font-extrabold text-[#10B981]">
-                    ₹{(Number(monthlyRatePerTonne || 0) / 1000).toFixed(2)} / kg / mo
-                  </span>
+                  <Badge variant="emerald" size="sm">
+                    Live Auto-Conversion
+                  </Badge>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">
-                      ₹
-                    </span>
-                    <input
-                      type="number"
-                      value={monthlyRatePerTonne}
-                      onChange={(e) => setMonthlyRatePerTonne(e.target.value)}
-                      min="1"
-                      step="any"
-                      placeholder="350"
-                      required
-                      className="w-full pl-8 pr-24 py-2.5 rounded-xl border border-[#10B981]/40 bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-[#566861] font-semibold">
-                      / Tonne / Mo
-                    </span>
+                {/* Base Rate Input & Presets */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        value={monthlyRatePerTonne}
+                        onChange={(e) => setMonthlyRatePerTonne(e.target.value)}
+                        min="1"
+                        step="any"
+                        placeholder="350"
+                        required
+                        className="w-full pl-8 pr-24 py-2.5 rounded-xl border border-[#10B981]/40 bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-[#566861] font-semibold">
+                        / Tonne / Mo
+                      </span>
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[
+                        { label: '₹200 Grains', val: '200' },
+                        { label: '₹350 Cold', val: '350' },
+                        { label: '₹480 CA', val: '480' },
+                        { label: '₹650 Freeze', val: '650' },
+                      ].map((p) => (
+                        <button
+                          key={p.val}
+                          type="button"
+                          onClick={() => setMonthlyRatePerTonne(p.val)}
+                          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                            monthlyRatePerTonne === p.val
+                              ? 'bg-[#0B3326] text-white shadow-2xs'
+                              : 'bg-white text-[#566861] border border-[#E5EDE8] hover:bg-[#EBF5F0] hover:text-[#0B3326]'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Quick Preset Buttons */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {['250', '300', '350', '400', '500'].map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setMonthlyRatePerTonne(p)}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          monthlyRatePerTonne === p
-                            ? 'bg-[#0B3326] text-white shadow-2xs'
-                            : 'bg-white text-[#566861] border border-[#E5EDE8] hover:bg-[#EBF5F0] hover:text-[#0B3326]'
-                        }`}
-                      >
-                        ₹{p}
-                      </button>
-                    ))}
+                  {/* 3 Live Unit Conversions */}
+                  <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-white border border-[#10B981]/25 text-center text-xs">
+                    <div>
+                      <span className="text-[10px] text-[#566861] block font-semibold">Per Kilogram (kg)</span>
+                      <span className="font-extrabold text-[#10B981] text-xs">
+                        ₹{(Number(monthlyRatePerTonne || 0) / 1000).toFixed(2)} / kg / mo
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#566861] block font-semibold">Per 50kg Bag / Crate</span>
+                      <span className="font-extrabold text-[#0B3326] text-xs">
+                        ₹{((Number(monthlyRatePerTonne || 0) / 1000) * 50).toFixed(1)} / bag / mo
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#566861] block font-semibold">Daily Equivalent</span>
+                      <span className="font-extrabold text-[#566861] text-xs">
+                        ≈ ₹{(Number(monthlyRatePerTonne || 0) / 30).toFixed(1)} / Tonne / day
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-[#566861] leading-relaxed">
-                  Farmers and buyers will see this official rate when depositing produce or taking storage loans. Auto-deducted from buyer payments upon sale.
-                </p>
+                {/* Additional Commercial Terms: Min Billing & Handling */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#10B981]/20">
+                  {/* Minimum Billing Period */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-[#0B3326] block">
+                      Minimum Billing Duration
+                    </label>
+                    <select
+                      value={minBillingDays}
+                      onChange={(e) => setMinBillingDays(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
+                    >
+                      <option value="0">No Minimum (Pay per day)</option>
+                      <option value="15">15 Days Minimum Billing</option>
+                      <option value="30">30 Days Minimum Billing (1 Month)</option>
+                    </select>
+                  </div>
+
+                  {/* Handling & Unloading / Hamali Fee */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-[#0B3326] block">
+                      Gate Unloading & Handling (Hamali)
+                    </label>
+                    <select
+                      value={handlingFeePerTonne}
+                      onChange={(e) => setHandlingFeePerTonne(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
+                    >
+                      <option value="0">₹0 / Tonne (Included in Storage Rent)</option>
+                      <option value="30">₹30 / Tonne (One-time Gate Unloading)</option>
+                      <option value="40">₹40 / Tonne (One-time Gate Unloading)</option>
+                      <option value="50">₹50 / Tonne (One-time Gate Unloading)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Bulk Volume Discount Option */}
+                <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#0B3326] flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableBulkDiscount}
+                        onChange={(e) => setEnableBulkDiscount(e.target.checked)}
+                        className="rounded text-[#10B981] focus:ring-[#10B981]"
+                      />
+                      <span>Enable Volume Discount for Bulk Farmers & FPOs</span>
+                    </label>
+                    <span className="text-[10px] text-[#566861] font-medium">Optional</span>
+                  </div>
+
+                  {enableBulkDiscount && (
+                    <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+                      <div>
+                        <span className="text-[10px] text-[#566861] block font-semibold">Min Volume Threshold (MT)</span>
+                        <input
+                          type="number"
+                          value={bulkDiscountThreshold}
+                          onChange={(e) => setBulkDiscountThreshold(e.target.value)}
+                          placeholder="50"
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5EDE8] text-xs font-bold text-[#0B3326]"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#566861] block font-semibold">Discounted Rate (₹/Tonne/mo)</span>
+                        <input
+                          type="number"
+                          value={bulkDiscountRate}
+                          onChange={(e) => setBulkDiscountRate(e.target.value)}
+                          placeholder="300"
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-[#10B981] text-xs font-extrabold text-[#10B981]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Physical Location */}
