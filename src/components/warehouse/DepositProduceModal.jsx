@@ -332,7 +332,7 @@ export default function DepositProduceModal({
                   Storage Rent Tariff: <strong>₹{activeChamberRate} / Tonne / mo</strong> (₹{(activeChamberRate / 1000).toFixed(2)}/kg)
                 </span>
                 <span className="text-[10px] text-[#10B981] font-semibold">
-                  Auto-deducted upon produce sale (Zero upfront cash needed)
+                  Settle monthly rent online via Razorpay (UPI, GPay, Cards)
                 </span>
               </div>
               <span className="font-extrabold text-[#0B3326] text-sm">

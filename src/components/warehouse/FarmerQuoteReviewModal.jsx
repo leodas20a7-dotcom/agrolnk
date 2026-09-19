@@ -151,7 +151,7 @@ export default function FarmerQuoteReviewModal({
                   Payment Mode
                 </span>
                 <span className="text-xs font-bold text-[#10B981]">
-                  Auto-deduct on sale
+                  Razorpay Online / UPI
                 </span>
               </div>
             </div>

@@ -180,7 +180,7 @@ export default function ReceiptDetailModal({
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-[#566861] gap-1 pt-1 border-t border-[#E5EDE8]/60">
               <span>Storage Cell: <strong>{inventory.chamber}</strong></span>
-              <span className="text-[#10B981] font-semibold">Rent Payment: Auto-deducted from buyer escrow upon sale</span>
+              <span className="text-[#10B981] font-semibold">Rent Payment: Direct Online via Razorpay / UPI</span>
             </div>
           </div>
         </div>

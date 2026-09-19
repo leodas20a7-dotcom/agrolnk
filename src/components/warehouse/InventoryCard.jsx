@@ -174,8 +174,8 @@ export default function InventoryCard({
                 <Clock className="w-3 h-3" />
                 <span>{deadline.label}</span>
               </div>
-              <span className="text-[10px] text-[#566861]">
-                Auto-deduct on sale
+              <span className="text-[10px] text-[#10B981] font-semibold">
+                Razorpay Online
               </span>
             </div>
           )}

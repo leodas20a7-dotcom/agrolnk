@@ -25,14 +25,12 @@ export default function PayStorageRentModal({
   onSuccess,
 }) {
   const [extendedDays, setExtendedDays] = useState(30);
-  const [paymentMode, setPaymentMode] = useState('razorpay'); // 'razorpay' | 'auto_escrow'
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
 
   useEffect(() => {
     if (isOpen && inventory) {
       setExtendedDays(30);
-      setPaymentMode('razorpay');
       setIsProcessing(false);
       setPaymentSuccess(null);
     }
@@ -47,19 +45,6 @@ export default function PayStorageRentModal({
     setIsProcessing(true);
 
     try {
-      if (paymentMode === 'auto_escrow') {
-        const res = await payStorageRent(inventory.id, {
-          amount: calculatedPayAmount,
-          method: 'Agrolnk Escrow Balance Deduction',
-          extendedDays,
-          paidBy: currentUser?.name || 'Authorized Account',
-        });
-        setIsProcessing(false);
-        setPaymentSuccess(res.payment);
-        onSuccess?.(res.receipt);
-        return;
-      }
-
       // Launch Razorpay Payment Gateway
       await initiateRazorpayWarehouseRentCheckout({
         inventory,
@@ -212,11 +197,11 @@ export default function PayStorageRentModal({
                 </div>
               </div>
 
-              {/* Zero-Cash Option Tip for Local Farmers */}
+              {/* Razorpay Online Security Banner */}
               <div className="p-3 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/25 flex gap-2.5 items-start text-left">
-                <Info className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+                <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-[#0B3326] leading-relaxed">
-                  <strong className="font-bold">Simple Option:</strong> You can pay online now to extend validity, OR let it auto-deduct when you sell produce to a buyer on Agrolnk (zero cash required today).
+                  <strong className="font-bold">Instant Online Settlement:</strong> Payments are processed securely through Razorpay. Once completed, your storage validity is automatically updated and receipt generated instantly.
                 </p>
               </div>
 
@@ -251,69 +236,34 @@ export default function PayStorageRentModal({
                 </div>
               </div>
 
-              {/* Payment Mode */}
+              {/* Payment Method Card */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                  Choose Payment Method
+                  Payment Method
                 </label>
-                <div className="space-y-2.5">
-                  <label
-                    className={`flex items-start justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                      paymentMode === 'razorpay' ? 'border-[#10B981] bg-[#F2FBF6] shadow-xs' : 'border-[#E5EDE8] bg-white hover:border-[#10B981]/50'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        name="payMode"
-                        checked={paymentMode === 'razorpay'}
-                        onChange={() => setPaymentMode('razorpay')}
-                        className="mt-0.5 text-[#10B981] focus:ring-[#10B981]"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-extrabold text-[#14211D]">
-                            Razorpay Secure Pay
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#0C2340] text-white tracking-wide">
-                            Razorpay
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-[#0B3326] font-medium block mt-0.5">
-                          UPI (GPay, PhonePe, Paytm) • Cards • NetBanking • Wallets
+                <div className="p-4 rounded-2xl border-2 border-[#10B981] bg-[#F2FBF6] shadow-xs flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-[#10B981] text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-extrabold text-[#14211D]">
+                          Razorpay Secure Checkout
                         </span>
-                        <span className="text-[10px] text-[#566861] block mt-0.5">
-                          Instant online settlement & live validity extension
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#0C2340] text-white tracking-wide">
+                          Razorpay
                         </span>
                       </div>
+                      <span className="text-[11px] text-[#0B3326] font-medium block mt-0.5">
+                        UPI (GPay, PhonePe, Paytm) • Cards • NetBanking • Wallets
+                      </span>
+                      <span className="text-[10px] text-[#566861] block mt-0.5">
+                        Official bank-grade encrypted payment gateway
+                      </span>
                     </div>
-                    <Badge variant="blue" size="sm">Online Payment</Badge>
-                  </label>
-
-                  <label
-                    className={`flex items-start justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                      paymentMode === 'auto_escrow' ? 'border-[#10B981] bg-[#F2FBF6] shadow-xs' : 'border-[#E5EDE8] bg-white hover:border-[#10B981]/50'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        name="payMode"
-                        checked={paymentMode === 'auto_escrow'}
-                        onChange={() => setPaymentMode('auto_escrow')}
-                        className="mt-0.5 text-[#10B981] focus:ring-[#10B981]"
-                      />
-                      <div>
-                        <span className="text-xs font-bold text-[#14211D] block">
-                          Auto-Deduct from Next Produce Sale
-                        </span>
-                        <span className="text-[11px] text-[#566861] block mt-0.5">
-                          No cash needed today — rent automatically deducts when your produce sells
-                        </span>
-                      </div>
-                    </div>
-                    <Badge variant="emerald" size="sm">Zero Cash Today</Badge>
-                  </label>
+                  </div>
+                  <Badge variant="blue" size="sm">Online</Badge>
                 </div>
               </div>
 
