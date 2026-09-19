@@ -26,7 +26,8 @@ const STORAGE_TYPE_OPTIONS = [
     defaultTemp: '2°C - 8°C',
     icon: ThermometerSnowflake,
     description: 'For fruits, vegetables, potatoes, and horticulture perishables.',
-    defaultCap: 1500,
+    defaultCap: 1000,
+    defaultRate: 350,
   },
   {
     id: 'dry_silos',
@@ -34,7 +35,8 @@ const STORAGE_TYPE_OPTIONS = [
     defaultTemp: 'Ambient (22°C - 26°C)',
     icon: Layers,
     description: 'For grains, paddy, wheat, pulses, maize, and turmeric.',
-    defaultCap: 1200,
+    defaultCap: 1000,
+    defaultRate: 200,
   },
   {
     id: 'ca_storage',
@@ -42,7 +44,8 @@ const STORAGE_TYPE_OPTIONS = [
     defaultTemp: '0°C - 2°C (Low O₂/CO₂)',
     icon: ThermometerSnowflake,
     description: 'High-tech long-term storage for export apples, kiwis, grapes.',
-    defaultCap: 800,
+    defaultCap: 500,
+    defaultRate: 480,
   },
   {
     id: 'open_plinth',
@@ -51,6 +54,7 @@ const STORAGE_TYPE_OPTIONS = [
     icon: Building2,
     description: 'Bagged grain storage with HDPE covers and fumigation.',
     defaultCap: 1000,
+    defaultRate: 180,
   },
   {
     id: 'deep_freeze',
@@ -59,6 +63,7 @@ const STORAGE_TYPE_OPTIONS = [
     icon: ThermometerSnowflake,
     description: 'IQF produce, butter, frozen pulp, and processed cold products.',
     defaultCap: 500,
+    defaultRate: 650,
   },
 ];
 
@@ -89,10 +94,10 @@ export default function WarehouseSetupModal({
   // Selected storage types and individual capacities & custom rates
   const [selectedTypes, setSelectedTypes] = useState({
     cold_multichamber: { enabled: true, capacity: 1000, temp: '2°C - 8°C', rate: 350 },
-    dry_silos: { enabled: false, capacity: 500, temp: 'Ambient (24°C)', rate: 250 },
-    ca_storage: { enabled: false, capacity: 500, temp: '0°C - 2°C (CA)', rate: 450 },
-    open_plinth: { enabled: false, capacity: 500, temp: 'Ventilated Ambient', rate: 200 },
-    deep_freeze: { enabled: false, capacity: 300, temp: '-18°C', rate: 650 },
+    dry_silos: { enabled: false, capacity: 1000, temp: 'Ambient (22°C - 26°C)', rate: 200 },
+    ca_storage: { enabled: false, capacity: 500, temp: '0°C - 2°C (CA)', rate: 480 },
+    open_plinth: { enabled: false, capacity: 1000, temp: 'Ventilated Ambient', rate: 180 },
+    deep_freeze: { enabled: false, capacity: 500, temp: '-18°C', rate: 650 },
   });
 
   // Document upload state
@@ -312,7 +317,7 @@ export default function WarehouseSetupModal({
       const formattedChambers = STORAGE_TYPE_OPTIONS.filter(
         (opt) => selectedTypes[opt.id]?.enabled
       ).map((opt) => {
-        const rate = Number(selectedTypes[opt.id]?.rate || monthlyRatePerTonne || 350);
+        const rate = Number(selectedTypes[opt.id]?.rate || opt.defaultRate || 350);
         const chamberTitle = `${opt.name} (${selectedTypes[opt.id]?.capacity || opt.defaultCap}T - ${selectedTypes[opt.id]?.temp || opt.defaultTemp})`;
         chamberRates[chamberTitle] = rate;
         chamberRates[opt.name] = rate;
@@ -328,7 +333,9 @@ export default function WarehouseSetupModal({
         };
       });
 
-      const baseRateNum = Number(monthlyRatePerTonne) || 350;
+      // Calculate baseline facility tariff automatically from minimum chamber rate
+      const chamberRateValues = formattedChambers.map((c) => c.rate).filter((r) => r > 0);
+      const baseRateNum = chamberRateValues.length > 0 ? Math.min(...chamberRateValues) : (Number(monthlyRatePerTonne) || 350);
 
       const profilePayload = {
         warehouseName: companyName.trim(),
@@ -458,7 +465,7 @@ export default function WarehouseSetupModal({
                   : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0]'
               }`}
             >
-              <span>2. Storage Types</span>
+              <span>2. Storage Chambers & Rates</span>
             </button>
 
             <button
@@ -499,7 +506,7 @@ export default function WarehouseSetupModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-[#14211D] block">
-                    Total Accredited Storage Capacity (Tonnes) <span className="text-red-500">*</span>
+                    Total Storage Capacity (Tonnes / MT) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -536,97 +543,22 @@ export default function WarehouseSetupModal({
                 </div>
               </div>
 
-              {/* Base Storage Tariff & Commercial Terms Setting */}
-              <div className="p-4.5 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 space-y-4">
+              {/* Commercial Billing & Gate Handling Policies */}
+              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#10B981]" />
                     <span className="text-xs font-bold text-[#0B3326]">
-                      Standard Storage Tariff & Commercial Terms <span className="text-red-500">*</span>
+                      Commercial Billing & Gate Handling Policies
                     </span>
                   </div>
-                  <Badge variant="emerald" size="sm">
-                    Live Auto-Conversion
-                  </Badge>
-                </div>
-
-                {/* Base Rate Input & Presets */}
-                <div className="space-y-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        value={monthlyRatePerTonne}
-                        onChange={(e) => setMonthlyRatePerTonne(e.target.value)}
-                        min="1"
-                        step="any"
-                        placeholder="350"
-                        required
-                        className="w-full pl-8 pr-24 py-2.5 rounded-xl border border-[#10B981]/40 bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                      />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-[#566861] font-semibold">
-                        / Tonne / Mo
-                      </span>
-                    </div>
-
-                    {/* Quick Preset Buttons */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {[
-                        { label: '₹200 Grains', val: '200' },
-                        { label: '₹350 Cold', val: '350' },
-                        { label: '₹480 CA', val: '480' },
-                        { label: '₹650 Freeze', val: '650' },
-                      ].map((p) => (
-                        <button
-                          key={p.val}
-                          type="button"
-                          onClick={() => setMonthlyRatePerTonne(p.val)}
-                          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                            monthlyRatePerTonne === p.val
-                              ? 'bg-[#0B3326] text-white shadow-2xs'
-                              : 'bg-white text-[#566861] border border-[#E5EDE8] hover:bg-[#EBF5F0] hover:text-[#0B3326]'
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 3 Live Unit Conversions */}
-                  <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-white border border-[#10B981]/25 text-center text-xs">
-                    <div>
-                      <span className="text-[10px] text-[#566861] block font-semibold">Per Kilogram (kg)</span>
-                      <span className="font-extrabold text-[#10B981] text-xs">
-                        ₹{(Number(monthlyRatePerTonne || 0) / 1000).toFixed(2)} / kg / mo
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#566861] block font-semibold">Per 50kg Bag / Crate</span>
-                      <span className="font-extrabold text-[#0B3326] text-xs">
-                        ₹{((Number(monthlyRatePerTonne || 0) / 1000) * 50).toFixed(1)} / bag / mo
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#566861] block font-semibold">Daily Equivalent</span>
-                      <span className="font-extrabold text-[#566861] text-xs">
-                        ≈ ₹{(Number(monthlyRatePerTonne || 0) / 30).toFixed(1)} / Tonne / day
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Multi-Storage Helper Notice */}
-                  <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/70 text-[11px] text-[#065F46] leading-relaxed">
-                    <span className="font-bold shrink-0">💡 Multi-Storage Tip:</span>
-                    <span>This is your facility baseline price. If you operate different chambers (e.g. <strong>Dry Grain Silos @ ₹200</strong> vs <strong>Cold Storage @ ₹350</strong> vs <strong>CA Vault @ ₹480</strong>), you can customize individual room prices in <strong>Step 2 (Storage Types)</strong>.</span>
-                  </div>
+                  <span className="text-[11px] text-[#065F46] font-semibold">
+                    Set in Step 2: Separate tariffs for Cold vs Silo vs CA
+                  </span>
                 </div>
 
                 {/* Additional Commercial Terms: Min Billing & Handling */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#10B981]/20">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Minimum Billing Period */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-[#0B3326] block">
@@ -637,7 +569,7 @@ export default function WarehouseSetupModal({
                       onChange={(e) => setMinBillingDays(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
                     >
-                      <option value="0">No Minimum (Pay per day)</option>
+                      <option value="0">No Minimum (Pay per exact days stored)</option>
                       <option value="15">15 Days Minimum Billing</option>
                       <option value="30">30 Days Minimum Billing (1 Month)</option>
                     </select>
@@ -755,7 +687,7 @@ export default function WarehouseSetupModal({
                   iconPosition="right"
                   className="font-bold text-xs"
                 >
-                  Next: Storage Types & Chambers
+                  Next: Configure Storage Chambers & Rates
                 </Button>
               </div>
             </div>
@@ -767,14 +699,14 @@ export default function WarehouseSetupModal({
               <div className="flex items-center justify-between pb-1">
                 <div>
                   <span className="text-xs font-bold text-[#14211D] block">
-                    What types of storage facilities do you operate?
+                    Storage Chambers & Individual Tariffs
                   </span>
                   <p className="text-[11px] text-[#566861]">
-                    Set dedicated capacities and custom monthly rental tariffs (₹/Tonne) per chamber.
+                    Configure dedicated capacities and specific monthly rental tariffs (₹/Tonne) for each storage type.
                   </p>
                 </div>
                 <Badge variant={chamberSum === Number(totalCapacityTonnes) ? 'emerald' : 'amber'} size="sm">
-                  Chamber Sum: {chamberSum} / {totalCapacityTonnes} T
+                  Chamber Sum: {chamberSum} / {totalCapacityTonnes || 0} T
                 </Badge>
               </div>
 
@@ -783,7 +715,7 @@ export default function WarehouseSetupModal({
                   const Icon = opt.icon;
                   const isChecked = selectedTypes[opt.id]?.enabled;
                   const currentCap = selectedTypes[opt.id]?.capacity || opt.defaultCap;
-                  const currentRate = selectedTypes[opt.id]?.rate || monthlyRatePerTonne || 350;
+                  const currentRate = selectedTypes[opt.id]?.rate || opt.defaultRate || 350;
 
                   return (
                     <div
@@ -834,9 +766,9 @@ export default function WarehouseSetupModal({
                               />
                             </div>
 
-                            <div className="w-28 shrink-0 space-y-1">
+                            <div className="w-32 shrink-0 space-y-1">
                               <span className="text-[10px] text-[#566861] block font-semibold text-right">
-                                Rate (₹/T/mo)
+                                Tariff (₹/T/mo)
                               </span>
                               <input
                                 type="number"
@@ -846,9 +778,11 @@ export default function WarehouseSetupModal({
                                 step="any"
                                 className="w-full px-2.5 py-1 rounded-lg border border-[#10B981] bg-white text-xs font-bold text-right text-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
                               />
-                              <span className="text-[10px] text-[#059669] block font-bold text-right">
-                                ₹{(Number(currentRate || 0) / 1000).toFixed(2)}/kg
-                              </span>
+                              <div className="flex items-center justify-end gap-1 text-[10px] font-bold text-[#059669]">
+                                <span>₹{(Number(currentRate || 0) / 1000).toFixed(2)}/kg</span>
+                                <span>•</span>
+                                <span>₹{((Number(currentRate || 0) / 1000) * 50).toFixed(1)}/bag</span>
+                              </div>
                             </div>
                           </div>
                         )}
