@@ -2,7 +2,15 @@ import React from 'react';
 import Badge from '../ui/Badge';
 import { Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
-export default function FinancingStatusBadge({ status, size = 'sm' }) {
+export default function FinancingStatusBadge({ status, applicantKycStatus, size = 'sm' }) {
+  if ((status === 'pending' || status === 'under_review') && applicantKycStatus && applicantKycStatus !== 'verified') {
+    return (
+      <Badge variant="amber" size={size} dot={true}>
+        <span>KYC Pending Approval</span>
+      </Badge>
+    );
+  }
+
   const config = {
     pending: {
       label: 'Pending Review',

@@ -78,6 +78,9 @@ export default function InstitutionalUnderwriteModal({
             reviewNotes: reviewNotes || `Loan disbursed to escrow via Razorpay Route. UTR: ${paymentData?.bankUtr || 'UTR-ESCROW-PAID'}.`,
             bankUtr: paymentData?.bankUtr,
             razorpayPaymentId: paymentData?.razorpay_payment_id,
+            financierId: currentUser?.id || currentUser?.email || 'default',
+            financierName: currentUser?.name || currentUser?.company_name || 'Financial Institution',
+            financierEmail: currentUser?.email || null,
           });
 
           setActionSuccess(
@@ -105,16 +108,28 @@ export default function InstitutionalUnderwriteModal({
     });
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     setIsSubmitting(true);
-    updateFinancingStatus(request.id, 'rejected', null, reviewNotes || 'Application declined by risk policy.');
-    setActionSuccess('Application marked as declined.');
-    setTimeout(() => {
-      onUpdated?.();
-      onClose();
-      setActionSuccess(null);
+    try {
+      await underwriteLoan(request.id, {
+        status: 'rejected',
+        reviewNotes: reviewNotes || 'Application declined by risk policy.',
+        financierId: currentUser?.id || currentUser?.email || 'default',
+        financierName: currentUser?.name || currentUser?.company_name || 'Financial Institution',
+        financierEmail: currentUser?.email || null,
+      });
+      setActionSuccess('Application marked as declined.');
+      setTimeout(() => {
+        onUpdated?.();
+        onClose();
+        setActionSuccess(null);
+        setIsSubmitting(false);
+      }, 1200);
+    } catch (err) {
+      console.error('Error rejecting loan:', err);
+      setError('Failed to reject loan application.');
       setIsSubmitting(false);
-    }, 1200);
+    }
   };
 
   if (!request) return null;

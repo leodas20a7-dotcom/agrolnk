@@ -10,6 +10,10 @@ function mapFinancingFromDb(row) {
     applicantId: row.applicant_id,
     applicantName: row.applicant_name,
     applicantRole: row.applicant_role,
+    applicantKycStatus: row.profiles?.kyc_status || (row.profiles?.is_verified ? 'verified' : null) || row.applicant_kyc_status || null,
+    financierId: row.financier_id || null,
+    financierName: row.financier_name || null,
+    financierEmail: row.financier_email || null,
     orderId: row.order_id,
     orderNumber: row.order_number,
     receiptId: row.receipt_id,
@@ -84,6 +88,10 @@ function saveLocalFinancingRequest(item) {
     const mergedItem = {
       ...(existingItem || {}),
       ...item,
+      financierId: item.financierId || existingItem?.financierId || null,
+      financierName: item.financierName || existingItem?.financierName || null,
+      financierEmail: item.financierEmail || existingItem?.financierEmail || null,
+      applicantKycStatus: item.applicantKycStatus || existingItem?.applicantKycStatus || null,
       marginPaid: Boolean(item.marginPaid || existingItem?.marginPaid),
       escrowFunded: Boolean(item.escrowFunded || existingItem?.escrowFunded),
       paymentId: item.paymentId || existingItem?.paymentId || null,
@@ -125,19 +133,55 @@ const generateStandardUuid = () => {
   });
 };
 
+function getBorrowerKycMap() {
+  const map = new Map();
+  try {
+    const raw = localStorage.getItem('agrolnk_admin_kyc_registry');
+    const users = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(users)) {
+      users.forEach((u) => {
+        const status = u.verificationStatus || u.kycStatus || u.kyc_status || 'pending';
+        if (u.id) map.set(String(u.id).toLowerCase(), status);
+        if (u.email) map.set(String(u.email).toLowerCase(), status);
+        if (u.name) map.set(String(u.name).toLowerCase(), status);
+      });
+    }
+  } catch {}
+  return map;
+}
+
 /**
- * Get all financing requests from Supabase merged with local requests
+ * Get all financing requests from Supabase merged with local requests and resolved KYC status
  */
 export async function getFinancingRequests() {
   let remote = [];
-  try {
-    const { data, error } = await supabase
-      .from('financing_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+  const kycMap = getBorrowerKycMap();
 
-    if (!error && data) {
-      remote = data.map(mapFinancingFromDb);
+  try {
+    const [finRes, profRes] = await Promise.all([
+      supabase.from('financing_requests').select('*').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, name, email, role, kyc_status'),
+    ]);
+
+    if (!profRes.error && profRes.data) {
+      profRes.data.forEach((p) => {
+        const status = p.kyc_status || 'pending';
+        if (p.id) kycMap.set(String(p.id).toLowerCase(), status);
+        if (p.email) kycMap.set(String(p.email).toLowerCase(), status);
+        if (p.name) kycMap.set(String(p.name).toLowerCase(), status);
+      });
+    }
+
+    if (!finRes.error && finRes.data) {
+      remote = finRes.data.map((row) => {
+        const mapped = mapFinancingFromDb(row);
+        const appId = String(mapped.applicantId || '').toLowerCase();
+        const appName = String(mapped.applicantName || '').toLowerCase();
+        if (!mapped.applicantKycStatus) {
+          mapped.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+        }
+        return mapped;
+      });
     }
   } catch (err) {
     console.error('Error in getFinancingRequests:', err);
@@ -164,9 +208,17 @@ export async function getFinancingRequests() {
         ? r.approvedAmount
         : (localMatch.approvedAmount || r.approvedAmount || r.requestedAmount);
 
+      const appId = String(r.applicantId || localMatch.applicantId || '').toLowerCase();
+      const appName = String(r.applicantName || localMatch.applicantName || '').toLowerCase();
+      const resolvedKyc = r.applicantKycStatus || localMatch.applicantKycStatus || kycMap.get(appId) || kycMap.get(appName) || 'pending';
+
       return {
         ...localMatch,
         ...r,
+        financierId: r.financierId || localMatch.financierId || null,
+        financierName: r.financierName || localMatch.financierName || null,
+        financierEmail: r.financierEmail || localMatch.financierEmail || null,
+        applicantKycStatus: resolvedKyc,
         approvedAmount: resolvedApprovedAmount,
         marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
         escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
@@ -174,11 +226,24 @@ export async function getFinancingRequests() {
         status: resolvedStatus,
       };
     }
+
+    const appId = String(r.applicantId || '').toLowerCase();
+    const appName = String(r.applicantName || '').toLowerCase();
+    if (!r.applicantKycStatus) {
+      r.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+    }
     return r;
   });
 
   const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber, r.orderId].filter(Boolean)));
-  const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber)));
+  const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber))).map((l) => {
+    const appId = String(l.applicantId || '').toLowerCase();
+    const appName = String(l.applicantName || '').toLowerCase();
+    if (!l.applicantKycStatus) {
+      l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+    }
+    return l;
+  });
 
   return [...mergedRemote, ...localOnly];
 }
@@ -454,6 +519,15 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
     if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
       updatePayload.approved_amount = Number(approvalData.approvedAmount);
     }
+    if (approvalData.financierId) {
+      updatePayload.financier_id = approvalData.financierId;
+    }
+    if (approvalData.financierName) {
+      updatePayload.financier_name = approvalData.financierName;
+    }
+    if (approvalData.financierEmail) {
+      updatePayload.financier_email = approvalData.financierEmail;
+    }
     if (approvalData.marginPaid !== undefined) {
       updatePayload.margin_paid = Boolean(approvalData.marginPaid);
     }
@@ -514,6 +588,9 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
         if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
           basicPayload.approved_amount = Number(approvalData.approvedAmount);
         }
+        if (approvalData.financierId) basicPayload.financier_id = approvalData.financierId;
+        if (approvalData.financierName) basicPayload.financier_name = approvalData.financierName;
+        if (approvalData.financierEmail) basicPayload.financier_email = approvalData.financierEmail;
         if (isUuid(requestId)) {
           await supabase.from('financing_requests').update(basicPayload).eq('id', requestId);
         } else {
@@ -721,14 +798,18 @@ export async function getFinancingRequestById(id) {
   }
 }
 
-const LIQUIDITY_POOL_KEY = 'agrolnk_financier_liquidity_pool';
+function getLiquidityPoolKey(financierId) {
+  const cleanId = String(financierId || 'default').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  return `agrolnk_financier_liquidity_pool_${cleanId}`;
+}
 
 /**
- * Get liquidity pool details
+ * Get liquidity pool details for a specific financial institution
  */
-export function getLiquidityPool() {
+export function getLiquidityPool(financierId) {
+  const key = getLiquidityPoolKey(financierId);
   try {
-    const raw = localStorage.getItem(LIQUIDITY_POOL_KEY);
+    const raw = localStorage.getItem(key);
     const poolData = raw ? JSON.parse(raw) : null;
     const totalCommitted = Number(poolData?.totalCommitted) || 0;
     return {
@@ -741,6 +822,7 @@ export function getLiquidityPool() {
       activeTranches: poolData?.activeTranches || (totalCommitted > 0 ? 1 : 0),
       lastAllocatedAt: poolData?.lastAllocatedAt || null,
       lastAllocatedAmount: poolData?.lastAllocatedAmount || 0,
+      financierId: financierId || 'default',
     };
   } catch {
     return {
@@ -751,15 +833,17 @@ export function getLiquidityPool() {
       weightedAvgReturn: 0.95, // 0.95% per month
       nonPerformingRate: 0.0,
       activeTranches: 0,
+      financierId: financierId || 'default',
     };
   }
 }
 
-export function addLiquidityPoolFunds(amount) {
+export function addLiquidityPoolFunds(amount, financierId) {
   const numAmount = Number(amount) || 0;
-  const currentPool = getLiquidityPool();
+  const currentPool = getLiquidityPool(financierId);
   const newCommitted = (Number(currentPool.totalCommitted) || 0) + numAmount;
   const newAvailable = (Number(currentPool.availableLiquidity) || 0) + numAmount;
+  const key = getLiquidityPoolKey(financierId);
   
   const updated = {
     ...currentPool,
@@ -768,10 +852,11 @@ export function addLiquidityPoolFunds(amount) {
     activeTranches: (currentPool.activeTranches || 0) + 1,
     lastAllocatedAt: new Date().toISOString(),
     lastAllocatedAmount: numAmount,
+    financierId: financierId || 'default',
   };
 
   try {
-    localStorage.setItem(LIQUIDITY_POOL_KEY, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updated }));
     window.dispatchEvent(new Event('storage'));
   } catch (err) {
@@ -782,14 +867,30 @@ export function addLiquidityPoolFunds(amount) {
 }
 
 /**
- * Get aggregate financing statistics with realized yield and recovered capital
+ * Get aggregate financing statistics with realized yield and recovered capital scoped to a financier
  */
-export async function getFinancingStats() {
+export async function getFinancingStats(financierId) {
   try {
     const all = await getFinancingRequests();
-    const pending = all.filter((r) => r.status === 'pending');
-    const approved = all.filter((r) => r.status === 'approved' || r.status === 'disbursed');
-    const repaid = all.filter((r) => r.status === 'repaid' || r.status === 'settled');
+    // Only pending requests from KYC-verified borrowers
+    const pending = all.filter(
+      (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
+    );
+
+    // Scoped approved & active loans for this financier (or legacy unassigned)
+    const approved = all.filter((r) => {
+      const isStatusMatch = r.status === 'approved' || r.status === 'disbursed';
+      if (!isStatusMatch) return false;
+      if (!financierId) return true;
+      return r.financierId === financierId || !r.financierId;
+    });
+
+    const repaid = all.filter((r) => {
+      const isStatusMatch = r.status === 'repaid' || r.status === 'settled';
+      if (!isStatusMatch) return false;
+      if (!financierId) return true;
+      return r.financierId === financierId || !r.financierId;
+    });
 
     const totalApproved = approved.reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
     const totalPending = pending.reduce((sum, r) => sum + (Number(r.requestedAmount) || 0), 0);
@@ -799,7 +900,7 @@ export async function getFinancingStats() {
       return sum + (Number(r.repaymentInterest) || mat.interest || 0);
     }, 0);
 
-    const pool = getLiquidityPool();
+    const pool = getLiquidityPool(financierId);
     const totalCommittedPool = pool.totalCommitted || 0;
 
     return {

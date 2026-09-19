@@ -42,7 +42,7 @@ export default function FinancingCard({
             Escrow Secured ✓
           </span>
         ) : (
-          <FinancingStatusBadge status={request.status} />
+          <FinancingStatusBadge status={request.status} applicantKycStatus={request.applicantKycStatus} />
         )}
       </div>
 

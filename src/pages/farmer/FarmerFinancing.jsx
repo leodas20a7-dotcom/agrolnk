@@ -192,6 +192,19 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
           </div>
         </div>
 
+        {/* Profile KYC Notice if borrower KYC is pending */}
+        {user && (user.kycStatus === 'pending' || user.kyc_status === 'pending' || user.verificationStatus === 'pending') && (
+          <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-950 flex items-start gap-3 text-xs">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-bold block">Account KYC Verification Under Review</span>
+              <p className="text-amber-900/80 leading-relaxed">
+                Your profile is currently being reviewed by Admin. Your loan applications are safely saved and will be dispatched to institutional lenders the moment your KYC is approved.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Core Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           

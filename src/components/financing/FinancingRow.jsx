@@ -90,7 +90,7 @@ export default function FinancingRow({
             Escrow Secured ✓
           </span>
         ) : (
-          <FinancingStatusBadge status={request.status} size="sm" />
+          <FinancingStatusBadge status={request.status} applicantKycStatus={request.applicantKycStatus} size="sm" />
         )}
 
         <Button

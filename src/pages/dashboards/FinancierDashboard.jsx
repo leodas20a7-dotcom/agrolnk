@@ -105,14 +105,15 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
   const loadData = async () => {
     try {
+      const fid = user.id || user.email || 'default';
       const [all, computedStats, allDisb] = await Promise.all([
         getFinancingRequests(),
-        getFinancingStats(),
+        getFinancingStats(fid),
         getDisbursements(),
       ]);
       setRequests(Array.isArray(all) ? all : []);
       setStats(computedStats);
-      setPool(getLiquidityPool());
+      setPool(getLiquidityPool(fid));
       setDisbursements(Array.isArray(allDisb) ? allDisb : []);
     } catch (err) {
       console.error('Error loading financier data:', err);
@@ -150,14 +151,25 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_liquidity_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
     };
-  }, []);
+  }, [user.id, user.email]);
 
   const safeRequests = Array.isArray(requests) ? requests : [];
+  
+  // Only display pending loan requests from KYC-verified borrowers to financial institutions
   const pendingRequests = safeRequests.filter(
-    (r) => r.status === 'pending' || r.status === 'under_review'
+    (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
   );
-  const activeLoans = safeRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed');
-  const repaidLoans = safeRequests.filter((r) => r.status === 'repaid' || r.status === 'settled');
+
+  // Active and repaid loans scoped to this specific financial institution
+  const activeLoans = safeRequests.filter(
+    (r) => (r.status === 'approved' || r.status === 'disbursed') &&
+           (!user.id || r.financierId === user.id || !r.financierId)
+  );
+
+  const repaidLoans = safeRequests.filter(
+    (r) => (r.status === 'repaid' || r.status === 'settled') &&
+           (!user.id || r.financierId === user.id || !r.financierId)
+  );
 
   const totalPool = Number(pool?.totalCommitted) || 0;
   const totalDeployed = activeLoans.reduce(
@@ -664,6 +676,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
           isOpen={isAddLiquidityOpen}
           onClose={() => setIsAddLiquidityOpen(false)}
           onAdded={loadData}
+          currentUser={user}
         />
       )}
 

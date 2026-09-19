@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { addLiquidityPoolFunds } from '../../utils/financing';
 
-export default function AddLiquidityModal({ isOpen, onClose, onAdded }) {
+export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUser }) {
   const [amount, setAmount] = useState(500000);
   const [allocating, setAllocating] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -28,7 +28,8 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded }) {
     setAllocating(true);
 
     try {
-      addLiquidityPoolFunds(amount);
+      const financierId = currentUser?.id || currentUser?.email || 'default';
+      addLiquidityPoolFunds(amount, financierId);
       setSuccess(true);
       setTimeout(() => {
         onAdded?.();

@@ -107,6 +107,17 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
       r.status === selectedStatusFilter;
     const matchesCommodity = selectedCommodity === 'all' || (r.commodity || '').includes(selectedCommodity);
 
+    // KYC Verification Gate: Only show pending loan requests to institutions if the borrower has verified KYC
+    const isPending = r.status === 'pending' || r.status === 'under_review';
+    if (isPending && r.applicantKycStatus !== 'verified') {
+      return false;
+    }
+
+    // Financier Isolation: If already approved/disbursed, only show if assigned to this institution or unassigned
+    if ((r.status === 'approved' || r.status === 'disbursed') && user.id && r.financierId && r.financierId !== user.id) {
+      return false;
+    }
+
     return matchesSearch && matchesRole && matchesStatus && matchesCommodity;
   });
 

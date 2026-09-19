@@ -74,8 +74,14 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
     };
   }, []);
 
-  const activeLoans = allLoans.filter((r) => r.status === 'approved' || r.status === 'disbursed');
-  const repaidLoans = allLoans.filter((r) => r.status === 'repaid' || r.status === 'settled');
+  const activeLoans = allLoans.filter(
+    (r) => (r.status === 'approved' || r.status === 'disbursed') &&
+           (!user.id || r.financierId === user.id || !r.financierId)
+  );
+  const repaidLoans = allLoans.filter(
+    (r) => (r.status === 'repaid' || r.status === 'settled') &&
+           (!user.id || r.financierId === user.id || !r.financierId)
+  );
 
   const totalActivePrincipal = activeLoans.reduce(
     (sum, l) => sum + (Number(l.approvedAmount) || Number(l.requestedAmount) || 0),
@@ -92,7 +98,11 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
     0
   );
 
-  const filteredLoans = allLoans.filter((r) => {
+  const institutionLoans = allLoans.filter(
+    (r) => !user.id || r.financierId === user.id || !r.financierId
+  );
+
+  const filteredLoans = institutionLoans.filter((r) => {
     if (activeTab === 'active') return r.status === 'approved' || r.status === 'disbursed';
     if (activeTab === 'repaid') return r.status === 'repaid' || r.status === 'settled';
     return r.status === 'approved' || r.status === 'disbursed' || r.status === 'repaid' || r.status === 'settled';
