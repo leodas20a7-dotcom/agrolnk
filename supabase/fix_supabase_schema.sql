@@ -79,11 +79,41 @@ ALTER TABLE IF EXISTS public.inspections ADD COLUMN IF NOT EXISTS fee_payment_me
 ALTER TABLE IF EXISTS public.inspections ADD COLUMN IF NOT EXISTS dispute_reason TEXT;
 ALTER TABLE IF EXISTS public.inspections ADD COLUMN IF NOT EXISTS arbitration JSONB DEFAULT '{}'::jsonb;
 
--- 5. WAREHOUSE RECEIPTS TABLE: Ensure Storage Fee Columns
+-- 5. WAREHOUSE RECEIPTS TABLE: Create table if not exists & ensure all columns
+CREATE TABLE IF NOT EXISTS public.warehouse_receipts (
+  id TEXT PRIMARY KEY,
+  receipt_number TEXT,
+  farmer_id TEXT,
+  farmer_name TEXT,
+  farmer_phone TEXT,
+  warehouse_id TEXT,
+  warehouse_name TEXT,
+  chamber TEXT,
+  commodity TEXT,
+  variety TEXT,
+  grade TEXT DEFAULT 'A',
+  total_quantity NUMERIC DEFAULT 0,
+  available_quantity NUMERIC DEFAULT 0,
+  locked_quantity NUMERIC DEFAULT 0,
+  unit TEXT DEFAULT 'kg',
+  estimated_value NUMERIC DEFAULT 0,
+  storage_fee_monthly NUMERIC DEFAULT 0,
+  assayed_quality JSONB DEFAULT '{}'::jsonb,
+  deposited_at TIMESTAMP WITH TIME ZONE,
+  last_rent_paid_at TIMESTAMP WITH TIME ZONE,
+  valid_until TIMESTAMP WITH TIME ZONE,
+  status TEXT DEFAULT 'stored',
+  warehouse_notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 ALTER TABLE IF EXISTS public.warehouse_receipts DROP CONSTRAINT IF EXISTS warehouse_receipts_farmer_id_fkey;
 ALTER TABLE IF EXISTS public.warehouse_receipts DROP CONSTRAINT IF EXISTS warehouse_receipts_warehouse_id_fkey;
 ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS last_rent_paid_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS storage_fee_monthly NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS farmer_phone TEXT;
+ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS warehouse_notes TEXT;
 
 -- 6. ROW LEVEL SECURITY (RLS) POLICIES: Allow Read/Write for App Operation
 DO $$
@@ -119,6 +149,14 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'inspections' AND policyname = 'Allow public write inspections') THEN
     CREATE POLICY "Allow public write inspections" ON public.inspections FOR ALL USING (true) WITH CHECK (true);
   END IF;
+
+  -- Warehouse Receipts
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'warehouse_receipts' AND policyname = 'Allow public read warehouse_receipts') THEN
+    CREATE POLICY "Allow public read warehouse_receipts" ON public.warehouse_receipts FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'warehouse_receipts' AND policyname = 'Allow public write warehouse_receipts') THEN
+    CREATE POLICY "Allow public write warehouse_receipts" ON public.warehouse_receipts FOR ALL USING (true) WITH CHECK (true);
+  END IF;
 END $$;
 
 -- Enable Realtime publication
@@ -134,6 +172,10 @@ BEGIN
   END;
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.financing_requests;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouse_receipts;
   EXCEPTION WHEN others THEN NULL;
   END;
 END $$;
