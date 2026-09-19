@@ -42,9 +42,17 @@ function getLocalReceipts() {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      // Filter out legacy dummy entries
+      // Filter out legacy dummy / mock entries
       const cleaned = parsed.filter(
-        (r) => r.id !== 'rcpt_001_salem_tomato' && r.id !== 'rcpt_002_dindigul_onion' && !r.receiptNumber?.includes('#eNWR-4091') && !r.receiptNumber?.includes('#eNWR-8219')
+        (r) => r.id !== 'rcpt_001_salem_tomato' &&
+               r.id !== 'rcpt_002_dindigul_onion' &&
+               r.warehouseId !== 'wh_salem_01' &&
+               r.warehouseId !== 'wh_dindigul_02' &&
+               r.warehouseId !== 'wh_coimbatore_03' &&
+               !r.warehouseName?.includes('Salem Agro') &&
+               !r.warehouseName?.includes('Dindigul Central') &&
+               !r.receiptNumber?.includes('#eNWR-4091') &&
+               !r.receiptNumber?.includes('#eNWR-8219')
       );
       if (cleaned.length !== parsed.length) {
         saveLocalReceipts(cleaned);
@@ -63,6 +71,33 @@ function saveLocalReceipts(receipts) {
   } catch (err) {
     console.warn('Failed to save local warehouse receipts:', err);
   }
+}
+
+/**
+ * Delete a warehouse receipt / deposit lot permanently
+ */
+export async function deleteWarehouseReceipt(receiptId) {
+  if (!receiptId) return false;
+
+  // 1. Remove from local storage
+  const localList = getLocalReceipts();
+  const filtered = localList.filter((r) => r.id !== receiptId && r.receiptNumber !== receiptId);
+  saveLocalReceipts(filtered);
+
+  // 2. Remove from Supabase database
+  try {
+    await supabase.from('warehouse_receipts').delete().eq('id', receiptId);
+  } catch (err) {
+    console.warn('Supabase receipt delete notice:', err);
+  }
+
+  // 3. Trigger UI update events
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_deleted', { detail: { id: receiptId } }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return true;
 }
 
 /**

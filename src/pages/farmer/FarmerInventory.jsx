@@ -106,13 +106,16 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
     window.addEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
     window.addEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);
+    window.addEventListener('agrolnk_warehouse_receipt_deleted', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     return () => {
       window.removeEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);
+      window.removeEventListener('agrolnk_warehouse_receipt_deleted', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      hideGlobalLoader();
     };
   }, [user.id]);
 
@@ -667,6 +670,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
           onList={(inv) => setSelectedInventoryForList(inv)}
           onPayRent={(inv) => setSelectedInventoryForRent(inv)}
           onRequestFinancing={() => onNavigate('farmer-financing')}
+          onDeleted={() => loadData()}
         />
       )}
 
