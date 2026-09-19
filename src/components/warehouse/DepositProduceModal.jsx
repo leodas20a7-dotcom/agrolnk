@@ -18,33 +18,23 @@ export default function DepositProduceModal({
     role: 'farmer',
   };
 
-  const defaultWarehouse = {
-    id: 'wh_salem_01',
-    name: 'Salem Agro Cold Storage & WDRA Hub',
-    district: 'Salem',
-    state: 'Tamil Nadu',
-    monthlyRatePerTonne: 350,
-    chambers: [
-      'Chamber A1 - Low Temperature (2°C - 4°C)',
-      'Chamber A2 - Controlled Atmosphere (6°C - 10°C)',
-      'Chamber B1 - Hermetic Grain Silo',
-      'Chamber B2 - Dry Spices Vault'
-    ],
-  };
-
   const [warehouses, setWarehouses] = useState(() => {
     const raw = getWarehousesSync();
-    return Array.isArray(raw) && raw.length > 0 ? raw : [defaultWarehouse];
+    return Array.isArray(raw) ? raw : [];
   });
+
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState(
+    preselectedWarehouse?.id || warehouses[0]?.id || ''
+  );
 
   useEffect(() => {
     let isMounted = true;
     const fetchDb = async () => {
       try {
         const live = await getWarehouses();
-        if (isMounted && Array.isArray(live) && live.length > 0) {
+        if (isMounted && Array.isArray(live)) {
           setWarehouses(live);
-          if (!preselectedWarehouse?.id) {
+          if (!preselectedWarehouse?.id && live.length > 0) {
             setSelectedWarehouseId((prev) => (prev && live.some((w) => w.id === prev) ? prev : live[0].id));
           }
         }
@@ -58,14 +48,10 @@ export default function DepositProduceModal({
     };
   }, [preselectedWarehouse?.id]);
 
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState(
-    preselectedWarehouse?.id || warehouses[0]?.id || defaultWarehouse.id
-  );
-
-  const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0] || defaultWarehouse;
+  const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0] || null;
   const availableChambers = (Array.isArray(currentWarehouse?.chambers) && currentWarehouse.chambers.length > 0)
     ? currentWarehouse.chambers
-    : defaultWarehouse.chambers;
+    : [];
 
   const [commodity, setCommodity] = useState('');
   const [variety, setVariety] = useState('');
@@ -74,7 +60,7 @@ export default function DepositProduceModal({
   const [unit, setUnit] = useState('kg');
   const [priceEstimate, setPriceEstimate] = useState('');
   const [chamber, setChamber] = useState(
-    availableChambers[0] || 'Chamber A1 (Dry Storage)'
+    availableChambers[0] || 'Chamber A1'
   );
   const [storageDays, setStorageDays] = useState('60');
   const [error, setError] = useState('');
@@ -183,29 +169,39 @@ export default function DepositProduceModal({
           <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
           
           {/* Warehouse Facility Selection */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-              Certified Storage Facility
-            </label>
-            <SearchableSelect
-              options={warehouses.map((wh) => ({
-                value: wh.id,
-                label: wh.name,
-                subtext: `${wh.district || 'District'}, ${wh.state || 'State'} • ₹${wh.monthlyRatePerTonne || 350}/Tonne`,
-                badge: `₹${wh.monthlyRatePerTonne || 350}/T`,
-              }))}
-              value={selectedWarehouseId}
-              onChange={(val) => {
-                setSelectedWarehouseId(val);
-                const selected = warehouses.find((w) => w.id === val);
-                if (selected && Array.isArray(selected.chambers) && selected.chambers.length > 0) {
-                  setChamber(selected.chambers[0]);
-                }
-              }}
-              placeholder="Select Storage Facility"
-              searchPlaceholder="Search warehouse name, city..."
-            />
-          </div>
+          {warehouses.length === 0 ? (
+            <div className="p-6 text-center bg-[#FEF3C7]/40 rounded-2xl border border-[#F59E0B]/30 space-y-2">
+              <Building2 className="w-8 h-8 text-[#D97706] mx-auto" />
+              <h4 className="font-bold text-xs sm:text-sm text-[#92400E]">No Verified Facilities Currently Active</h4>
+              <p className="text-[11px] text-[#78350F] max-w-sm mx-auto">
+                Warehouse operators must complete Administrative KYC verification before their facilities appear here for booking.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
+                Certified Storage Facility
+              </label>
+              <SearchableSelect
+                options={warehouses.map((wh) => ({
+                  value: wh.id,
+                  label: wh.name,
+                  subtext: `${wh.district || 'District'}, ${wh.state || 'State'} • ₹${wh.monthlyRatePerTonne || 350}/Tonne`,
+                  badge: `₹${wh.monthlyRatePerTonne || 350}/T`,
+                }))}
+                value={selectedWarehouseId}
+                onChange={(val) => {
+                  setSelectedWarehouseId(val);
+                  const selected = warehouses.find((w) => w.id === val);
+                  if (selected && Array.isArray(selected.chambers) && selected.chambers.length > 0) {
+                    setChamber(selected.chambers[0]);
+                  }
+                }}
+                placeholder="Select Storage Facility"
+                searchPlaceholder="Search warehouse name, city..."
+              />
+            </div>
+          )}
 
           {/* Chamber Selection */}
           <div className="space-y-1.5">
@@ -408,7 +404,7 @@ export default function DepositProduceModal({
               type="submit"
               variant="accent"
               size="md"
-              disabled={isSubmitting}
+              disabled={isSubmitting || warehouses.length === 0}
               icon={ArrowRight}
               iconPosition="right"
               className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"

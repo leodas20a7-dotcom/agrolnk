@@ -697,115 +697,15 @@ export function calculateMonthlyRentDeadline(receipt) {
 }
 
 // Official WDRA Accredited Certified Facilities
-export const DEMO_WAREHOUSES = [
-  {
-    id: 'wh_salem_01',
-    name: 'Salem Agro Cold Storage & WDRA Hub',
-    code: 'WH-SLM-101',
-    wdraCode: 'WDRA/2025/TN-0891',
-    wdraRegNo: 'WDRA/2025/TN-0891',
-    location: 'Salem, Tamil Nadu',
-    district: 'Salem',
-    state: 'Tamil Nadu',
-    address: 'Plot 45, NH-44 Agri Logistics Park, Omalur, Salem - 636004',
-    type: 'WDRA Accredited Multi-Commodity Cold Chain',
-    facilityType: 'WDRA Accredited Cold Storage',
-    capacity: '5,000 MT',
-    totalCapacityTonnes: 5000,
-    occupiedTonnes: 1250,
-    occupancyPct: 25,
-    occupancyPercent: 25,
-    temperatureRange: '2°C to 10°C',
-    humidityRange: '85% to 95% RH',
-    monthlyRatePerKg: 0.35,
-    monthlyRatePerTonne: 350,
-    operatorContact: '+91 98421 88901',
-    websiteUrl: '',
-    commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Chilli', 'Grains'],
-    chambers: [
-      'Chamber A1 - Low Temperature (2°C - 4°C)',
-      'Chamber A2 - Controlled Atmosphere (6°C - 10°C)',
-      'Chamber B1 - Hermetic Grain Silo',
-      'Chamber B2 - Dry Spices Vault'
-    ],
-    isUserSubmitted: false,
-    verificationStatus: 'verified',
-    hasPendingReview: false,
-  },
-  {
-    id: 'wh_dindigul_02',
-    name: 'Dindigul Central Agri Warehouse & Silos',
-    code: 'WH-DGL-204',
-    wdraCode: 'WDRA/2025/TN-1402',
-    wdraRegNo: 'WDRA/2025/TN-1402',
-    location: 'Dindigul, Tamil Nadu',
-    district: 'Dindigul',
-    state: 'Tamil Nadu',
-    address: 'Survey 108, Vadamadurai Ring Road, Dindigul - 624001',
-    type: 'WDRA Certified Atmospheric Vault & Grain Silos',
-    facilityType: 'WDRA Certified Grain & Produce Silos',
-    capacity: '8,000 MT',
-    totalCapacityTonnes: 8000,
-    occupiedTonnes: 3200,
-    occupancyPct: 40,
-    occupancyPercent: 40,
-    temperatureRange: 'Ambient to 15°C',
-    humidityRange: '60% to 75% RH',
-    monthlyRatePerKg: 0.30,
-    monthlyRatePerTonne: 300,
-    operatorContact: '+91 97892 33412',
-    websiteUrl: '',
-    commodities: ['Onion', 'Garlic', 'Maize', 'Paddy', 'Pulses', 'Turmeric'],
-    chambers: [
-      'Silo Vault 1 - Steel Grain Silo (4000 MT)',
-      'Chamber 2 - Ventilated Bulb Storage (Onion/Garlic)',
-      'Chamber 3 - General Commodity Cell'
-    ],
-    isUserSubmitted: false,
-    verificationStatus: 'verified',
-    hasPendingReview: false,
-  },
-  {
-    id: 'wh_coimbatore_03',
-    name: 'Coimbatore Agri Cold Chain Vault',
-    code: 'WH-CBE-309',
-    wdraCode: 'WDRA/2025/TN-2204',
-    wdraRegNo: 'WDRA/2025/TN-2204',
-    location: 'Coimbatore, Tamil Nadu',
-    district: 'Coimbatore',
-    state: 'Tamil Nadu',
-    address: 'SF 210, Pollachi Main Road, Kinathukadavu, Coimbatore - 642109',
-    type: 'WDRA Accredited Controlled Atmosphere Cold Chain',
-    facilityType: 'WDRA Accredited Controlled Cold Chain',
-    capacity: '6,000 MT',
-    totalCapacityTonnes: 6000,
-    occupiedTonnes: 2100,
-    occupancyPct: 35,
-    occupancyPercent: 35,
-    temperatureRange: '0°C to 8°C',
-    humidityRange: '90% to 95% RH',
-    monthlyRatePerKg: 0.38,
-    monthlyRatePerTonne: 380,
-    operatorContact: '+91 94431 55678',
-    websiteUrl: '',
-    commodities: ['Vegetables', 'Fruits', 'Ginger', 'Turmeric', 'Coconut', 'Spices'],
-    chambers: [
-      'Cold Chamber 1 - Fresh Fruits & Vegetables (0°C - 4°C)',
-      'Cold Chamber 2 - Spices & Roots (8°C - 12°C)',
-      'Chamber 3 - Controlled Atmosphere Storage'
-    ],
-    isUserSubmitted: false,
-    verificationStatus: 'verified',
-    hasPendingReview: false,
-  }
-];
+// Official WDRA Accredited Certified Facilities from Database only
+export const DEMO_WAREHOUSES = [];
 
 /**
- * Get all available active warehouses directly from Supabase PostgreSQL database
- * (with baseline accredited facilities).
+ * Get all available active warehouses directly from Supabase PostgreSQL database.
+ * Strictly returns only real, KYC-verified warehouse profiles.
  */
 export async function getWarehouses() {
-  const activeWarehouses = [...DEMO_WAREHOUSES];
+  const activeWarehouses = [];
 
   // 1. Fetch live from Supabase PostgreSQL 'profiles' table
   try {
@@ -958,7 +858,7 @@ export async function getWarehouses() {
 }
 
 export function getWarehousesSync() {
-  const active = [...DEMO_WAREHOUSES];
+  const active = [];
   try {
     const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
     const profiles = raw ? JSON.parse(raw) : {};
@@ -978,7 +878,7 @@ export function getWarehousesSync() {
 
 export function getWarehouseById(id, warehouseList = null) {
   const all = warehouseList || getWarehousesSync();
-  return all.find((w) => w.id === id) || all[0];
+  return all.find((w) => w.id === id) || null;
 }
 
 export const getInventory = getWarehouseReceipts;
