@@ -56,7 +56,46 @@ function mapFinancingFromDb(row) {
   };
 }
 
-const LOCAL_FINANCING_KEY = 'agrolnk_financing_requests_local';
+export const LOCAL_FINANCING_KEY = 'agrolnk_financing_requests_local';
+
+export function clearFinancingCache() {
+  try {
+    localStorage.removeItem(LOCAL_FINANCING_KEY);
+    localStorage.removeItem('agrolnk_disbursements');
+    localStorage.removeItem('agrolnk_liquidity_pools');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: {} }));
+      window.dispatchEvent(new Event('storage'));
+    }
+  } catch {}
+}
+
+export async function deleteFinancingRequest(requestId) {
+  try {
+    if (requestId) {
+      if (isUuid(requestId)) {
+        await supabase.from('financing_requests').delete().eq('id', requestId);
+      } else {
+        await supabase.from('financing_requests').delete().or(`request_number.eq.${requestId},order_number.eq.${requestId}`);
+      }
+    }
+    const local = getLocalFinancingRequests();
+    const updated = local.filter((r) => r.id !== requestId && r.requestNumber !== requestId && r.orderNumber !== requestId);
+    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(updated));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: { id: requestId } }));
+      window.dispatchEvent(new Event('storage'));
+    }
+  } catch (err) {
+    console.warn('Error deleting financing request:', err);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.clearFinancingCache = clearFinancingCache;
+  window.deleteFinancingRequest = deleteFinancingRequest;
+}
 
 function getLocalFinancingRequests() {
   try {
