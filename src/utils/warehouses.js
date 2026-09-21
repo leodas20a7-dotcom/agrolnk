@@ -1,5 +1,6 @@
-// Agrolnk Supabase Warehouse & e-NWR Engine (100% Pure Database CRUD)
 import { supabase } from '../lib/supabase';
+import { createListing } from './listings';
+import { createAuction } from './auctions';
 
 /**
  * Maps PostgreSQL snake_case database row to camelCase frontend receipt object
@@ -587,7 +588,7 @@ export async function confirmProduceInward(receiptId, { actualWeight, assayerGra
 /**
  * List produce from inventory for direct marketplace sale (Direct Database Operation)
  */
-export async function listProduceFromInventory(receiptId, listData) {
+export async function listProduceFromInventory(receiptId, listData, currentUser = null) {
   if (!receiptId) return null;
   try {
     const { data: receipt, error: fetchErr } = await supabase
@@ -623,7 +624,60 @@ export async function listProduceFromInventory(receiptId, listData) {
       return null;
     }
 
-    return mapReceiptFromDb(updated);
+    // Create the actual marketplace trade item (Direct Listing or Live Clock Auction)
+    const farmerId = receipt.farmer_id || currentUser?.id || '';
+    const farmerName = receipt.farmer_name || currentUser?.name || 'Farmer';
+    const saleType = listData.saleType || 'direct';
+    const pricePerKg = Number(listData.pricePerUnit || listData.price || 40);
+
+    let createdTradeItem = null;
+    if (saleType === 'auction') {
+      createdTradeItem = await createAuction({
+        farmerId,
+        farmerName,
+        commodity: receipt.commodity,
+        variety: receipt.variety || 'Standard Lot',
+        grade: receipt.grade || 'Grade A',
+        quantity: qtyToList,
+        unit: receipt.unit || 'kg',
+        startingBid: pricePerKg,
+        reservePrice: Number(listData.reservePrice || pricePerKg * 1.1),
+        durationMinutes: 1440,
+        state: receipt.warehouse_name || '',
+        district: receipt.chamber || 'Certified Warehouse Hub',
+        originWarehouseId: receipt.warehouse_id,
+        originReceiptNumber: receipt.receipt_number,
+      });
+    } else {
+      createdTradeItem = await createListing({
+        farmerId,
+        farmerName,
+        commodity: receipt.commodity,
+        variety: receipt.variety || 'Standard Lot',
+        grade: receipt.grade || 'Grade A',
+        quantity: qtyToList,
+        unit: receipt.unit || 'kg',
+        price: pricePerKg,
+        pricePerUnit: pricePerKg,
+        totalAmount: qtyToList * pricePerKg,
+        saleType: 'direct',
+        state: receipt.warehouse_name || '',
+        district: receipt.chamber || 'Certified Warehouse Hub',
+        status: 'active',
+        originWarehouseId: receipt.warehouse_id,
+        originReceiptNumber: receipt.receipt_number,
+      });
+    }
+
+    try {
+      window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_stored', { detail: mapReceiptFromDb(updated) }));
+      window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: createdTradeItem }));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+
+    const mapped = mapReceiptFromDb(updated);
+    mapped.createdListing = createdTradeItem;
+    return mapped;
   } catch (err) {
     console.error('listProduceFromInventory error:', err);
     return null;

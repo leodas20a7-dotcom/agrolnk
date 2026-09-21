@@ -342,7 +342,14 @@ export async function createListing(listingData) {
       throw error;
     }
 
-    return mapListingFromDb(data);
+    const mapped = mapListingFromDb(data);
+
+    try {
+      window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: mapped }));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+
+    return mapped;
   } catch (err) {
     console.error('Error creating listing:', err);
     throw err;

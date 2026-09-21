@@ -53,7 +53,7 @@ export default function ListFromInventoryModal({
         reservePrice: Number(reservePrice),
       };
 
-      const result = await listProduceFromInventory(inventory.id, tradeData);
+      const result = await listProduceFromInventory(inventory.id, tradeData, currentUser);
       setIsSubmitting(false);
       onSuccess?.(result, saleType);
       onClose();
@@ -279,7 +279,7 @@ export default function ListFromInventoryModal({
               iconPosition="right"
               className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"
             >
-              {isSubmitting ? 'Publishing...' : 'Publish to Exchange'}
+              {isSubmitting ? 'Publishing...' : 'Publish'}
             </Button>
           </div>
 
