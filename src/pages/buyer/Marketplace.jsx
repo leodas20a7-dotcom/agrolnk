@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
+import { supabase } from '../../lib/supabase';
 import MarketplaceCard from '../../components/buyer/MarketplaceCard';
 import MarketplaceRow from '../../components/buyer/MarketplaceRow';
 import Button from '../../components/ui/Button';
@@ -62,12 +63,32 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
         setAvailableCommodities(['All', ...getPlatformCommodities()]);
       }
     };
+
+    const handleListingsUpdated = async () => {
+      if (isMounted) {
+        const activeLots = await getActiveMarketplaceListings();
+        setAllListings(activeLots || []);
+      }
+    };
+
     window.addEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
+    window.addEventListener('agrolnk_listings_updated', handleListingsUpdated);
+    window.addEventListener('storage', handleListingsUpdated);
+
+    const channel = supabase
+      .channel('public:marketplace_listings_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
+        handleListingsUpdated();
+      })
+      .subscribe();
 
     return () => {
       isMounted = false;
       hideGlobalLoader();
       window.removeEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
+      window.removeEventListener('agrolnk_listings_updated', handleListingsUpdated);
+      window.removeEventListener('storage', handleListingsUpdated);
+      supabase.removeChannel(channel);
     };
   }, []);
 
