@@ -87,9 +87,10 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
         getFarmerInventory(user.id),
         getWarehouses(),
       ]);
-      setInventoryList(Array.isArray(inv) ? inv.filter(Boolean) : []);
+      const safeInv = Array.isArray(inv) ? inv.filter(Boolean) : [];
+      setInventoryList(safeInv);
       setWarehousesList(Array.isArray(whs) ? whs.filter(Boolean) : []);
-      setNotifications(getWarehouseNotifications(user.id, 'farmer') || []);
+      setNotifications(getWarehouseNotifications(user.id, 'farmer', safeInv) || []);
     } catch (err) {
       console.error('Error loading inventory:', err);
       setInventoryList([]);

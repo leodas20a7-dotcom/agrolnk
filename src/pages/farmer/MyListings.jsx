@@ -15,9 +15,21 @@ import {
   Filter,
   CheckCircle2,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  Trash2,
+  AlertTriangle,
+  Lock,
+  ShieldAlert,
+  AlertCircle
 } from 'lucide-react';
-import { getFarmerListings, getListingDraft, clearListingDraft } from '../../utils/listings';
+import Modal from '../../components/ui/Modal';
+import {
+  getFarmerListings,
+  getListingDraft,
+  clearListingDraft,
+  checkListingBookings,
+  deleteListing
+} from '../../utils/listings';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function MyListings({ currentUser, onNavigate }) {
@@ -26,6 +38,10 @@ export default function MyListings({ currentUser, onNavigate }) {
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedListing, setSelectedListing] = useState(null);
+  const [listingToDelete, setListingToDelete] = useState(null);
+  const [blockedDeleteInfo, setBlockedDeleteInfo] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = useState(null);
   const [savedDraft, setSavedDraft] = useState(() => getListingDraft(user.id));
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -44,30 +60,88 @@ export default function MyListings({ currentUser, onNavigate }) {
 
   const ITEMS_PER_PAGE = 6;
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchListings = async () => {
-      try {
+  const fetchListings = async (showFlash = false) => {
+    try {
+      if (showFlash) {
         showGlobalLoader('Loading Harvest Lots...', 'Fetching your active marketplace listings & spot prices...');
-        const data = await getFarmerListings(user.id);
-        if (isMounted) setListings(data || []);
-      } catch (err) {
-        console.error('Error fetching farmer listings:', err);
-      } finally {
+      }
+      const data = await getFarmerListings(user.id);
+      setListings(data || []);
+    } catch (err) {
+      console.error('Error fetching farmer listings:', err);
+    } finally {
+      if (showFlash) {
         hideGlobalLoader();
       }
-    };
-    fetchListings();
+    }
+  };
+
+  useEffect(() => {
+    fetchListings(true);
 
     const handleDraftUpdate = () => {
       setSavedDraft(getListingDraft(user.id));
     };
+
+    const handleListingsUpdate = () => {
+      fetchListings(false);
+    };
+
     window.addEventListener('agrolnk_listing_draft_updated', handleDraftUpdate);
+    window.addEventListener('agrolnk_listings_updated', handleListingsUpdate);
+    window.addEventListener('storage', handleListingsUpdate);
+
     return () => {
-      isMounted = false;
+      hideGlobalLoader();
       window.removeEventListener('agrolnk_listing_draft_updated', handleDraftUpdate);
+      window.removeEventListener('agrolnk_listings_updated', handleListingsUpdate);
+      window.removeEventListener('storage', handleListingsUpdate);
     };
   }, [user.id]);
+
+  const handleDeleteClick = async (lot) => {
+    if (!lot) return;
+    try {
+      showGlobalLoader('Checking Booking Status...', 'Auditing marketplace orders and escrow commitments...');
+      const check = await checkListingBookings(lot.id);
+      hideGlobalLoader();
+
+      if (!check.canDelete) {
+        setBlockedDeleteInfo({
+          listing: lot,
+          reason: check.reason,
+          orderNumber: check.orderNumber,
+          buyerName: check.buyerName,
+        });
+      } else {
+        setListingToDelete(lot);
+      }
+    } catch (err) {
+      hideGlobalLoader();
+      console.error('Error checking listing bookings:', err);
+      setListingToDelete(lot);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!listingToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteListing(listingToDelete.id, user.id);
+      setDeleteSuccessMsg(`"${listingToDelete.commodity}" listing was removed successfully.`);
+      setTimeout(() => setDeleteSuccessMsg(null), 4000);
+      setListingToDelete(null);
+      if (selectedListing?.id === listingToDelete.id) {
+        setSelectedListing(null);
+      }
+      await fetchListings(false);
+    } catch (err) {
+      console.error('Error deleting listing:', err);
+      alert(err.message || 'Failed to delete listing.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const safeListings = Array.isArray(listings) ? listings : [];
 
@@ -199,6 +273,22 @@ export default function MyListings({ currentUser, onNavigate }) {
           </div>
         )}
 
+        {/* Delete Success Notification */}
+        {deleteSuccessMsg && (
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{deleteSuccessMsg}</span>
+            </div>
+            <button
+              onClick={() => setDeleteSuccessMsg(null)}
+              className="text-emerald-700 hover:text-emerald-900 font-bold px-2 py-0.5"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Filter Tabs & View Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-[#E5EDE8]">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
@@ -248,6 +338,7 @@ export default function MyListings({ currentUser, onNavigate }) {
                     onEdit={(lot) =>
                       onNavigate('farmer-create-listing', { editListing: lot })
                     }
+                    onDelete={(lot) => handleDeleteClick(lot)}
                   />
                 ))}
               </div>
@@ -261,6 +352,7 @@ export default function MyListings({ currentUser, onNavigate }) {
                     onEdit={(lot) =>
                       onNavigate('farmer-create-listing', { editListing: lot })
                     }
+                    onDelete={(lot) => handleDeleteClick(lot)}
                   />
                 ))}
               </div>
@@ -309,7 +401,123 @@ export default function MyListings({ currentUser, onNavigate }) {
           onEdit={(lot) =>
             onNavigate('farmer-create-listing', { editListing: lot })
           }
+          onDelete={(lot) => handleDeleteClick(lot)}
         />
+
+        {/* Delete Confirmation Modal */}
+        {listingToDelete && (
+          <Modal
+            isOpen={!!listingToDelete}
+            onClose={() => !isDeleting && setListingToDelete(null)}
+            title="Delete Produce Listing"
+            subtitle={`Remove lot #${listingToDelete.id} from marketplace`}
+            icon={Trash2}
+            iconColor="text-rose-600"
+            iconBg="bg-rose-50"
+            maxWidth="max-w-md"
+            footer={
+              <div className="flex items-center justify-end w-full gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={() => setListingToDelete(null)}
+                  className="px-4 py-2"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDelete}
+                  icon={Trash2}
+                  iconPosition="left"
+                  className="px-5 py-2 font-bold bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Listing'}
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4 text-left">
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-[#0B3326] text-base">
+                    {listingToDelete.commodity}
+                  </h4>
+                  <Badge variant="dark" size="sm">
+                    Grade {listingToDelete.grade || 'A'}
+                  </Badge>
+                </div>
+                <div className="text-xs text-[#566861] flex items-center justify-between">
+                  <span>
+                    {listingToDelete.quantity} {listingToDelete.unit || 'kg'} • {listingToDelete.variety || 'Standard'}
+                  </span>
+                  <span className="font-bold text-[#0B3326]">
+                    ₹{listingToDelete.price}/{listingToDelete.unit || 'kg'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">Are you sure you want to delete this listing?</p>
+                  <p className="text-[#566861] text-[11px]">
+                    This will permanently remove the produce lot from the National Exchange. Buyers will no longer be able to discover or purchase this lot.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* Delete Blocked Modal (When active order/booking exists) */}
+        {blockedDeleteInfo && (
+          <Modal
+            isOpen={!!blockedDeleteInfo}
+            onClose={() => setBlockedDeleteInfo(null)}
+            title="Cannot Delete Booked Produce"
+            subtitle="Active order or trade credit in progress"
+            icon={Lock}
+            iconColor="text-amber-700"
+            iconBg="bg-amber-100"
+            maxWidth="max-w-md"
+            footer={
+              <div className="flex items-center justify-end w-full">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setBlockedDeleteInfo(null)}
+                  className="px-6 py-2 font-bold"
+                >
+                  Understood
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4 text-left">
+              <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 text-rose-950 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-sm text-rose-900">
+                  <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span>Trade Protection Lock Active</span>
+                </div>
+                <p className="text-xs text-[#566861] leading-relaxed">
+                  {blockedDeleteInfo.reason ||
+                    'A buyer has already confirmed an order or trade credit for this produce lot.'}
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#566861] space-y-1">
+                <p className="font-semibold text-[#0B3326]">Why is deletion restricted?</p>
+                <p className="text-[11px] leading-relaxed">
+                  Once a buyer books or places an order, legal escrow funds are locked and transport arrangements are initiated. Booked produce cannot be deleted until the order lifecycle is completed or cancelled.
+                </p>
+              </div>
+            </div>
+          </Modal>
+        )}
 
       </div>
     </DashboardLayout>

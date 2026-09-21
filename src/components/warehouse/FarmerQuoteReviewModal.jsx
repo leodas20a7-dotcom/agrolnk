@@ -1,8 +1,24 @@
 import React, { useState } from 'react';
-import { X, Building2, CheckCircle2, Truck, AlertCircle, ArrowRight, ShieldCheck, Clock, FileText } from 'lucide-react';
+import {
+  X,
+  Building2,
+  CheckCircle2,
+  Truck,
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+  Clock,
+  FileText,
+  CreditCard,
+  Layers,
+  Sparkles,
+  Check,
+  Info
+} from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { acceptWarehouseQuote, declineWarehouseQuote } from '../../utils/warehouses';
+import { initiateRazorpayWarehouseRentCheckout } from '../../utils/razorpayRouteClient';
 
 export default function FarmerQuoteReviewModal({
   receipt,
@@ -13,36 +29,62 @@ export default function FarmerQuoteReviewModal({
   const [loading, setLoading] = useState(false);
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
+  const [error, setError] = useState('');
 
   if (!isOpen || !receipt) return null;
 
   const totalQty = Number(receipt.totalQuantity || receipt.quantity || 0);
   const monthlyRent = Number(receipt.quotedMonthlyRent || receipt.storageFeeMonthly || 0);
-  const ratePerTonne = Number(receipt.quotedRatePerTonne || Math.round((monthlyRent / (totalQty / 1000)))) || 350;
+  const ratePerTonne = Number(receipt.quotedRatePerTonne || (totalQty > 0 ? Math.round((monthlyRent / (totalQty / 1000))) : 350)) || 350;
   const ratePerKg = Number((ratePerTonne / 1000).toFixed(2));
-  const approxDaily = Math.round(monthlyRent / 30);
+  const approxDaily = Math.round(monthlyRent / 30) || 12;
 
-  const handleAccept = async () => {
+  const handleConfirmAndSendGoods = async () => {
     setLoading(true);
+    setError('');
+
     try {
-      await acceptWarehouseQuote(receipt.id);
-      onSuccess?.();
-      onClose();
+      // Launch Razorpay Payment Gateway for 1st Month Advance
+      await initiateRazorpayWarehouseRentCheckout({
+        inventory: receipt,
+        amount: monthlyRent,
+        extendedDays: 30,
+        farmerUser: { name: receipt.farmerName || 'Farmer Depositor', role: 'farmer' },
+        onSuccess: async (rzpRes) => {
+          const updated = await acceptWarehouseQuote(receipt.id, {
+            mode: 'razorpay',
+            isPaid: true,
+            amount: monthlyRent,
+            method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
+            transactionRef: rzpRes.razorpay_payment_id,
+          });
+          setLoading(false);
+          onSuccess?.(updated);
+          onClose();
+        },
+        onFailure: (err) => {
+          console.warn('Advance rent checkout canceled or notice:', err);
+          setError('Payment was not completed. Please click Pay with Razorpay to try again.');
+          setLoading(false);
+        },
+      });
     } catch (err) {
-      console.error('Error accepting warehouse quote:', err);
-    } finally {
+      console.error('Error accepting quote:', err);
+      setError('Failed to initiate Razorpay checkout. Please try again.');
       setLoading(false);
     }
   };
 
   const handleDecline = async () => {
     setLoading(true);
+    setError('');
     try {
       await declineWarehouseQuote(receipt.id, declineReason || 'Declined by farmer');
       onSuccess?.();
       onClose();
     } catch (err) {
       console.error('Error declining warehouse quote:', err);
+      setError('Failed to decline quote.');
     } finally {
       setLoading(false);
     }
@@ -56,7 +98,7 @@ export default function FarmerQuoteReviewModal({
       }}
     >
       <div
-        className="bg-white rounded-3xl max-w-lg w-full max-h-[calc(100dvh-2rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-200 relative overflow-hidden"
+        className="bg-white rounded-3xl max-w-xl w-full max-h-[calc(100dvh-2rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-200 relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -68,10 +110,10 @@ export default function FarmerQuoteReviewModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                  Storage Rent Quote Review
+                  Storage Rent Quote Review & Payment Terms
                 </h3>
                 <Badge variant="blue" size="sm">
-                  Quote Received
+                  Quote Ready
                 </Badge>
               </div>
               <span className="text-xs text-[#566861]">
@@ -81,6 +123,7 @@ export default function FarmerQuoteReviewModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
           >
@@ -90,12 +133,13 @@ export default function FarmerQuoteReviewModal({
 
         {/* Content */}
         <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-          {/* Facility & Lot Details */}
+          
+          {/* Facility & Lot Summary Card */}
           <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-[10px] uppercase font-bold text-[#566861] tracking-wider block">
-                  Storage Facility & Chamber
+                  Storage Facility & Assigned Chamber
                 </span>
                 <span className="text-sm font-extrabold text-[#0B3326]">
                   {receipt.warehouseName || 'Agri Storage Hub'}
@@ -125,14 +169,14 @@ export default function FarmerQuoteReviewModal({
             </div>
           </div>
 
-          {/* Quoted Monthly Rent Card */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#F2FBF6] border-2 border-[#10B981]/40 space-y-3">
+          {/* Quoted Fee Details */}
+          <div className="p-4 rounded-2xl bg-[#F2FBF6] border-2 border-[#10B981]/40 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#0B3326] uppercase tracking-wider">
                 Confirmed Monthly Storage Tariff
               </span>
               <span className="text-[11px] font-extrabold text-[#10B981]">
-                ₹{ratePerKg} / kg / month
+                ₹{ratePerKg}/kg/mo (₹{ratePerTonne}/T/mo)
               </span>
             </div>
 
@@ -143,36 +187,80 @@ export default function FarmerQuoteReviewModal({
                   <span className="text-xs font-semibold text-[#566861]"> / month</span>
                 </div>
                 <span className="text-[11px] text-[#566861]">
-                  Rate: ₹{ratePerTonne} / Tonne / month (≈ ₹{approxDaily} / day)
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">
-                  Payment Mode
-                </span>
-                <span className="text-xs font-bold text-[#10B981]">
-                  Razorpay Online / UPI
+                  Standard 30-day billing cycle (≈ ₹{approxDaily} / day)
                 </span>
               </div>
             </div>
 
             {receipt.warehouseNotes && (
-              <div className="p-2.5 rounded-xl bg-white/80 border border-[#10B981]/20 text-[11px] text-[#0B3326]">
-                <span className="font-bold">Warehouse Note:</span> {receipt.warehouseNotes}
+              <div className="p-2.5 rounded-xl bg-white/90 border border-[#10B981]/30 text-[11px] text-[#0B3326]">
+                <span className="font-bold">Operator Note:</span> {receipt.warehouseNotes}
               </div>
             )}
           </div>
 
-          {/* How dispatch & inward works */}
-          <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-1.5 text-amber-900">
-            <div className="flex items-center gap-1.5 font-bold text-[11px] text-amber-900">
-              <Truck className="w-4 h-4 text-amber-600" />
-              <span>Next Step: Produce Dispatch & Gate Receipt</span>
+          {/* Payment Gateway - Exclusively Razorpay */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
+              Payment Gateway
+            </label>
+
+            <div className="p-4 rounded-2xl border-2 border-[#10B981] bg-[#F2FBF6] shadow-xs flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0 mt-0.5">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold text-[#0B3326]">
+                      Razorpay Secure Gateway
+                    </span>
+                    <Badge variant="emerald" size="sm">
+                      Online Settlement
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-[#566861] leading-relaxed">
+                    Settle the first month storage advance (₹{monthlyRent.toLocaleString('en-IN')}) securely online via Razorpay. Your chamber reservation and deposit request are confirmed immediately.
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="text-[11px] text-amber-800 leading-relaxed">
-              When you click <strong>"Accept Quote & Send Goods"</strong>, the warehouse space is reserved. Transport the goods to the warehouse gate, where the assayer will weigh, inspect, and issue your official government-insured <strong>e-NWR</strong>.
-            </p>
           </div>
+
+          {/* Dues & Delay Tracking Terms Breakdown */}
+          <div className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] space-y-2 text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-[#0B3326] text-[11px]">
+              <Clock className="w-4 h-4 text-[#10B981]" />
+              <span>Billing Cycle & Delay Tracking Terms:</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-[#E5EDE8] text-[11px]">
+              <div>
+                <span className="text-[#566861] block">Due Today:</span>
+                <strong className="text-[#0B3326] font-bold">
+                  ₹{monthlyRent.toLocaleString('en-IN')}
+                </strong>
+              </div>
+              <div>
+                <span className="text-[#566861] block">Cycle Length:</span>
+                <strong className="text-[#0B3326] font-bold">30 Days</strong>
+              </div>
+              <div>
+                <span className="text-[#566861] block">Grace Period:</span>
+                <strong className="text-[#0B3326] font-bold">5 Days</strong>
+              </div>
+              <div>
+                <span className="text-[#566861] block">Delay Terms:</span>
+                <strong className="text-[#D97706] font-bold">5% late fee &gt;5d</strong>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
           {showDeclineConfirm && (
             <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 space-y-2">
@@ -181,7 +269,7 @@ export default function FarmerQuoteReviewModal({
               </span>
               <input
                 type="text"
-                placeholder="Reason (e.g., Rate too high, stored elsewhere)"
+                placeholder="Reason (e.g. Rate too high, storing locally)"
                 value={declineReason}
                 onChange={(e) => setDeclineReason(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-white border border-red-300 text-xs text-gray-900 focus:outline-none"
@@ -205,6 +293,7 @@ export default function FarmerQuoteReviewModal({
               </div>
             </div>
           )}
+
         </div>
 
         {/* Footer */}
@@ -225,12 +314,14 @@ export default function FarmerQuoteReviewModal({
               variant="primary"
               size="md"
               loading={loading}
-              onClick={handleAccept}
+              onClick={handleConfirmAndSendGoods}
               icon={ArrowRight}
               iconPosition="right"
               className="font-extrabold text-xs shadow-md cursor-pointer"
             >
-              Accept Quote & Send Goods
+              {loading
+                ? 'Processing...'
+                : `Pay ₹${monthlyRent.toLocaleString('en-IN')} with Razorpay & Dispatch Goods`}
             </Button>
           </div>
         )}

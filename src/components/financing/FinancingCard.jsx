@@ -15,9 +15,10 @@ export default function FinancingCard({
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
 
   const isBuyer = viewerRole === 'buyer';
+  const isSettled = request.status === 'repaid' || request.status === 'settled' || request.status === 'closed';
   const isMarginSettled = Boolean(request.marginPaid || request.escrowFunded || request.status === 'disbursed');
   const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
-  const needsMarginPayment = isBuyer && isApproved && !isMarginSettled;
+  const needsMarginPayment = isBuyer && isApproved && !isMarginSettled && !isSettled;
 
   return (
     <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 text-left">
@@ -37,7 +38,12 @@ export default function FinancingCard({
           </div>
         </div>
 
-        {isMarginSettled ? (
+        {isSettled ? (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Repaid & Settled ✓</span>
+          </span>
+        ) : isMarginSettled ? (
           <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
             Escrow Secured ✓
           </span>

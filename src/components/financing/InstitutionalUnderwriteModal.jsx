@@ -18,7 +18,7 @@ import {
   Lock,
   ArrowRight
 } from 'lucide-react';
-import { submitFinancierOffer, disburseAcceptedLoan, updateFinancingStatus } from '../../utils/financing';
+import { submitFinancierOffer, disburseAcceptedLoan, updateFinancingStatus, getLiquidityPool } from '../../utils/financing';
 import { initiateFinancierEscrowDisbursement } from '../../utils/razorpayRouteClient';
 
 export default function InstitutionalUnderwriteModal({
@@ -64,13 +64,25 @@ export default function InstitutionalUnderwriteModal({
   const isDisbursed = request?.status === 'disbursed' || request?.status === 'approved';
   const isPending = !isRepaid && !isDisbursed && !isAcceptedByBorrower && request?.status !== 'rejected';
 
+  // Lending Balance Validation
+  const pool = getLiquidityPool(currentUser?.id || currentUser?.email || 'default');
+  const availableBalance = Math.max(0, Number(pool?.availableLiquidity || 0));
+  const isBalanceZero = availableBalance <= 0;
+  const isBalanceInsufficient = availableBalance < Number(approvedAmount);
+
   const handleSendOffer = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (isBalanceZero) {
+      setError('Cannot send quote: Your available lending balance is ₹0. Please deploy lending capital to your pool on the dashboard first.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await submitFinancierOffer(request.id || request.requestNumber, {
+      await submitFinancierOffer(request, {
         offeredAmount: Number(approvedAmount),
         interestRate: Number(interestRate),
         tenorDays: Number(tenorDays),
@@ -85,11 +97,11 @@ export default function InstitutionalUnderwriteModal({
       );
 
       setTimeout(() => {
-        onUpdated?.();
+        onUpdated?.('offer_received');
         onClose();
         setActionSuccess(null);
         setIsSubmitting(false);
-      }, 1500);
+      }, 1200);
     } catch (err) {
       console.error('Error submitting offer:', err);
       setError('Failed to send term-sheet offer.');
@@ -100,6 +112,16 @@ export default function InstitutionalUnderwriteModal({
   const handleDisburseEscrow = (e) => {
     e.preventDefault();
     setError('');
+
+    if (isBalanceInsufficient) {
+      setError(
+        isBalanceZero
+          ? 'Your available lending balance is ₹0. You cannot disburse funds until you add lending balance.'
+          : `Insufficient Lending Balance: You have ₹${availableBalance.toLocaleString('en-IN')} available, but ₹${Number(approvedAmount).toLocaleString('en-IN')} is required to disburse.`
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Launch Razorpay Route Escrow Capital Disbursement Gateway
@@ -109,7 +131,7 @@ export default function InstitutionalUnderwriteModal({
       financierUser: currentUser,
       onSuccess: async (paymentData) => {
         try {
-          await disburseAcceptedLoan(request.id || request.requestNumber, {
+          await disburseAcceptedLoan(request, {
             approvedAmount: Number(approvedAmount),
             bankUtr: paymentData?.bankUtr,
             razorpayPaymentId: paymentData?.razorpay_payment_id,
@@ -123,11 +145,11 @@ export default function InstitutionalUnderwriteModal({
           );
 
           setTimeout(() => {
-            onUpdated?.();
+            onUpdated?.('approved');
             onClose();
             setActionSuccess(null);
             setIsSubmitting(false);
-          }, 1500);
+          }, 1200);
         } catch (err) {
           console.error('Error recording disbursement:', err);
           setError('Failed to record disbursement status.');
@@ -146,7 +168,7 @@ export default function InstitutionalUnderwriteModal({
   const handleReject = async () => {
     setIsSubmitting(true);
     try {
-      await updateFinancingStatus(request.id || request.requestNumber, 'rejected', reviewNotes || 'Application declined by risk policy.');
+      await updateFinancingStatus(request, 'rejected', reviewNotes || 'Application declined by risk policy.');
       setActionSuccess('Application marked as declined.');
       setTimeout(() => {
         onUpdated?.();
@@ -426,6 +448,26 @@ export default function InstitutionalUnderwriteModal({
               />
             </div>
 
+            {/* Available Lending Balance Banner */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+              <span className="text-[#566861] font-medium">Your Available Lending Balance:</span>
+              <span className={`font-extrabold ${isBalanceZero ? 'text-red-600' : 'text-[#0B3326]'}`}>
+                ₹{availableBalance.toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            {/* Insufficient Balance Alert */}
+            {((isAcceptedByBorrower && isBalanceInsufficient) || isBalanceZero) && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  {isBalanceZero
+                    ? 'Your available lending balance is ₹0. Please add lending balance on your dashboard before disbursing or quoting loans.'
+                    : `Insufficient balance: You have ₹${availableBalance.toLocaleString('en-IN')} available, but ₹${Number(approvedAmount).toLocaleString('en-IN')} is required.`}
+                </span>
+              </div>
+            )}
+
             {/* Institutional Note */}
             <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#061B14] text-white text-xs">
               <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
@@ -464,8 +506,8 @@ export default function InstitutionalUnderwriteModal({
                   size="sm"
                   icon={isAcceptedByBorrower ? Zap : CheckCircle2}
                   iconPosition="right"
-                  disabled={isSubmitting}
-                  className="font-bold cursor-pointer justify-center w-full sm:w-auto text-xs"
+                  disabled={isSubmitting || (isAcceptedByBorrower && isBalanceInsufficient) || isBalanceZero}
+                  className="font-bold cursor-pointer justify-center w-full sm:w-auto text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting
                     ? (isAcceptedByBorrower ? 'Disbursing...' : 'Sending Quote...')

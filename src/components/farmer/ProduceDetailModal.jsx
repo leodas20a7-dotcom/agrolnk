@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Share2,
   Copy,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
@@ -26,6 +27,7 @@ export default function ProduceDetailModal({
   isOpen,
   onClose,
   onEdit,
+  onDelete,
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -55,25 +57,41 @@ export default function ProduceDetailModal({
       iconBg="bg-[#EBF5F0]"
       maxWidth="max-w-2xl"
       footer={
-        <div className="flex items-center justify-between w-full gap-3">
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#566861] hover:text-[#0B3326] px-3 py-2 rounded-xl hover:bg-[#F2FBF6] transition-colors cursor-pointer"
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4 text-[#10B981]" />
-                <span className="text-[#10B981]">Copied details</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                <span>Share Lot Reference</span>
-              </>
-            )}
-          </button>
+        <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+            <button
+              onClick={handleCopy}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#566861] hover:text-[#0B3326] px-3 py-2 rounded-xl hover:bg-[#F2FBF6] transition-colors cursor-pointer"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 text-[#10B981]" />
+                  <span className="text-[#10B981]">Copied details</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>Share Lot Reference</span>
+                </>
+              )}
+            </button>
 
-          <div className="flex items-center gap-2">
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onDelete?.(listing);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 px-3 py-2 rounded-xl hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <Button
               variant="secondary"
               size="sm"

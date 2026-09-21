@@ -255,17 +255,27 @@ export default function VerificationRequiredModal({
         const userId = currentUser?.id;
         const userEmail = currentUser?.email;
         if (userId || userEmail) {
+          const { data: existingProf } = await supabase
+            .from('profiles')
+            .select('meta')
+            .or(`id.eq.${userId},email.eq.${userEmail}`)
+            .maybeSingle();
+
+          const existingMeta = existingProf?.meta || {};
+          const mergedMeta = {
+            ...existingMeta,
+            documents: submission.documents,
+            orgName: submission.orgName,
+            auditNotes: submission.auditNotes,
+            submittedAt: submission.submittedAt,
+          };
+
           const { error: dbErr } = await supabase
             .from('profiles')
             .update({
               kyc_status: 'pending',
               company_name: businessName.trim(),
-              meta: {
-                documents: submission.documents,
-                orgName: submission.orgName,
-                auditNotes: submission.auditNotes,
-                submittedAt: submission.submittedAt,
-              },
+              meta: mergedMeta,
               updated_at: new Date().toISOString(),
             })
             .or(`id.eq.${userId},email.eq.${userEmail}`);

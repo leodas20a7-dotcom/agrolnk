@@ -37,7 +37,7 @@ export default function PayStorageRentModal({
   }, [isOpen, inventory]);
 
   const dues = inventory ? calculateStorageRentalDues(inventory) : null;
-  const monthlyRate = dues?.monthlyRate || 350;
+  const monthlyRate = Number(inventory?.storageFeeMonthly || inventory?.quotedMonthlyRent || dues?.monthlyRate || 700);
   const calculatedPayAmount = Math.round((monthlyRate / 30) * extendedDays);
 
   const handlePay = async (e) => {
@@ -54,7 +54,7 @@ export default function PayStorageRentModal({
         onSuccess: async (rzpRes) => {
           const res = await payStorageRent(inventory.id, {
             amount: calculatedPayAmount,
-            method: `Razorpay Online / UPI (${rzpRes.razorpay_payment_id})`,
+            method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
             extendedDays,
             paidBy: currentUser?.name || 'Authorized Account',
           });
@@ -255,11 +255,11 @@ export default function PayStorageRentModal({
                           Razorpay
                         </span>
                       </div>
-                      <span className="text-[11px] text-[#0B3326] font-medium block mt-0.5">
-                        UPI (GPay, PhonePe, Paytm) • Cards • NetBanking • Wallets
+                      <span className="text-[11px] text-[#0B3326] font-semibold block mt-0.5">
+                        Official Razorpay Payment Gateway
                       </span>
                       <span className="text-[10px] text-[#566861] block mt-0.5">
-                        Official bank-grade encrypted payment gateway
+                        Direct online settlement with instant validity extension
                       </span>
                     </div>
                   </div>
@@ -308,7 +308,7 @@ export default function PayStorageRentModal({
                 disabled={isProcessing}
                 className="text-xs font-bold px-6 py-2.5 shadow-md shadow-[#10B981]/20 cursor-pointer justify-center w-full sm:w-auto"
               >
-                {isProcessing ? 'Processing Payment...' : `Pay ₹${calculatedPayAmount.toLocaleString('en-IN')}`}
+                {isProcessing ? 'Processing Payment...' : `Pay ₹${calculatedPayAmount.toLocaleString('en-IN')} with Razorpay`}
               </Button>
             </div>
           </form>

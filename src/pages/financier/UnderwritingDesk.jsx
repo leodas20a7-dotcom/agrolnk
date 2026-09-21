@@ -22,7 +22,7 @@ import {
   Lock,
   ArrowUpRight
 } from 'lucide-react';
-import { getFinancingRequests } from '../../utils/financing';
+import { getFinancingRequests, isFinancierMatch } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function UnderwritingDesk({ currentUser, onNavigate }) {
@@ -76,7 +76,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_orders_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
     };
-  }, []);
+  }, [user.id, user.email]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -113,13 +113,11 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
 
     // KYC Verification Gate: Only show pending loan requests to institutions if the borrower has verified KYC
     const isPending = r.status === 'pending' || r.status === 'under_review';
-    if (isPending && r.applicantKycStatus !== 'verified') {
-      return false;
-    }
-
-    // Financier Isolation: If request is locked to a specific financier (offer sent, borrower accepted, or disbursed), only show if assigned to this institution
-    if (r.financierId && user.id && r.financierId !== user.id) {
-      return false;
+    if (isPending) {
+      if (r.applicantKycStatus !== 'verified') return false;
+    } else {
+      // Non-pending requests (offers sent, accepted, disbursed, repaid) must belong strictly to this institution
+      if (!isFinancierMatch(r, user)) return false;
     }
 
     return matchesSearch && matchesRole && matchesStatus && matchesCommodity;
@@ -223,7 +221,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Offer Sent ({roleScopedRequests.filter((r) => r.status === 'offer_received').length})
+                Offer Sent ({roleScopedRequests.filter((r) => r.status === 'offer_received' && isFinancierMatch(r, user)).length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('borrower_accepted')}
@@ -233,7 +231,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Ready to Disburse ({roleScopedRequests.filter((r) => r.status === 'borrower_accepted').length})
+                Ready to Disburse ({roleScopedRequests.filter((r) => r.status === 'borrower_accepted' && isFinancierMatch(r, user)).length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('approved')}
@@ -243,7 +241,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Disbursed Active ({roleScopedRequests.filter((r) => r.status === 'approved' || r.status === 'disbursed').length})
+                Disbursed Active ({roleScopedRequests.filter((r) => (r.status === 'approved' || r.status === 'disbursed') && isFinancierMatch(r, user)).length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('repaid')}
@@ -253,7 +251,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                Repaid ({roleScopedRequests.filter((r) => r.status === 'repaid' || r.status === 'settled').length})
+                Repaid ({roleScopedRequests.filter((r) => (r.status === 'repaid' || r.status === 'settled') && isFinancierMatch(r, user)).length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('all')}
@@ -263,7 +261,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                All Records ({roleScopedRequests.length})
+                All Records ({roleScopedRequests.filter((r) => ((r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified') || isFinancierMatch(r, user)).length})
               </button>
             </div>
 
@@ -494,7 +492,12 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           onClose={() => setSelectedRequestForReview(null)}
           request={selectedRequestForReview}
           currentUser={user}
-          onUpdated={loadRequests}
+          onUpdated={(newStatus) => {
+            loadRequests(false);
+            if (newStatus) {
+              setSelectedStatusFilter(newStatus);
+            }
+          }}
         />
       )}
     </DashboardLayout>

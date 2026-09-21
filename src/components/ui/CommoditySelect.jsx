@@ -142,17 +142,7 @@ export default function CommoditySelect({
         />
       </button>
 
-      {/* Hidden input for HTML form validation if required */}
-      {required && (
-        <input
-          type="text"
-          value={value || ''}
-          onChange={() => {}}
-          required={required}
-          className="sr-only"
-          tabIndex={-1}
-        />
-      )}
+
 
       {/* Dropdown Popover */}
       {isOpen && (

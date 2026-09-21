@@ -169,20 +169,30 @@ export default function InventoryCard({
 
           {/* Deadline / Cycle Indicator */}
           {isStored && deadline && (
-            <div className="flex items-center justify-between text-[11px] text-[#566861] px-2.5 py-1 rounded-xl bg-[#F2FBF6] border border-[#10B981]/15">
-              <div className="flex items-center gap-1 text-[#10B981] font-semibold">
-                <Clock className="w-3 h-3" />
+            <div className={`flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-xl border ${
+              deadline.status === 'paid'
+                ? 'bg-[#F2FBF6] border-[#10B981]/20 text-[#0B3326]'
+                : deadline.status === 'due_soon'
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                : 'bg-red-50 border-red-200 text-red-900'
+            }`}>
+              <div className="flex items-center gap-1 font-semibold">
+                <Clock className={`w-3.5 h-3.5 shrink-0 ${
+                  deadline.status === 'paid' ? 'text-[#10B981]' : deadline.status === 'due_soon' ? 'text-amber-600' : 'text-red-600'
+                }`} />
                 <span>{deadline.label}</span>
               </div>
-              <span className="text-[10px] text-[#10B981] font-semibold">
-                Razorpay Online
+              <span className={`text-[10px] font-bold tracking-tight ${
+                deadline.status === 'paid' ? 'text-[#10B981]' : deadline.status === 'due_soon' ? 'text-amber-700' : 'text-red-700'
+              }`}>
+                {deadline.status === 'overdue' ? `Delay: +₹${deadline.overduePenalty || 0}` : 'Razorpay Online'}
               </span>
             </div>
           )}
 
           {isQuoteProvided && (
             <div className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-center justify-between">
-              <span className="font-bold">Tariff Quoted by Admin</span>
+              <span className="font-bold">Fee Quoted by Admin</span>
               <span className="font-extrabold text-blue-700">₹{inventory.quotedMonthlyRent}/mo</span>
             </div>
           )}
@@ -190,7 +200,7 @@ export default function InventoryCard({
           {isQuoteRequested && (
             <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5" />
-              <span>Awaiting warehouse admin tariff quote</span>
+              <span>Awaiting warehouse admin fee quote</span>
             </div>
           )}
 

@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   AlertCircle,
   CreditCard,
-  QrCode,
   ShieldCheck,
   Receipt,
   ArrowRight,
@@ -20,6 +19,7 @@ import {
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { calculateLoanMaturity, repayFinancingLoan } from '../../utils/financing';
+import { initiateRazorpayLoanRepaymentCheckout } from '../../utils/razorpayRouteClient';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function LoanDeadlinesRepaymentModal({
@@ -31,7 +31,6 @@ export default function LoanDeadlinesRepaymentModal({
 }) {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [paymentStep, setPaymentStep] = useState('list'); // 'list' | 'pay' | 'success'
-  const [paymentMethod, setPaymentMethod] = useState('upi'); // 'upi' | 'netbanking' | 'bank_transfer'
   const [isProcessing, setIsProcessing] = useState(false);
   const [repaymentReceipt, setRepaymentReceipt] = useState(null);
 
@@ -60,39 +59,52 @@ export default function LoanDeadlinesRepaymentModal({
   const handleConfirmPayment = async () => {
     if (!selectedLoan) return;
     setIsProcessing(true);
-    showGlobalLoader('Processing Loan Repayment...', 'Sending settlement to Financial Institution & releasing escrow lien...');
+    showGlobalLoader('Connecting Razorpay Gateway...', 'Preparing secure institutional settlement...');
 
     try {
       const maturity = calculateLoanMaturity(selectedLoan);
-      const txnId = `TXN${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
 
-      await repayFinancingLoan(selectedLoan.id || selectedLoan.requestNumber, {
-        method: paymentMethod,
-        txnId,
+      await initiateRazorpayLoanRepaymentCheckout({
+        loan: selectedLoan,
         amount: maturity.totalDue,
-        notes: `Direct loan repayment by ${user.name} via ${paymentMethod.toUpperCase()}`,
+        borrowerUser: user,
+        onSuccess: async (rzpRes) => {
+          const txnId = rzpRes?.razorpay_payment_id || `TXN${Date.now()}`;
+          await repayFinancingLoan(selectedLoan.id || selectedLoan.requestNumber, {
+            method: 'Razorpay Gateway',
+            txnId,
+            amount: maturity.totalDue,
+            notes: `Direct institutional loan repayment via Razorpay (${txnId}) by ${user.name}`,
+          });
+
+          const receipt = {
+            txnId,
+            loanNumber: selectedLoan.requestNumber || `#FIN-${String(selectedLoan.id || '').slice(0, 6)}`,
+            orderNumber: selectedLoan.orderNumber || 'General Working Capital',
+            borrowerName: user.name || selectedLoan.applicantName || 'Borrower',
+            borrowerRole: isFarmer ? 'Producer / Farmer' : 'Wholesale Buyer',
+            institutionName: 'Samunnati / NABARD Agri-Finance Desk',
+            principalAmount: maturity.principal,
+            interestAmount: maturity.interest,
+            totalPaid: maturity.totalDue,
+            paidAt: new Date().toISOString(),
+            paymentMethod: `Razorpay Online (${txnId})`,
+          };
+
+          setRepaymentReceipt(receipt);
+          setPaymentStep('success');
+          onRepaymentSuccess?.();
+          setIsProcessing(false);
+          hideGlobalLoader();
+        },
+        onFailure: (err) => {
+          console.warn('Razorpay repayment window note:', err);
+          setIsProcessing(false);
+          hideGlobalLoader();
+        },
       });
-
-      const receipt = {
-        txnId,
-        loanNumber: selectedLoan.requestNumber || `#FIN-${String(selectedLoan.id || '').slice(0, 6)}`,
-        orderNumber: selectedLoan.orderNumber || 'General Working Capital',
-        borrowerName: user.name || selectedLoan.applicantName || 'Borrower',
-        borrowerRole: isFarmer ? 'Producer / Farmer' : 'Wholesale Buyer',
-        institutionName: 'Samunnati / NABARD Agri-Finance Desk',
-        principalAmount: maturity.principal,
-        interestAmount: maturity.interest,
-        totalPaid: maturity.totalDue,
-        paidAt: new Date().toISOString(),
-        paymentMethod: paymentMethod === 'upi' ? 'UPI Instant Pay' : paymentMethod === 'netbanking' ? 'Net Banking Direct' : 'Bank RTGS/NEFT',
-      };
-
-      setRepaymentReceipt(receipt);
-      setPaymentStep('success');
-      onRepaymentSuccess?.();
     } catch (err) {
       console.error('Repayment error:', err);
-    } finally {
       setIsProcessing(false);
       hideGlobalLoader();
     }
@@ -340,54 +352,27 @@ export default function LoanDeadlinesRepaymentModal({
               </p>
             </div>
 
-            {/* Select Repayment Mode */}
+            {/* Payment Gateway - Exclusively Razorpay */}
             <div className="space-y-2.5">
               <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                Choose Repayment Method
+                Payment Gateway
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('upi')}
-                  className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
-                    paymentMethod === 'upi'
-                      ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
-                      : 'border-[#E5EDE8] bg-white hover:bg-[#F8FAF8]'
-                  }`}
-                >
-                  <QrCode className="w-5 h-5 text-[#10B981] mb-1" />
-                  <span className="font-bold text-xs text-[#0B3326] block">UPI / QR Pay</span>
-                  <span className="text-[10px] text-[#566861]">Google Pay, PhonePe, Paytm</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('netbanking')}
-                  className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
-                    paymentMethod === 'netbanking'
-                      ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
-                      : 'border-[#E5EDE8] bg-white hover:bg-[#F8FAF8]'
-                  }`}
-                >
-                  <Landmark className="w-5 h-5 text-[#10B981] mb-1" />
-                  <span className="font-bold text-xs text-[#0B3326] block">Net Banking</span>
-                  <span className="text-[10px] text-[#566861]">SBI, HDFC, ICICI, Canara</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('bank_transfer')}
-                  className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
-                    paymentMethod === 'bank_transfer'
-                      ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
-                      : 'border-[#E5EDE8] bg-white hover:bg-[#F8FAF8]'
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5 text-[#10B981] mb-1" />
-                  <span className="font-bold text-xs text-[#0B3326] block">Virtual Account</span>
-                  <span className="text-[10px] text-[#566861]">RTGS / NEFT Direct</span>
-                </button>
+              <div className="p-4 rounded-2xl border-2 border-[#10B981] bg-[#F2FBF6] flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-sm text-[#0B3326] block">
+                      Razorpay Secure Gateway
+                    </span>
+                    <span className="text-[11px] text-[#566861]">
+                      Instant institutional settlement & lien clearance
+                    </span>
+                  </div>
+                </div>
+                <Badge variant="emerald" size="sm">Online</Badge>
               </div>
             </div>
 
@@ -427,7 +412,9 @@ export default function LoanDeadlinesRepaymentModal({
                 disabled={isProcessing}
                 className="flex-1 font-bold text-xs py-2.5 px-5 shadow-md cursor-pointer justify-center"
               >
-                {isProcessing ? 'Transmitting Repayment...' : `Authorize ₹${calculateLoanMaturity(selectedLoan).totalDue.toLocaleString('en-IN')} Repayment`}
+                {isProcessing
+                  ? 'Connecting Gateway...'
+                  : `Pay ₹${calculateLoanMaturity(selectedLoan).totalDue.toLocaleString('en-IN')} with Razorpay`}
               </Button>
             </div>
           </div>

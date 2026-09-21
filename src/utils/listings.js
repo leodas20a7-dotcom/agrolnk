@@ -454,3 +454,165 @@ export function clearListingDraft(userId) {
   }
 }
 
+/**
+ * Check if a produce listing has active orders, bookings, or trade credit locks
+ */
+export async function checkListingBookings(listingId) {
+  if (!listingId || listingId === 'draft_local') {
+    return { canDelete: true, activeOrdersCount: 0 };
+  }
+
+  try {
+    // 1. Check active/confirmed orders in Supabase
+    const { data: remoteOrders, error: orderErr } = await supabase
+      .from('orders')
+      .select('id, order_number, status, buyer_name, total_amount')
+      .eq('listing_id', listingId);
+
+    if (!orderErr && Array.isArray(remoteOrders) && remoteOrders.length > 0) {
+      const activeOrders = remoteOrders.filter((o) => o.status !== 'cancelled');
+      if (activeOrders.length > 0) {
+        return {
+          canDelete: false,
+          activeOrdersCount: activeOrders.length,
+          orderNumber: activeOrders[0].order_number || activeOrders[0].id,
+          buyerName: activeOrders[0].buyer_name,
+          reason: `A buyer (${activeOrders[0].buyer_name || 'Buyer Partner'}) has already confirmed Order ${activeOrders[0].order_number || ''} for this produce lot. Booked produce cannot be deleted to protect active delivery and payment escrow.`,
+        };
+      }
+    }
+
+    // 2. Check local orders cache (for resilience)
+    try {
+      const rawLocal = localStorage.getItem('agrolnk_orders_local');
+      if (rawLocal) {
+        const localOrders = JSON.parse(rawLocal);
+        const match = localOrders.find(
+          (o) => (o.listingId === listingId || o.listing_id === listingId) && o.status !== 'cancelled'
+        );
+        if (match) {
+          return {
+            canDelete: false,
+            activeOrdersCount: 1,
+            orderNumber: match.orderNumber || match.id,
+            buyerName: match.buyerName,
+            reason: `A buyer (${match.buyerName || 'Buyer Partner'}) has already confirmed Order ${match.orderNumber || ''} for this produce lot. Booked produce cannot be deleted to protect active delivery and payment escrow.`,
+          };
+        }
+      }
+    } catch {}
+
+    // 3. Check financing requests / trade credit on this listing
+    try {
+      const { data: finData, error: finErr } = await supabase
+        .from('financing_requests')
+        .select('id, request_number, status, applicant_name')
+        .eq('listing_id', listingId);
+
+      if (!finErr && Array.isArray(finData) && finData.length > 0) {
+        const activeFin = finData.filter((r) => r.status !== 'rejected' && r.status !== 'cancelled');
+        if (activeFin.length > 0) {
+          return {
+            canDelete: false,
+            activeOrdersCount: activeFin.length,
+            orderNumber: activeFin[0].request_number || activeFin[0].id,
+            buyerName: activeFin[0].applicant_name,
+            reason: `An active trade credit application (${activeFin[0].request_number}) is currently locked to this produce lot.`,
+          };
+        }
+      }
+    } catch {}
+
+    // 4. Check if listing status itself is sold
+    const { data: listingData } = await supabase
+      .from('listings')
+      .select('status, quantity')
+      .eq('id', listingId)
+      .maybeSingle();
+
+    if (listingData && (listingData.status === 'sold' || Number(listingData.quantity) <= 0)) {
+      return {
+        canDelete: false,
+        activeOrdersCount: 1,
+        reason: 'This produce lot has already been purchased and sold out.',
+      };
+    }
+
+    return { canDelete: true, activeOrdersCount: 0 };
+  } catch (err) {
+    console.error('Error checking listing bookings:', err);
+    // On network failure or unknown state, perform safe check
+    return { canDelete: true, activeOrdersCount: 0 };
+  }
+}
+
+/**
+ * Delete a produce listing permanently (only if unbooked)
+ */
+export async function deleteListing(listingId, userId) {
+  if (!listingId) throw new Error('Listing ID is required.');
+
+  // If deleting local draft
+  if (listingId === 'draft_local') {
+    clearListingDraft(userId);
+    return { success: true, isDraft: true };
+  }
+
+  // 1. Validate that no buyer has booked/ordered this lot
+  const bookingCheck = await checkListingBookings(listingId);
+  if (!bookingCheck.canDelete) {
+    throw new Error(bookingCheck.reason || 'This produce item has active buyer bookings and cannot be deleted.');
+  }
+
+  // 2. Delete from Supabase listings table
+  const { error } = await supabase
+    .from('listings')
+    .delete()
+    .eq('id', listingId);
+
+  if (error) {
+    console.error('Supabase listing deletion error:', error);
+    throw new Error(error.message || 'Failed to delete produce listing from database.');
+  }
+
+  // 3. Clear any local drafts or references if exists
+  if (userId) {
+    clearListingDraft(userId);
+  }
+
+  // 4. Clean local storage listing caches
+  try {
+    const rawLocal = localStorage.getItem('agrolnk_listings_local');
+    if (rawLocal) {
+      const localListings = JSON.parse(rawLocal);
+      if (Array.isArray(localListings)) {
+        const updated = localListings.filter((l) => l && l.id !== listingId);
+        localStorage.setItem('agrolnk_listings_local', JSON.stringify(updated));
+      }
+    }
+    // Also clean any user-scoped listing caches
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('agrolnk_farmer_listings_')) {
+        try {
+          const uData = JSON.parse(localStorage.getItem(k));
+          if (Array.isArray(uData)) {
+            const filtered = uData.filter((l) => l && l.id !== listingId);
+            localStorage.setItem(k, JSON.stringify(filtered));
+          }
+        } catch {}
+      }
+    }
+  } catch (cacheErr) {
+    console.warn('Local listing cache cleanup notice:', cacheErr);
+  }
+
+  // 5. Notify all components and cross-tab listeners
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: { deletedId: listingId } }));
+    window.dispatchEvent(new Event('storage'));
+  }
+
+  return { success: true };
+}
+

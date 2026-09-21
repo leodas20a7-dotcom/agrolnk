@@ -269,7 +269,7 @@ export default function CreateDeliveryModal({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Truck className="w-4 h-4 text-[#10B981]" />
-                  <span className="font-bold text-[#0B3326]">Estimated Distance & Tariff Guide</span>
+                  <span className="font-bold text-[#0B3326]">Estimated Distance & Fee Guide</span>
                 </div>
                 <Badge variant="emerald" size="sm">
                   ~{distanceKm} km Corridor

@@ -9,6 +9,7 @@ export default function Button({
   iconPosition = 'left',
   onClick,
   disabled = false,
+  loading = false,
   type = 'button',
   ...props
 }) {

@@ -292,7 +292,12 @@ export function getResolvedUserKycStatus(user) {
   if (!user) return 'pending';
   if (user.role === 'admin') return 'verified';
 
-  // 1. Check local KYC registry (updated by Admin approvals)
+  // 1. Direct status check on user object if already verified
+  if (user.kycStatus === 'verified' || user.verificationStatus === 'verified' || user.kyc_status === 'verified') {
+    return 'verified';
+  }
+
+  // 2. Check local KYC registry (updated by Admin approvals)
   try {
     const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
     if (storedRaw) {
@@ -310,7 +315,19 @@ export function getResolvedUserKycStatus(user) {
     }
   } catch {}
 
-  // 2. Check cached user in session
+  // 3. Check warehouse profiles cache for warehouse users
+  if (user.role === 'warehouse' && typeof localStorage !== 'undefined') {
+    try {
+      const rawWp = localStorage.getItem('agrolnk_warehouse_profiles');
+      const wpProfiles = rawWp ? JSON.parse(rawWp) : {};
+      const found = (user.id && wpProfiles[user.id]) || (user.email && wpProfiles[user.email]);
+      if (found?.verificationStatus) {
+        return found.verificationStatus;
+      }
+    } catch {}
+  }
+
+  // 4. Check cached user in session
   try {
     const raw = localStorage.getItem(AGROLNK_USER_KEY);
     if (raw) {
@@ -321,11 +338,12 @@ export function getResolvedUserKycStatus(user) {
       ) {
         if (parsed.kycStatus) return parsed.kycStatus;
         if (parsed.verificationStatus) return parsed.verificationStatus;
+        if (parsed.kyc_status) return parsed.kyc_status;
       }
     }
   } catch {}
 
-  return user.kycStatus || user.verificationStatus || 'pending';
+  return user.kycStatus || user.verificationStatus || user.kyc_status || 'pending';
 }
 
 /**

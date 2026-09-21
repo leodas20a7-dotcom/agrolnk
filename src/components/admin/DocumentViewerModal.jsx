@@ -83,12 +83,12 @@ export default function DocumentViewerModal({
   const isTransport = docType.toLowerCase().includes('permit') || docType.toLowerCase().includes('vehicle') || docType.toLowerCase().includes('driver');
 
   return (
-    <div className={`fixed inset-0 z-60 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 transition-all duration-200 ${isFullscreen ? 'p-0' : ''}`}>
+    <div className={`fixed inset-0 z-60 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto transition-all duration-200 ${isFullscreen ? 'p-0' : ''}`}>
       <div 
-        className={`bg-white rounded-3xl w-full shadow-2xl border border-[#E5EDE8] flex flex-col overflow-hidden text-left transition-all ${
+        className={`bg-white rounded-3xl w-full shadow-2xl border border-[#E5EDE8] flex flex-col my-auto overflow-hidden text-left transition-all ${
           isFullscreen 
             ? 'h-full max-w-none rounded-none' 
-            : 'max-w-4xl max-h-[94vh]'
+            : 'max-w-4xl max-h-[92vh]'
         }`}
       >
         {/* Top Control Bar */}
@@ -185,10 +185,10 @@ export default function DocumentViewerModal({
         </div>
 
         {/* Document Body Area */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-[#F1F5F3] flex items-stretch justify-center">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 bg-[#F1F5F3] flex flex-col items-center justify-start">
           {isPdf && hasRealFile ? (
             /* ================= REAL PDF VIEWER ================= */
-            <div className="w-full flex flex-col space-y-3">
+            <div className="w-full flex flex-col space-y-3 pb-6">
               {/* Document Banner */}
               <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#D1DDD6] shadow-xs flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -237,7 +237,7 @@ export default function DocumentViewerModal({
             </div>
           ) : isImage && hasRealFile ? (
             /* ================= REAL IMAGE VIEWER ================= */
-            <div className="w-full flex flex-col space-y-3">
+            <div className="w-full flex flex-col space-y-3 pb-6">
               <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#D1DDD6] shadow-xs flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 font-black text-xs border border-blue-200 shrink-0">
@@ -279,7 +279,7 @@ export default function DocumentViewerModal({
             /* ================= VERIFIABLE DIGITAL CERTIFICATE FALLBACK ================= */
             <div 
               style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-              className="w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-[#D1DDD6] overflow-hidden transition-transform duration-150 relative text-left my-2"
+              className="w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-[#D1DDD6] transition-transform duration-150 relative text-left my-2 mb-8 shrink-0"
             >
               <div className="p-6 sm:p-8 space-y-6 relative overflow-hidden bg-gradient-to-b from-[#FAFCFA] to-white">
                 

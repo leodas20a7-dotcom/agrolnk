@@ -285,6 +285,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
           razorpay_order_id: response.razorpay_order_id || testOrderId,
           razorpay_signature: response.razorpay_signature || 'sig_test_verified',
           amount: payAmount,
+          rentAmount: payAmount,
           extendedDays: extendedDays,
           verified: true,
         });
@@ -605,4 +606,3 @@ export async function initiateRazorpayLoanRepaymentCheckout({
     onFailure?.(initErr);
   }
 }
-

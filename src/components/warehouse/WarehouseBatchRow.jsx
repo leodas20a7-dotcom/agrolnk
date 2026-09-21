@@ -8,6 +8,7 @@ export default function WarehouseBatchRow({
   isDispatched = false,
   onView,
   onDispatch,
+  onViewRentStatus,
 }) {
   const isColdStorage = item.chamber?.toLowerCase().includes('cold') || item.chamber?.toLowerCase().includes('chill');
 
@@ -50,10 +51,10 @@ export default function WarehouseBatchRow({
       </div>
 
       {/* Middle: Quantities & Assay Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6 py-2 lg:py-0 border-y lg:border-y-0 lg:border-x lg:px-6 border-[#E5EDE8] text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 py-2 lg:py-0 border-y lg:border-y-0 lg:border-x lg:px-6 border-[#E5EDE8] text-xs">
         <div>
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">
-            {isDispatched ? 'Dispatched Qty' : 'Available to Trade'}
+            {isDispatched ? 'Dispatched Qty' : 'Available'}
           </span>
           <span className={`font-extrabold text-sm block ${!isDispatched && item.availableQuantity > 0 ? 'text-[#10B981]' : 'text-[#0B3326]'}`}>
             {isDispatched ? `${item.totalQuantity} ${item.unit}` : `${item.availableQuantity} ${item.unit}`}
@@ -62,10 +63,31 @@ export default function WarehouseBatchRow({
 
         {!isDispatched && (
           <div>
-            <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Locked / Listed</span>
-            <span className={`font-bold text-sm block ${item.lockedQuantity > 0 ? 'text-[#D97706]' : 'text-[#566861]'}`}>
-              {item.lockedQuantity || 0} {item.unit}
+            <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Rate / Mo</span>
+            <span className="font-bold text-sm text-[#0B3326] block">
+              ₹{Number(item.storageFeeMonthly || item.quotedMonthlyRent || 0).toLocaleString('en-IN')}
             </span>
+          </div>
+        )}
+
+        {!isDispatched && (
+          <div>
+            <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Rent Status</span>
+            {item.rentDeadline ? (
+              <span className={`inline-block px-2 py-0.5 rounded-lg text-[11px] font-bold border mt-0.5 ${
+                item.rentDeadline.status === 'paid'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : item.rentDeadline.status === 'due_soon'
+                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                  : 'bg-red-50 text-red-800 border-red-200'
+              }`}>
+                {item.rentDeadline.label}
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                Settled
+              </span>
+            )}
           </div>
         )}
 
@@ -83,6 +105,23 @@ export default function WarehouseBatchRow({
 
       {/* Right: Actions */}
       <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0 flex-wrap">
+        {!isDispatched && onViewRentStatus && (
+          <Button
+            variant={item.isPendingRent ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => onViewRentStatus(item)}
+            className={`text-xs font-bold py-1.5 px-3 cursor-pointer ${
+              item.isPendingRent
+                ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
+                : 'border-[#E5EDE8] text-[#0B3326] hover:bg-[#F2FBF6]'
+            }`}
+          >
+            {item.isPendingRent
+              ? `Rent Due: ₹${item.rentDeadline?.totalDue || item.storageFeeMonthly || 700}`
+              : 'Rent Settled'}
+          </Button>
+        )}
+
         {!isDispatched && item.availableQuantity === 0 && onDispatch && (
           <Button
             variant="secondary"
@@ -102,7 +141,7 @@ export default function WarehouseBatchRow({
           iconPosition="right"
           className="text-xs font-bold py-1.5 px-3 cursor-pointer hover:bg-[#F2FBF6] hover:border-[#10B981]"
         >
-          {isDispatched ? 'Audit Receipt' : 'View Receipt'}
+          {isDispatched ? 'Audit Receipt' : 'e-NWR Details'}
         </Button>
       </div>
     </div>

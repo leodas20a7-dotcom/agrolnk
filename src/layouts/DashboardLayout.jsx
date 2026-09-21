@@ -33,7 +33,7 @@ import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
 import UserProfileModal from '../components/profile/UserProfileModal';
 import NotificationBell from '../components/notifications/NotificationBell';
-import { getTotalPlatformUnreadCount, subscribeToGlobalUnreadMessages } from '../utils/chat';
+import { getTotalPlatformUnreadCount, subscribeToGlobalUnreadMessages, getSupportThreadKey } from '../utils/chat';
 
 export default function DashboardLayout({
   children,
@@ -702,7 +702,7 @@ export default function DashboardLayout({
           setActiveChatThread(null);
         }}
         currentUser={user}
-        threadKey={activeChatThread || 'agrolnk_support_desk'}
+        threadKey={activeChatThread || getSupportThreadKey(user)}
         partnerContext={activePartnerContext}
       />
 

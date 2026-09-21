@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Building2, Package, Calendar, ShieldCheck, ArrowRight, AlertCircle, Layers, Sparkles } from 'lucide-react';
+import { X, Building2, Package, Calendar, ShieldCheck, ArrowRight, AlertCircle, Layers, Sparkles, Loader2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import CommoditySelect from '../ui/CommoditySelect';
@@ -13,7 +13,7 @@ export default function DepositProduceModal({
   onSuccess,
 }) {
   const user = currentUser || {
-    id: '',
+    id: 'farmer_guest',
     name: 'Farmer',
     role: 'farmer',
   };
@@ -32,9 +32,9 @@ export default function DepositProduceModal({
     const fetchDb = async () => {
       try {
         const live = await getWarehouses();
-        if (isMounted && Array.isArray(live)) {
+        if (isMounted && Array.isArray(live) && live.length > 0) {
           setWarehouses(live);
-          if (!preselectedWarehouse?.id && live.length > 0) {
+          if (!preselectedWarehouse?.id) {
             setSelectedWarehouseId((prev) => (prev && live.some((w) => w.id === prev) ? prev : live[0].id));
           }
         }
@@ -51,18 +51,18 @@ export default function DepositProduceModal({
   const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0] || null;
   const availableChambers = (Array.isArray(currentWarehouse?.chambers) && currentWarehouse.chambers.length > 0)
     ? currentWarehouse.chambers
-    : [];
+    : ['Chamber A1 - General Storage (Ambient)'];
 
-  const [commodity, setCommodity] = useState('');
-  const [variety, setVariety] = useState('');
-  const [grade, setGrade] = useState('A');
-  const [quantity, setQuantity] = useState('');
+  const [commodity, setCommodity] = useState('Apple');
+  const [variety, setVariety] = useState('Royal');
+  const [grade, setGrade] = useState('Grade A');
+  const [quantity, setQuantity] = useState('2000');
   const [unit, setUnit] = useState('kg');
-  const [priceEstimate, setPriceEstimate] = useState('');
+  const [priceEstimate, setPriceEstimate] = useState('65');
   const [chamber, setChamber] = useState(
     availableChambers[0] || 'Chamber A1'
   );
-  const [storageDays, setStorageDays] = useState('60');
+  const [storageDays, setStorageDays] = useState('30');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -74,24 +74,23 @@ export default function DepositProduceModal({
 
   const handleCommodityChange = (val) => {
     setCommodity(val);
-    if (!val || availableChambers.length <= 1) return;
-
-    const lower = val.toLowerCase();
-    const isColdCommodity = ['tomato', 'potato', 'onion', 'apple', 'fruits', 'vegetables', 'chilli', 'ginger', 'garlic'].some((k) => lower.includes(k));
-    const isDryCommodity = ['wheat', 'paddy', 'rice', 'grain', 'maize', 'pulses', 'cotton', 'soybean', 'turmeric'].some((k) => lower.includes(k));
-
-    if (isColdCommodity) {
-      const matchCold = availableChambers.find((ch) => ch.toLowerCase().includes('cold') || ch.toLowerCase().includes('atmosphere') || ch.toLowerCase().includes('freeze') || ch.toLowerCase().includes('temp'));
-      if (matchCold) setChamber(matchCold);
-    } else if (isDryCommodity) {
-      const matchDry = availableChambers.find((ch) => ch.toLowerCase().includes('silo') || ch.toLowerCase().includes('dry') || ch.toLowerCase().includes('grain') || ch.toLowerCase().includes('hermetic') || ch.toLowerCase().includes('spices'));
-      if (matchDry) setChamber(matchDry);
+    if (val.toLowerCase().includes('tomato')) {
+      setVariety('Hybrid Shivam');
+      setPriceEstimate('32');
+    } else if (val.toLowerCase().includes('potato')) {
+      setVariety('Jyoti / Pukhraj');
+      setPriceEstimate('22');
+    } else if (val.toLowerCase().includes('onion')) {
+      setVariety('Nasik Red');
+      setPriceEstimate('28');
+    } else if (val.toLowerCase().includes('apple')) {
+      setVariety('Royal');
+      setPriceEstimate('65');
     }
   };
 
-  const estimatedTotalValue = (Number(quantity) || 0) * (Number(priceEstimate) || 0);
-  
-  // Calculate active rate per tonne based on selected chamber or warehouse baseline tariff
+  const estimatedTotalValue = Number(quantity || 0) * Number(priceEstimate || 0);
+
   const baseChamberRate = (currentWarehouse?.chamberRates && currentWarehouse.chamberRates[chamber])
     ? Number(currentWarehouse.chamberRates[chamber])
     : Number(currentWarehouse?.monthlyRatePerTonne || 350);
@@ -104,10 +103,20 @@ export default function DepositProduceModal({
   const monthlyRentalEst = Math.round(depositTonnes * effectiveRatePerTonne);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
 
-    if (!quantity || Number(quantity) <= 0) {
-      setError('Please enter a valid deposit quantity.');
+    if (!commodity || commodity.trim() === '') {
+      setError('Please select or specify a commodity / crop.');
+      return;
+    }
+
+    if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0) {
+      setError('Please enter a valid deposit quantity (e.g. 1000 kg).');
+      return;
+    }
+
+    if (!priceEstimate || isNaN(Number(priceEstimate)) || Number(priceEstimate) <= 0) {
+      setError('Please enter a valid estimated market price per kg.');
       return;
     }
 
@@ -116,18 +125,20 @@ export default function DepositProduceModal({
 
     try {
       const depositData = {
-        farmerId: user.id,
-        farmerName: user.name,
-        warehouseId: selectedWarehouseId,
-        warehouseName: currentWarehouse?.name || 'Agri Storage Hub',
-        commodity,
-        variety,
-        grade,
+        farmerId: user.id || 'farmer_guest',
+        farmerName: user.name || 'Farmer Depositor',
+        warehouseId: selectedWarehouseId || currentWarehouse?.id || '',
+        warehouseName: currentWarehouse?.name || 'Agri Storage Facility',
+        warehouseEmail: currentWarehouse?.email || '',
+        wdraCode: currentWarehouse?.wdraCode || '',
+        commodity: commodity.trim(),
+        variety: (variety || 'Standard').trim(),
+        grade: grade || 'Grade A',
         quantity: Number(quantity),
-        unit,
+        unit: unit || 'kg',
         priceEstimate: Number(priceEstimate),
-        chamber,
-        storageDays: Number(storageDays),
+        chamber: chamber || availableChambers[0] || 'Chamber A1',
+        storageDays: Number(storageDays || 30),
         monthlyRatePerTonne: effectiveRatePerTonne,
         storageFeeMonthly: monthlyRentalEst,
         minBillingDays: currentWarehouse?.minBillingDays || 0,
@@ -140,7 +151,7 @@ export default function DepositProduceModal({
       onClose();
     } catch (err) {
       console.error('Failed to deposit produce:', err);
-      setError('Failed to process warehouse deposit. Please try again.');
+      setError(err?.message || 'Failed to process warehouse deposit. Please check connection.');
       setIsSubmitting(false);
     }
   };
@@ -175,6 +186,7 @@ export default function DepositProduceModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
           >
@@ -182,7 +194,7 @@ export default function DepositProduceModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
           
           {/* Warehouse Facility Selection */}
@@ -203,8 +215,7 @@ export default function DepositProduceModal({
                 options={warehouses.map((wh) => ({
                   value: wh.id,
                   label: wh.name,
-                  subtext: `${wh.district || 'District'}, ${wh.state || 'State'} • ₹${wh.monthlyRatePerTonne || 350}/Tonne`,
-                  badge: `₹${wh.monthlyRatePerTonne || 350}/T`,
+                  subtext: `${wh.district || 'District'}, ${wh.state || 'State'}${wh.totalCapacityTonnes ? ` • ${Number(wh.totalCapacityTonnes).toLocaleString('en-IN')}T Capacity` : ''}`,
                 }))}
                 value={selectedWarehouseId}
                 onChange={(val) => {
@@ -236,7 +247,7 @@ export default function DepositProduceModal({
                 return {
                   value: ch,
                   label: ch,
-                  subtext: `Tariff: ₹${chamberRate}/Tonne/mo (₹${kgRate}/kg · ₹${bagRate}/50kg bag)`,
+                  subtext: `Storage Fee: ₹${chamberRate}/Tonne/mo (₹${kgRate}/kg · ₹${bagRate}/50kg bag)`,
                   badge: `₹${chamberRate}/T`,
                 };
               })}
@@ -258,7 +269,6 @@ export default function DepositProduceModal({
                 onChange={handleCommodityChange}
                 userId={user.id}
                 placeholder="Select Crop..."
-                required
               />
             </div>
 
@@ -273,12 +283,12 @@ export default function DepositProduceModal({
                   onChange={(e) => setVariety(e.target.value)}
                   placeholder="Variety"
                   className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-2xs"
-                  required
                 />
                 <SearchableSelect
                   options={[
-                    { value: 'A', label: 'Grade A' },
-                    { value: 'B', label: 'Grade B' },
+                    { value: 'Grade A', label: 'Grade A' },
+                    { value: 'Grade B', label: 'Grade B' },
+                    { value: 'Grade C', label: 'Grade C' },
                     { value: 'Export', label: 'Export' },
                   ]}
                   value={grade}
@@ -294,7 +304,7 @@ export default function DepositProduceModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                Deposit Volume ({unit})
+                Deposit Volume ({unit}) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -304,13 +314,12 @@ export default function DepositProduceModal({
                 min="0.1"
                 step="any"
                 className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
-                required
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                Estimated Price (₹/{unit})
+                Estimated Price (₹/{unit}) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -320,7 +329,6 @@ export default function DepositProduceModal({
                 min="0.01"
                 step="any"
                 className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] shadow-xs"
-                required
               />
             </div>
           </div>
@@ -359,7 +367,7 @@ export default function DepositProduceModal({
             <div className="flex items-start justify-between pt-2 border-t border-[#E5EDE8]">
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[#566861]">Chamber Tariff:</span>
+                  <span className="text-[#566861]">Chamber Storage Fee:</span>
                   <strong className="text-[#0B3326]">
                     ₹{effectiveRatePerTonne} / Tonne / mo
                   </strong>
@@ -423,6 +431,7 @@ export default function DepositProduceModal({
               variant="ghost"
               size="md"
               onClick={onClose}
+              disabled={isSubmitting}
               className="text-xs text-[#566861] justify-center w-full sm:w-auto"
             >
               Cancel
@@ -432,9 +441,10 @@ export default function DepositProduceModal({
               variant="accent"
               size="md"
               disabled={isSubmitting || warehouses.length === 0}
-              icon={ArrowRight}
+              onClick={handleSubmit}
+              icon={isSubmitting ? Loader2 : ArrowRight}
               iconPosition="right"
-              className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"
+              className={`font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto ${isSubmitting ? 'opacity-80 cursor-wait' : ''}`}
             >
               {isSubmitting ? 'Sending Request...' : 'Send Deposit Request to Warehouse'}
             </Button>

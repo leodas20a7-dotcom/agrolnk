@@ -33,7 +33,9 @@ import {
   getFinancingRequests,
   getFinancingStats,
   getLiquidityPool,
-  getDisbursements
+  loadFinancierLiquidityPool,
+  getDisbursements,
+  isFinancierMatch
 } from '../../utils/financing';
 import { getTimeGreeting } from '../../utils/greeting';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
@@ -106,14 +108,15 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const loadData = async () => {
     try {
       const fid = user.id || user.email || 'default';
-      const [all, computedStats, allDisb] = await Promise.all([
+      const [all, computedStats, allDisb, currentPool] = await Promise.all([
         getFinancingRequests(),
-        getFinancingStats(fid),
-        getDisbursements(),
+        getFinancingStats(user),
+        getDisbursements(user),
+        loadFinancierLiquidityPool(user),
       ]);
       setRequests(Array.isArray(all) ? all : []);
       setStats(computedStats);
-      setPool(getLiquidityPool(fid));
+      setPool(currentPool || getLiquidityPool(fid));
       setDisbursements(Array.isArray(allDisb) ? allDisb : []);
     } catch (err) {
       console.error('Error loading financier data:', err);
@@ -160,22 +163,17 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
     (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
   );
 
-  const matchesFinancier = (r) => {
-    if (!user || (!user.id && !user.email)) return false;
-    return (user.id && r.financierId === user.id) || (user.email && r.financierEmail === user.email);
-  };
-
   // Active, accepted, and repaid loans scoped strictly to this specific financial institution
   const readyToDisburseLoans = safeRequests.filter(
-    (r) => r.status === 'borrower_accepted' && matchesFinancier(r)
+    (r) => r.status === 'borrower_accepted' && isFinancierMatch(r, user)
   );
 
   const activeLoans = safeRequests.filter(
-    (r) => (r.status === 'approved' || r.status === 'disbursed') && matchesFinancier(r)
+    (r) => (r.status === 'approved' || r.status === 'disbursed') && isFinancierMatch(r, user)
   );
 
   const repaidLoans = safeRequests.filter(
-    (r) => (r.status === 'repaid' || r.status === 'settled') && matchesFinancier(r)
+    (r) => (r.status === 'repaid' || r.status === 'settled') && isFinancierMatch(r, user)
   );
 
   const totalPool = Number(pool?.totalCommitted) || 0;
@@ -222,7 +220,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               onClick={() => setIsAddLiquidityOpen(true)}
               className="font-bold text-xs shadow-md cursor-pointer py-2.5 px-4"
             >
-              + Add Lending Balance
+              Add Lending Balance
             </Button>
           </div>
         </div>

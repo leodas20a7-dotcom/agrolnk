@@ -103,10 +103,13 @@ export default function WarehouseSetupModal({
   // Document upload state
   const [wdraFileName, setWdraFileName] = useState('');
   const [wdraFileObj, setWdraFileObj] = useState(null);
+  const [existingWdraUrl, setExistingWdraUrl] = useState('');
   const [gstFileName, setGstFileName] = useState('');
   const [gstFileObj, setGstFileObj] = useState(null);
+  const [existingGstUrl, setExistingGstUrl] = useState('');
   const [insFileName, setInsFileName] = useState('');
   const [insFileObj, setInsFileObj] = useState(null);
+  const [existingInsUrl, setExistingInsUrl] = useState('');
 
   const [activeStep, setActiveStep] = useState(1); // 1: Enterprise & Capacity, 2: Storage Types, 3: WDRA & KYC Docs
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -154,6 +157,18 @@ export default function WarehouseSetupModal({
           setWdraFileName(existing.documentNames.wdraCert || '');
           setGstFileName(existing.documentNames.gstinCert || '');
           setInsFileName(existing.documentNames.insuranceCert || '');
+        }
+        if (existing.documentUrls) {
+          setExistingWdraUrl(existing.documentUrls.wdraCert || '');
+          setExistingGstUrl(existing.documentUrls.gstinCert || '');
+          setExistingInsUrl(existing.documentUrls.insuranceCert || '');
+        } else if (Array.isArray(existing.documents)) {
+          const wd = existing.documents.find((d) => (d.type || '').toLowerCase().includes('wdra'));
+          const gd = existing.documents.find((d) => (d.type || '').toLowerCase().includes('gst'));
+          const id = existing.documents.find((d) => (d.type || '').toLowerCase().includes('insurance'));
+          if (wd?.fileUrl) setExistingWdraUrl(wd.fileUrl);
+          if (gd?.fileUrl) setExistingGstUrl(gd.fileUrl);
+          if (id?.fileUrl) setExistingInsUrl(id.fileUrl);
         }
       };
 
@@ -230,7 +245,7 @@ export default function WarehouseSetupModal({
       .reduce((sum, [_, val]) => sum + (Number(val.capacity) || 0), 0);
   };
 
-  const handleFileUpload = (e, setFile, setName) => {
+  const handleFileUpload = async (e, setFile, setName, setUrl) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 25 * 1024 * 1024) {
@@ -240,6 +255,12 @@ export default function WarehouseSetupModal({
       setName(file.name);
       setFile(file);
       setErrorMessage('');
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        if (setUrl && dataUrl) {
+          setUrl(dataUrl);
+        }
+      } catch {}
     }
   };
 
@@ -363,14 +384,14 @@ export default function WarehouseSetupModal({
         storageTypesConfig: selectedTypes,
         storageTypes: formattedChambers,
         documentNames: {
-          wdraCert: wdraFileName || (wdraFileObj ? wdraFileObj.name : 'wdra_license_doc.pdf'),
-          gstinCert: gstFileName || (gstFileObj ? gstFileObj.name : 'gst_certificate.pdf'),
+          wdraCert: wdraFileName || (wdraFileObj ? wdraFileObj.name : ''),
+          gstinCert: gstFileName || (gstFileObj ? gstFileObj.name : ''),
           insuranceCert: insFileName || (insFileObj ? insFileObj.name : ''),
         },
         documentUrls: {
-          wdraCert: wdraUrl,
-          gstinCert: gstUrl,
-          insuranceCert: insUrl,
+          wdraCert: wdraUrl || existingWdraUrl || '',
+          gstinCert: gstUrl || existingGstUrl || '',
+          insuranceCert: insUrl || existingInsUrl || '',
         },
       };
 
@@ -428,7 +449,7 @@ export default function WarehouseSetupModal({
                 Warehouse Setup & Verification
               </h2>
               <p className="text-xs text-[#566861]">
-                Configure enterprise capacities, chamber tariffs, and compliance documents.
+                Configure enterprise capacities, chamber fees, and compliance documents.
               </p>
             </div>
           </div>
@@ -698,10 +719,10 @@ export default function WarehouseSetupModal({
               <div className="p-3.5 rounded-2xl bg-[#F4FAF6] border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div>
                   <span className="text-xs font-bold text-[#0B3326] block">
-                    Storage Chambers & Individual Monthly Tariffs
+                    Storage Chambers & Individual Monthly Fees
                   </span>
                   <p className="text-[11px] text-[#566861]">
-                    Toggle the chambers you operate, then enter their capacity and monthly rental tariff.
+                    Toggle the chambers you operate, then enter their capacity and monthly rental fee.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
@@ -786,10 +807,10 @@ export default function WarehouseSetupModal({
                               </div>
                             </div>
 
-                            {/* Monthly Rental Tariff Input */}
+                            {/* Monthly Rental Fee Input */}
                             <div className="space-y-1">
                               <label className="text-[11px] font-bold text-[#0B3326] block">
-                                Monthly Storage Tariff
+                                Monthly Storage Fee
                               </label>
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">
@@ -918,7 +939,7 @@ export default function WarehouseSetupModal({
                     <input
                       type="file"
                       accept=".pdf,image/*"
-                      onChange={(e) => handleFileUpload(e, setWdraFileObj, setWdraFileName)}
+                      onChange={(e) => handleFileUpload(e, setWdraFileObj, setWdraFileName, setExistingWdraUrl)}
                       className="hidden"
                     />
                   </label>
@@ -946,7 +967,7 @@ export default function WarehouseSetupModal({
                     <input
                       type="file"
                       accept=".pdf,image/*"
-                      onChange={(e) => handleFileUpload(e, setGstFileObj, setGstFileName)}
+                      onChange={(e) => handleFileUpload(e, setGstFileObj, setGstFileName, setExistingGstUrl)}
                       className="hidden"
                     />
                   </label>
@@ -974,7 +995,7 @@ export default function WarehouseSetupModal({
                     <input
                       type="file"
                       accept=".pdf,image/*"
-                      onChange={(e) => handleFileUpload(e, setInsFileObj, setInsFileName)}
+                      onChange={(e) => handleFileUpload(e, setInsFileObj, setInsFileName, setExistingInsUrl)}
                       className="hidden"
                     />
                   </label>

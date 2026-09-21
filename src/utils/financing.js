@@ -4,6 +4,25 @@ import { broadcastDataChange } from './syncChannel';
 
 function mapFinancingFromDb(row) {
   if (!row) return null;
+
+  let extra = {};
+  if (row.review_notes && typeof row.review_notes === 'string' && row.review_notes.trim().startsWith('{')) {
+    try {
+      extra = JSON.parse(row.review_notes);
+    } catch {}
+  }
+
+  const status = extra.status || row.status;
+  const offeredAmount = Number(extra.offeredAmount || row.offered_amount || row.approved_amount || row.requested_amount || 0);
+  const interestRate = extra.interestRate !== undefined ? Number(extra.interestRate) : Number(row.interest_rate || 0.85);
+  const tenorDays = extra.tenorDays !== undefined ? Number(extra.tenorDays) : Number(row.tenor_days || 30);
+  const offerNotes = extra.offerNotes || row.offer_notes || null;
+  const offeredAt = extra.offeredAt || row.offered_at || null;
+  const borrowerAcceptedAt = extra.borrowerAcceptedAt || row.borrower_accepted_at || null;
+  const financierId = extra.financierId || row.financier_id || null;
+  const financierName = extra.financierName || row.financier_name || null;
+  const financierEmail = extra.financierEmail || row.financier_email || null;
+
   return {
     id: row.id,
     requestNumber: row.request_number,
@@ -11,17 +30,17 @@ function mapFinancingFromDb(row) {
     applicantName: row.applicant_name,
     applicantRole: row.applicant_role,
     applicantKycStatus: row.profiles?.kyc_status || (row.profiles?.is_verified ? 'verified' : null) || row.applicant_kyc_status || null,
-    financierId: row.financier_id || null,
-    financierName: row.financier_name || null,
-    financierEmail: row.financier_email || null,
-    interestRate: Number(row.interest_rate || 0.85),
-    tenorDays: Number(row.tenor_days || 30),
-    offeredAmount: Number(row.offered_amount || row.approved_amount || row.requested_amount),
-    offerNotes: row.offer_notes || null,
-    offeredAt: row.offered_at || null,
-    borrowerAcceptedAt: row.borrower_accepted_at || null,
-    disbursedAt: row.disbursed_at || null,
-    bankUtr: row.bank_utr || null,
+    financierId,
+    financierName,
+    financierEmail,
+    interestRate,
+    tenorDays,
+    offeredAmount,
+    offerNotes,
+    offeredAt,
+    borrowerAcceptedAt,
+    disbursedAt: row.disbursed_at || extra.disbursedAt || null,
+    bankUtr: row.bank_utr || extra.bankUtr || null,
     orderId: row.order_id,
     orderNumber: row.order_number,
     receiptId: row.receipt_id,
@@ -40,7 +59,7 @@ function mapFinancingFromDb(row) {
     repaymentLabel: row.repayment_label,
     notes: row.notes,
     reviewNotes: row.review_notes,
-    status: row.status,
+    status,
     marginPaid: Boolean(row.margin_paid),
     escrowFunded: Boolean(row.escrow_funded),
     paymentId: row.payment_id,
@@ -166,6 +185,31 @@ function getBorrowerKycMap() {
   return map;
 }
 
+function resolveFinancingStatus(remoteStatus, localStatus) {
+  const statusRank = {
+    pending: 1,
+    under_review: 2,
+    offer_received: 3,
+    borrower_accepted: 4,
+    approved: 5,
+    disbursed: 6,
+    escrow_secured: 7,
+    repaid: 8,
+    settled: 8,
+    rejected: 9,
+    cancelled: 9,
+  };
+  if (!remoteStatus && !localStatus) return 'pending';
+  if (!remoteStatus) return localStatus || 'pending';
+  if (!localStatus) return remoteStatus || 'pending';
+  if (remoteStatus === 'rejected' || remoteStatus === 'cancelled') return remoteStatus;
+  if (localStatus === 'rejected' || localStatus === 'cancelled') return localStatus;
+
+  const rRank = statusRank[remoteStatus] || 1;
+  const lRank = statusRank[localStatus] || 1;
+  return lRank >= rRank ? localStatus : remoteStatus;
+}
+
 /**
  * Get all financing requests from Supabase merged with local requests and resolved KYC status
  */
@@ -209,37 +253,63 @@ export async function getFinancingRequests() {
   const localMap = new Map();
   local.forEach((l) => {
     if (l.id) localMap.set(l.id, l);
-    if (l.requestNumber) localMap.set(l.requestNumber, l);
-    if (l.orderNumber) localMap.set(l.orderNumber, l);
+    if (l.requestNumber) {
+      const rawReq = l.requestNumber.replace(/^#/, '');
+      localMap.set(l.requestNumber, l);
+      localMap.set(rawReq, l);
+      localMap.set(`#${rawReq}`, l);
+    }
+    if (l.orderNumber) {
+      const rawOrd = l.orderNumber.replace(/^#/, '');
+      localMap.set(l.orderNumber, l);
+      localMap.set(rawOrd, l);
+      localMap.set(`#${rawOrd}`, l);
+    }
     if (l.orderId) localMap.set(l.orderId, l);
   });
 
   const mergedRemote = remote.map((r) => {
-    const localMatch = localMap.get(r.id) || localMap.get(r.requestNumber) || (r.orderNumber && localMap.get(r.orderNumber)) || (r.orderId && localMap.get(r.orderId));
+    const rawReq = r.requestNumber ? r.requestNumber.replace(/^#/, '') : '';
+    const rawOrd = r.orderNumber ? r.orderNumber.replace(/^#/, '') : '';
+    const localMatch =
+      (r.id && localMap.get(r.id)) ||
+      (r.requestNumber && localMap.get(r.requestNumber)) ||
+      (rawReq && (localMap.get(rawReq) || localMap.get(`#${rawReq}`))) ||
+      (r.orderNumber && localMap.get(r.orderNumber)) ||
+      (rawOrd && (localMap.get(rawOrd) || localMap.get(`#${rawOrd}`))) ||
+      (r.orderId && localMap.get(r.orderId));
+
     if (localMatch) {
       const appId = String(r.applicantId || localMatch.applicantId || '').toLowerCase();
       const appName = String(r.applicantName || localMatch.applicantName || '').toLowerCase();
       const resolvedKyc = r.applicantKycStatus || localMatch.applicantKycStatus || kycMap.get(appId) || kycMap.get(appName) || 'pending';
+      const resolvedStatus = resolveFinancingStatus(r.status, localMatch.status);
 
       return {
-        ...localMatch,
         ...r,
-        status: r.status || localMatch.status || 'pending',
-        financierId: r.financierId || localMatch.financierId || null,
-        financierName: r.financierName || localMatch.financierName || null,
-        financierEmail: r.financierEmail || localMatch.financierEmail || null,
+        ...localMatch,
+        id: r.id || localMatch.id,
+        requestNumber: r.requestNumber || localMatch.requestNumber,
+        orderId: r.orderId || localMatch.orderId,
+        orderNumber: r.orderNumber || localMatch.orderNumber,
+        status: resolvedStatus,
+        financierId: localMatch.financierId || r.financierId || null,
+        financierName: localMatch.financierName || r.financierName || null,
+        financierEmail: localMatch.financierEmail || r.financierEmail || null,
         applicantKycStatus: resolvedKyc,
-        approvedAmount: r.approvedAmount || localMatch.approvedAmount || r.requestedAmount,
-        offeredAmount: r.offeredAmount || localMatch.offeredAmount || r.approvedAmount || r.requestedAmount,
-        interestRate: r.interestRate !== undefined ? Number(r.interestRate) : localMatch.interestRate || 0.85,
-        tenorDays: r.tenorDays !== undefined ? Number(r.tenorDays) : localMatch.tenorDays || 30,
-        offerNotes: r.offerNotes || localMatch.offerNotes || null,
-        offeredAt: r.offeredAt || localMatch.offeredAt || null,
-        borrowerAcceptedAt: r.borrowerAcceptedAt || localMatch.borrowerAcceptedAt || null,
-        disbursedAt: r.disbursedAt || localMatch.disbursedAt || null,
+        approvedAmount: Number(localMatch.approvedAmount || r.approvedAmount || r.requestedAmount || 0),
+        offeredAmount: Number(localMatch.offeredAmount || r.offeredAmount || localMatch.approvedAmount || r.approvedAmount || r.requestedAmount || 0),
+        interestRate: localMatch.interestRate !== undefined ? Number(localMatch.interestRate) : Number(r.interestRate || 0.85),
+        tenorDays: localMatch.tenorDays !== undefined ? Number(localMatch.tenorDays) : Number(r.tenorDays || 30),
+        offerNotes: localMatch.offerNotes || r.offerNotes || null,
+        offeredAt: localMatch.offeredAt || r.offeredAt || null,
+        borrowerAcceptedAt: localMatch.borrowerAcceptedAt || r.borrowerAcceptedAt || null,
+        disbursedAt: localMatch.disbursedAt || r.disbursedAt || null,
+        bankUtr: localMatch.bankUtr || r.bankUtr || null,
         marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
         escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
         paymentId: r.paymentId || localMatch.paymentId || null,
+        updatedAt: localMatch.updatedAt || r.updatedAt,
       };
     }
 
@@ -251,11 +321,7 @@ export async function getFinancingRequests() {
     return r;
   });
 
-  // When Supabase is connected, only include local items if they are un-synced recent drafts, not phantom ghosts
-  if (isSupabaseConnected) {
-    return mergedRemote;
-  }
-
+  // When Supabase is connected, also include any locally created requests that haven't synced yet
   const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber, r.orderId].filter(Boolean)));
   const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber))).map((l) => {
     const appId = String(l.applicantId || '').toLowerCase();
@@ -306,7 +372,7 @@ export async function getBuyerFinancingRequests(buyerId, currentUser) {
     const all = await getFinancingRequests();
     const userEmail = (currentUser?.email || '').toLowerCase().trim();
     const userName = (currentUser?.name || '').toLowerCase().trim();
-    const uid = buyerId || currentUser?.id || '';
+    const uid = String(buyerId || currentUser?.id || '').trim();
 
     if (!uid && !userEmail && !userName) return [];
 
@@ -315,11 +381,11 @@ export async function getBuyerFinancingRequests(buyerId, currentUser) {
       const appId = String(r.applicantId || '').trim();
       const appName = (r.applicantName || '').toLowerCase().trim();
 
-      return (
-        (uid && appId === uid) ||
-        (userEmail && (appId === userEmail || appId.includes(userEmail))) ||
-        (userName && appName === userName)
-      );
+      const idMatch = uid && (appId === uid || appId.toLowerCase() === uid.toLowerCase());
+      const emailMatch = userEmail && (appId === userEmail || appId.includes(userEmail) || (r.applicantEmail && r.applicantEmail.toLowerCase().includes(userEmail)));
+      const nameMatch = userName && (appName === userName || appName.includes(userName) || userName.includes(appName));
+
+      return idMatch || emailMatch || nameMatch;
     });
   } catch (err) {
     console.error('Error in getBuyerFinancingRequests:', err);
@@ -454,7 +520,10 @@ export async function createFinancingRequest(requestData) {
 /**
  * Approve or underwrite a financing request
  */
-export async function underwriteFinancingRequest(requestId, approvalDataOrStatus, maybeAmount, maybeNotes) {
+export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrStatus, maybeAmount, maybeNotes) {
+  const reqObj = typeof requestIdOrObj === 'object' && requestIdOrObj !== null ? requestIdOrObj : null;
+  const targetKey = typeof requestIdOrObj === 'string' ? requestIdOrObj.trim() : (reqObj?.id || reqObj?.requestNumber || '');
+
   const approvalData =
     typeof approvalDataOrStatus === 'object' && approvalDataOrStatus !== null
       ? approvalDataOrStatus
@@ -467,38 +536,54 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
   const nextStatus = approvalData.status || 'approved';
   const nextNotes =
     approvalData.reviewNotes ||
+    approvalData.offerNotes ||
     (nextStatus === 'approved'
       ? 'Approved by institutional credit desk'
+      : nextStatus === 'offer_received'
+      ? 'Term-sheet loan offer sent by financial institution'
+      : nextStatus === 'borrower_accepted'
+      ? 'Borrower accepted terms. Ready for escrow disbursement.'
       : nextStatus === 'rejected'
       ? 'Application declined by risk policy'
       : 'Under evaluation');
 
-  try {
-    const targetKey = typeof requestId === 'string' ? requestId.trim() : String(requestId || '');
-    const reqNum = approvalData.requestNumber || (targetKey.startsWith('#FIN-') ? targetKey : null);
-    const ordNum = approvalData.orderNumber || (targetKey.startsWith('#AGM-') ? targetKey : null);
+  const reqNum = approvalData.requestNumber || reqObj?.requestNumber || (targetKey.startsWith('#FIN-') ? targetKey : null);
+  const ordNum = approvalData.orderNumber || reqObj?.orderNumber || (targetKey.startsWith('#AGM-') ? targetKey : null);
+  const ordId = approvalData.orderId || reqObj?.orderId || null;
+  const targetUuid = approvalData.id || reqObj?.id || (isUuid(targetKey) ? targetKey : null);
 
+  try {
     const local = getLocalFinancingRequests();
     let matched = false;
     const updatedLocal = local.map((r) => {
       const isMatch =
+        (targetUuid && r.id === targetUuid) ||
         (targetKey && (r.id === targetKey || r.requestNumber === targetKey || r.orderNumber === targetKey || r.orderId === targetKey)) ||
-        (reqNum && r.requestNumber === reqNum) ||
-        (ordNum && (r.orderNumber === ordNum || r.orderId === ordNum));
+        (reqNum && (r.requestNumber === reqNum || r.requestNumber === reqNum.replace(/^#/, '') || `#${r.requestNumber}` === reqNum)) ||
+        (ordNum && (r.orderNumber === ordNum || r.orderNumber === ordNum.replace(/^#/, '') || `#${r.orderNumber}` === ordNum)) ||
+        (ordId && r.orderId === ordId);
 
       if (isMatch) {
         matched = true;
-        const nextAmount =
+        const nextApproved =
           approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null
             ? Number(approvalData.approvedAmount)
             : Number(r.approvedAmount || r.requestedAmount);
+        const nextOffered =
+          approvalData.offeredAmount !== undefined && approvalData.offeredAmount !== null
+            ? Number(approvalData.offeredAmount)
+            : Number(r.offeredAmount || nextApproved);
 
         return {
           ...r,
           ...approvalData,
           status: nextStatus,
-          approvedAmount: nextAmount,
+          approvedAmount: nextApproved,
+          offeredAmount: nextOffered,
+          interestRate: approvalData.interestRate !== undefined ? Number(approvalData.interestRate) : Number(r.interestRate || 0.85),
+          tenorDays: approvalData.tenorDays !== undefined ? Number(approvalData.tenorDays) : Number(r.tenorDays || 30),
           reviewNotes: nextNotes,
+          offerNotes: approvalData.offerNotes || r.offerNotes || nextNotes,
           updatedAt: new Date().toISOString(),
         };
       }
@@ -506,12 +591,25 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
     });
 
     if (!matched && (reqNum || ordNum || targetKey)) {
+      const initialAmount = approvalData.offeredAmount || approvalData.approvedAmount || 5000;
       updatedLocal.unshift({
-        id: targetKey,
+        id: targetUuid || targetKey || generateStandardUuid(),
         requestNumber: reqNum || (targetKey.startsWith('#FIN-') ? targetKey : '#FIN-REQ'),
         orderNumber: ordNum,
+        orderId: ordId,
+        commodity: reqObj?.commodity || 'Produce Lot',
+        applicantId: reqObj?.applicantId || 'applicant',
+        applicantName: reqObj?.applicantName || 'Applicant Partner',
+        applicantRole: reqObj?.applicantRole || 'buyer',
+        transactionValue: reqObj?.transactionValue || initialAmount,
+        requestedAmount: reqObj?.requestedAmount || initialAmount,
+        approvedAmount: initialAmount,
+        offeredAmount: initialAmount,
+        interestRate: approvalData.interestRate !== undefined ? Number(approvalData.interestRate) : 0.85,
+        tenorDays: approvalData.tenorDays !== undefined ? Number(approvalData.tenorDays) : 30,
         ...approvalData,
         status: nextStatus,
+        reviewNotes: nextNotes,
         updatedAt: new Date().toISOString(),
       });
     }
@@ -522,20 +620,36 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
     try {
       const target = updatedLocal.find(
         (r) =>
+          (targetUuid && r.id === targetUuid) ||
           (targetKey && (r.id === targetKey || r.requestNumber === targetKey || r.orderNumber === targetKey || r.orderId === targetKey)) ||
-          (reqNum && r.requestNumber === reqNum) ||
-          (ordNum && (r.orderNumber === ordNum || r.orderId === ordNum))
+          (reqNum && (r.requestNumber === reqNum || r.requestNumber === reqNum.replace(/^#/, ''))) ||
+          (ordNum && (r.orderNumber === ordNum || r.orderNumber === ordNum.replace(/^#/, '')))
       );
       if (typeof window !== 'undefined') {
-        broadcastDataChange('financing', 'UPDATE', target || { id: requestId, status: nextStatus });
+        broadcastDataChange('financing', 'UPDATE', target || { id: targetKey, status: nextStatus });
         window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: target }));
         window.dispatchEvent(new Event('storage'));
       }
     } catch {}
 
+    const structuredNotesJson = JSON.stringify({
+      status: nextStatus,
+      offeredAmount: approvalData.offeredAmount || approvalData.approvedAmount,
+      interestRate: approvalData.interestRate,
+      tenorDays: approvalData.tenorDays,
+      financierId: approvalData.financierId,
+      financierName: approvalData.financierName,
+      financierEmail: approvalData.financierEmail,
+      offerNotes: approvalData.offerNotes || nextNotes,
+      offeredAt: approvalData.offeredAt || new Date().toISOString(),
+      borrowerAcceptedAt: approvalData.borrowerAcceptedAt,
+      disbursedAt: approvalData.disbursedAt,
+      bankUtr: approvalData.bankUtr,
+    });
+
     const updatePayload = {
       status: nextStatus,
-      review_notes: nextNotes,
+      review_notes: structuredNotesJson,
       updated_at: new Date().toISOString(),
     };
     if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
@@ -550,8 +664,8 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
     if (approvalData.tenorDays !== undefined) {
       updatePayload.tenor_days = Number(approvalData.tenorDays);
     }
-    if (approvalData.offerNotes) {
-      updatePayload.offer_notes = approvalData.offerNotes;
+    if (approvalData.offerNotes || nextNotes) {
+      updatePayload.offer_notes = approvalData.offerNotes || nextNotes;
     }
     if (approvalData.offeredAt) {
       updatePayload.offered_at = approvalData.offeredAt;
@@ -610,17 +724,14 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
 
     // Update in Supabase across ID, request_number, or order_number
     try {
-      const cleanKey = String(requestId || '').trim();
-      const rawNumber = cleanKey.replace(/^#/, '');
+      const cleanKey = String(targetKey || '').trim();
+      const rawNumber = (reqNum || cleanKey).replace(/^#/, '');
       const hashedNumber = `#${rawNumber}`;
-      const targetId = approvalData.id || (isUuid(cleanKey) ? cleanKey : null);
-      const targetReqNum = approvalData.requestNumber || hashedNumber;
-      const targetOrdNum = approvalData.orderNumber || (cleanKey.startsWith('#AGM-') ? cleanKey : null);
 
       const runUpdate = async (payload) => {
         // 1. If we have a valid UUID ID
-        if (targetId && isUuid(targetId)) {
-          const res = await supabase.from('financing_requests').update(payload).eq('id', targetId).select();
+        if (targetUuid && isUuid(targetUuid)) {
+          const res = await supabase.from('financing_requests').update(payload).eq('id', targetUuid).select();
           if (res.data && res.data.length > 0) return res;
         }
 
@@ -633,8 +744,8 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
         if (res2.data && res2.data.length > 0) return res2;
 
         // 4. Try matching by order_number if available
-        if (targetOrdNum) {
-          const rawOrd = targetOrdNum.replace(/^#/, '');
+        if (ordNum) {
+          const rawOrd = ordNum.replace(/^#/, '');
           const res3 = await supabase.from('financing_requests').update(payload).eq('order_number', `#${rawOrd}`).select();
           if (res3.data && res3.data.length > 0) return res3;
 
@@ -642,28 +753,27 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
           if (res4.data && res4.data.length > 0) return res4;
         }
 
-        // 5. General match attempt
+        // 5. Try matching by order_id if available
+        if (ordId) {
+          const res5 = await supabase.from('financing_requests').update(payload).eq('order_id', ordId).select();
+          if (res5.data && res5.data.length > 0) return res5;
+        }
+
+        // 6. General match attempt
         return await supabase.from('financing_requests').update(payload).eq('id', cleanKey);
       };
 
       const { error: updateErr } = await runUpdate(updatePayload);
       if (updateErr) {
-        console.warn('Full payload update error, retrying basic payload:', updateErr);
+        console.warn('Full payload update error, retrying with structured notes:', updateErr);
         const basicPayload = {
+          review_notes: structuredNotesJson,
           status: nextStatus,
-          review_notes: nextNotes,
           updated_at: new Date().toISOString(),
         };
         if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
           basicPayload.approved_amount = Number(approvalData.approvedAmount);
         }
-        if (approvalData.offeredAmount !== undefined && approvalData.offeredAmount !== null) {
-          basicPayload.offered_amount = Number(approvalData.offeredAmount);
-        }
-        if (approvalData.financierId) basicPayload.financier_id = approvalData.financierId;
-        if (approvalData.financierName) basicPayload.financier_name = approvalData.financierName;
-        if (approvalData.financierEmail) basicPayload.financier_email = approvalData.financierEmail;
-        
         await runUpdate(basicPayload);
       }
     } catch (dbErr) {
@@ -674,39 +784,67 @@ export async function underwriteFinancingRequest(requestId, approvalDataOrStatus
   }
 
   const all = await getFinancingRequests();
-  return all.find((r) => r.id === requestId || r.requestNumber === requestId || (r.orderNumber && r.orderNumber === requestId)) || null;
+  return (
+    all.find(
+      (r) =>
+        (targetUuid && r.id === targetUuid) ||
+        r.id === targetKey ||
+        r.requestNumber === targetKey ||
+        (reqNum && (r.requestNumber === reqNum || `#${r.requestNumber}` === reqNum)) ||
+        (ordNum && (r.orderNumber === ordNum || `#${r.orderNumber}` === ordNum))
+    ) || null
+  );
 }
 
 /**
  * Step 1: Financier submits a Term-Sheet Quote / Offer to the borrower
  */
-export async function submitFinancierOffer(requestId, offerData = {}) {
+export async function submitFinancierOffer(requestOrId, offerData = {}) {
   const offeredAmount = Number(offerData.offeredAmount || offerData.approvedAmount || 50000);
   const interestRate = Number(offerData.interestRate || 0.85);
   const tenorDays = Number(offerData.tenorDays || 30);
   
-  return underwriteFinancingRequest(requestId, {
+  return underwriteFinancingRequest(requestOrId, {
     status: 'offer_received',
     offeredAmount,
     approvedAmount: offeredAmount,
     interestRate,
     tenorDays,
-    offerNotes: offerData.reviewNotes || offerData.offerNotes || 'Term-sheet loan offer sent by financial institution.',
+    offerNotes: offerData.reviewNotes || offerData.offerNotes || `Term-sheet quote: ₹${offeredAmount.toLocaleString('en-IN')} @ ${interestRate}%/mo for ${tenorDays} days.`,
     offeredAt: new Date().toISOString(),
     financierId: offerData.financierId || 'default',
     financierName: offerData.financierName || 'Financial Institution',
     financierEmail: offerData.financierEmail || null,
+    ...(typeof requestOrId === 'object' && requestOrId !== null
+      ? {
+          id: requestOrId.id,
+          requestNumber: requestOrId.requestNumber,
+          orderNumber: requestOrId.orderNumber,
+          orderId: requestOrId.orderId,
+          applicantId: requestOrId.applicantId,
+          applicantName: requestOrId.applicantName,
+          applicantRole: requestOrId.applicantRole,
+        }
+      : {}),
   });
 }
 
 /**
  * Step 2: Borrower (Farmer or Retailer) accepts the Term-Sheet Offer and locks the lender
  */
-export async function acceptFinancierOffer(requestId, acceptanceNotes = '') {
-  return underwriteFinancingRequest(requestId, {
+export async function acceptFinancierOffer(requestOrId, acceptanceNotes = '') {
+  return underwriteFinancingRequest(requestOrId, {
     status: 'borrower_accepted',
     borrowerAcceptedAt: new Date().toISOString(),
     reviewNotes: acceptanceNotes || 'Borrower accepted terms. Ready for escrow disbursement.',
+    ...(typeof requestOrId === 'object' && requestOrId !== null
+      ? {
+          id: requestOrId.id,
+          requestNumber: requestOrId.requestNumber,
+          orderNumber: requestOrId.orderNumber,
+          orderId: requestOrId.orderId,
+        }
+      : {}),
   });
 }
 
@@ -728,6 +866,7 @@ export async function disburseAcceptedLoan(requestId, paymentData = {}) {
       };
       localStorage.setItem(key, JSON.stringify(updatedPool));
       window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updatedPool }));
+      syncLiquidityPoolToDb(paymentData.financierId, updatedPool);
     } catch {}
   }
 
@@ -787,6 +926,7 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
         };
         localStorage.setItem(key, JSON.stringify(updatedPool));
         window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updatedPool }));
+        syncLiquidityPoolToDb(targetFinancierId, updatedPool);
       } catch {}
     }
 
@@ -813,7 +953,7 @@ export function calculateLoanMaturity(request) {
     ? new Date(request.createdAt)
     : new Date();
 
-  const tenureDays = request.repaymentOption === '60_day_extended' ? 60 : 30;
+  const tenureDays = request.tenorDays ? Number(request.tenorDays) : (request.repaymentOption === '60_day_extended' ? 60 : 30);
   const dueDate = new Date(createdDate.getTime() + tenureDays * 24 * 60 * 60 * 1000);
 
   const now = new Date();
@@ -821,8 +961,8 @@ export function calculateLoanMaturity(request) {
   const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   const isOverdue = daysLeft < 0;
 
-  // Standard institutional rate: ~1.2% per month (14.4% per annum)
-  const monthlyRate = 0.012;
+  // Institutional rate (default 1.2% / month or custom rate on request)
+  const monthlyRate = request.interestRate ? (Number(request.interestRate) / 100) : 0.012;
   const interest = Math.round(principal * monthlyRate * (tenureDays / 30));
   const totalDue = principal + interest;
 
@@ -835,7 +975,7 @@ export function calculateLoanMaturity(request) {
     dueDateFormatted: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
     daysLeft: Math.max(0, daysLeft),
     isOverdue,
-    isRepaid: request.status === 'repaid',
+    isRepaid: request.status === 'repaid' || request.status === 'settled' || request.status === 'closed',
   };
 }
 
@@ -865,13 +1005,52 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Get all disbursements (including active loans and settled repayments)
+ * Check if a request belongs to the specified financial institution
  */
-export async function getDisbursements() {
+export function isFinancierMatch(request, userOrId, maybeEmail) {
+  if (!request) return false;
+  let fid = '';
+  let femail = '';
+
+  if (typeof userOrId === 'object' && userOrId !== null) {
+    fid = String(userOrId.id || '').trim();
+    femail = String(userOrId.email || '').toLowerCase().trim();
+  } else if (typeof userOrId === 'string') {
+    fid = userOrId.trim();
+    femail = String(maybeEmail || '').toLowerCase().trim();
+  }
+
+  if (!fid && !femail) return true; // If no financier specified (e.g. admin view)
+
+  const reqFinId = String(request.financierId || '').trim();
+  const reqFinEmail = String(request.financierEmail || '').toLowerCase().trim();
+
+  // 1. Direct ID match
+  if (fid && reqFinId && reqFinId === fid) return true;
+
+  // 2. Direct Email match
+  if (femail && reqFinEmail && reqFinEmail === femail) return true;
+
+  // 3. Email stored in ID or vice versa
+  if (femail && reqFinId && reqFinId.toLowerCase() === femail) return true;
+  if (fid && reqFinEmail && reqFinEmail === fid.toLowerCase()) return true;
+
+  return false;
+}
+
+/**
+ * Get all disbursements (including active loans and settled repayments) scoped strictly to a financier
+ */
+export async function getDisbursements(financierUserOrId, maybeEmail) {
   try {
     const requests = await getFinancingRequests();
     return requests
-      .filter((r) => r.status === 'approved' || r.status === 'disbursed' || r.status === 'repaid' || r.status === 'settled')
+      .filter((r) => {
+        const isStatusMatch = r.status === 'approved' || r.status === 'disbursed' || r.status === 'repaid' || r.status === 'settled';
+        if (!isStatusMatch) return false;
+        if (!financierUserOrId) return true;
+        return isFinancierMatch(r, financierUserOrId, maybeEmail);
+      })
       .map((r, i) => {
         const monthlyRate = r.interestRate || 0.85; // 0.85% per month
         const tenorDays = r.tenorDays || (r.repaymentOption === '60_day_extended' ? 60 : 30);
@@ -898,9 +1077,12 @@ export async function getDisbursements() {
           actualReturn: isSettled ? (Number(r.repaymentAmount) || expectedReturn) : 0,
           realizedYield: isSettled ? (Number(r.repaymentInterest) || estInterest) : 0,
           status: isSettled ? 'settled' : 'active',
-          disbursedAt: r.createdAt || new Date().toISOString(),
+          disbursedAt: r.disbursedAt || r.createdAt || new Date().toISOString(),
           settledAt: isSettled ? (r.repaidAt || r.updatedAt || new Date().toISOString()) : null,
           paymentMethod: r.repaymentMethod || 'Razorpay Gateway',
+          financierId: r.financierId,
+          financierName: r.financierName,
+          financierEmail: r.financierEmail,
         };
       });
   } catch (err) {
@@ -960,7 +1142,77 @@ function getLiquidityPoolKey(financierId) {
 }
 
 /**
- * Get liquidity pool details for a specific financial institution
+ * Sync liquidity pool state directly into Supabase PostgreSQL 'profiles' table meta JSONB
+ */
+export async function syncLiquidityPoolToDb(financierUserOrId, poolData) {
+  if (!financierUserOrId || !poolData) return;
+  const targetId = typeof financierUserOrId === 'object' ? (financierUserOrId.id || null) : (financierUserOrId !== 'default' ? financierUserOrId : null);
+  const targetEmail = typeof financierUserOrId === 'object' ? (financierUserOrId.email || null) : null;
+
+  if (!targetId && !targetEmail) return;
+
+  try {
+    const filter = targetId
+      ? `id.eq.${targetId}${targetEmail ? `,email.eq.${targetEmail}` : ''}`
+      : `email.eq.${targetEmail}`;
+
+    const { data: existingProf } = await supabase
+      .from('profiles')
+      .select('id, meta')
+      .or(filter)
+      .maybeSingle();
+
+    if (existingProf?.id) {
+      const existingMeta = (existingProf.meta && typeof existingProf.meta === 'object') ? existingProf.meta : {};
+      const newMeta = {
+        ...existingMeta,
+        liquidity_pool: poolData,
+      };
+      await supabase.from('profiles').update({ meta: newMeta }).eq('id', existingProf.id);
+    }
+  } catch (err) {
+    console.warn('syncLiquidityPoolToDb notice:', err);
+  }
+}
+
+/**
+ * Load latest liquidity pool for a financier, checking Supabase profiles database first
+ */
+export async function loadFinancierLiquidityPool(financierUserOrId) {
+  const fid = typeof financierUserOrId === 'object' ? (financierUserOrId.id || financierUserOrId.email || 'default') : (financierUserOrId || 'default');
+  const local = getLiquidityPool(fid);
+
+  const targetId = typeof financierUserOrId === 'object' ? (financierUserOrId.id || null) : (fid !== 'default' ? fid : null);
+  const targetEmail = typeof financierUserOrId === 'object' ? (financierUserOrId.email || null) : null;
+
+  if (targetId || targetEmail) {
+    try {
+      const filter = targetId
+        ? `id.eq.${targetId}${targetEmail ? `,email.eq.${targetEmail}` : ''}`
+        : `email.eq.${targetEmail}`;
+
+      const { data: existingProf } = await supabase
+        .from('profiles')
+        .select('id, meta')
+        .or(filter)
+        .maybeSingle();
+
+      if (existingProf?.meta?.liquidity_pool) {
+        const dbPool = existingProf.meta.liquidity_pool;
+        const key = getLiquidityPoolKey(fid);
+        localStorage.setItem(key, JSON.stringify(dbPool));
+        return dbPool;
+      }
+    } catch (err) {
+      console.warn('loadFinancierLiquidityPool db notice:', err);
+    }
+  }
+
+  return local;
+}
+
+/**
+ * Get liquidity pool details for a specific financial institution (synchronous local cache)
  */
 export function getLiquidityPool(financierId) {
   const key = getLiquidityPoolKey(financierId);
@@ -994,12 +1246,13 @@ export function getLiquidityPool(financierId) {
   }
 }
 
-export function addLiquidityPoolFunds(amount, financierId) {
+export async function addLiquidityPoolFunds(amount, financierUserOrId) {
   const numAmount = Number(amount) || 0;
-  const currentPool = getLiquidityPool(financierId);
+  const fid = typeof financierUserOrId === 'object' ? (financierUserOrId.id || financierUserOrId.email || 'default') : (financierUserOrId || 'default');
+  const currentPool = getLiquidityPool(fid);
   const newCommitted = (Number(currentPool.totalCommitted) || 0) + numAmount;
   const newAvailable = (Number(currentPool.availableLiquidity) || 0) + numAmount;
-  const key = getLiquidityPoolKey(financierId);
+  const key = getLiquidityPoolKey(fid);
   
   const updated = {
     ...currentPool,
@@ -1008,24 +1261,27 @@ export function addLiquidityPoolFunds(amount, financierId) {
     activeTranches: (currentPool.activeTranches || 0) + 1,
     lastAllocatedAt: new Date().toISOString(),
     lastAllocatedAmount: numAmount,
-    financierId: financierId || 'default',
+    financierId: fid,
   };
 
   try {
     localStorage.setItem(key, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updated }));
     window.dispatchEvent(new Event('storage'));
+    broadcastDataChange('financing', 'UPDATE', { id: `pool_${fid}`, liquidity_pool: updated });
   } catch (err) {
     console.warn('Failed to save liquidity pool:', err);
   }
 
+  // Persist directly to Supabase Database (profiles table meta JSONB)
+  await syncLiquidityPoolToDb(financierUserOrId, updated);
+
   return updated;
 }
-
 /**
  * Get aggregate financing statistics with realized yield and recovered capital scoped to a financier
  */
-export async function getFinancingStats(financierId) {
+export async function getFinancingStats(financierUserOrId, maybeEmail) {
   try {
     const all = await getFinancingRequests();
     // Only pending requests from KYC-verified borrowers
@@ -1037,15 +1293,15 @@ export async function getFinancingStats(financierId) {
     const approved = all.filter((r) => {
       const isStatusMatch = r.status === 'approved' || r.status === 'disbursed';
       if (!isStatusMatch) return false;
-      if (!financierId) return true;
-      return r.financierId === financierId || r.financierEmail === financierId;
+      if (!financierUserOrId) return true;
+      return isFinancierMatch(r, financierUserOrId, maybeEmail);
     });
 
     const repaid = all.filter((r) => {
       const isStatusMatch = r.status === 'repaid' || r.status === 'settled';
       if (!isStatusMatch) return false;
-      if (!financierId) return true;
-      return r.financierId === financierId || r.financierEmail === financierId;
+      if (!financierUserOrId) return true;
+      return isFinancierMatch(r, financierUserOrId, maybeEmail);
     });
 
     const totalApproved = approved.reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0);
@@ -1056,7 +1312,11 @@ export async function getFinancingStats(financierId) {
       return sum + (Number(r.repaymentInterest) || mat.interest || 0);
     }, 0);
 
-    const pool = getLiquidityPool(financierId);
+    const fid = typeof financierUserOrId === 'object' && financierUserOrId !== null
+      ? (financierUserOrId.id || financierUserOrId.email || 'default')
+      : (financierUserOrId || 'default');
+
+    const pool = getLiquidityPool(fid);
     const totalCommittedPool = pool.totalCommitted || 0;
 
     return {

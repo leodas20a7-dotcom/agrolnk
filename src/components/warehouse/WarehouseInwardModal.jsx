@@ -27,6 +27,7 @@ export default function WarehouseInwardModal({
   const [assayerGrade, setAssayerGrade] = useState(receipt?.grade || 'A');
   const [moisture, setMoisture] = useState('11.5');
   const [chamberBay, setChamberBay] = useState(receipt?.chamber || 'Chamber A1 - Bay 4');
+  const [collectedGatePayment, setCollectedGatePayment] = useState(true);
 
   if (!isOpen || !receipt) return null;
 
@@ -42,7 +43,7 @@ export default function WarehouseInwardModal({
         quotedRatePerTonne: Number(quotedRatePerTonne),
         quotedMonthlyRent: computedMonthlyRent,
         chamber: assignedChamber,
-        notes: notes || `Standard tariff ₹${quotedRatePerTonne}/T/mo applied.`,
+        notes: notes || `Standard storage fee ₹${quotedRatePerTonne}/T/mo applied.`,
       });
       onSuccess?.();
       onClose();
@@ -95,7 +96,7 @@ export default function WarehouseInwardModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                {mode === 'quote' ? 'Review & Quote Storage Tariff' : 'Confirm Gate Inward & Issue eNWR'}
+                {mode === 'quote' ? 'Review & Quote Storage Fee' : 'Confirm Gate Inward & Issue eNWR'}
               </h3>
               <span className="text-xs text-[#566861]">
                 {receipt.receiptNumber} • Depositor: {receipt.farmerName || 'Farmer'}
@@ -137,7 +138,7 @@ export default function WarehouseInwardModal({
               {/* Set Rate Quota */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                  Storage Rent Tariff Quote (₹/Tonne/Month) <span className="text-red-500">*</span>
+                  Storage Rent Fee Quote (₹/Tonne/Month) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">₹</span>
@@ -302,14 +303,34 @@ export default function WarehouseInwardModal({
                 />
               </div>
 
-              {/* Agreed Monthly Rent Summary */}
-              <div className="p-3.5 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#566861]">
-                  Agreed Monthly Rent:
-                </span>
-                <span className="text-sm font-extrabold text-[#10B981]">
-                  ₹{computedMonthlyRent.toLocaleString('en-IN')} / month
-                </span>
+              {/* Payment Mode & Collection Status Card */}
+              <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">
+                    Initial Rent & Tariff Status:
+                  </span>
+                  <span className="text-xs font-extrabold text-[#0B3326]">
+                    ₹{computedMonthlyRent.toLocaleString('en-IN')} / mo
+                  </span>
+                </div>
+
+                {receipt.initialPaymentStatus === 'paid' ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-emerald-900 text-xs">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Advance Rent Paid via Razorpay
+                    </span>
+                    <span className="font-extrabold text-emerald-700">₹{computedMonthlyRent} Verified</span>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/80 flex items-center justify-between text-[#0B3326] text-xs">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                      Monthly Storage Rent (Razorpay Online)
+                    </span>
+                    <span className="font-extrabold text-[#0B3326]">₹{computedMonthlyRent} / mo</span>
+                  </div>
+                )}
               </div>
             </div>
 

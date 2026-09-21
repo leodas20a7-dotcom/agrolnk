@@ -266,6 +266,17 @@ export function getSharedThreadKey(userA, userB) {
   return `direct_${sorted[0]}_${sorted[1]}`;
 }
 
+/**
+ * Get user-scoped support thread key to strictly isolate each user's support chat from others
+ */
+export function getSupportThreadKey(user) {
+  if (!user) return 'agrolnk_support_desk';
+  if (user.role === 'admin') return 'agrolnk_support_desk';
+  const idOrEmail = user.id || (user.email ? user.email.replace(/[^a-z0-9]/g, '_') : 'guest');
+  const clean = String(idOrEmail).toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return `support_${clean}`;
+}
+
 function getStoredThreads() {
   try {
     if (typeof localStorage !== 'undefined') {
@@ -340,7 +351,6 @@ export function markThreadAsRead(threadKey, currentUserId) {
     const readMap = getReadThreadKeys(safeUser);
     const now = Date.now();
     readMap[threadKey] = now;
-    if (threadKey.includes('support')) readMap['agrolnk_support_desk'] = now;
 
     localStorage.setItem(`${READ_THREADS_STORAGE_KEY_PREFIX}${safeUser}`, JSON.stringify(readMap));
 
@@ -387,10 +397,7 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
   if (!threadKey || !Array.isArray(messages) || messages.length === 0) return 0;
   
   const readMap = getReadThreadKeys(currentUserId);
-  const lastReadTime =
-    readMap[threadKey] ||
-    (threadKey.includes('support') ? readMap['agrolnk_support_desk'] : 0) ||
-    0;
+  const lastReadTime = readMap[threadKey] || 0;
 
   // Filter messages that are non-system and not sent by the current user
   const unread = messages.filter((m) => {
@@ -414,25 +421,34 @@ export function getThreadUnreadCount(threadKey, currentUserId, messages = []) {
 }
 
 export function getUserChannelKeys(currentUser) {
-  const defaultKeys = ['agrolnk_support_desk'];
-  if (!currentUser) return defaultKeys;
+  if (!currentUser) return ['agrolnk_support_desk'];
+  const supportKey = getSupportThreadKey(currentUser);
+
+  const threads = getStoredThreads();
+  const allStored = Object.keys(threads);
+
+  // Admin is authorized to access all threads for support/dispute moderation
+  if (currentUser.role === 'admin') {
+    return Array.from(new Set(['agrolnk_support_desk', ...allStored]));
+  }
 
   const idStr = currentUser.id ? String(currentUser.id).toLowerCase().replace(/[^a-z0-9]/g, '_') : '';
   const emailStr = currentUser.email ? String(currentUser.email).toLowerCase().replace(/[^a-z0-9]/g, '_') : '';
   const nameStr = currentUser.name ? String(currentUser.name).toLowerCase().replace(/[^a-z0-9]/g, '_') : '';
 
-  const threads = getStoredThreads();
-  const allStored = Object.keys(threads);
-
   const matched = allStored.filter((key) => {
-    if (key === 'agrolnk_support_desk') return true;
+    if (key === supportKey) return true;
+    // Strictly isolate: Other users' support threads must NEVER be matched
+    if (key.startsWith('support_') && key !== supportKey) {
+      return false;
+    }
     if (idStr && key.includes(idStr)) return true;
     if (emailStr && key.includes(emailStr)) return true;
-    if (nameStr && nameStr.length >= 3 && key.includes(nameStr)) return true;
+    if (nameStr && nameStr.length >= 4 && key.includes(nameStr)) return true;
     return false;
   });
 
-  return Array.from(new Set([...defaultKeys, ...matched]));
+  return Array.from(new Set([supportKey, ...matched]));
 }
 
 export function getTotalPlatformUnreadCount(currentUser) {
@@ -557,10 +573,11 @@ export function formatChatTimestamp(isoString) {
  * Get verified directory contacts tailored to the current user
  */
 export function getPlatformContacts(user) {
+  const supportKey = getSupportThreadKey(user);
   const baseContacts = [
     {
       id: 'contact_support',
-      threadKey: 'agrolnk_support_desk',
+      threadKey: supportKey,
       name: 'AgroLnk Desk & Smart Assistant',
       role: 'Admin & AI Assistant',
       category: 'support',
@@ -578,11 +595,14 @@ export function getPlatformContacts(user) {
     if (raw) {
       const registry = JSON.parse(raw);
       if (Array.isArray(registry)) {
+        const myIdentifier = user?.id || (user?.email ? user.email.replace(/[^a-z0-9]/g, '_') : 'usr');
         registry.forEach((u) => {
           if (u.id !== user?.id && u.email !== user?.email && u.role !== 'admin') {
+            const partnerIdentifier = u.id || (u.email ? u.email.replace(/[^a-z0-9]/g, '_') : 'partner');
+            const directKey = getSharedThreadKey(myIdentifier, partnerIdentifier);
             baseContacts.push({
               id: u.id || `usr_${u.email}`,
-              threadKey: `chat_direct_${[user?.id || 'usr', u.id || 'usr'].sort().join('_')}`,
+              threadKey: directKey,
               name: u.name || 'Verified Partner',
               role: (u.role || 'Partner').charAt(0).toUpperCase() + (u.role || 'Partner').slice(1),
               category: u.role === 'farmer' || u.role === 'buyer' ? 'orders' : u.role === 'warehouse' ? 'warehouse' : 'logistics',
@@ -953,16 +973,27 @@ export function sendPrivacyMessage(threadKey, messageData) {
 /**
  * Trigger global event to open privacy chat drawer for a specific partner/warehouse
  */
-export function openDirectChat({ partnerId, partnerName, partnerRole = 'Warehouse Operator', facilityName = '', initialMessage = '' }) {
-  const safeId = partnerId || (partnerName ? partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'partner');
-  const threadKey = `chat_partner_${safeId}`;
+export function openDirectChat({ partnerId, partnerName, partnerRole = 'Warehouse Operator', facilityName = '', initialMessage = '', currentUserId = null }) {
+  let userKey = currentUserId;
+  if (!userKey) {
+    try {
+      const stored = localStorage.getItem('agrolnkUser');
+      if (stored) {
+        const u = JSON.parse(stored);
+        userKey = u?.id || (u?.email ? u.email.replace(/[^a-z0-9]/g, '_') : 'guest');
+      }
+    } catch {}
+  }
+  const safeUser = userKey || 'guest';
+  const safePartner = partnerId || (partnerName ? partnerName.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'partner');
+  const threadKey = getSharedThreadKey(safeUser, safePartner);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('agrolnk_open_chat', {
         detail: {
           threadKey,
-          partnerId: safeId,
+          partnerId: safePartner,
           partnerName: partnerName || facilityName || 'Certified Operator',
           partnerRole,
           facilityName: facilityName || partnerName || 'Certified Storage Facility',

@@ -38,7 +38,7 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
     showGlobalLoader('Loading Institutional Settlement Ledger...', 'Auditing banking UTRs, yield payouts & legal liens...');
     const loadDisb = async () => {
       try {
-        const data = await getDisbursements();
+        const data = await getDisbursements(user);
         if (isMounted) setDisbursements(data || []);
       } catch (err) {
         console.error('Error loading disbursements:', err);
@@ -47,11 +47,23 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
       }
     };
     loadDisb();
+
+    const handleUpdated = () => {
+      loadDisb();
+    };
+
+    window.addEventListener('agrolnk_financing_updated', handleUpdated);
+    window.addEventListener('agrolnk_orders_updated', handleUpdated);
+    window.addEventListener('storage', handleUpdated);
+
     return () => {
       isMounted = false;
       hideGlobalLoader();
+      window.removeEventListener('agrolnk_financing_updated', handleUpdated);
+      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
+      window.removeEventListener('storage', handleUpdated);
     };
-  }, []);
+  }, [user.id, user.email]);
 
   useEffect(() => {
     setCurrentPage(1);

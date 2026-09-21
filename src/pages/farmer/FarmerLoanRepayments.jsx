@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   AlertCircle,
   CreditCard,
-  QrCode,
   Receipt,
   Plus,
   ChevronRight,
@@ -77,11 +76,13 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
 
   const safeRequests = Array.isArray(requests) ? requests : [];
 
+  const isSettledStatus = (status) => status === 'repaid' || status === 'settled' || status === 'closed';
+
   const activeLoans = safeRequests.filter(
-    (r) => r.status === 'approved' || r.status === 'disbursed' || r.status === 'active' || r.status === 'pending'
+    (r) => !isSettledStatus(r.status) && r.status !== 'rejected' && r.status !== 'cancelled'
   );
 
-  const repaidLoans = safeRequests.filter((r) => r.status === 'repaid');
+  const repaidLoans = safeRequests.filter((r) => isSettledStatus(r.status));
 
   const totalActiveLiability = activeLoans
     .filter((r) => r.status === 'approved' || r.status === 'disbursed' || r.status === 'active')
@@ -92,10 +93,10 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
 
   const filteredLoans = safeRequests.filter((r) => {
     if (activeTab === 'active') {
-      return r.status === 'approved' || r.status === 'disbursed' || r.status === 'active' || r.status === 'pending';
+      return !isSettledStatus(r.status) && r.status !== 'rejected' && r.status !== 'cancelled';
     }
     if (activeTab === 'repaid') {
-      return r.status === 'repaid';
+      return isSettledStatus(r.status);
     }
     return true;
   });
@@ -110,84 +111,45 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
     if (!loan) return;
     const maturity = calculateLoanMaturity(loan);
 
-    // If Razorpay gateway selected, launch official Razorpay Checkout SDK modal
-    if (paymentMethod === 'razorpay') {
-      setIsProcessing(true);
-      initiateRazorpayLoanRepaymentCheckout({
-        request: loan,
-        amount: maturity.totalDue,
-        currentUser: user,
-        onSuccess: async (rzpRes) => {
-          showGlobalLoader('Verifying Settlement...', 'Confirming Razorpay transaction & releasing loan lien...');
-          const txnId = rzpRes.razorpay_payment_id || `PAY_${Date.now()}`;
-          await repayFinancingLoan(loan.id || loan.requestNumber, {
-            method: 'razorpay',
-            txnId,
-            amount: maturity.totalDue,
-            notes: `Razorpay Online Settlement (Payment ID: ${txnId})`,
-          });
-
-          const receipt = {
-            txnId,
-            loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
-            orderNumber: loan.orderNumber || 'Working Capital Facility',
-            borrowerName: user.name || loan.applicantName || 'Farmer Partner',
-            institutionName: loan.financierName || 'Institutional Lender Desk',
-            principalAmount: maturity.principal,
-            interestAmount: maturity.interest,
-            totalPaid: maturity.totalDue,
-            paidAt: new Date().toISOString(),
-            paymentMethod: 'Razorpay Gateway (UPI, Cards, NetBanking)',
-          };
-
-          setRepaymentReceipt(receipt);
-          await loadData(false);
-          setIsProcessing(false);
-          hideGlobalLoader();
-        },
-        onFailure: (err) => {
-          console.warn('Razorpay checkout window note:', err);
-          setIsProcessing(false);
-          hideGlobalLoader();
-        },
-      });
-      return;
-    }
-
     setIsProcessing(true);
-    showGlobalLoader('Transmitting Loan Settlement...', 'Settling balance with Financial Institution & releasing escrow lien...');
+    initiateRazorpayLoanRepaymentCheckout({
+      request: loan,
+      amount: maturity.totalDue,
+      currentUser: user,
+      onSuccess: async (rzpRes) => {
+        showGlobalLoader('Verifying Settlement...', 'Confirming Razorpay transaction & releasing loan lien...');
+        const txnId = rzpRes.razorpay_payment_id || `PAY_${Date.now()}`;
+        await repayFinancingLoan(loan.id || loan.requestNumber, {
+          method: 'razorpay',
+          txnId,
+          amount: maturity.totalDue,
+          notes: `Razorpay Online Settlement (Payment ID: ${txnId})`,
+        });
 
-    try {
-      const txnId = `TXN${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+        const receipt = {
+          txnId,
+          loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
+          orderNumber: loan.orderNumber || 'Working Capital Facility',
+          borrowerName: user.name || loan.applicantName || 'Farmer Partner',
+          institutionName: loan.financierName || 'Institutional Lender Desk',
+          principalAmount: maturity.principal,
+          interestAmount: maturity.interest,
+          totalPaid: maturity.totalDue,
+          paidAt: new Date().toISOString(),
+          paymentMethod: `Razorpay Online (${txnId})`,
+        };
 
-      await repayFinancingLoan(loan.id || loan.requestNumber, {
-        method: paymentMethod,
-        txnId,
-        amount: maturity.totalDue,
-        notes: `Direct institutional loan repayment to ${loan.financierName || 'Lender'} by ${user.name} via ${paymentMethod.toUpperCase()}`,
-      });
-
-      const receipt = {
-        txnId,
-        loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
-        orderNumber: loan.orderNumber || 'Working Capital Facility',
-        borrowerName: user.name || loan.applicantName || 'Farmer Partner',
-        institutionName: loan.financierName || 'Institutional Lender Desk',
-        principalAmount: maturity.principal,
-        interestAmount: maturity.interest,
-        totalPaid: maturity.totalDue,
-        paidAt: new Date().toISOString(),
-        paymentMethod: paymentMethod === 'upi' ? 'UPI Instant Pay' : paymentMethod === 'netbanking' ? 'Net Banking Direct' : 'Bank RTGS/NEFT',
-      };
-
-      setRepaymentReceipt(receipt);
-      await loadData(false);
-    } catch (err) {
-      console.error('Repayment failure:', err);
-    } finally {
-      setIsProcessing(false);
-      hideGlobalLoader();
-    }
+        setRepaymentReceipt(receipt);
+        await loadData(false);
+        setIsProcessing(false);
+        hideGlobalLoader();
+      },
+      onFailure: (err) => {
+        console.warn('Razorpay checkout window note:', err);
+        setIsProcessing(false);
+        hideGlobalLoader();
+      },
+    });
   };
 
   return (
@@ -564,65 +526,24 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                 {selectedLoanForDetail.status !== 'repaid' && (
                   <div className="space-y-3 pt-2 border-t border-[#E5EDE8]">
                     <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                      Repay to Financial Institution Directly:
+                      Repay to Financial Institution:
                     </label>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('razorpay')}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                          paymentMethod === 'razorpay'
-                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
-                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
-                        }`}
-                      >
-                        <Sparkles className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
-                        <span className="font-bold text-xs block">Razorpay</span>
-                        <span className="text-[9px] text-[#566861] block">Cards/UPI/Net</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('upi')}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                          paymentMethod === 'upi'
-                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
-                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
-                        }`}
-                      >
-                        <QrCode className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
-                        <span className="font-bold text-xs block">Direct UPI</span>
-                        <span className="text-[9px] text-[#566861] block">Instant QR</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('netbanking')}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                          paymentMethod === 'netbanking'
-                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
-                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
-                        }`}
-                      >
-                        <Landmark className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
-                        <span className="font-bold text-xs block">NetBanking</span>
-                        <span className="text-[9px] text-[#566861] block">Bank Login</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('bank_transfer')}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                          paymentMethod === 'bank_transfer'
-                            ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]'
-                            : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F8FAF8]'
-                        }`}
-                      >
-                        <CreditCard className="w-4 h-4 mx-auto mb-1 text-[#10B981]" />
-                        <span className="font-bold text-xs block">RTGS/NEFT</span>
-                        <span className="text-[9px] text-[#566861] block">Direct Transfer</span>
-                      </button>
+                    <div className="p-3.5 rounded-2xl border-2 border-[#10B981] bg-[#F2FBF6] flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-xs text-[#0B3326] block">
+                            Razorpay Secure Gateway
+                          </span>
+                          <span className="text-[10px] text-[#566861]">
+                            Instant institutional settlement & collateral lien clearance
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="emerald" size="sm">Online</Badge>
                     </div>
 
                     <div className="pt-2">
@@ -634,8 +555,8 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                         className="w-full font-bold text-xs py-3 px-4 shadow-md cursor-pointer justify-center"
                       >
                         {isProcessing
-                          ? 'Transmitting Settlement...'
-                          : `Authorize ₹${calculateLoanMaturity(selectedLoanForDetail).totalDue.toLocaleString('en-IN')} Repayment Now`}
+                          ? 'Connecting Gateway...'
+                          : `Pay ₹${calculateLoanMaturity(selectedLoanForDetail).totalDue.toLocaleString('en-IN')} with Razorpay`}
                       </Button>
                     </div>
                   </div>

@@ -47,7 +47,7 @@ export default function BorrowerTermAcceptanceModal({
     setError('');
     try {
       await acceptFinancierOffer(
-        request.id || request.requestNumber,
+        request,
         `Terms confirmed by borrower. Accepted ${institutionName} offer: ₹${principal.toLocaleString('en-IN')} @ ${rate}%/mo.`
       );
       setActionSuccess(`Loan terms accepted! ${institutionName} has been locked as your lender and notified to disburse.`);
@@ -68,7 +68,7 @@ export default function BorrowerTermAcceptanceModal({
     setIsSubmitting(true);
     try {
       await updateFinancingStatus(
-        request.id || request.requestNumber,
+        request,
         'rejected',
         'Borrower declined lender term-sheet offer.'
       );

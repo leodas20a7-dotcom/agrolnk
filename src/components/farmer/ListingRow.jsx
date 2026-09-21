@@ -1,10 +1,10 @@
 import React from 'react';
-import { MapPin, Tag, Gavel, Clock, ShieldCheck, Eye, Edit3 } from 'lucide-react';
+import { MapPin, Tag, Gavel, Clock, ShieldCheck, Eye, Edit3, Trash2 } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 
-export default function ListingRow({ listing, onView, onEdit }) {
+export default function ListingRow({ listing, onView, onEdit, onDelete }) {
   const isAuction = listing.saleType === 'auction';
   const isSoldOut = listing.status === 'sold' || Number(listing.quantity || 0) <= 0;
   const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
@@ -122,6 +122,17 @@ export default function ListingRow({ listing, onView, onEdit }) {
           >
             Details
           </Button>
+
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(listing)}
+              title="Delete produce listing"
+              className="p-1.5 rounded-xl text-[#566861] hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

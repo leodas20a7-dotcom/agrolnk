@@ -28,7 +28,7 @@ import {
   CalendarDays,
   Filter
 } from 'lucide-react';
-import { getAllKYCUsers, updateKYCStatus } from '../../utils/admin';
+import { getAllKYCUsers, updateKYCStatus, extractUserDocuments } from '../../utils/admin';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
@@ -746,55 +746,62 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                   Submitted Credentials & Document Files (PDF / Image)
                 </h4>
 
-                {selectedUserForDocs.documents && selectedUserForDocs.documents.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedUserForDocs.documents.map((doc, idx) => {
-                      const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.format === 'PDF' || !doc.format;
-                      const displayFileName = doc.fileName || `${doc.type.toLowerCase().replace(/[^a-z0-9]/g, '_')}_verified.pdf`;
+                {(() => {
+                  const docsForSelectedUser = extractUserDocuments(selectedUserForDocs);
+                  if (docsForSelectedUser && docsForSelectedUser.length > 0) {
+                    return (
+                      <div className="space-y-3">
+                        {docsForSelectedUser.map((doc, idx) => {
+                          const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.format === 'PDF';
+                          const displayFileName = doc.fileName || `${doc.type.toLowerCase().replace(/[^a-z0-9]/g, '_')}_verified.pdf`;
 
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl border border-[#E5EDE8] bg-white space-y-3 shadow-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-[#0B3326] flex items-center gap-2">
-                              <div className={`p-1.5 rounded-lg text-white font-bold text-[10px] ${isPdf ? 'bg-red-600' : 'bg-blue-600'}`}>
-                                {isPdf ? 'PDF' : 'IMG'}
+                          return (
+                            <div key={idx} className="p-4 rounded-2xl border border-[#E5EDE8] bg-white space-y-3 shadow-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-[#0B3326] flex items-center gap-2">
+                                  <div className={`p-1.5 rounded-lg text-white font-bold text-[10px] ${isPdf ? 'bg-red-600' : 'bg-blue-600'}`}>
+                                    {isPdf ? 'PDF' : 'IMG'}
+                                  </div>
+                                  <span>{doc.type}</span>
+                                </span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {doc.fileSize || '1.8 MB'}
+                                </span>
                               </div>
-                              <span>{doc.type}</span>
-                            </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              {doc.fileSize || '1.8 MB'}
-                            </span>
-                          </div>
 
-                          {/* Document Preview & Inspect Action Banner */}
-                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                            <div className="space-y-0.5 text-xs min-w-0 flex-1">
-                              <span className="font-bold text-[#0B3326] block truncate">
-                                📄 {displayFileName}
-                              </span>
-                              <span className="text-[11px] text-[#566861] font-mono block">
-                                ID No: <strong>{doc.number}</strong>
-                              </span>
+                              {/* Document Preview & Inspect Action Banner */}
+                              <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                <div className="space-y-0.5 text-xs min-w-0 flex-1">
+                                  <span className="font-bold text-[#0B3326] block truncate">
+                                    📄 {displayFileName}
+                                  </span>
+                                  <span className="text-[11px] text-[#566861] font-mono block">
+                                    ID No: <strong>{doc.number}</strong>
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setInspectingDoc({ doc, user: selectedUserForDocs })}
+                                  className="px-3.5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors w-full sm:w-auto shrink-0"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-[#34D399]" />
+                                  <span>View & Inspect</span>
+                                </button>
+                              </div>
                             </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
 
-                            <button
-                              type="button"
-                              onClick={() => setInspectingDoc({ doc, user: selectedUserForDocs })}
-                              className="px-3.5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors w-full sm:w-auto shrink-0"
-                            >
-                              <Eye className="w-3.5 h-3.5 text-[#34D399]" />
-                              <span>View & Inspect</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs text-[#566861]">
-                    No documents uploaded yet.
-                  </div>
-                )}
+                  return (
+                    <div className="p-4 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs text-[#566861]">
+                      No documents uploaded yet.
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Action Buttons inside Modal */}

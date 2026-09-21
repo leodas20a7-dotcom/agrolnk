@@ -14,9 +14,10 @@ export default function FinancingRow({
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
   const isBuyer = viewerRole === 'buyer';
   const isFinancier = viewerRole === 'financier';
-  const isMarginSettled = Boolean(request.marginPaid || request.escrowFunded || request.status === 'disbursed');
+  const isSettled = request.status === 'repaid' || request.status === 'settled' || request.status === 'closed';
+  const isMarginSettled = Boolean(request.marginPaid || request.escrowFunded || request.status === 'disbursed' || isSettled);
   const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
-  const needsMarginPayment = isBuyer && isApproved && !isMarginSettled;
+  const needsMarginPayment = isBuyer && isApproved && !isMarginSettled && !isSettled;
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
@@ -80,7 +81,7 @@ export default function FinancingRow({
 
       {/* Right: Status & Actions */}
       <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
-        {request.status === 'repaid' || request.status === 'settled' ? (
+        {isSettled ? (
           <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>Repaid & Settled ✓</span>

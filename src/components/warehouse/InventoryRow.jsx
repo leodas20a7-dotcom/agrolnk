@@ -116,7 +116,7 @@ export default function InventoryRow({
         </div>
 
         <div>
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Monthly Tariff</span>
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Monthly Storage Fee</span>
           <span className="font-bold text-sm text-[#0B3326]">
             ₹{Number(inventory.quotedMonthlyRent || inventory.storageFeeMonthly || 0).toLocaleString('en-IN')}/mo
           </span>
@@ -158,7 +158,7 @@ export default function InventoryRow({
         {isQuoteRequested && (
           <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200 flex items-center gap-1">
             <Clock className="w-3.5 h-3.5" />
-            Awaiting Admin Quote
+            Awaiting Warehouse Quote
           </span>
         )}
 
@@ -177,7 +177,7 @@ export default function InventoryRow({
           </div>
         )}
 
-        {isStored && dues?.amountDue > 0 && onPayRent && (
+        {isStored && dues?.isDue && dues?.amountDue > 0 && onPayRent && (
           <Button
             variant="secondary"
             size="sm"

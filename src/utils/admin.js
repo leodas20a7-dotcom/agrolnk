@@ -42,6 +42,132 @@ function saveStoredKYC(users) {
 }
 
 /**
+ * Extract and synthesize all user documents from meta, pendingChanges, or profile caches
+ */
+export function extractUserDocuments(p) {
+  if (!p) return [];
+  const meta = p.meta || {};
+
+  // Retrieve cached warehouse profile if available to enrich URLs
+  let cachedWp = null;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const rawWp = localStorage.getItem('agrolnk_warehouse_profiles');
+      const wpProfiles = rawWp ? JSON.parse(rawWp) : {};
+      cachedWp = (p.id && wpProfiles[p.id]) || (p.email && wpProfiles[p.email]) || null;
+    } catch {}
+  }
+
+  const docNames = {
+    ...(cachedWp?.documentNames || {}),
+    ...(p.documentNames || {}),
+    ...(meta.pendingChanges?.documentNames || {}),
+    ...(meta.documentNames || {}),
+  };
+  const docUrls = {
+    ...(cachedWp?.documentUrls || {}),
+    ...(p.documentUrls || {}),
+    ...(meta.pendingChanges?.documentUrls || {}),
+    ...(meta.documentUrls || {}),
+  };
+
+  const enrichDocUrl = (doc) => {
+    if (doc.fileUrl) return doc;
+    const typeLower = (doc.type || '').toLowerCase();
+    let resolvedUrl = '';
+    if (typeLower.includes('wdra') || typeLower.includes('warehouse')) {
+      resolvedUrl = docUrls.wdraCert || '';
+    } else if (typeLower.includes('gst') || typeLower.includes('commercial')) {
+      resolvedUrl = docUrls.gstinCert || '';
+    } else if (typeLower.includes('insurance') || typeLower.includes('fssai')) {
+      resolvedUrl = docUrls.insuranceCert || docUrls.transitInsurance || '';
+    } else if (typeLower.includes('driver') || typeLower.includes('license') || typeLower.includes('dl')) {
+      resolvedUrl = docUrls.drivingLicense || '';
+    } else if (typeLower.includes('permit') || typeLower.includes('vehicle') || typeLower.includes('rc')) {
+      resolvedUrl = docUrls.vehiclePermit || '';
+    }
+    return {
+      ...doc,
+      fileUrl: resolvedUrl || doc.fileUrl || '',
+    };
+  };
+
+  // 1. Direct meta.documents or p.documents array
+  if (Array.isArray(meta.documents) && meta.documents.length > 0) {
+    return meta.documents.map(enrichDocUrl);
+  }
+  if (Array.isArray(p.documents) && p.documents.length > 0) {
+    return p.documents.map(enrichDocUrl);
+  }
+
+  // 2. Synthesize from documentUrls / documentNames
+  const docs = [];
+  if (docNames.wdraCert || docUrls.wdraCert) {
+    docs.push({
+      type: 'WDRA Accreditation Certificate',
+      number: meta.wdraCode || p.wdraCode || cachedWp?.wdraCode || 'WDRA Submitted',
+      status: p.verificationStatus || p.kyc_status || 'pending',
+      fileUrl: docUrls.wdraCert || '',
+      fileName: docNames.wdraCert || 'wdra_accreditation_certificate.png',
+    });
+  }
+  if (docNames.gstinCert || docUrls.gstinCert) {
+    docs.push({
+      type: 'GST / Commercial Storage License',
+      number: meta.gstin || p.gstin || cachedWp?.gstin || 'GST Submitted',
+      status: p.verificationStatus || p.kyc_status || 'pending',
+      fileUrl: docUrls.gstinCert || '',
+      fileName: docNames.gstinCert || 'gst_certificate.pdf',
+    });
+  }
+  if (docNames.insuranceCert || docUrls.insuranceCert) {
+    docs.push({
+      type: 'Storage Facility Insurance / FSSAI',
+      number: 'Insured Facility',
+      status: p.verificationStatus || p.kyc_status || 'pending',
+      fileUrl: docUrls.insuranceCert || '',
+      fileName: docNames.insuranceCert || 'insurance_policy.pdf',
+    });
+  }
+
+  // 3. Transporter fleet documents
+  if (docNames.drivingLicense || docUrls.drivingLicense) {
+    docs.push({
+      type: 'Commercial Driver License / Badge',
+      number: meta.licenseNumber || p.licenseNumber || 'DL Verified',
+      status: p.verificationStatus || p.kyc_status || 'pending',
+      fileUrl: docUrls.drivingLicense || '',
+      fileName: docNames.drivingLicense || 'commercial_driver_license.pdf',
+    });
+  }
+  if (docNames.vehiclePermit || docUrls.vehiclePermit) {
+    docs.push({
+      type: 'National Goods Carriage Permit',
+      number: meta.permitNumber || p.permitNumber || 'NP Verified',
+      status: p.verificationStatus || p.kyc_status || 'pending',
+      fileUrl: docUrls.vehiclePermit || '',
+      fileName: docNames.vehiclePermit || 'all_india_permit.pdf',
+    });
+  }
+  if (docNames.transitInsurance || docUrls.transitInsurance) {
+    docs.push({
+      type: 'Goods-in-Transit Cargo Insurance',
+      number: 'Cargo Policy #9482',
+      status: p.verificationStatus || p.kyc_status || 'pending',
+      fileUrl: docUrls.transitInsurance || '',
+      fileName: docNames.transitInsurance || 'transit_insurance_policy.pdf',
+    });
+  }
+
+  // 4. Check cached warehouse documents array
+  if (docs.length === 0 && cachedWp && Array.isArray(cachedWp.documents) && cachedWp.documents.length > 0) {
+    return cachedWp.documents.map(enrichDocUrl);
+  }
+
+  return docs;
+}
+
+/**
  * Get all users with KYC status (Merged from Supabase profiles + Local Registry)
  */
 export async function getAllKYCUsers() {
@@ -66,9 +192,11 @@ export async function getAllKYCUsers() {
 
       const dbKycStatus = p.kyc_status || 'pending';
       const meta = p.meta || {};
+      const resolvedDocs = extractUserDocuments(p);
 
       if (existingIndex >= 0) {
         // Enrich existing with DB data
+        const currentExistingDocs = merged[existingIndex].documents;
         merged[existingIndex] = {
           ...merged[existingIndex],
           name: p.name || merged[existingIndex].name,
@@ -79,7 +207,7 @@ export async function getAllKYCUsers() {
           district: p.district || merged[existingIndex].district,
           orgName: p.company_name || merged[existingIndex].orgName,
           verificationStatus: dbKycStatus,
-          documents: (meta.documents && meta.documents.length > 0) ? meta.documents : merged[existingIndex].documents,
+          documents: resolvedDocs.length > 0 ? resolvedDocs : (currentExistingDocs && currentExistingDocs.length > 0 ? currentExistingDocs : []),
           auditNotes: meta.auditNotes || merged[existingIndex].auditNotes,
         };
       } else {
@@ -97,7 +225,7 @@ export async function getAllKYCUsers() {
           submittedAt: p.created_at || new Date().toISOString(),
           verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || new Date().toISOString()) : null,
           verifiedBy: dbKycStatus === 'verified' ? 'Admin' : null,
-          documents: meta.documents || [],
+          documents: resolvedDocs,
           auditNotes: meta.auditNotes || `Registered ${p.role}. Awaiting KYC document submission.`,
         });
       }

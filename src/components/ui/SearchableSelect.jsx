@@ -159,18 +159,7 @@ export default function SearchableSelect({
         </label>
       )}
 
-      {/* Hidden input for HTML form validation */}
-      {required && (
-        <input
-          type="text"
-          value={value || ''}
-          onChange={() => {}}
-          required={required}
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-      )}
+
 
       {/* Trigger Button */}
       <button

@@ -20,7 +20,7 @@ import {
   Users,
   CreditCard
 } from 'lucide-react';
-import { getFinancingRequests, getDisbursements } from '../../utils/financing';
+import { getFinancingRequests, getDisbursements, isFinancierMatch } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FinancierPortfolio({ currentUser, onNavigate }) {
@@ -44,7 +44,7 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
         showGlobalLoader('Loading Loans & Repayments...', 'Fetching active loans and returned money...');
         const [all, allDisb] = await Promise.all([
           getFinancingRequests(),
-          getDisbursements(),
+          getDisbursements(user),
         ]);
         if (isMounted) {
           setAllLoans(all || []);
@@ -72,18 +72,13 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_orders_updated', handleUpdated);
       window.removeEventListener('storage', handleUpdated);
     };
-  }, []);
-
-  const matchesFinancier = (r) => {
-    if (!user || (!user.id && !user.email)) return false;
-    return (user.id && r.financierId === user.id) || (user.email && r.financierEmail === user.email);
-  };
+  }, [user.id, user.email]);
 
   const activeLoans = allLoans.filter(
-    (r) => (r.status === 'approved' || r.status === 'disbursed') && matchesFinancier(r)
+    (r) => (r.status === 'approved' || r.status === 'disbursed') && isFinancierMatch(r, user)
   );
   const repaidLoans = allLoans.filter(
-    (r) => (r.status === 'repaid' || r.status === 'settled') && matchesFinancier(r)
+    (r) => (r.status === 'repaid' || r.status === 'settled') && isFinancierMatch(r, user)
   );
 
   const totalActivePrincipal = activeLoans.reduce(
@@ -102,7 +97,7 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
   );
 
   const institutionLoans = allLoans.filter(
-    (r) => !user.id || r.financierId === user.id || !r.financierId
+    (r) => isFinancierMatch(r, user)
   );
 
   const filteredLoans = institutionLoans.filter((r) => {
@@ -233,7 +228,7 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                All ({allLoans.length})
+                All ({institutionLoans.length})
               </button>
             </div>
           </div>

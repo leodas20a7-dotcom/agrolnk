@@ -282,7 +282,7 @@ export default function TransportQuoteModal({
           {/* Vehicle Category Selector */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-              Vehicle Class & Tariff
+              Vehicle Class & Rate / Fee
             </label>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(VEHICLE_TARIFF_RATES).map(([key, v]) => {

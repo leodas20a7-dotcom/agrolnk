@@ -34,6 +34,7 @@ import {
   sendPrivacyMessage,
   maskSensitivePII,
   getSharedThreadKey,
+  getSupportThreadKey,
   formatChatTimestamp,
   getPlatformContacts,
   getAllStoredThreads,
@@ -47,18 +48,19 @@ export default function PrivacyChatDrawer({
   isOpen,
   onClose,
   currentUser,
-  threadKey = 'agrolnk_support_desk',
+  threadKey = null,
   orderContext = null,
   partnerContext = null,
 }) {
   const user = currentUser || { id: 'usr_guest', name: 'Trading Participant', role: 'buyer' };
+  const userSupportKey = getSupportThreadKey(user);
 
   // View state: 'chat_list' (Image 3) | 'contact_picker' (Image 2) | 'conversation' (Image 1)
   const [viewMode, setViewMode] = useState('chat_list');
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [channels, setChannels] = useState([]);
-  const [selectedChannelKey, setSelectedChannelKey] = useState(threadKey);
+  const [selectedChannelKey, setSelectedChannelKey] = useState(threadKey || userSupportKey);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unread' | 'orders' | 'warehouses'
   const [activePartnerContext, setActivePartnerContext] = useState(partnerContext);
@@ -70,7 +72,11 @@ export default function PrivacyChatDrawer({
     if (isOpen) {
       if (partnerContext) {
         setActivePartnerContext(partnerContext);
-        const target = partnerContext.threadKey || (partnerContext.partnerId ? `chat_partner_${partnerContext.partnerId}` : 'chat_partner_wh');
+        const myIdentifier = user.id
+          ? String(user.id).toLowerCase().replace(/[^a-z0-9]/g, '_')
+          : (user.name || user.role || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const partnerIdentifier = partnerContext.partnerId || 'wh';
+        const target = partnerContext.threadKey || getSharedThreadKey(myIdentifier, partnerIdentifier);
         setSelectedChannelKey(target);
         setViewMode('conversation');
       } else if (orderContext) {
@@ -94,18 +100,20 @@ export default function PrivacyChatDrawer({
         setActivePartnerContext(null);
         if (threadKey) {
           setSelectedChannelKey(threadKey);
+        } else {
+          setSelectedChannelKey(userSupportKey);
         }
       }
     } else {
       setActivePartnerContext(null);
     }
-  }, [isOpen, partnerContext, orderContext, threadKey]);
+  }, [isOpen, partnerContext, orderContext, threadKey, userSupportKey]);
 
   // Load available channels & contacts directory
   const loadChannels = async () => {
     const defaultChannels = [
       {
-        key: 'agrolnk_support_desk',
+        key: userSupportKey,
         title: 'AgroLnk Desk & Smart Assistant',
         subtitle: 'Official Support, Escrow & Dispute Desk',
         role: 'Admin & AI Assistant',
@@ -151,8 +159,70 @@ export default function PrivacyChatDrawer({
       let userOrders = [];
       if (user.role === 'farmer') {
         userOrders = await getFarmerOrders(user.id);
-      } else {
+      } else if (user.role === 'buyer') {
         userOrders = await getBuyerOrders(user.id);
+      } else if (user.role === 'admin') {
+        // Admin: Load all registered contacts / counterparties as dedicated direct channels
+        const allPlatformContacts = getPlatformContacts(user).filter((c) => c.id !== 'contact_support');
+        allPlatformContacts.forEach((cnt) => {
+          const exists = defaultChannels.find((c) => c.key === cnt.threadKey || c.key === cnt.id);
+          if (!exists) {
+            defaultChannels.push({
+              key: cnt.threadKey,
+              title: `${cnt.name} (${cnt.role})`,
+              subtitle: cnt.status || 'Verified Agrolnk User • Direct Inquiries',
+              role: cnt.role,
+              category: cnt.category || 'orders',
+              icon: Package,
+              avatarBg: cnt.avatarColor ? cnt.avatarColor.split(' ')[0] : 'bg-[#0B3326]',
+              avatarColor: 'text-white',
+              badgeColor: 'emerald',
+              phoneMask: cnt.phoneMask || '+91 98402 *****',
+              initials: cnt.initials || 'AP',
+              unreadCount: 0,
+            });
+          }
+        });
+
+        // Admin: Also discover and load all user support threads (support_*)
+        const allStored = getAllStoredThreads();
+        const supportKeys = Object.keys(allStored).filter((k) => k.startsWith('support_'));
+        let registry = [];
+        try {
+          const raw = localStorage.getItem('agrolnk_admin_kyc_registry');
+          if (raw) registry = JSON.parse(raw);
+        } catch {}
+
+        supportKeys.forEach((sKey) => {
+          const userIdentifier = sKey.replace(/^support_/, '');
+          const matchedUser = registry.find(
+            (u) =>
+              (u.id && u.id.toLowerCase().replace(/[^a-z0-9]/g, '_') === userIdentifier) ||
+              (u.email && u.email.toLowerCase().replace(/[^a-z0-9]/g, '_') === userIdentifier)
+          );
+          const displayName = matchedUser?.name || userIdentifier.replace(/_/g, ' ').toUpperCase();
+          const displayRole = matchedUser?.role
+            ? matchedUser.role.charAt(0).toUpperCase() + matchedUser.role.slice(1)
+            : 'User';
+
+          const exists = defaultChannels.find((c) => c.key === sKey);
+          if (!exists) {
+            defaultChannels.push({
+              key: sKey,
+              title: `${displayName} (${displayRole} Support)`,
+              subtitle: `${displayRole} Support Desk Inquiry • Private Thread`,
+              role: `${displayRole} Support`,
+              category: 'support',
+              icon: Headphones,
+              avatarBg: 'bg-[#0B3326]',
+              avatarColor: 'text-[#34D399]',
+              badgeColor: 'emerald',
+              phoneMask: 'Support Channel',
+              initials: (displayName || 'US').slice(0, 2).toUpperCase(),
+              unreadCount: 0,
+            });
+          }
+        });
       }
 
       if (userOrders && userOrders.length > 0) {
@@ -349,10 +419,14 @@ export default function PrivacyChatDrawer({
     e.preventDefault();
     if (!inputText.trim()) return;
 
+    const senderDisplayName =
+      user.name || user.companyName || user.orgName || (user.email ? user.email.split('@')[0] : 'Trading Participant');
+    const senderRoleName = user.role || 'partner';
+
     const updated = sendPrivacyMessage(selectedChannelKey, {
-      senderId: user.id,
-      senderName: user.name,
-      senderRole: user.role,
+      senderId: user.id || `usr_${Date.now()}`,
+      senderName: senderDisplayName,
+      senderRole: senderRoleName,
       text: inputText.trim(),
     });
 
@@ -432,7 +506,7 @@ export default function PrivacyChatDrawer({
         }
       : null) ||
     channels[0] || {
-      key: selectedChannelKey || 'agrolnk_support_desk',
+      key: selectedChannelKey || userSupportKey,
       title: 'AgroLnk Desk & Smart Assistant',
       subtitle: 'Official Support & Trade Desk',
       role: 'AgroLnk Platform',
@@ -733,7 +807,7 @@ export default function PrivacyChatDrawer({
               
               {/* My Status Item (Matching Image 2) */}
               <div
-                onClick={() => openConversation('agrolnk_support_desk')}
+                onClick={() => openConversation(userSupportKey)}
                 className="px-4 py-3 hover:bg-[#F8FAF8] transition-colors cursor-pointer flex items-center gap-3.5"
               >
                 <div className="w-11 h-11 rounded-full bg-[#10B981] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
@@ -903,6 +977,20 @@ export default function PrivacyChatDrawer({
                             : 'bg-white border border-[#E5EDE8] text-[#14211D] rounded-tl-none'
                         }`}
                       >
+                        {/* Incoming Message Sender Name Header */}
+                        {!isMe && (
+                          <div className="flex items-center gap-1.5 mb-1 pb-1 border-b border-[#E5EDE8]/60">
+                            <span className="font-bold text-[11px] text-[#0B3326]">
+                              {msg.senderName || 'Trading Participant'}
+                            </span>
+                            {msg.senderRole && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-[#EBF5F0] text-[#10B981] font-bold uppercase tracking-wider">
+                                {msg.senderRole}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {msg.text.includes('[Protected') || msg.text.includes('[Fragment Redacted') ? (
                           <div className="flex items-start gap-1.5">
                             <Lock className="w-3.5 h-3.5 text-[#D97706] shrink-0 mt-0.5" />

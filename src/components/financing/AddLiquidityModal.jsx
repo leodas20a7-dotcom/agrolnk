@@ -23,13 +23,12 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
     { label: '₹25 Lakhs', value: 2500000 },
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setAllocating(true);
 
     try {
-      const financierId = currentUser?.id || currentUser?.email || 'default';
-      addLiquidityPoolFunds(amount, financierId);
+      await addLiquidityPoolFunds(amount, currentUser || 'default');
       setSuccess(true);
       setTimeout(() => {
         onAdded?.();

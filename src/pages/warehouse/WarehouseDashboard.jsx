@@ -40,8 +40,10 @@ import {
   LogOut,
   X,
   RefreshCw,
-  QrCode,
   Sparkles,
+  Send,
+  Bell,
+  Receipt,
 } from 'lucide-react';
 import {
   getWarehouseOperatorStats,
@@ -51,19 +53,23 @@ import {
   getWarehouseProfile,
   getWarehouseOperatorProfile,
   dispatchProduceFromWarehouse,
+  calculateMonthlyRentDeadline,
+  calculateStorageRentalDues,
+  recordWarehouseRentPayment,
 } from '../../utils/warehouses';
-import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 import { supabase } from '../../lib/supabase';
+import { sendNotification } from '../../utils/notifications';
 
 export default function WarehouseDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || {
+  const user = currentUser || getCurrentUser() || {
     id: '',
     name: 'Warehouse Operator',
     email: '',
     role: 'warehouse',
   };
 
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'dispatched' | 'chambers'
+  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'dispatched' | 'chambers' | 'requests'
   const [stats, setStats] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
@@ -78,8 +84,12 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const [feedbackToast, setFeedbackToast] = useState('');
   const [inwardModalReceipt, setInwardModalReceipt] = useState(null);
   const [inwardModalMode, setInwardModalMode] = useState('quote'); // 'quote' | 'inward'
+  const [selectedLotForRentNotice, setSelectedLotForRentNotice] = useState(null);
+  const [rentDueAmount, setRentDueAmount] = useState('');
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
 
   // Filter States
+  const [rentFilter, setRentFilter] = useState('all'); // 'all' | 'pending' | 'settled'
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'available' | 'listed' | 'all'
   const [commodityFilter, setCommodityFilter] = useState('all');
@@ -90,7 +100,8 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
       showGlobalLoader('Connecting to WDRA Certified Hubs...', 'Loading live telemetry, storage lots & e-NWR registries...');
     }
     try {
-      const storedProfile = (await getWarehouseOperatorProfile(user.id || user.email)) || getWarehouseProfile(user.id, user.email);
+      const activeUser = currentUser || getCurrentUser() || user;
+      const storedProfile = (await getWarehouseOperatorProfile(activeUser.id || activeUser.email)) || getWarehouseProfile(activeUser.id, activeUser.email);
       setProfile(storedProfile);
 
       // Auto-open setup if new warehouse user hasn't configured their facility
@@ -98,13 +109,18 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         setIsSetupModalOpen(true);
       }
 
-      const operatorWarehouseId = user.id || storedProfile?.id || storedProfile?.userId;
       const [computedStats, inv] = await Promise.all([
-        getWarehouseOperatorStats(operatorWarehouseId, storedProfile),
-        getWarehouseInventory(operatorWarehouseId),
+        getWarehouseOperatorStats(activeUser, storedProfile),
+        getWarehouseInventory(activeUser, storedProfile),
       ]);
       setStats(computedStats);
-      setInventory(inv || []);
+      const safeInv = Array.isArray(inv) ? inv : [];
+      setInventory(safeInv);
+      const pendingReqs = safeInv.filter((r) => !r.status || r.status === 'quote_requested' || r.status === 'deposit_requested' || r.status === 'pending');
+      const storedCount = safeInv.filter((r) => r.status === 'stored' || r.status === 'partially_listed' || r.status === 'listed').length;
+      if (pendingReqs.length > 0 && storedCount === 0) {
+        setActiveTab('requests');
+      }
     } catch (err) {
       console.error('Error loading warehouse data:', err);
     } finally {
@@ -158,11 +174,11 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
 
   // Segregate Active In-Storage vs Requests vs In-Transit vs Dispatched Lots
   const safeInventory = Array.isArray(inventory) ? inventory : [];
-  const quoteRequests = safeInventory.filter((r) => r.status === 'quote_requested');
-  const quotedPendingFarmer = safeInventory.filter((r) => r.status === 'quote_provided');
-  const inTransitLots = safeInventory.filter((r) => r.status === 'in_transit');
-  const activeLots = safeInventory.filter((r) => r.status === 'stored' || r.status === 'partially_listed' || r.status === 'listed');
-  const dispatchedLots = safeInventory.filter((r) => r.status === 'dispatched' || r.status === 'released');
+  const quoteRequests = safeInventory.filter((r) => !r.status || r.status === 'quote_requested' || r.status === 'deposit_requested' || r.status === 'waiting_for_quote' || r.status === 'pending' || r.status === 'requested');
+  const quotedPendingFarmer = safeInventory.filter((r) => r.status === 'quote_provided' || r.status === 'quoted');
+  const inTransitLots = safeInventory.filter((r) => r.status === 'in_transit' || r.status === 'transit');
+  const activeLots = safeInventory.filter((r) => r.status === 'stored' || r.status === 'partially_listed' || r.status === 'listed' || r.status === 'active');
+  const dispatchedLots = safeInventory.filter((r) => r.status === 'dispatched' || r.status === 'released' || r.status === 'fulfilled');
   const totalInwardPending = quoteRequests.length + inTransitLots.length;
 
   const totalStoredTonnes = Number((activeLots.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0) / 1000).toFixed(1));
@@ -170,12 +186,42 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const totalCapacityTonnes = isSetupCompleted ? Number(profile.totalCapacityTonnes) : 0;
   const occupancyPercent = totalCapacityTonnes > 0 ? Number(((totalStoredTonnes / totalCapacityTonnes) * 100).toFixed(1)) : 0;
 
+  // Enhance active lots with real-time rent deadlines & delay calculations
+  const activeLotsWithDeadlines = activeLots.map((item) => {
+    const deadline = calculateMonthlyRentDeadline(item) || {
+      status: 'paid',
+      label: 'Current',
+      monthlyAmount: Number(item.storageFeeMonthly || item.quotedMonthlyRent || 0),
+      dailyRate: Math.round(Number(item.storageFeeMonthly || item.quotedMonthlyRent || 0) / 30) || 12,
+      accruedDue: 0,
+      totalDue: 0,
+      overduePenalty: 0,
+      daysOverdue: 0,
+    };
+    const isPendingRent = deadline.status === 'due_soon' || deadline.status === 'overdue' || Number(deadline.totalDue) > 0;
+    const isOverdue = deadline.status === 'overdue';
+    return {
+      ...item,
+      rentDeadline: deadline,
+      isPendingRent,
+      isOverdue,
+    };
+  });
+
+  const totalPendingDue = activeLotsWithDeadlines.reduce((sum, r) => sum + Number(r.rentDeadline?.totalDue || 0), 0);
+  const pendingLotsCount = activeLotsWithDeadlines.filter((r) => r.isPendingRent).length;
+  const overdueLotsCount = activeLotsWithDeadlines.filter((r) => r.isOverdue).length;
+  const settledLotsCount = activeLotsWithDeadlines.filter((r) => !r.isPendingRent).length;
+  const totalSettledRevenue = activeLotsWithDeadlines
+    .filter((r) => !r.isPendingRent)
+    .reduce((sum, r) => sum + Number(r.storageFeeMonthly || r.quotedMonthlyRent || 0), 0);
+
   const userKycStatus = getResolvedUserKycStatus(user);
-  const profileKycStatus = profile?.verificationStatus || profile?.kycStatus || userKycStatus || 'pending';
-  const isKycVerified = profileKycStatus === 'verified' || userKycStatus === 'verified';
-  const isModificationPending = isKycVerified && Boolean(profile?.hasPendingReview || profileKycStatus === 'modification_pending');
-  const isKycPending = !isKycVerified && (profileKycStatus === 'pending' || profile?.hasPendingReview || Boolean(profile?.setupCompleted));
-  const isKycRejected = profileKycStatus === 'rejected' || userKycStatus === 'rejected';
+  const isKycVerified = userKycStatus === 'verified' || profile?.verificationStatus === 'verified' || profile?.kycStatus === 'verified';
+  const profileKycStatus = isKycVerified ? 'verified' : (profile?.verificationStatus || profile?.kycStatus || userKycStatus || 'pending');
+  const isModificationPending = isKycVerified && Boolean(profile?.hasPendingReview && profile?.verificationStatus === 'modification_pending');
+  const isKycPending = !isKycVerified && (profileKycStatus === 'pending' || Boolean(profile?.hasPendingReview));
+  const isKycRejected = !isKycVerified && (profileKycStatus === 'rejected' || userKycStatus === 'rejected');
 
   const warehouseName = isSetupCompleted
     ? (profile?.companyName || profile?.warehouseName || 'Agri Storage Hub')
@@ -212,9 +258,13 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
   const availableCommodities = Array.from(new Set(safeInventory.map((r) => r.commodity).filter(Boolean)));
   const availableChambers = Array.from(new Set(safeInventory.map((r) => r.chamber).filter(Boolean)));
 
-  // Filtered Stored Lots for the Active view
-  const filteredStoredLots = activeLots.filter((item) => {
-    // 1. Search Query
+  // Filtered Stored Lots for the Active view (supports 1-click rentFilter + search)
+  const filteredStoredLots = activeLotsWithDeadlines.filter((item) => {
+    // 1. Rent Status Filter (All, Pending Dues, or Settled)
+    if (rentFilter === 'pending' && !item.isPendingRent) return false;
+    if (rentFilter === 'settled' && item.isPendingRent) return false;
+
+    // 2. Search Query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchSearch =
@@ -225,19 +275,19 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
       if (!matchSearch) return false;
     }
 
-    // 2. Status Filter
+    // 3. Trade Status Filter
     if (statusFilter === 'available') {
       if (Number(item.availableQuantity) <= 0) return false;
     } else if (statusFilter === 'listed') {
       if (Number(item.lockedQuantity) <= 0 && item.status !== 'listed') return false;
     }
 
-    // 3. Commodity Filter
+    // 4. Commodity Filter
     if (commodityFilter !== 'all' && item.commodity !== commodityFilter) {
       return false;
     }
 
-    // 4. Chamber Filter
+    // 5. Chamber Filter
     if (chamberFilter !== 'all' && item.chamber !== chamberFilter) {
       return false;
     }
@@ -287,6 +337,44 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
       console.error('Failed to dispatch lot:', err);
     } finally {
       setIsDispatching(false);
+    }
+  };
+
+  const handleOpenRentStatusModal = (item) => {
+    setSelectedLotForRentNotice(item);
+    const deadline = calculateMonthlyRentDeadline(item);
+    setRentDueAmount(deadline?.totalDue || deadline?.monthlyAmount || item.storageFeeMonthly || item.quotedMonthlyRent || 700);
+  };
+
+  const handleSendPaymentReminder = async () => {
+    if (!selectedLotForRentNotice) return;
+    const cleanReceiptNum = selectedLotForRentNotice.receiptNumber?.replace(/^#+/, '') || 'eNWR';
+    const farmerName = selectedLotForRentNotice.farmerName || 'Farmer';
+    const farmerId = selectedLotForRentNotice.farmerId || selectedLotForRentNotice.farmer_id;
+    const dueAmt = Number(rentDueAmount || 700).toLocaleString('en-IN');
+    setIsSendingReminder(true);
+
+    try {
+      await sendNotification({
+        recipientId: farmerId,
+        recipientRole: 'farmer',
+        title: 'Storage Rent Due Alert',
+        message: `Dear ${farmerName}, your monthly warehouse storage fee of ₹${dueAmt} for Lot #${cleanReceiptNum} is due. Please log in to your Agrolnk Inventory and settle online via Razorpay.`,
+        type: 'warning',
+        link: '/farmer/inventory',
+        actionPayload: {
+          receiptId: selectedLotForRentNotice.id,
+          amount: Number(rentDueAmount || 700),
+        },
+      });
+
+      setFeedbackToast(`✓ In-platform rent payment notice sent to ${farmerName}!`);
+      setTimeout(() => setFeedbackToast(''), 4500);
+      setSelectedLotForRentNotice(null);
+    } catch (err) {
+      console.error('Error sending reminder:', err);
+    } finally {
+      setIsSendingReminder(false);
     }
   };
 
@@ -434,11 +522,11 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               WDRA License: <strong>{wdraCode}</strong> • {facilityAddress}
             </p>
 
-            {/* Active Quoted Tariff Pill */}
+            {/* Active Quoted Storage Fee Pill */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs text-[#34D399]">
               <Sparkles className="w-3.5 h-3.5" />
               <span>
-                Active Tariff: <strong className="text-white">₹{profile?.monthlyRatePerTonne || 350}</strong> / Tonne / month (₹{((profile?.monthlyRatePerTonne || 350) / 1000).toFixed(2)}/kg)
+                Active Storage Fee: <strong className="text-white">₹{profile?.monthlyRatePerTonne || 350}</strong> / Tonne / month (₹{((profile?.monthlyRatePerTonne || 350) / 1000).toFixed(2)}/kg)
               </span>
             </div>
 
@@ -487,7 +575,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
           
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Capacity Utilization</span>
+              <span className="text-xs font-semibold text-[#566861]">Accredited Capacity</span>
               <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
                 <Layers className="w-4 h-4" />
               </div>
@@ -496,58 +584,71 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               {occupancyPercent}%
             </div>
             <div className="text-[11px] text-[#566861]">
-              {totalStoredTonnes} T occupied / {totalCapacityTonnes > 0 ? totalCapacityTonnes : '0'} T
+              {totalStoredTonnes} T occupied / {totalCapacityTonnes > 0 ? `${totalCapacityTonnes} T` : '0 T'}
             </div>
           </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
+          <Card hoverEffect className={`p-6 bg-white border space-y-3 shadow-xs ${
+            totalPendingDue > 0 ? 'border-amber-300/80 bg-amber-50/20' : 'border-[#E5EDE8]'
+          }`}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Active Storage Lots</span>
-              <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
-                <Award className="w-4 h-4" />
+              <span className="text-xs font-semibold text-[#566861]">Pending Rent Dues</span>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                totalPendingDue > 0 ? 'bg-amber-100 text-amber-800' : 'bg-[#EFF6FF] text-[#1E40AF]'
+              }`}>
+                <Clock className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {activeLots.length}
+            <div className={`text-3xl font-extrabold font-heading ${
+              totalPendingDue > 0 ? 'text-amber-700' : 'text-[#0B3326]'
+            }`}>
+              ₹{totalPendingDue.toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Active batches stored in chambers
+            <div className="text-[11px] font-semibold flex items-center gap-1.5 flex-wrap">
+              <span className={pendingLotsCount > 0 ? 'text-amber-700' : 'text-[#566861]'}>
+                {pendingLotsCount} {pendingLotsCount === 1 ? 'Lot' : 'Lots'} Pending
+              </span>
+              {overdueLotsCount > 0 && (
+                <span className="text-red-600 font-bold bg-red-50 px-1.5 py-0.2 rounded-md border border-red-200 text-[10px]">
+                  {overdueLotsCount} Overdue
+                </span>
+              )}
             </div>
           </Card>
 
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Monthly Storage Revenue</span>
+              <span className="text-xs font-semibold text-[#566861]">Settled Rent Collections</span>
               <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-[#10B981]" />
+                <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              ₹{Math.round(totalStoredTonnes * (profile?.monthlyRatePerTonne || 350)).toLocaleString('en-IN')}
+            <div className="text-3xl font-extrabold text-[#10B981] font-heading">
+              ₹{totalSettledRevenue.toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-[#10B981] font-semibold">
-              Projected monthly rental earnings
+              {settledLotsCount} of {activeLots.length} Accounts in Good Standing
             </div>
           </Card>
 
           <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Dispatched Outbound Lots</span>
+              <span className="text-xs font-semibold text-[#566861]">Inbound Gate Activity</span>
               <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
                 <Truck className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {dispatchedLots.length}
+              {totalInwardPending}
             </div>
             <div className="text-[11px] text-[#566861]">
-              Fulfilled & released from gate
+              {quoteRequests.length} Quotes • {inTransitLots.length} In Transit
             </div>
           </Card>
 
         </div>
 
-        {/* Tab Switcher */}
+        {/* Tab Switcher - 4 Clear Workspaces */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
           <button
             type="button"
@@ -559,7 +660,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             }`}
           >
             <Sparkles className="w-4 h-4 text-[#34D399]" />
-            <span>Deposit Requests & Inward</span>
+            <span>Gate Inbound & Quotes</span>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                 activeTab === 'requests'
@@ -581,7 +682,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Active In-Chamber Stock</span>
+            <span>Stored Produce & Rent Collection</span>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                 activeTab === 'inventory'
@@ -591,6 +692,11 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             >
               {activeLots.length}
             </span>
+            {pendingLotsCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
+                {pendingLotsCount} Dues
+              </span>
+            )}
           </button>
 
           <button
@@ -603,7 +709,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             }`}
           >
             <Truck className="w-4 h-4" />
-            <span>Dispatched & Gate Passes</span>
+            <span>Gate Outbound (Dispatched)</span>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                 activeTab === 'dispatched'
@@ -625,7 +731,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             }`}
           >
             <ThermometerSnowflake className="w-4 h-4" />
-            <span>Chamber & Storage Cell Telemetry</span>
+            <span>Storage Chambers</span>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                 activeTab === 'chambers'
@@ -650,7 +756,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     <Badge variant="yellow" size="sm">{quoteRequests.length} Waiting for Quote</Badge>
                   </h2>
                   <p className="text-xs text-[#566861]">
-                    Farmers requesting storage space. Review lot details, quote your monthly tariff, and assign chamber.
+                    Farmers requesting storage space. Review lot details, quote your monthly fee, and assign chamber.
                   </p>
                 </div>
               </div>
@@ -777,7 +883,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-[#566861] uppercase block font-semibold">Agreed Tariff</span>
+                          <span className="text-[10px] text-[#566861] uppercase block font-semibold">Agreed Fee</span>
                           <span className="font-extrabold text-sm text-[#10B981]">₹{req.quotedMonthlyRent}/mo</span>
                         </div>
                       </div>
@@ -826,7 +932,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     Active Deposited Produce Batches
                   </h2>
                   <p className="text-xs text-[#566861]">
-                    Batches currently in storage under this WDRA license (Dispatched lots are moved to the Dispatched tab)
+                    Manage stored produce lots, track rental billing deadlines, and collect pending dues online or at counter
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -837,8 +943,65 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                 </div>
               </div>
 
+              {/* Quick 1-Click Status Toggles: All vs Pending Dues vs Settled */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8] pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setRentFilter('all'); setCurrentPage(1); }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                    rentFilter === 'all'
+                      ? 'bg-[#0B3326] text-white shadow-xs'
+                      : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#E5EDE8] border border-[#E5EDE8]'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>All Stored Lots</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    rentFilter === 'all' ? 'bg-[#10B981] text-white' : 'bg-white text-[#566861] border border-[#E5EDE8]'
+                  }`}>
+                    {activeLotsWithDeadlines.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setRentFilter('pending'); setCurrentPage(1); }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                    rentFilter === 'pending'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Pending Dues & Delays</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    rentFilter === 'pending' ? 'bg-white text-amber-800' : 'bg-amber-200 text-amber-950'
+                  }`}>
+                    {pendingLotsCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setRentFilter('settled'); setCurrentPage(1); }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                    rentFilter === 'settled'
+                      ? 'bg-[#10B981] text-white shadow-xs'
+                      : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Settled / Up to Date</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    rentFilter === 'settled' ? 'bg-[#0B3326] text-white' : 'bg-emerald-200 text-emerald-950'
+                  }`}>
+                    {settledLotsCount}
+                  </span>
+                </button>
+              </div>
+
               {/* Interactive Search & Dropdown Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-[#E5EDE8]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                 
                 {/* Search Bar */}
                 <div className="relative">
@@ -922,7 +1085,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                             </span>
                           </div>
 
-                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1 text-xs">
+                          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1.5 text-xs">
                             <div className="flex items-center justify-between">
                               <span className="text-[#566861]">Available to Trade:</span>
                               <span className={`font-bold ${item.availableQuantity > 0 ? 'text-[#10B981]' : 'text-[#566861]'}`}>
@@ -930,18 +1093,42 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-[#566861]">Locked / Listed:</span>
-                              <span className={`font-bold ${item.lockedQuantity > 0 ? 'text-[#D97706]' : 'text-[#566861]'}`}>
-                                {item.lockedQuantity || 0} {item.unit}
+                              <span className="text-[#566861]">Storage Rent:</span>
+                              <span className="font-bold text-[#0B3326]">
+                                ₹{Number(item.storageFeeMonthly || item.quotedMonthlyRent || 0).toLocaleString('en-IN')}/mo
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
+                              <span className="text-[#566861]">Rent Status:</span>
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                                item.rentDeadline?.status === 'paid'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : item.rentDeadline?.status === 'due_soon'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-red-50 text-red-800 border-red-200'
+                              }`}>
+                                {item.rentDeadline?.label || 'Settled'}
                               </span>
                             </div>
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
-                          <span className="text-xs text-[#566861] truncate">
-                            Assay: {item.assayedQuality?.moisture || 'Standard'}
-                          </span>
+                        <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2 flex-wrap">
+                          <Button
+                            variant={item.isPendingRent ? 'primary' : 'secondary'}
+                            size="sm"
+                            onClick={() => handleOpenCounterPayment(item)}
+                            className={`text-xs font-bold py-1.5 px-3 cursor-pointer ${
+                              item.isPendingRent
+                                ? 'bg-[#0B3326] text-white hover:bg-[#14624A] shadow-xs'
+                                : 'border-[#E5EDE8] text-[#0B3326] hover:bg-[#F2FBF6]'
+                            }`}
+                          >
+                            {item.isPendingRent
+                              ? `Collect Rent (₹${item.rentDeadline?.totalDue || item.storageFeeMonthly || 700})`
+                              : 'Settle / Extend'}
+                          </Button>
+
                           <div className="flex items-center gap-1.5 shrink-0">
                             {item.availableQuantity === 0 && (
                               <Button
@@ -960,9 +1147,9 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                               onClick={() => setSelectedReceipt(item)}
                               icon={ArrowRight}
                               iconPosition="right"
-                              className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                              className="text-xs font-bold py-1.5 px-2.5 cursor-pointer"
                             >
-                              View Receipt
+                              e-NWR
                             </Button>
                           </div>
                         </div>
@@ -978,6 +1165,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                         isDispatched={false}
                         onView={(b) => setSelectedReceipt(b)}
                         onDispatch={(b) => handleOpenDispatchConfirm(b)}
+                        onViewRentStatus={(b) => handleOpenRentStatusModal(b)}
                       />
                     ))}
                   </div>
@@ -1196,8 +1384,131 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
             </div>
           </div>
         )}
-
       </div>
+
+      {/* Farmer Rent Due & Notice Desk Modal */}
+      {selectedLotForRentNotice && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-3 sm:p-6 flex items-center justify-center animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedLotForRentNotice(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#E5EDE8] bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-[#10B981]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                    Storage Rent Status & Dues
+                  </h3>
+                  <span className="text-xs text-[#566861]">
+                    Lot {selectedLotForRentNotice.receiptNumber?.replace(/^#+/, '#')} • Farmer: <strong>{selectedLotForRentNotice.farmerName || 'Farmer'}</strong>
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedLotForRentNotice(null)}
+                className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              {/* Lot & Due Summary Card */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#566861] tracking-wider block">
+                      Stored Produce Lot
+                    </span>
+                    <span className="text-sm font-extrabold text-[#0B3326]">
+                      {selectedLotForRentNotice.commodity} ({selectedLotForRentNotice.totalQuantity} {selectedLotForRentNotice.unit || 'kg'})
+                    </span>
+                    <span className="text-[11px] text-[#566861] block">
+                      Chamber: {selectedLotForRentNotice.chamber || 'Standard Bay'}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-[#566861] tracking-wider block">
+                      Monthly Tariff
+                    </span>
+                    <span className="text-sm font-extrabold text-[#0B3326]">
+                      ₹{Number(selectedLotForRentNotice.storageFeeMonthly || selectedLotForRentNotice.quotedMonthlyRent || 0).toLocaleString('en-IN')} / mo
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] flex items-center justify-between text-xs">
+                  <span className="text-[#566861] font-medium">Rent Status:</span>
+                  <Badge variant={selectedLotForRentNotice.isPendingRent ? 'amber' : 'emerald'} size="sm">
+                    {selectedLotForRentNotice.isPendingRent
+                      ? `₹${Number(rentDueAmount || 0).toLocaleString('en-IN')} Due from Farmer`
+                      : 'Settled via Razorpay'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Status Explanation Banner */}
+              {selectedLotForRentNotice.isPendingRent ? (
+                <div className="p-4 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] space-y-2 text-amber-900">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="font-bold text-xs">Pending Online Settlement</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Farmer <strong>{selectedLotForRentNotice.farmerName}</strong> has an outstanding storage rent of <strong>₹{Number(rentDueAmount || 0).toLocaleString('en-IN')}</strong>. Farmers pay directly through their Agrolnk dashboard via Razorpay.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 space-y-2 text-[#0B3326]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                    <span className="font-bold text-xs">Rent Fully Settled</span>
+                  </div>
+                  <p className="text-[11px] text-[#566861] leading-relaxed">
+                    Storage rent is up to date. The farmer settled this payment online on the platform via Razorpay. The e-NWR validity is active.
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-end gap-2.5">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSelectedLotForRentNotice(null)}
+                >
+                  Close
+                </Button>
+
+                {selectedLotForRentNotice.isPendingRent && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    loading={isSendingReminder}
+                    onClick={handleSendPaymentReminder}
+                    icon={Bell}
+                    iconPosition="left"
+                    className="font-bold text-xs bg-[#0B3326] hover:bg-[#14624A] text-white shadow-xs cursor-pointer"
+                  >
+                    Send In-Platform Rent Reminder
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Feedback Toast Notification */}
       {feedbackToast && (
