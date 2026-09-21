@@ -198,10 +198,13 @@ export async function registerUser({ name, phone, email, role, state, district, 
 }
 
 /**
- * Login user by email from Supabase Profiles
+ * Login user by email or mobile number from Supabase Profiles (with resilient fallback)
  */
 export async function loginUser({ email, password }) {
-  const normalizedEmail = (email || '').trim().toLowerCase();
+  const rawInput = (email || '').trim();
+  const normalizedEmail = rawInput.toLowerCase();
+  const phoneDigits = rawInput.replace(/\D/g, '').slice(-10);
+  const isPhone = phoneDigits.length >= 10 && !rawInput.includes('@');
 
   // Instant built-in Admin account support
   if (normalizedEmail === 'admin@agrolnk.com' || normalizedEmail === 'admin') {
@@ -222,19 +225,74 @@ export async function loginUser({ email, password }) {
   }
 
   try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', normalizedEmail)
-      .maybeSingle();
+    let profile = null;
 
-    if (error) {
-      console.error('Supabase profile query error:', error);
-      throw new Error('Database connection failed. Please try again.');
+    // 1. Query Supabase by phone or email (case-insensitive)
+    if (isPhone) {
+      const { data: byPhone, error: phoneErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('phone', `%${phoneDigits}%`)
+        .maybeSingle();
+
+      if (!phoneErr && byPhone) {
+        profile = byPhone;
+      }
     }
 
     if (!profile) {
-      throw new Error("We couldn't find an account with this email. Please register or check your email address.");
+      const { data: byEmail, error: emailErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', normalizedEmail)
+        .maybeSingle();
+
+      if (!emailErr && byEmail) {
+        profile = byEmail;
+      }
+    }
+
+    // 2. Offline / local resilience fallback
+    if (!profile) {
+      try {
+        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+        if (storedRaw) {
+          const registry = JSON.parse(storedRaw);
+          if (Array.isArray(registry)) {
+            const match = registry.find((u) => {
+              const uEmail = (u.email || '').trim().toLowerCase();
+              const uPhone = (u.phone || '').replace(/\D/g, '').slice(-10);
+              return (
+                (normalizedEmail && uEmail === normalizedEmail) ||
+                (isPhone && uPhone === phoneDigits)
+              );
+            });
+
+            if (match) {
+              profile = {
+                id: match.id,
+                name: match.name,
+                email: match.email,
+                phone: match.phone,
+                role: match.role,
+                state: match.state,
+                district: match.district,
+                company_name: match.orgName || match.companyName,
+                kyc_status: match.verificationStatus || 'pending',
+                created_at: match.submittedAt || new Date().toISOString(),
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+
+    if (!profile) {
+      throw new Error(
+        isPhone
+          ? "We couldn't find an account registered with this mobile number. Please check the number or register."
+          : "We couldn't find an account with this email. Please check your spelling or register a new account."
+      );
     }
 
     const userObj = {
@@ -251,6 +309,12 @@ export async function loginUser({ email, password }) {
     };
 
     setCurrentUser(userObj);
+
+    try {
+      window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: userObj }));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+
     return userObj;
   } catch (err) {
     console.error('Login failed:', err);

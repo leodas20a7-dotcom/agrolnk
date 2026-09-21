@@ -55,7 +55,7 @@ export default function Login({ onNavigate, navState }) {
     setSignInError('');
 
     if (!signInEmail.trim()) {
-      setSignInError('Please enter your email address.');
+      setSignInError('Please enter your email address or 10-digit mobile number.');
       return;
     }
 
@@ -65,7 +65,7 @@ export default function Login({ onNavigate, navState }) {
       const user = await loginUser({ email: signInEmail, password: signInPassword });
       onNavigate(`${user.role}-dashboard`, { user });
     } catch (err) {
-      setSignInError(err.message || "We couldn't sign you in. Please check your email and try again.");
+      setSignInError(err.message || "We couldn't sign you in. Please check your credentials and try again.");
       setIsSigningIn(false);
     }
   };
@@ -222,15 +222,15 @@ export default function Login({ onNavigate, navState }) {
                 <form onSubmit={handleSignInSubmit} className="space-y-3.5">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-[#14211D] block">
-                      Email Address
+                      Email or Mobile Number
                     </label>
                     <div className="relative">
                       <Mail className="w-4 h-4 text-[#566861] absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
-                        type="email"
+                        type="text"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        placeholder="e.g. yourname@example.com"
+                        placeholder="e.g. user@example.com or 9876543210"
                         className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         required
                       />
