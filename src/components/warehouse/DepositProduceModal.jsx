@@ -53,12 +53,12 @@ export default function DepositProduceModal({
     ? currentWarehouse.chambers
     : ['Chamber A1 - General Storage (Ambient)'];
 
-  const [commodity, setCommodity] = useState('Apple');
-  const [variety, setVariety] = useState('Royal');
+  const [commodity, setCommodity] = useState('');
+  const [variety, setVariety] = useState('');
   const [grade, setGrade] = useState('Grade A');
-  const [quantity, setQuantity] = useState('2000');
+  const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('kg');
-  const [priceEstimate, setPriceEstimate] = useState('65');
+  const [priceEstimate, setPriceEstimate] = useState('');
   const [chamber, setChamber] = useState(
     availableChambers[0] || 'Chamber A1'
   );
@@ -74,19 +74,6 @@ export default function DepositProduceModal({
 
   const handleCommodityChange = (val) => {
     setCommodity(val);
-    if (val.toLowerCase().includes('tomato')) {
-      setVariety('Hybrid Shivam');
-      setPriceEstimate('32');
-    } else if (val.toLowerCase().includes('potato')) {
-      setVariety('Jyoti / Pukhraj');
-      setPriceEstimate('22');
-    } else if (val.toLowerCase().includes('onion')) {
-      setVariety('Nasik Red');
-      setPriceEstimate('28');
-    } else if (val.toLowerCase().includes('apple')) {
-      setVariety('Royal');
-      setPriceEstimate('65');
-    }
   };
 
   const estimatedTotalValue = Number(quantity || 0) * Number(priceEstimate || 0);

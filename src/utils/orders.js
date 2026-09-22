@@ -38,6 +38,8 @@ function mapOrderFromDb(row) {
     deliveryLocation: deliveryLocation,
     farmerId: row.farmer_id,
     farmerName: row.farmer_name,
+    farmerPhone: row.farmer_phone || row.farmerPhone || row.meta?.farmer_phone || row.meta?.farmerPhone || null,
+    farmerEmail: row.farmer_email || row.farmerEmail || row.meta?.farmer_email || row.meta?.farmerEmail || null,
     commodity: row.commodity,
     variety: row.variety,
     grade: row.grade,
@@ -249,9 +251,9 @@ export async function getBuyerOrders(buyerId, currentUser) {
       const bEmail = (o.buyerEmail || '').toLowerCase().trim();
       const bId = String(o.buyerId || '').trim();
 
-      const matchId = uid && (bId === uid || bId.toLowerCase() === uid.toLowerCase());
-      const matchEmail = userEmail && (bId === userEmail || bEmail === userEmail || bEmail.includes(userEmail) || userEmail.includes(bEmail));
-      const matchName = userName && (bName === userName || bName.includes(userName) || userName.includes(bName));
+      const matchId = Boolean(uid && bId && (bId.toLowerCase() === uid.toLowerCase()));
+      const matchEmail = Boolean(userEmail && bEmail && (bEmail === userEmail || bId.toLowerCase() === userEmail));
+      const matchName = Boolean(userName && bName && !['buyer', 'verified buyer', 'user'].includes(bName) && bName === userName);
 
       return matchId || matchEmail || matchName;
     });
@@ -281,9 +283,9 @@ export async function getFarmerOrders(farmerId, currentUser) {
       const fEmail = (o.farmerEmail || '').toLowerCase().trim();
       const fId = String(o.farmerId || '').trim();
 
-      const matchId = uid && (fId === uid || fId.toLowerCase() === uid.toLowerCase());
-      const matchEmail = userEmail && (fId === userEmail || fEmail === userEmail || fEmail.includes(userEmail) || userEmail.includes(fEmail));
-      const matchName = userName && (fName === userName || fName.includes(userName) || userName.includes(fName));
+      const matchId = Boolean(uid && fId && (fId.toLowerCase() === uid.toLowerCase()));
+      const matchEmail = Boolean(userEmail && fEmail && (fEmail === userEmail || fId.toLowerCase() === userEmail));
+      const matchName = Boolean(userName && fName && !['farmer', 'verified producer', 'producer', 'user'].includes(fName) && fName === userName);
 
       return matchId || matchEmail || matchName;
     });

@@ -528,6 +528,25 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             /* DELIVERIES TABS CONTENT */
             filteredDeliveries.length > 0 ? (
               <div className="space-y-6">
+                {!isVerified && activeTab === 'available' && (
+                  <div className="p-4 rounded-2xl bg-[#FEF3C7]/60 border border-[#FDE68A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[#92400E]">
+                    <div className="flex items-center gap-2.5">
+                      <AlertCircle className="w-5 h-5 text-[#D97706] shrink-0" />
+                      <span>
+                        <strong>Transporter Verification In Progress:</strong> Your commercial driver license and vehicle documents are under review. You can preview available route requests below; quoting and accepting trips will unlock once verified.
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="accent"
+                      onClick={handleOpenKycAction}
+                      className="shrink-0 text-xs font-bold py-1.5 px-3 bg-[#D97706] hover:bg-[#B45309] text-white"
+                    >
+                      View Verification
+                    </Button>
+                  </div>
+                )}
+
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {paginatedDeliveries.map((item) => (
@@ -535,6 +554,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                         key={item.id}
                         delivery={item}
                         viewerRole="transporter"
+                        isVerified={isVerified}
                         onView={(d) => setSelectedDelivery(d)}
                         onAccept={(d) => handleStartQuote(d)}
                       />
@@ -547,6 +567,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                         key={item.id}
                         delivery={item}
                         viewerRole="transporter"
+                        isVerified={isVerified}
                         onView={(d) => setSelectedDelivery(d)}
                         onAccept={(d) => handleStartQuote(d)}
                       />

@@ -7,6 +7,7 @@ import DeliveryStatusBadge from './DeliveryStatusBadge';
 export default function DeliveryRow({
   delivery,
   viewerRole = 'farmer',
+  isVerified = true,
   onView,
   onAccept,
   onAcceptPrice,
@@ -28,9 +29,9 @@ export default function DeliveryRow({
     : delivery.deliveryLocation || 'Destination Hub';
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-left">
-      {/* Left: Manifest ID & Commodity (flex-1 min-w-0 prevents text overflow displacement) */}
-      <div className="flex items-center gap-3.5 flex-1 min-w-0 pr-0 lg:pr-4">
+    <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col xl:flex-row xl:items-center justify-between gap-4 text-left">
+      {/* Left: Manifest ID & Commodity */}
+      <div className="flex items-center gap-3.5 flex-1 min-w-[200px]">
         <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center shrink-0 shadow-2xs">
           <Truck className="w-5 h-5 text-[#10B981]" />
         </div>
@@ -62,8 +63,8 @@ export default function DeliveryRow({
         </div>
       </div>
 
-      {/* Middle: Route & Freight Quote (Evenly locked width across all rows) */}
-      <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 grid grid-cols-2 gap-3 sm:gap-4 py-2.5 lg:py-0 border-y lg:border-y-0 lg:border-x border-[#E5EDE8] lg:px-5">
+      {/* Middle: Route & Freight Quote */}
+      <div className="w-full xl:w-[260px] shrink-0 grid grid-cols-2 gap-3 sm:gap-4 py-2.5 xl:py-0 border-y xl:border-y-0 xl:border-x border-[#E5EDE8] xl:px-4">
         <div className="min-w-0">
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Route</span>
           <span 
@@ -82,8 +83,8 @@ export default function DeliveryRow({
         </div>
       </div>
 
-      {/* Right: Status & Actions (Consistently anchored) */}
-      <div className="w-full lg:w-[270px] xl:w-[290px] flex items-center justify-between lg:justify-end gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+      {/* Right: Status & Actions */}
+      <div className="flex items-center justify-between xl:justify-end gap-2.5 shrink-0 flex-wrap">
         <div className="shrink-0">
           <DeliveryStatusBadge status={delivery.status} size="sm" />
         </div>
@@ -101,14 +102,16 @@ export default function DeliveryRow({
 
         {isTransporter && isAvailableJob && onAccept && (
           <Button
-            variant="accent"
+            variant={isVerified ? 'accent' : 'outline'}
             size="sm"
             onClick={() => onAccept(delivery)}
-            icon={Truck}
+            icon={isVerified ? Truck : ShieldCheck}
             iconPosition="left"
-            className="text-xs font-bold py-1.5 px-3 shadow-xs cursor-pointer whitespace-nowrap"
+            className={`text-xs font-bold py-1.5 px-3 shadow-xs cursor-pointer whitespace-nowrap ${
+              !isVerified ? 'border-[#D97706] text-[#D97706] hover:bg-[#FEF3C7]' : ''
+            }`}
           >
-            Quote & Accept
+            {isVerified ? 'Quote & Accept' : 'Verify to Quote'}
           </Button>
         )}
 

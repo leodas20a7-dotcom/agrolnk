@@ -23,11 +23,13 @@ export default function BuyerInspectionModal({
   order,
   initialInspection = null,
   buyerUser,
+  currentUser,
   isOpen = true,
   onClose,
   onSuccess,
   onProceedToBuy,
 }) {
+  const activeBuyer = buyerUser || currentUser;
   const [inspection, setInspection] = useState(initialInspection);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,37 +52,10 @@ export default function BuyerInspectionModal({
         return;
       }
       getInspectionForOrder(orderKey).then((insp) => {
-        if (insp) {
-          setInspection(insp);
-        } else if (order?.grade) {
-          // Pre-populate certified assay details from verified listing
-          const fallbackInsp = {
-            id: `insp_precert_${order.id || Date.now()}`,
-            reportNumber: `ASSAY-LOT-${String(order.id || 'LOT01').slice(-6).toUpperCase()}`,
-            orderId: orderKey,
-            orderNumber: orderKey,
-            buyerId: buyerUser?.id || '',
-            buyerName: buyerUser?.name || 'Procurement Buyer',
-            sellerName: order.farmerName || 'Verified Producer',
-            commodity: order.commodity,
-            cropName: order.commodity,
-            grade: order.grade || 'A',
-            orderedGrade: order.grade || 'A',
-            moisture: 11.2,
-            foreignMatter: 0.4,
-            status: 'passed',
-            inspectionFee: 500,
-            feeStatus: 'paid',
-            feePaymentId: 'pay_razorpay_pre_assayed',
-            inspectorName: 'Aravind (Certified AgroLnk Assayer)',
-            inspectorNotes: `Physical quality and NABL assay certified. Moisture at 11.2%, uniform premium grain quality, 100% compliant with e-NAM Grade ${order.grade || 'A'} standard.`,
-            createdAt: order.createdAt || new Date().toISOString(),
-          };
-          setInspection(fallbackInsp);
-        }
+        setInspection(insp || null);
       });
     }
-  }, [isOpen, orderKey, order, initialInspection, buyerUser]);
+  }, [isOpen, orderKey, order, initialInspection, activeBuyer]);
 
   if (!isOpen || !order) return null;
 
@@ -91,8 +66,8 @@ export default function BuyerInspectionModal({
       const created = await requestQualityInspection({
         orderId: orderKey,
         orderNumber: orderKey,
-        buyerId: buyerUser?.id || order.buyerId || '',
-        buyerName: buyerUser?.name || order.buyerName || 'Procurement Buyer',
+        buyerId: activeBuyer?.id || order.buyerId || '',
+        buyerName: activeBuyer?.name || order.buyerName || 'Procurement Buyer',
         sellerName: order.farmerName || 'Verified Producer',
         commodity: order.commodity,
         grade: order.grade || 'A',

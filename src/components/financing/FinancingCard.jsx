@@ -10,13 +10,13 @@ export default function FinancingCard({
   viewerRole = 'farmer', // 'farmer' | 'buyer' | 'financier'
   onView,
 }) {
-  const isApproved = request.status === 'approved';
+  const isApproved = request.status === 'approved' || request.status === 'disbursed';
   const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
   const isValidDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime());
 
   const isBuyer = viewerRole === 'buyer';
   const isSettled = request.status === 'repaid' || request.status === 'settled' || request.status === 'closed';
-  const isMarginSettled = Boolean(request.marginPaid || request.escrowFunded || request.status === 'disbursed');
+  const isMarginSettled = Boolean(request.marginPaid || isSettled);
   const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
   const needsMarginPayment = isBuyer && isApproved && !isMarginSettled && !isSettled;
 

@@ -158,9 +158,9 @@ export default function PrivacyChatDrawer({
     try {
       let userOrders = [];
       if (user.role === 'farmer') {
-        userOrders = await getFarmerOrders(user.id);
+        userOrders = await getFarmerOrders(user.id, user);
       } else if (user.role === 'buyer') {
-        userOrders = await getBuyerOrders(user.id);
+        userOrders = await getBuyerOrders(user.id, user);
       } else if (user.role === 'admin') {
         // Admin: Load all registered contacts / counterparties as dedicated direct channels
         const allPlatformContacts = getPlatformContacts(user).filter((c) => c.id !== 'contact_support');

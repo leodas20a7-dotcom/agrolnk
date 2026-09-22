@@ -43,8 +43,8 @@ export default function FinancingReviewModal({
     const loadFresh = async () => {
       const orderNum = request?.orderNumber || request?.orderId;
       const reqId = request?.id || request?.requestNumber;
-      if (orderNum || reqId) {
-        const fresh = await getFinancingRequestForOrder(orderNum, reqId);
+      if (reqId || orderNum) {
+        const fresh = await getFinancingRequestForOrder(reqId || orderNum, reqId, viewerRole);
         if (isMounted && fresh) {
           setActiveRequest(fresh);
           setApprovedAmount(fresh.approvedAmount || fresh.requestedAmount || 0);
@@ -63,7 +63,7 @@ export default function FinancingReviewModal({
         detail &&
         (detail.id === targetReq.id ||
           detail.requestNumber === targetReq.requestNumber ||
-          detail.orderNumber === targetReq.orderNumber)
+          (detail.orderNumber === targetReq.orderNumber && (!detail.applicantRole || detail.applicantRole === targetReq.applicantRole)))
       ) {
         setActiveRequest(detail);
         setApprovedAmount(detail.approvedAmount || detail.requestedAmount || 0);
@@ -89,6 +89,8 @@ export default function FinancingReviewModal({
 
   const isFinancier = viewerRole === 'financier';
   const isBuyer = viewerRole === 'buyer';
+  const isFarmer = viewerRole === 'farmer';
+  const isFarmerApplicant = curr.applicantRole === 'farmer';
   const isSettled = curr.status === 'repaid' || curr.status === 'settled' || curr.status === 'closed';
   const isRejected = curr.status === 'rejected' || curr.status === 'cancelled';
   const isApproved = curr.status === 'approved' || curr.status === 'disbursed' || curr.status === 'escrow_secured';
@@ -97,7 +99,7 @@ export default function FinancingReviewModal({
   const totalTxValue = Number(curr.transactionValue || 0);
   const effectiveApproved = Number(curr.approvedAmount || curr.requestedAmount || approvedAmount || 0);
   const marginDeposit = Math.max(0, totalTxValue - effectiveApproved);
-  const isMarginSettled = Boolean(curr.marginPaid || marginPaidSuccess || curr.status === 'disbursed' || isSettled);
+  const isMarginSettled = Boolean(curr.marginPaid || marginPaidSuccess || isSettled);
 
   const handlePayMargin = async () => {
     setIsPayingMargin(true);
@@ -112,7 +114,7 @@ export default function FinancingReviewModal({
           const targetKey = curr.id || curr.requestNumber || curr.orderNumber;
           const updatedPayload = {
             ...curr,
-            status: 'approved',
+            status: curr.status === 'disbursed' ? 'disbursed' : 'approved',
             marginPaid: true,
             escrowFunded: true,
             marginPaidAt: new Date().toISOString(),
@@ -174,14 +176,18 @@ export default function FinancingReviewModal({
         <div className="px-6 py-4 bg-[#F8FAF8] border-b border-[#E5EDE8] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#0B3326] flex items-center justify-center text-[#34D399] shadow-xs">
-              <Landmark className="w-5 h-5 text-[#34D399]" />
+              {isFarmer ? <ShieldCheck className="w-5 h-5 text-[#34D399]" /> : <Landmark className="w-5 h-5 text-[#34D399]" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-bold text-[#0B3326]">
-                  Trade Credit {curr.requestNumber || ''}
+                  {isFarmer ? 'Escrow Payout Guarantee' : `Trade Credit ${curr.requestNumber || ''}`}
                 </h3>
-                <FinancingStatusBadge status={curr.status} />
+                {isFarmer ? (
+                  <Badge variant="emerald" size="sm">Escrow Protected ✓</Badge>
+                ) : (
+                  <FinancingStatusBadge status={curr.status} />
+                )}
               </div>
               <span className="text-xs text-[#566861]">
                 {curr.orderNumber ? `Order ${curr.orderNumber}` : (curr.orderId ? `Order #${curr.orderId}` : 'Escrow Collateral')}
@@ -266,40 +272,97 @@ export default function FinancingReviewModal({
           {!isFinancier && isPending && (
             <div className="p-6 rounded-2xl bg-[#FEF3C7]/40 border border-[#FDE68A] text-center space-y-2">
               <Clock className="w-6 h-6 text-[#D97706] mx-auto animate-pulse" />
-              <h4 className="text-sm font-bold text-[#0B3326]">Credit Application Under Review</h4>
+              <h4 className="text-sm font-bold text-[#0B3326]">
+                {isFarmer ? 'Buyer Trade Credit Under Review' : 'Credit Application Under Review'}
+              </h4>
               <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                Institutional lenders are evaluating your request. You will be able to pay the remaining 20% balance once approved.
+                {isFarmer
+                  ? 'The buyer has requested trade credit to fund this purchase. Once approved and escrow-secured, order dispatch will be unlocked.'
+                  : 'Institutional lenders are evaluating your request. You will be able to complete the 20% margin once approved.'}
               </p>
             </div>
           )}
 
           {/* 4. When APPROVED / DISBURSED (and not yet settled) */}
-          {isApproved && !isSettled && (
-            <div className="p-4 rounded-2xl bg-white border border-[#E5EDE8] space-y-3">
-              <div className="text-xs font-bold text-[#566861] uppercase tracking-wider">
-                Payment Breakdown
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAF8]">
-                  <span className="text-[#566861] font-medium">NBFC Loan (80%)</span>
-                  <span className="font-bold text-[#10B981]">₹{effectiveApproved.toLocaleString('en-IN')} (Approved ✓)</span>
+          {isFarmer ? (
+            /* Farmer View: 100% Escrow Protection & Producer Payout Guarantee (No buyer loan splits) */
+            <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] space-y-4">
+              <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/40 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#10B981]/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
                 </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/30">
-                  <span className="text-[#0B3326] font-bold">Your Balance Due (20%)</span>
-                  <span className="font-extrabold text-sm text-[#0B3326]">₹{marginDeposit.toLocaleString('en-IN')}</span>
+                <div className="space-y-1 text-xs text-left">
+                  <h4 className="font-bold text-[#0B3326] text-sm">100% Escrow Payment Guarantee</h4>
+                  <p className="text-[#566861] leading-relaxed">
+                    AgroLnk holds the entire payment securely in Escrow. As the producer, you do not pay any margins, interest, or fees. You receive 100% of your earnings upon delivery confirmation.
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 text-[11px] text-[#566861] pt-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-                <span>30-day net settlement. Both funds stay in Escrow until delivery.</span>
+              <div className="p-4 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861] font-medium">Order Total Value:</span>
+                  <span className="font-bold text-sm text-[#14211D]">₹{totalTxValue.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861] font-medium">AgroLnk Escrow Status:</span>
+                  <span className="font-bold text-xs text-[#10B981] flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+                    100% Escrow Secured ✓
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861] font-medium">Platform Deductions:</span>
+                  <span className="font-bold text-[#10B981]">₹0 (Zero for Producer)</span>
+                </div>
+                <div className="flex items-center justify-between pt-2.5 border-t border-[#E5EDE8]">
+                  <span className="text-sm font-extrabold text-[#0B3326]">Your Direct Bank Payout:</span>
+                  <span className="text-base font-extrabold text-[#10B981]">
+                    ₹{totalTxValue.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-[#566861] flex items-center gap-1.5 px-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Payout will be credited automatically to your registered bank account once the buyer verifies delivery.</span>
               </div>
             </div>
+          ) : (
+            /* Buyer / Financier View: Full Underwriting & Margin Breakdown */
+            isApproved && !isSettled && (
+              <div className="p-4 rounded-2xl bg-white border border-[#E5EDE8] space-y-3">
+                <div className="text-xs font-bold text-[#566861] uppercase tracking-wider">
+                  Payment Breakdown
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAF8]">
+                    <span className="text-[#566861] font-medium">NBFC Loan (80%)</span>
+                    <span className="font-bold text-[#10B981]">
+                      ₹{effectiveApproved.toLocaleString('en-IN')} ({curr.status === 'disbursed' ? 'Disbursed to Escrow ✓' : 'Approved ✓'})
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/30">
+                    <span className="text-[#0B3326] font-bold">
+                      {isFinancier ? 'Buyer Margin (20%)' : 'Your Balance Due (20%)'}
+                    </span>
+                    <span className="font-extrabold text-sm text-[#0B3326]">
+                      ₹{marginDeposit.toLocaleString('en-IN')} {isMarginSettled ? '(Paid ✓)' : '(Due Now)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11px] text-[#566861] pt-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                  <span>30-day net settlement. Both funds stay in Escrow until delivery.</span>
+                </div>
+              </div>
+            )
           )}
 
-          {/* Buyer Action Button (Only when approved and active) */}
+          {/* Buyer Action Button (Only when approved/disbursed and active) */}
           {isBuyer && isApproved && !isSettled && (
             <div>
               {!isMarginSettled ? (
@@ -310,9 +373,9 @@ export default function FinancingReviewModal({
                   onClick={handlePayMargin}
                   icon={CreditCard}
                   iconPosition="left"
-                  className="w-full justify-center font-bold text-sm py-3 shadow-md cursor-pointer text-[#0B3326] bg-[#34D399] hover:bg-[#10B981]"
+                  className="w-full justify-center font-bold text-sm py-3.5 shadow-md cursor-pointer text-[#0B3326] bg-[#34D399] hover:bg-[#10B981]"
                 >
-                  {isPayingMargin ? 'Opening Razorpay Gateway...' : `Pay ₹${marginDeposit.toLocaleString('en-IN')} & Place Order`}
+                  {isPayingMargin ? 'Opening Razorpay Gateway...' : `Pay ₹${marginDeposit.toLocaleString('en-IN')} Margin & Place Order`}
                 </Button>
               ) : (
                 <div className="p-3.5 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex items-center justify-center gap-2 text-xs font-bold text-[#0B3326]">

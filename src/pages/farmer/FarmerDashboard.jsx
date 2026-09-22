@@ -38,10 +38,12 @@ import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
 import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
-import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
+  const user = (currentUser && (currentUser.id || currentUser.email))
+    ? currentUser
+    : (getCurrentUser() || { name: 'Farmer', id: '', role: 'farmer' });
   const [listings, setListings] = useState([]);
   const [orders, setOrders] = useState([]);
   const [auctions, setAuctions] = useState([]);

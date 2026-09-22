@@ -32,10 +32,12 @@ import { getBuyerFinancingRequests } from '../../utils/financing';
 import { getBuyerDeliveries } from '../../utils/deliveries';
 import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
-import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 
 export default function BuyerDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
+  const user = (currentUser && (currentUser.id || currentUser.email))
+    ? currentUser
+    : (getCurrentUser() || { name: 'Buyer', id: '', role: 'buyer' });
   const [listings, setListings] = useState([]);
   const [liveAuctions, setLiveAuctions] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -114,8 +116,8 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
         const [activeLots, auctions, orderData, financingData, deliveryData] = await Promise.all([
           getActiveMarketplaceListings(),
           getLiveAuctions(),
-          getBuyerOrders(user.id),
-          getBuyerFinancingRequests(user.id),
+          getBuyerOrders(user.id, user),
+          getBuyerFinancingRequests(user.id, user),
           getBuyerDeliveries(user.id),
         ]);
 

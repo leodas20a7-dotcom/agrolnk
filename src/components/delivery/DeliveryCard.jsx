@@ -22,6 +22,7 @@ import {
 export default function DeliveryCard({
   delivery,
   viewerRole = 'farmer', // 'farmer' | 'buyer' | 'transporter'
+  isVerified = true,
   onView,
   onAccept,
   onAcceptPrice,
@@ -253,14 +254,16 @@ export default function DeliveryCard({
           {/* Transporter Action */}
           {isTransporter && isAvailableJob && onAccept && (
             <Button
-              variant="accent"
+              variant={isVerified ? 'accent' : 'outline'}
               size="sm"
               onClick={() => onAccept(delivery)}
-              icon={Truck}
+              icon={isVerified ? Truck : ShieldCheck}
               iconPosition="left"
-              className="text-xs font-bold py-2 shadow-xs cursor-pointer"
+              className={`text-xs font-bold py-2 shadow-xs cursor-pointer ${
+                !isVerified ? 'border-[#D97706] text-[#D97706] hover:bg-[#FEF3C7]' : ''
+              }`}
             >
-              Quote & Accept
+              {isVerified ? 'Quote & Accept' : 'Verify to Quote'}
             </Button>
           )}
 

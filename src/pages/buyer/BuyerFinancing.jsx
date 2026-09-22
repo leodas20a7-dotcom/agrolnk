@@ -27,12 +27,15 @@ import {
 } from 'lucide-react';
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
+import { getCurrentUser } from '../../utils/auth';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 import { supabase } from '../../lib/supabase';
 
 export default function BuyerFinancing({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
+  const user = (currentUser && (currentUser.id || currentUser.email))
+    ? currentUser
+    : (getCurrentUser() || { name: 'Buyer', id: '', role: 'buyer' });
 
   const [orders, setOrders] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);
@@ -45,7 +48,7 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
         showGlobalLoader('Loading Trade Credit...', 'Fetching approved loans & repayment status...');
       }
       const [orderData, requestData] = await Promise.all([
-        getBuyerOrders(user.id),
+        getBuyerOrders(user.id, user),
         getBuyerFinancingRequests(user.id, user),
       ]);
       setOrders(orderData || []);

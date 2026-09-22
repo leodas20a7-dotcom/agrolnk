@@ -38,16 +38,19 @@ import {
   isFinancierMatch
 } from '../../utils/financing';
 import { getTimeGreeting } from '../../utils/greeting';
-import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
 export default function FinancierDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || {
-    name: 'Financial Institution',
-    role: 'financier',
-    id: '',
-    email: '',
-  };
+  const activeCachedUser = getCurrentUser();
+  const user = (currentUser?.id || currentUser?.email)
+    ? currentUser
+    : (activeCachedUser || {
+        name: 'Financial Institution',
+        role: 'financier',
+        id: '',
+        email: '',
+      });
 
   const [requests, setRequests] = useState([]);
   const [stats, setStats] = useState(null);
@@ -107,16 +110,17 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
   const loadData = async () => {
     try {
-      const fid = user.id || user.email || 'default';
+      const activeUser = (user?.id || user?.email) ? user : (getCurrentUser() || user);
+      const fid = activeUser.id || activeUser.email || 'default';
       const [all, computedStats, allDisb, currentPool] = await Promise.all([
         getFinancingRequests(),
-        getFinancingStats(user),
-        getDisbursements(user),
-        loadFinancierLiquidityPool(user),
+        getFinancingStats(activeUser),
+        getDisbursements(activeUser),
+        loadFinancierLiquidityPool(activeUser),
       ]);
       setRequests(Array.isArray(all) ? all : []);
       setStats(computedStats);
-      setPool(currentPool || getLiquidityPool(fid));
+      setPool(currentPool || getLiquidityPool(activeUser));
       setDisbursements(Array.isArray(allDisb) ? allDisb : []);
     } catch (err) {
       console.error('Error loading financier data:', err);
@@ -138,21 +142,18 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
     const unsubscribeCrossTab = subscribeToCrossTabSync((msg) => {
       if (msg.domain === 'financing' || msg.domain === 'orders') {
-        handleUpdated(msg);
+        loadData();
       }
     });
 
     window.addEventListener('agrolnk_financing_updated', handleUpdated);
-    window.addEventListener('agrolnk_orders_updated', handleUpdated);
-    window.addEventListener('agrolnk_liquidity_updated', handleUpdated);
-    window.addEventListener('storage', handleUpdated);
-
+    window.addEventListener('agrolnk_liquidity_updated', loadData);
+    window.addEventListener('storage', loadData);
     return () => {
-      unsubscribeCrossTab();
       window.removeEventListener('agrolnk_financing_updated', handleUpdated);
-      window.removeEventListener('agrolnk_orders_updated', handleUpdated);
-      window.removeEventListener('agrolnk_liquidity_updated', handleUpdated);
-      window.removeEventListener('storage', handleUpdated);
+      window.removeEventListener('agrolnk_liquidity_updated', loadData);
+      window.removeEventListener('storage', loadData);
+      unsubscribeCrossTab();
     };
   }, [user.id, user.email]);
 
@@ -160,7 +161,10 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   
   // Only display pending loan requests from KYC-verified borrowers to financial institutions
   const pendingRequests = safeRequests.filter(
-    (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
+    (r) =>
+      (r.status === 'pending' || r.status === 'under_review') &&
+      r.applicantKycStatus === 'verified' &&
+      (!r.financierId || isFinancierMatch(r, user))
   );
 
   // Active, accepted, and repaid loans scoped strictly to this specific financial institution
@@ -190,7 +194,9 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
     : repaidLoans.reduce((sum, r) => sum + (Number(r.repaymentInterest) || 0), 0);
 
   const availablePool = Math.max(0, totalPool - totalDeployed + recoveredPrincipal);
-  const liquidPct = totalPool > 0 ? ((availablePool / totalPool) * 100).toFixed(1) : '0.0';
+  const liquidPct = totalPool > 0
+    ? Math.min(100, (availablePool / totalPool) * 100).toFixed(1)
+    : (availablePool > 0 ? '100.0' : '0.0');
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>

@@ -1,6 +1,7 @@
 // Agrolnk Supabase Trade Financing Engine
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange } from './syncChannel';
+import { getCurrentUser } from './auth';
 
 function mapFinancingFromDb(row) {
   if (!row) return null;
@@ -259,13 +260,16 @@ export async function getFinancingRequests() {
       localMap.set(rawReq, l);
       localMap.set(`#${rawReq}`, l);
     }
-    if (l.orderNumber) {
+    // Key by orderNumber + applicantRole so farmer and buyer requests on the same order never collide
+    if (l.orderNumber && l.applicantRole) {
       const rawOrd = l.orderNumber.replace(/^#/, '');
-      localMap.set(l.orderNumber, l);
-      localMap.set(rawOrd, l);
-      localMap.set(`#${rawOrd}`, l);
+      localMap.set(`${l.orderNumber}_${l.applicantRole}`, l);
+      localMap.set(`${rawOrd}_${l.applicantRole}`, l);
+      localMap.set(`#${rawOrd}_${l.applicantRole}`, l);
     }
-    if (l.orderId) localMap.set(l.orderId, l);
+    if (l.orderId && l.applicantRole) {
+      localMap.set(`${l.orderId}_${l.applicantRole}`, l);
+    }
   });
 
   const mergedRemote = remote.map((r) => {
@@ -273,43 +277,48 @@ export async function getFinancingRequests() {
     const rawOrd = r.orderNumber ? r.orderNumber.replace(/^#/, '') : '';
     const localMatch =
       (r.id && localMap.get(r.id)) ||
-      (r.requestNumber && localMap.get(r.requestNumber)) ||
-      (rawReq && (localMap.get(rawReq) || localMap.get(`#${rawReq}`))) ||
-      (r.orderNumber && localMap.get(r.orderNumber)) ||
-      (rawOrd && (localMap.get(rawOrd) || localMap.get(`#${rawOrd}`))) ||
-      (r.orderId && localMap.get(r.orderId));
+      (r.requestNumber && (localMap.get(r.requestNumber) || localMap.get(rawReq) || localMap.get(`#${rawReq}`))) ||
+      (r.orderNumber && r.applicantRole && (localMap.get(`${r.orderNumber}_${r.applicantRole}`) || localMap.get(`${rawOrd}_${r.applicantRole}`) || localMap.get(`#${rawOrd}_${r.applicantRole}`))) ||
+      (r.orderId && r.applicantRole && localMap.get(`${r.orderId}_${r.applicantRole}`));
 
     if (localMatch) {
-      const appId = String(r.applicantId || localMatch.applicantId || '').toLowerCase();
-      const appName = String(r.applicantName || localMatch.applicantName || '').toLowerCase();
+      const appId = String(r.applicantId || '').toLowerCase();
+      const appName = String(r.applicantName || '').toLowerCase();
       const resolvedKyc = r.applicantKycStatus || localMatch.applicantKycStatus || kycMap.get(appId) || kycMap.get(appName) || 'pending';
       const resolvedStatus = resolveFinancingStatus(r.status, localMatch.status);
 
       return {
-        ...r,
         ...localMatch,
+        ...r, // Remote server data is authoritative for applicant identity, role, and amounts
         id: r.id || localMatch.id,
         requestNumber: r.requestNumber || localMatch.requestNumber,
+        applicantId: r.applicantId,
+        applicantName: r.applicantName,
+        applicantRole: r.applicantRole,
+        purpose: r.purpose,
+        purposeLabel: r.purposeLabel,
+        transactionValue: Number(r.transactionValue || localMatch.transactionValue || 0),
+        requestedAmount: Number(r.requestedAmount || localMatch.requestedAmount || 0),
         orderId: r.orderId || localMatch.orderId,
         orderNumber: r.orderNumber || localMatch.orderNumber,
         status: resolvedStatus,
-        financierId: localMatch.financierId || r.financierId || null,
-        financierName: localMatch.financierName || r.financierName || null,
-        financierEmail: localMatch.financierEmail || r.financierEmail || null,
+        financierId: r.financierId || localMatch.financierId || null,
+        financierName: r.financierName || localMatch.financierName || null,
+        financierEmail: r.financierEmail || localMatch.financierEmail || null,
         applicantKycStatus: resolvedKyc,
-        approvedAmount: Number(localMatch.approvedAmount || r.approvedAmount || r.requestedAmount || 0),
-        offeredAmount: Number(localMatch.offeredAmount || r.offeredAmount || localMatch.approvedAmount || r.approvedAmount || r.requestedAmount || 0),
-        interestRate: localMatch.interestRate !== undefined ? Number(localMatch.interestRate) : Number(r.interestRate || 0.85),
-        tenorDays: localMatch.tenorDays !== undefined ? Number(localMatch.tenorDays) : Number(r.tenorDays || 30),
-        offerNotes: localMatch.offerNotes || r.offerNotes || null,
-        offeredAt: localMatch.offeredAt || r.offeredAt || null,
-        borrowerAcceptedAt: localMatch.borrowerAcceptedAt || r.borrowerAcceptedAt || null,
-        disbursedAt: localMatch.disbursedAt || r.disbursedAt || null,
-        bankUtr: localMatch.bankUtr || r.bankUtr || null,
+        approvedAmount: Number(r.approvedAmount || localMatch.approvedAmount || r.requestedAmount || 0),
+        offeredAmount: Number(r.offeredAmount || localMatch.offeredAmount || r.approvedAmount || r.requestedAmount || 0),
+        interestRate: r.interestRate !== undefined ? Number(r.interestRate) : (localMatch.interestRate !== undefined ? Number(localMatch.interestRate) : 0.85),
+        tenorDays: r.tenorDays !== undefined ? Number(r.tenorDays) : (localMatch.tenorDays !== undefined ? Number(localMatch.tenorDays) : 30),
+        offerNotes: r.offerNotes || localMatch.offerNotes || null,
+        offeredAt: r.offeredAt || localMatch.offeredAt || null,
+        borrowerAcceptedAt: r.borrowerAcceptedAt || localMatch.borrowerAcceptedAt || null,
+        disbursedAt: r.disbursedAt || localMatch.disbursedAt || null,
+        bankUtr: r.bankUtr || localMatch.bankUtr || null,
         marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
         escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
         paymentId: r.paymentId || localMatch.paymentId || null,
-        updatedAt: localMatch.updatedAt || r.updatedAt,
+        updatedAt: r.updatedAt || localMatch.updatedAt,
       };
     }
 
@@ -353,9 +362,9 @@ export async function getFarmerFinancingRequests(farmerId, currentUser) {
       const appName = (r.applicantName || '').toLowerCase().trim();
       const appEmail = (r.applicantEmail || '').toLowerCase().trim();
 
-      const idMatch = uid && (appId === uid || appId.toLowerCase() === uid.toLowerCase());
-      const emailMatch = userEmail && (appId === userEmail || appId.includes(userEmail) || appEmail === userEmail || appEmail.includes(userEmail));
-      const nameMatch = userName && (appName === userName || appName.includes(userName) || userName.includes(appName));
+      const idMatch = Boolean(uid && appId && appId.toLowerCase() === uid.toLowerCase());
+      const emailMatch = Boolean(userEmail && appEmail && (appEmail === userEmail || appId.toLowerCase() === userEmail));
+      const nameMatch = Boolean(userName && appName && !['farmer', 'verified producer', 'producer', 'user'].includes(appName) && appName === userName);
 
       return idMatch || emailMatch || nameMatch;
     });
@@ -381,10 +390,11 @@ export async function getBuyerFinancingRequests(buyerId, currentUser) {
       if (r.applicantRole !== 'buyer') return false;
       const appId = String(r.applicantId || '').trim();
       const appName = (r.applicantName || '').toLowerCase().trim();
+      const appEmail = (r.applicantEmail || '').toLowerCase().trim();
 
-      const idMatch = uid && (appId === uid || appId.toLowerCase() === uid.toLowerCase());
-      const emailMatch = userEmail && (appId === userEmail || appId.includes(userEmail) || (r.applicantEmail && r.applicantEmail.toLowerCase().includes(userEmail)));
-      const nameMatch = userName && (appName === userName || appName.includes(userName) || userName.includes(appName));
+      const idMatch = Boolean(uid && appId && appId.toLowerCase() === uid.toLowerCase());
+      const emailMatch = Boolean(userEmail && appEmail && (appEmail === userEmail || appId.toLowerCase() === userEmail));
+      const nameMatch = Boolean(userName && appName && !['buyer', 'verified buyer', 'user'].includes(appName) && appName === userName);
 
       return idMatch || emailMatch || nameMatch;
     });
@@ -1103,16 +1113,23 @@ export async function getFinancingRequestForOrder(orderNumberOrId, alternateId, 
     const target1 = clean(orderNumberOrId);
     const target2 = clean(alternateId);
 
+    // 1. If an exact request ID or requestNumber was passed, prioritize exact request match!
+    const exactMatch = all.find((r) => {
+      const rReq = clean(r.requestNumber);
+      const rId = clean(r.id);
+      return (target2 && (rReq === target2 || rId === target2)) || (target1 && (rReq === target1 || rId === target1));
+    });
+    if (exactMatch) return exactMatch;
+
+    // 2. Otherwise match by order number, filtering strictly by role if provided
     return (
       all.find((r) => {
-        const rReq = clean(r.requestNumber);
         const rOrdNum = clean(r.orderNumber);
         const rOrdId = clean(r.orderId);
-        const rId = clean(r.id);
 
         const matchOrder =
-          (target1 && (rOrdNum === target1 || rOrdId === target1 || rId === target1 || rReq === target1)) ||
-          (target2 && (rOrdNum === target2 || rOrdId === target2 || rId === target2 || rReq === target2));
+          (target1 && (rOrdNum === target1 || rOrdId === target1)) ||
+          (target2 && (rOrdNum === target2 || rOrdId === target2));
 
         if (!matchOrder) return false;
         if (roleFilter && r.applicantRole && r.applicantRole.toLowerCase() !== roleFilter.toLowerCase()) return false;
@@ -1137,6 +1154,36 @@ export async function getFinancingRequestById(id) {
   }
 }
 
+function resolveFinancierIdentifiers(financierUserOrId) {
+  let targetId = null;
+  let targetEmail = null;
+
+  if (typeof financierUserOrId === 'object' && financierUserOrId !== null) {
+    if (isUuid(financierUserOrId.id)) targetId = financierUserOrId.id;
+    if (financierUserOrId.email) targetEmail = String(financierUserOrId.email).trim().toLowerCase();
+  } else if (typeof financierUserOrId === 'string' && financierUserOrId.trim()) {
+    const trimmed = financierUserOrId.trim();
+    if (isUuid(trimmed)) {
+      targetId = trimmed;
+    } else if (trimmed.includes('@')) {
+      targetEmail = trimmed.toLowerCase();
+    }
+  }
+
+  // Fallback to active logged-in user if available
+  if (!targetId && !targetEmail) {
+    try {
+      const cached = getCurrentUser();
+      if (cached) {
+        if (isUuid(cached.id)) targetId = cached.id;
+        if (cached.email) targetEmail = String(cached.email).trim().toLowerCase();
+      }
+    } catch {}
+  }
+
+  return { targetId, targetEmail };
+}
+
 function getLiquidityPoolKey(financierId) {
   const cleanId = String(financierId || 'default').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
   return `agrolnk_financier_liquidity_pool_${cleanId}`;
@@ -1146,28 +1193,30 @@ function getLiquidityPoolKey(financierId) {
  * Sync liquidity pool state directly into Supabase PostgreSQL 'profiles' table meta JSONB
  */
 export async function syncLiquidityPoolToDb(financierUserOrId, poolData) {
-  if (!financierUserOrId || !poolData) return;
-  const targetId = typeof financierUserOrId === 'object' ? (financierUserOrId.id || null) : (financierUserOrId !== 'default' ? financierUserOrId : null);
-  const targetEmail = typeof financierUserOrId === 'object' ? (financierUserOrId.email || null) : null;
-
+  if (!poolData) return;
+  const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
   if (!targetId && !targetEmail) return;
 
   try {
-    const filter = targetId
-      ? `id.eq.${targetId}${targetEmail ? `,email.eq.${targetEmail}` : ''}`
-      : `email.eq.${targetEmail}`;
+    let query = supabase.from('profiles').select('id, meta');
+    if (targetId && targetEmail) {
+      query = query.or(`id.eq.${targetId},email.eq.${targetEmail}`);
+    } else if (targetId) {
+      query = query.eq('id', targetId);
+    } else {
+      query = query.eq('email', targetEmail);
+    }
 
-    const { data: existingProf } = await supabase
-      .from('profiles')
-      .select('id, meta')
-      .or(filter)
-      .maybeSingle();
+    const { data: existingProf } = await query.maybeSingle();
 
     if (existingProf?.id) {
       const existingMeta = (existingProf.meta && typeof existingProf.meta === 'object') ? existingProf.meta : {};
       const newMeta = {
         ...existingMeta,
-        liquidity_pool: poolData,
+        liquidity_pool: {
+          ...poolData,
+          financierId: existingProf.id,
+        },
       };
       await supabase.from('profiles').update({ meta: newMeta }).eq('id', existingProf.id);
     }
@@ -1178,31 +1227,67 @@ export async function syncLiquidityPoolToDb(financierUserOrId, poolData) {
 
 /**
  * Load latest liquidity pool for a financier, checking Supabase profiles database first
+ * Performs smart merge to never wipe active capital with stale 0 records
  */
 export async function loadFinancierLiquidityPool(financierUserOrId) {
-  const fid = typeof financierUserOrId === 'object' ? (financierUserOrId.id || financierUserOrId.email || 'default') : (financierUserOrId || 'default');
-  const local = getLiquidityPool(fid);
-
-  const targetId = typeof financierUserOrId === 'object' ? (financierUserOrId.id || null) : (fid !== 'default' ? fid : null);
-  const targetEmail = typeof financierUserOrId === 'object' ? (financierUserOrId.email || null) : null;
+  const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
+  const fid = targetId || targetEmail || 'default';
+  const local = getLiquidityPool(financierUserOrId || fid);
 
   if (targetId || targetEmail) {
     try {
-      const filter = targetId
-        ? `id.eq.${targetId}${targetEmail ? `,email.eq.${targetEmail}` : ''}`
-        : `email.eq.${targetEmail}`;
+      let query = supabase.from('profiles').select('id, email, meta');
+      if (targetId && targetEmail) {
+        query = query.or(`id.eq.${targetId},email.eq.${targetEmail}`);
+      } else if (targetId) {
+        query = query.eq('id', targetId);
+      } else {
+        query = query.eq('email', targetEmail);
+      }
 
-      const { data: existingProf } = await supabase
-        .from('profiles')
-        .select('id, meta')
-        .or(filter)
-        .maybeSingle();
+      const { data: existingProf } = await query.maybeSingle();
 
       if (existingProf?.meta?.liquidity_pool) {
         const dbPool = existingProf.meta.liquidity_pool;
-        const key = getLiquidityPoolKey(fid);
-        localStorage.setItem(key, JSON.stringify(dbPool));
-        return dbPool;
+        
+        // Smart merge: Preserve whichever record has the active committed capital
+        const dbCommitted = Number(dbPool.totalCommitted) || 0;
+        const localCommitted = Number(local?.totalCommitted) || 0;
+        const maxCommitted = Math.max(dbCommitted, localCommitted);
+
+        const dbAvailable = Number(dbPool.availableLiquidity) || 0;
+        const localAvailable = Number(local?.availableLiquidity) || 0;
+        const maxAvailable = Math.max(dbAvailable, localAvailable, maxCommitted);
+
+        const mergedPool = {
+          ...dbPool,
+          ...local,
+          totalCommitted: maxCommitted,
+          availableLiquidity: maxAvailable,
+          financierId: existingProf.id || fid,
+        };
+
+        const keysToSync = new Set([getLiquidityPoolKey(fid)]);
+        if (targetId) keysToSync.add(getLiquidityPoolKey(targetId));
+        if (targetEmail) keysToSync.add(getLiquidityPoolKey(targetEmail));
+        if (existingProf.id) keysToSync.add(getLiquidityPoolKey(existingProf.id));
+        if (existingProf.email) keysToSync.add(getLiquidityPoolKey(existingProf.email));
+
+        keysToSync.forEach((k) => {
+          try {
+            localStorage.setItem(k, JSON.stringify(mergedPool));
+          } catch {}
+        });
+
+        // If local had higher committed capital than remote DB, sync up remote DB immediately
+        if (localCommitted > dbCommitted) {
+          syncLiquidityPoolToDb(existingProf, mergedPool);
+        }
+
+        return mergedPool;
+      } else if (local && (Number(local.totalCommitted) > 0 || Number(local.availableLiquidity) > 0)) {
+        // Push local pool to DB if DB doesn't have it yet
+        syncLiquidityPoolToDb(existingProf || financierUserOrId, local);
       }
     } catch (err) {
       console.warn('loadFinancierLiquidityPool db notice:', err);
@@ -1215,46 +1300,57 @@ export async function loadFinancierLiquidityPool(financierUserOrId) {
 /**
  * Get liquidity pool details for a specific financial institution (synchronous local cache)
  */
-export function getLiquidityPool(financierId) {
-  const key = getLiquidityPoolKey(financierId);
-  try {
-    const raw = localStorage.getItem(key);
-    const poolData = raw ? JSON.parse(raw) : null;
-    const totalCommitted = Number(poolData?.totalCommitted) || 0;
-    return {
-      totalCommitted,
-      availableLiquidity: poolData?.availableLiquidity !== undefined ? Number(poolData.availableLiquidity) : totalCommitted,
-      deployedLiquidity: poolData?.deployedLiquidity !== undefined ? Number(poolData.deployedLiquidity) : 0,
-      utilizationRate: totalCommitted > 0 ? Math.round(((Number(poolData?.deployedLiquidity) || 0) / totalCommitted) * 100) : 0,
-      weightedAvgReturn: 0.95, // 0.95% per month
-      nonPerformingRate: 0.0,
-      activeTranches: poolData?.activeTranches || (totalCommitted > 0 ? 1 : 0),
-      lastAllocatedAt: poolData?.lastAllocatedAt || null,
-      lastAllocatedAmount: poolData?.lastAllocatedAmount || 0,
-      financierId: financierId || 'default',
-    };
-  } catch {
-    return {
-      totalCommitted: 0,
-      availableLiquidity: 0,
-      deployedLiquidity: 0,
-      utilizationRate: 0,
-      weightedAvgReturn: 0.95, // 0.95% per month
-      nonPerformingRate: 0.0,
-      activeTranches: 0,
-      financierId: financierId || 'default',
-    };
+export function getLiquidityPool(financierUserOrId) {
+  const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
+  const fid = targetId || targetEmail || (typeof financierUserOrId === 'string' ? financierUserOrId : 'default');
+
+  const keysToCheck = [
+    getLiquidityPoolKey(fid),
+    targetId ? getLiquidityPoolKey(targetId) : null,
+    targetEmail ? getLiquidityPoolKey(targetEmail) : null,
+    getLiquidityPoolKey('default'),
+  ].filter(Boolean);
+
+  let poolData = null;
+  for (const k of keysToCheck) {
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (Number(parsed.totalCommitted) > 0 || Number(parsed.availableLiquidity) > 0)) {
+          poolData = parsed;
+          break;
+        } else if (!poolData && parsed) {
+          poolData = parsed;
+        }
+      }
+    } catch {}
   }
+
+  const totalCommitted = Number(poolData?.totalCommitted) || 0;
+  return {
+    totalCommitted,
+    availableLiquidity: poolData?.availableLiquidity !== undefined ? Number(poolData.availableLiquidity) : totalCommitted,
+    deployedLiquidity: poolData?.deployedLiquidity !== undefined ? Number(poolData.deployedLiquidity) : 0,
+    utilizationRate: totalCommitted > 0 ? Math.round(((Number(poolData?.deployedLiquidity) || 0) / totalCommitted) * 100) : 0,
+    weightedAvgReturn: 0.95, // 0.95% per month
+    nonPerformingRate: 0.0,
+    activeTranches: poolData?.activeTranches || (totalCommitted > 0 ? 1 : 0),
+    lastAllocatedAt: poolData?.lastAllocatedAt || null,
+    lastAllocatedAmount: poolData?.lastAllocatedAmount || (totalCommitted > 0 ? totalCommitted : 0),
+    financierId: fid,
+  };
 }
 
 export async function addLiquidityPoolFunds(amount, financierUserOrId) {
   const numAmount = Number(amount) || 0;
-  const fid = typeof financierUserOrId === 'object' ? (financierUserOrId.id || financierUserOrId.email || 'default') : (financierUserOrId || 'default');
-  const currentPool = getLiquidityPool(fid);
+  const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
+  const fid = targetId || targetEmail || (typeof financierUserOrId === 'string' ? financierUserOrId : 'default');
+
+  const currentPool = getLiquidityPool(financierUserOrId || fid);
   const newCommitted = (Number(currentPool.totalCommitted) || 0) + numAmount;
   const newAvailable = (Number(currentPool.availableLiquidity) || 0) + numAmount;
-  const key = getLiquidityPoolKey(fid);
-  
+
   const updated = {
     ...currentPool,
     totalCommitted: newCommitted,
@@ -1265,17 +1361,26 @@ export async function addLiquidityPoolFunds(amount, financierUserOrId) {
     financierId: fid,
   };
 
-  try {
-    localStorage.setItem(key, JSON.stringify(updated));
+  const keysToSync = new Set([getLiquidityPoolKey(fid)]);
+  if (targetId) keysToSync.add(getLiquidityPoolKey(targetId));
+  if (targetEmail) keysToSync.add(getLiquidityPoolKey(targetEmail));
+
+  keysToSync.forEach((k) => {
+    try {
+      localStorage.setItem(k, JSON.stringify(updated));
+    } catch (err) {
+      console.warn('Failed to save liquidity pool:', err);
+    }
+  });
+
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updated }));
     window.dispatchEvent(new Event('storage'));
     broadcastDataChange('financing', 'UPDATE', { id: `pool_${fid}`, liquidity_pool: updated });
-  } catch (err) {
-    console.warn('Failed to save liquidity pool:', err);
   }
 
   // Persist directly to Supabase Database (profiles table meta JSONB)
-  await syncLiquidityPoolToDb(financierUserOrId, updated);
+  await syncLiquidityPoolToDb(financierUserOrId || fid, updated);
 
   return updated;
 }
@@ -1287,7 +1392,10 @@ export async function getFinancingStats(financierUserOrId, maybeEmail) {
     const all = await getFinancingRequests();
     // Only pending requests from KYC-verified borrowers
     const pending = all.filter(
-      (r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified'
+      (r) =>
+        (r.status === 'pending' || r.status === 'under_review') &&
+        r.applicantKycStatus === 'verified' &&
+        (!r.financierId || isFinancierMatch(r, financierUserOrId, maybeEmail))
     );
 
     // Scoped approved & active loans strictly for this financier
