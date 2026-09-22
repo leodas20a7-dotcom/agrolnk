@@ -4,6 +4,7 @@ import { processLiveEscrowDeposit, processLiveEscrowRelease } from './escrowApi'
 import { getUserBankDetails } from './bankDetails';
 import { broadcastDataChange } from './syncChannel';
 import { sendNotification } from './notifications';
+import { getCurrentUser } from './auth';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -234,9 +235,12 @@ export async function getOrders() {
 export async function getBuyerOrders(buyerId, currentUser) {
   try {
     const all = await getOrders();
-    const userEmail = (currentUser?.email || '').toLowerCase().trim();
-    const userName = (currentUser?.name || '').toLowerCase().trim();
-    const uid = buyerId || currentUser?.id || '';
+    const activeUser = (currentUser && (currentUser.id || currentUser.email))
+      ? currentUser
+      : (typeof getCurrentUser === 'function' ? getCurrentUser() : null) || {};
+    const userEmail = (activeUser?.email || '').toLowerCase().trim();
+    const userName = (activeUser?.name || '').toLowerCase().trim();
+    const uid = String(buyerId || activeUser?.id || '').trim();
 
     if (!uid && !userEmail && !userName) return [];
 
@@ -245,11 +249,11 @@ export async function getBuyerOrders(buyerId, currentUser) {
       const bEmail = (o.buyerEmail || '').toLowerCase().trim();
       const bId = String(o.buyerId || '').trim();
 
-      return (
-        (uid && bId === uid) ||
-        (userEmail && (bId === userEmail || bEmail === userEmail)) ||
-        (userName && bName === userName)
-      );
+      const matchId = uid && (bId === uid || bId.toLowerCase() === uid.toLowerCase());
+      const matchEmail = userEmail && (bId === userEmail || bEmail === userEmail || bEmail.includes(userEmail) || userEmail.includes(bEmail));
+      const matchName = userName && (bName === userName || bName.includes(userName) || userName.includes(bName));
+
+      return matchId || matchEmail || matchName;
     });
   } catch (err) {
     console.error('Error in getBuyerOrders:', err);
@@ -263,9 +267,12 @@ export async function getBuyerOrders(buyerId, currentUser) {
 export async function getFarmerOrders(farmerId, currentUser) {
   try {
     const all = await getOrders();
-    const userEmail = (currentUser?.email || '').toLowerCase().trim();
-    const userName = (currentUser?.name || '').toLowerCase().trim();
-    const uid = farmerId || currentUser?.id || '';
+    const activeUser = (currentUser && (currentUser.id || currentUser.email))
+      ? currentUser
+      : (typeof getCurrentUser === 'function' ? getCurrentUser() : null) || {};
+    const userEmail = (activeUser?.email || '').toLowerCase().trim();
+    const userName = (activeUser?.name || '').toLowerCase().trim();
+    const uid = String(farmerId || activeUser?.id || '').trim();
 
     if (!uid && !userEmail && !userName) return [];
 
@@ -274,11 +281,11 @@ export async function getFarmerOrders(farmerId, currentUser) {
       const fEmail = (o.farmerEmail || '').toLowerCase().trim();
       const fId = String(o.farmerId || '').trim();
 
-      return (
-        (uid && fId === uid) ||
-        (userEmail && (fId === userEmail || fEmail === userEmail)) ||
-        (userName && fName === userName)
-      );
+      const matchId = uid && (fId === uid || fId.toLowerCase() === uid.toLowerCase());
+      const matchEmail = userEmail && (fId === userEmail || fEmail === userEmail || fEmail.includes(userEmail) || userEmail.includes(fEmail));
+      const matchName = userName && (fName === userName || fName.includes(userName) || userName.includes(fName));
+
+      return matchId || matchEmail || matchName;
     });
   } catch (err) {
     console.error('Error in getFarmerOrders:', err);

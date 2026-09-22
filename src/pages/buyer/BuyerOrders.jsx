@@ -31,11 +31,14 @@ import {
 } from 'lucide-react';
 import { getBuyerOrders, confirmOrderReceipt } from '../../utils/orders';
 import { confirmBuyerReceipt } from '../../utils/deliveries';
+import { getCurrentUser } from '../../utils/auth';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
 export default function BuyerOrders({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
+  const user = (currentUser && (currentUser.id || currentUser.email))
+    ? currentUser
+    : (getCurrentUser() || { name: 'Buyer', id: '', role: 'buyer' });
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedOrder, setSelectedOrder] = useState(navState?.newOrder || null);
