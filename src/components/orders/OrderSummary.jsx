@@ -11,7 +11,8 @@ import {
   Truck,
   CheckCircle2,
   ClipboardCheck,
-  Receipt
+  Receipt,
+  Clock
 } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -139,7 +140,7 @@ export default function OrderSummary({
                 Grade {order.grade || 'A'}
               </Badge>
               <span className="text-xs text-[#566861] font-mono">
-                #{order.orderNumber}
+                {order.orderNumber ? (order.orderNumber.startsWith('#') ? order.orderNumber : `#${order.orderNumber}`) : '#Order'}
               </span>
             </div>
             <span className="text-xs text-[#566861] mt-0.5 block">
@@ -232,6 +233,107 @@ export default function OrderSummary({
                 className="text-xs font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer text-left"
               >
                 View Credit Terms →
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Farmer Working Capital Offer Received Banner */}
+        {!isBuyer && existingFinancing && (existingFinancing.status === 'offer_sent' || existingFinancing.status === 'offer_received') && (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left animate-in fade-in shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-100 text-amber-900 shrink-0">
+                <Landmark className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-amber-950 text-sm">
+                    Term-Sheet Offer Received!
+                  </span>
+                  <Badge variant="amber" size="xs">
+                    {existingFinancing.requestNumber || 'Offer Ready'}
+                  </Badge>
+                </div>
+                <p className="text-[#566861]">
+                  Financier <strong className="text-amber-950">{existingFinancing.financierName || 'Financial Institution'}</strong> offered{' '}
+                  <strong className="text-emerald-700 font-bold">₹{(Number(existingFinancing.offeredAmount || existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0)).toLocaleString('en-IN')}</strong> working capital advance at{' '}
+                  <strong>{existingFinancing.interestRate || 0.85}%/mo</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {onViewFinancing && (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => onViewFinancing(existingFinancing)}
+                  className="font-bold text-xs py-2 px-3.5 shadow-xs cursor-pointer whitespace-nowrap"
+                >
+                  Review & Accept Offer →
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Farmer Offer Accepted / Pending Escrow Disbursement */}
+        {!isBuyer && existingFinancing && (existingFinancing.status === 'borrower_accepted' || existingFinancing.status === 'approved') && (
+          <div className="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-blue-700 shrink-0" />
+              <span className="text-blue-950 font-semibold">
+                Term-Sheet Accepted: <strong>₹{(Number(existingFinancing.offeredAmount || existingFinancing.approvedAmount || 0)).toLocaleString('en-IN')}</strong> • Awaiting Escrow Disbursement by Lender.
+              </span>
+            </div>
+            {onViewFinancing && (
+              <button
+                type="button"
+                onClick={() => onViewFinancing(existingFinancing)}
+                className="text-xs font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer shrink-0"
+              >
+                View Terms →
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Farmer Capital Disbursed */}
+        {!isBuyer && existingFinancing && existingFinancing.status === 'disbursed' && (
+          <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span className="text-emerald-950 font-semibold">
+                Working Capital Disbursed: <strong>₹{(Number(existingFinancing.approvedAmount || existingFinancing.requestedAmount || 0)).toLocaleString('en-IN')}</strong> {existingFinancing.bankUtr ? `(UTR: ${existingFinancing.bankUtr})` : ''}
+              </span>
+            </div>
+            {onViewFinancing && (
+              <button
+                type="button"
+                onClick={() => onViewFinancing(existingFinancing)}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer shrink-0"
+              >
+                View Agreement →
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Farmer Request Pending Review */}
+        {!isBuyer && existingFinancing && (existingFinancing.status === 'pending' || existingFinancing.status === 'under_review') && (
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+              <span className="text-amber-950 font-semibold">
+                Working Capital Request ({existingFinancing.requestNumber || 'Pending'}): <strong>₹{(Number(existingFinancing.requestedAmount || 0)).toLocaleString('en-IN')}</strong> • Under review by lending desk.
+              </span>
+            </div>
+            {onViewFinancing && (
+              <button
+                type="button"
+                onClick={() => onViewFinancing(existingFinancing)}
+                className="text-xs font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer shrink-0"
+              >
+                Track Request →
               </button>
             )}
           </div>

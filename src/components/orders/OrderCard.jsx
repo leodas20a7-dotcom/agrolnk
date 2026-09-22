@@ -40,7 +40,7 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {viewerRole === 'buyer' && financingReq && (
+          {financingReq && (
             <FinancingStatusBadge status={financingReq.status} size="sm" />
           )}
           <OrderStatus status={order.status} size="sm" />

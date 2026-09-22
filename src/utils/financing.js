@@ -343,7 +343,7 @@ export async function getFarmerFinancingRequests(farmerId, currentUser) {
     const all = await getFinancingRequests();
     const userEmail = (currentUser?.email || '').toLowerCase().trim();
     const userName = (currentUser?.name || '').toLowerCase().trim();
-    const uid = farmerId || currentUser?.id || '';
+    const uid = String(farmerId || currentUser?.id || '').trim();
 
     if (!uid && !userEmail && !userName) return [];
 
@@ -351,12 +351,13 @@ export async function getFarmerFinancingRequests(farmerId, currentUser) {
       if (r.applicantRole !== 'farmer') return false;
       const appId = String(r.applicantId || '').trim();
       const appName = (r.applicantName || '').toLowerCase().trim();
+      const appEmail = (r.applicantEmail || '').toLowerCase().trim();
 
-      return (
-        (uid && appId === uid) ||
-        (userEmail && (appId === userEmail || appId.includes(userEmail))) ||
-        (userName && appName === userName)
-      );
+      const idMatch = uid && (appId === uid || appId.toLowerCase() === uid.toLowerCase());
+      const emailMatch = userEmail && (appId === userEmail || appId.includes(userEmail) || appEmail === userEmail || appEmail.includes(userEmail));
+      const nameMatch = userName && (appName === userName || appName.includes(userName) || userName.includes(appName));
+
+      return idMatch || emailMatch || nameMatch;
     });
   } catch (err) {
     console.error('Error in getFarmerFinancingRequests:', err);
@@ -1098,25 +1099,25 @@ export async function getFinancingRequestForOrder(orderNumberOrId, alternateId, 
   try {
     if (!orderNumberOrId && !alternateId) return null;
     const all = await getFinancingRequests();
+    const clean = (val) => String(val || '').replace(/^#/, '').trim().toLowerCase();
+    const target1 = clean(orderNumberOrId);
+    const target2 = clean(alternateId);
+
     return (
-      all.find(
-        (r) => {
-          const matchOrder =
-            (orderNumberOrId &&
-              (r.orderId === orderNumberOrId ||
-                r.orderNumber === orderNumberOrId ||
-                r.id === orderNumberOrId ||
-                r.requestNumber === orderNumberOrId)) ||
-            (alternateId &&
-              (r.orderId === alternateId ||
-                r.orderNumber === alternateId ||
-                r.id === alternateId ||
-                r.requestNumber === alternateId));
-          if (!matchOrder) return false;
-          if (roleFilter && r.applicantRole && r.applicantRole !== roleFilter) return false;
-          return true;
-        }
-      ) || null
+      all.find((r) => {
+        const rReq = clean(r.requestNumber);
+        const rOrdNum = clean(r.orderNumber);
+        const rOrdId = clean(r.orderId);
+        const rId = clean(r.id);
+
+        const matchOrder =
+          (target1 && (rOrdNum === target1 || rOrdId === target1 || rId === target1 || rReq === target1)) ||
+          (target2 && (rOrdNum === target2 || rOrdId === target2 || rId === target2 || rReq === target2));
+
+        if (!matchOrder) return false;
+        if (roleFilter && r.applicantRole && r.applicantRole.toLowerCase() !== roleFilter.toLowerCase()) return false;
+        return true;
+      }) || null
     );
   } catch {
     return null;
