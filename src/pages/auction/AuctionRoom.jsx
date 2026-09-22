@@ -32,6 +32,7 @@ import {
   finalizeAuction
 } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { supabase } from '../../lib/supabase';
 
 const STORAGE_ACTIVE_AUCTION_KEY = 'agrolnk_active_auction_id';
 
@@ -96,6 +97,38 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
 
   useEffect(() => {
     fetchAuctionData();
+
+    if (!auctionId) return;
+
+    // Connect to Supabase Realtime for live ticker and bids feed across devices
+    const channelName = `auction_room_realtime_${auctionId.replace(/[^a-zA-Z0-9_]/g, '_')}_${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auctions', filter: `id=eq.${auctionId}` },
+        async () => {
+          const freshLot = await getAuctionById(auctionId);
+          if (freshLot) setAuction(freshLot);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'auction_bids', filter: `auction_id=eq.${auctionId}` },
+        async () => {
+          const [freshLot, freshBids] = await Promise.all([
+            getAuctionById(auctionId),
+            getBidsForAuction(auctionId),
+          ]);
+          if (freshLot) setAuction(freshLot);
+          if (Array.isArray(freshBids)) setBids(freshBids);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [auctionId]);
 
   if (!auction) {

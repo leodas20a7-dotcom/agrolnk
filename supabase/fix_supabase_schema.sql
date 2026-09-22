@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS public.warehouse_receipts (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+ALTER TABLE IF EXISTS public.warehouse_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.warehouse_receipts DROP CONSTRAINT IF EXISTS warehouse_receipts_farmer_id_fkey;
 ALTER TABLE IF EXISTS public.warehouse_receipts DROP CONSTRAINT IF EXISTS warehouse_receipts_warehouse_id_fkey;
 ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS last_rent_paid_at TIMESTAMP WITH TIME ZONE;
@@ -177,23 +178,123 @@ BEGIN
   END IF;
 END $$;
 
--- Enable Realtime publication
+-- 7. CHAT MESSAGES TABLE: Create table & ensure RLS
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id TEXT PRIMARY KEY,
+  thread_key TEXT NOT NULL,
+  sender_id TEXT NOT NULL,
+  sender_name TEXT,
+  sender_role TEXT,
+  raw_text TEXT,
+  text TEXT NOT NULL,
+  is_system BOOLEAN DEFAULT false,
+  is_read BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 DO $$
 BEGIN
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.deliveries;
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.financing_requests;
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouse_receipts;
-  EXCEPTION WHEN others THEN NULL;
-  END;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'chat_messages' AND policyname = 'Allow public read chat_messages') THEN
+    CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'chat_messages' AND policyname = 'Allow public write chat_messages') THEN
+    CREATE POLICY "Allow public write chat_messages" ON public.chat_messages FOR ALL USING (true) WITH CHECK (true);
+  END IF;
 END $$;
+
+-- 8. DUPLICATE ORDER PREVENTION & DEDUPLICATION
+-- Safely deduplicate any legacy test orders sharing the same auction_id before creating the unique index
+DELETE FROM public.orders
+WHERE id IN (
+  SELECT id FROM (
+    SELECT id, 
+           ROW_NUMBER() OVER (PARTITION BY auction_id ORDER BY created_at DESC, id DESC) as rn
+    FROM public.orders
+    WHERE auction_id IS NOT NULL
+  ) duplicates
+  WHERE rn > 1
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_unique_auction ON public.orders(auction_id) WHERE auction_id IS NOT NULL;
+
+-- 9. COMPOSITE PERFORMANCE INDEXES
+-- Profiles & Roles
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_kyc_status ON public.profiles(kyc_status);
+
+-- Marketplace Listings
+CREATE INDEX IF NOT EXISTS idx_listings_farmer_id ON public.listings(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON public.listings(status);
+CREATE INDEX IF NOT EXISTS idx_listings_commodity ON public.listings(commodity);
+CREATE INDEX IF NOT EXISTS idx_listings_created_at ON public.listings(created_at DESC);
+
+-- Live Auctions & Bids
+CREATE INDEX IF NOT EXISTS idx_auctions_status ON public.auctions(status);
+CREATE INDEX IF NOT EXISTS idx_auctions_farmer_id ON public.auctions(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_auctions_end_time ON public.auctions(end_time);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_auction_id ON public.auction_bids(auction_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_bidder_id ON public.auction_bids(bidder_id);
+
+-- Orders & Escrow Settlements
+CREATE INDEX IF NOT EXISTS idx_orders_buyer_id ON public.orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_farmer_id ON public.orders(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_escrow_status ON public.orders(escrow_status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
+
+-- Deliveries & Fleet Logistics
+CREATE INDEX IF NOT EXISTS idx_deliveries_order_id ON public.deliveries(order_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_transporter_id ON public.deliveries(transporter_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_status ON public.deliveries(status);
+CREATE INDEX IF NOT EXISTS idx_deliveries_created_at ON public.deliveries(created_at DESC);
+
+-- Financing & Trade Credit
+CREATE INDEX IF NOT EXISTS idx_financing_applicant_id ON public.financing_requests(applicant_id);
+CREATE INDEX IF NOT EXISTS idx_financing_financier_id ON public.financing_requests(financier_id);
+CREATE INDEX IF NOT EXISTS idx_financing_status ON public.financing_requests(status);
+CREATE INDEX IF NOT EXISTS idx_financing_created_at ON public.financing_requests(created_at DESC);
+
+-- Warehouse & Digital Receipts (e-NWR)
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_warehouse_id ON public.warehouse_receipts(warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_farmer_id ON public.warehouse_receipts(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_status ON public.warehouse_receipts(status);
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_created_at ON public.warehouse_receipts(created_at DESC);
+
+-- Notifications
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON public.notifications(recipient_id, is_read, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_role ON public.notifications(recipient_role, created_at DESC);
+
+-- Chat Messages
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_key ON public.chat_messages(thread_key, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_sender ON public.chat_messages(sender_id, created_at DESC);
+
+-- Inspections
+CREATE INDEX IF NOT EXISTS idx_inspections_order_id ON public.inspections(order_id);
+CREATE INDEX IF NOT EXISTS idx_inspections_status ON public.inspections(status);
+CREATE INDEX IF NOT EXISTS idx_inspections_created_at ON public.inspections(created_at DESC);
+
+-- 10. COMPREHENSIVE SUPABASE REALTIME PUBLICATION
+DO $$
+DECLARE
+  tbl text;
+  tables text[] := ARRAY[
+    'orders', 'deliveries', 'auctions', 'auction_bids', 
+    'listings', 'warehouse_receipts', 'financing_requests', 
+    'notifications', 'chat_messages', 'inspections'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tables LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables 
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = tbl
+    ) THEN
+      BEGIN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I;', tbl);
+      EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Could not add table % to supabase_realtime: %', tbl, SQLERRM;
+      END;
+    END IF;
+  END LOOP;
+END $$;
+

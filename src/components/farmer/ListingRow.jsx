@@ -17,7 +17,7 @@ export default function ListingRow({ listing, onView, onEdit, onDelete }) {
       }`}
     >
       {/* Left: Thumbnail & Commodity Details */}
-      <div className="flex items-start sm:items-center gap-4 min-w-[260px]">
+      <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
         <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8] shrink-0">
           <img
             src={listing.images?.[0] || fallbackImg}
@@ -30,9 +30,9 @@ export default function ListingRow({ listing, onView, onEdit, onDelete }) {
           />
         </div>
 
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="text-base font-bold text-[#0B3326] font-heading">
+        <div className="space-y-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h4 className="text-base font-bold text-[#0B3326] font-heading truncate max-w-[160px]">
               {listing.commodity}
             </h4>
             <Badge variant="dark" size="sm">
@@ -61,7 +61,7 @@ export default function ListingRow({ listing, onView, onEdit, onDelete }) {
       </div>
 
       {/* Middle: Lot Quantity, Price & Total Value */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-6 py-2 md:py-0 border-y md:border-y-0 md:border-x md:px-6 border-[#E5EDE8] text-xs">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 py-2 md:py-0 border-y md:border-y-0 md:border-x md:px-6 border-[#E5EDE8] text-xs w-full md:w-[280px] shrink-0">
         <div>
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Lot Qty</span>
           <span className={`font-extrabold text-sm ${isSoldOut ? 'text-amber-700' : 'text-[#0B3326]'}`}>

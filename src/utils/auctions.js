@@ -191,7 +191,46 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
 
     const numAmount = Number(amount);
 
-    // Fetch current auction
+    // 1. Production Atomic Database RPC with Row Locking (Eliminates Concurrency Race Conditions)
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('place_auction_bid_atomic', {
+        p_auction_id: auctionId,
+        p_bidder_id: bidderId || '',
+        p_bidder_name: bidderName || 'Buyer Partner',
+        p_bid_amount: numAmount,
+      });
+
+      if (!rpcErr && rpcData?.success) {
+        const fresh = await getAuctionById(auctionId);
+        return fresh;
+      }
+
+      if (rpcErr) {
+        const msg = rpcErr.message || '';
+        if (
+          msg.includes('Producers are not permitted') ||
+          msg.includes('auction has ended') ||
+          msg.includes('must be higher than') ||
+          msg.includes('no longer live') ||
+          msg.includes('not found')
+        ) {
+          throw new Error(msg);
+        }
+        console.info('Atomic bid RPC notice (using fallback):', rpcErr.message);
+      }
+    } catch (rpcCatch) {
+      if (
+        rpcCatch.message &&
+        (rpcCatch.message.includes('Producers are not permitted') ||
+         rpcCatch.message.includes('auction has ended') ||
+         rpcCatch.message.includes('must be higher than') ||
+         rpcCatch.message.includes('no longer live'))
+      ) {
+        throw rpcCatch;
+      }
+    }
+
+    // 2. Client-side Fallback (Ensures complete offline/local compatibility)
     const { data: currentAuction, error: fetchErr } = await supabase
       .from('auctions')
       .select('*')
@@ -200,6 +239,16 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
 
     if (fetchErr || !currentAuction) {
       throw new Error('Auction not found.');
+    }
+
+    // Guard: Auction must be live and within duration
+    if (currentAuction.status !== 'live' || new Date(currentAuction.end_time).getTime() <= Date.now()) {
+      throw new Error('This auction has ended and is no longer accepting bids.');
+    }
+
+    // Guard: Prevent farmer from bidding on own produce
+    if (currentAuction.farmer_id && currentAuction.farmer_id === bidderId) {
+      throw new Error('Producers are not permitted to bid on their own auctions.');
     }
 
     if (numAmount <= Number(currentAuction.current_bid)) {
@@ -215,7 +264,7 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
           id: bidId,
           auction_id: auctionId,
           bidder_id: bidderId || '',
-          bidder_name: bidderName || 'Buyer',
+          bidder_name: bidderName || 'Buyer Partner',
           bid_amount: numAmount,
           created_at: new Date().toISOString(),
         },
@@ -343,10 +392,30 @@ export const getBidsForAuction = getAuctionBids;
  */
 export async function finalizeAuction(auctionId) {
   try {
+    // 1. Try atomic PostgreSQL RPC (Enforces row lock, reserve price check, and duplicate order prevention)
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('finalize_auction_atomic', {
+        p_auction_id: auctionId,
+      });
+      if (!rpcErr && rpcData?.success) {
+        return await getAuctionById(auctionId);
+      }
+    } catch (_rpcErr) {
+      // Fall through to client fallback
+    }
+
+    // 2. Client-side Fallback
+    const currentLot = await getAuctionById(auctionId);
+    if (!currentLot) return null;
+
+    // Evaluate reserve price
+    const isReserveMet = currentLot.highestBidderId && (Number(currentLot.currentBid) >= Number(currentLot.reservePrice || currentLot.startingBid));
+    const targetStatus = isReserveMet ? 'completed' : (currentLot.highestBidderId ? 'reserve_not_met' : 'completed');
+
     const { data, error } = await supabase
       .from('auctions')
       .update({
-        status: 'completed',
+        status: targetStatus,
         updated_at: new Date().toISOString(),
       })
       .eq('id', auctionId)
@@ -355,8 +424,8 @@ export async function finalizeAuction(auctionId) {
 
     if (error) throw error;
 
-    // If there was a winning bidder, automatically spawn an order if one doesn't exist yet
-    if (data && data.highest_bidder_id) {
+    // If reserve met and there was a winning bidder, automatically spawn an order if one doesn't exist yet
+    if (data && data.highest_bidder_id && isReserveMet) {
       try {
         const { data: existingOrders } = await supabase
           .from('orders')

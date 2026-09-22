@@ -658,5 +658,396 @@ CREATE POLICY "Allow public insert notifications" ON public.notifications FOR IN
 CREATE POLICY "Allow public update notifications" ON public.notifications FOR UPDATE USING (true);
 CREATE POLICY "Allow public delete notifications" ON public.notifications FOR DELETE USING (true);
 
+-- ============================================================================
+-- 15. CHAT MESSAGES REGISTRY TABLE
+-- Real-time in-app negotiation and support messaging
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+    id TEXT PRIMARY KEY,
+    thread_key TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
+    sender_name TEXT,
+    sender_role TEXT,
+    raw_text TEXT,
+    text TEXT NOT NULL,
+    is_system BOOLEAN DEFAULT false,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
+CREATE POLICY "Allow public insert chat_messages" ON public.chat_messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update chat_messages" ON public.chat_messages FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete chat_messages" ON public.chat_messages FOR DELETE USING (true);
+
+-- ============================================================================
+-- 16. DUPLICATE ORDER PREVENTION & DEDUPLICATION
+-- ============================================================================
+DELETE FROM public.orders
+WHERE id IN (
+  SELECT id FROM (
+    SELECT id, 
+           ROW_NUMBER() OVER (PARTITION BY auction_id ORDER BY created_at DESC, id DESC) as rn
+    FROM public.orders
+    WHERE auction_id IS NOT NULL
+  ) duplicates
+  WHERE rn > 1
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_unique_auction ON public.orders(auction_id) WHERE auction_id IS NOT NULL;
+
+-- ============================================================================
+-- 17. COMPOSITE PERFORMANCE INDEXES
+-- ============================================================================
+-- Profiles & Roles
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_kyc_status ON public.profiles(kyc_status);
+
+-- Marketplace Listings
+CREATE INDEX IF NOT EXISTS idx_listings_farmer_id ON public.listings(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON public.listings(status);
+CREATE INDEX IF NOT EXISTS idx_listings_commodity ON public.listings(commodity);
+CREATE INDEX IF NOT EXISTS idx_listings_created_at ON public.listings(created_at DESC);
+
+-- Live Auctions & Bids
+CREATE INDEX IF NOT EXISTS idx_auctions_status ON public.auctions(status);
+CREATE INDEX IF NOT EXISTS idx_auctions_farmer_id ON public.auctions(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_auctions_end_time ON public.auctions(end_time);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_auction_id ON public.auction_bids(auction_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_bidder_id ON public.auction_bids(bidder_id);
+
+-- Orders & Escrow Settlements
+CREATE INDEX IF NOT EXISTS idx_orders_buyer_id ON public.orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_farmer_id ON public.orders(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_escrow_status ON public.orders(escrow_status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
+
+-- Deliveries & Fleet Logistics
+CREATE INDEX IF NOT EXISTS idx_deliveries_order_id ON public.deliveries(order_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_transporter_id ON public.deliveries(transporter_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_status ON public.deliveries(status);
+CREATE INDEX IF NOT EXISTS idx_deliveries_created_at ON public.deliveries(created_at DESC);
+
+-- Financing & Trade Credit
+CREATE INDEX IF NOT EXISTS idx_financing_applicant_id ON public.financing_requests(applicant_id);
+CREATE INDEX IF NOT EXISTS idx_financing_financier_id ON public.financing_requests(financier_id);
+CREATE INDEX IF NOT EXISTS idx_financing_status ON public.financing_requests(status);
+CREATE INDEX IF NOT EXISTS idx_financing_created_at ON public.financing_requests(created_at DESC);
+
+-- Warehouse & Digital Receipts (e-NWR)
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_warehouse_id ON public.warehouse_receipts(warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_farmer_id ON public.warehouse_receipts(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_status ON public.warehouse_receipts(status);
+CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_created_at ON public.warehouse_receipts(created_at DESC);
+
+-- Notifications
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON public.notifications(recipient_id, is_read, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_role ON public.notifications(recipient_role, created_at DESC);
+
+-- Chat Messages
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_key ON public.chat_messages(thread_key, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_sender ON public.chat_messages(sender_id, created_at DESC);
+
+-- Inspections
+CREATE INDEX IF NOT EXISTS idx_inspections_order_id ON public.inspections(order_id);
+CREATE INDEX IF NOT EXISTS idx_inspections_status ON public.inspections(status);
+CREATE INDEX IF NOT EXISTS idx_inspections_created_at ON public.inspections(created_at DESC);
+
+-- ============================================================================
+-- 18. COMPREHENSIVE SUPABASE REALTIME PUBLICATION
+-- ============================================================================
+DO $$
+DECLARE
+  tbl text;
+  tables text[] := ARRAY[
+    'orders', 'deliveries', 'auctions', 'auction_bids', 
+    'listings', 'warehouse_receipts', 'financing_requests', 
+    'notifications', 'chat_messages', 'inspections'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tables LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables 
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = tbl
+    ) THEN
+      BEGIN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I;', tbl);
+      EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Could not add table % to supabase_realtime: %', tbl, SQLERRM;
+      END;
+END $$;
+
+-- ============================================================================
+-- 19. ATOMIC STORED PROCEDURES & FINANCIAL ENGINES
+-- ============================================================================
+
+-- 1. ATOMIC AUCTION BID PLACEMENT
+CREATE OR REPLACE FUNCTION public.place_auction_bid_atomic(
+    p_auction_id TEXT,
+    p_bidder_id TEXT,
+    p_bidder_name TEXT,
+    p_bid_amount NUMERIC
+) RETURNS JSONB AS $$
+DECLARE
+    v_auction RECORD;
+    v_new_bid_id TEXT;
+    v_prev_bidder_id TEXT;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+    SELECT * INTO v_auction FROM public.auctions WHERE id = p_auction_id FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Auction lot not found.';
+    END IF;
+
+    IF v_auction.status != 'live' THEN
+        RAISE EXCEPTION 'This auction is no longer live (Status: %).', v_auction.status;
+    END IF;
+
+    IF v_now >= v_auction.end_time THEN
+        UPDATE public.auctions SET status = 'completed', updated_at = v_now WHERE id = p_auction_id;
+        RAISE EXCEPTION 'This auction has ended and is no longer accepting bids.';
+    END IF;
+
+    IF v_auction.farmer_id IS NOT NULL AND v_auction.farmer_id = p_bidder_id THEN
+        RAISE EXCEPTION 'Producers are not permitted to bid on their own auctions.';
+    END IF;
+
+    IF p_bid_amount <= v_auction.current_bid THEN
+        RAISE EXCEPTION 'Your bid of ₹% must be higher than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+    END IF;
+
+    v_prev_bidder_id := v_auction.highest_bidder_id;
+    v_new_bid_id := 'bid_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6);
+
+    INSERT INTO public.auction_bids (id, auction_id, bidder_id, bidder_name, bid_amount, created_at)
+    VALUES (v_new_bid_id, p_auction_id, p_bidder_id, COALESCE(p_bidder_name, 'Buyer Partner'), p_bid_amount, v_now);
+
+    UPDATE public.auctions SET
+        current_bid = p_bid_amount,
+        highest_bidder_id = p_bidder_id,
+        highest_bidder_name = COALESCE(p_bidder_name, 'Buyer Partner'),
+        total_bids = COALESCE(v_auction.total_bids, 0) + 1,
+        updated_at = v_now
+    WHERE id = p_auction_id;
+
+    IF v_prev_bidder_id IS NOT NULL AND v_prev_bidder_id != p_bidder_id THEN
+        INSERT INTO public.notifications (
+            id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+        ) VALUES (
+            'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
+            v_prev_bidder_id,
+            'buyer',
+            'Outbid on ' || v_auction.commodity,
+            'Another buyer placed a new leading bid of ₹' || p_bid_amount || '/' || v_auction.unit || '. Re-enter the arena to reclaim the lot.',
+            'order',
+            '/buyer-live-auctions',
+            false,
+            v_now
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'auction_id', p_auction_id,
+        'bid_id', v_new_bid_id,
+        'current_bid', p_bid_amount,
+        'highest_bidder_id', p_bidder_id,
+        'highest_bidder_name', COALESCE(p_bidder_name, 'Buyer Partner'),
+        'total_bids', COALESCE(v_auction.total_bids, 0) + 1,
+        'status', 'live'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. ATOMIC ESCROW RELEASE
+CREATE OR REPLACE FUNCTION public.release_escrow_atomic(
+    p_order_id TEXT,
+    p_admin_name TEXT DEFAULT 'AgroLnk Operations Ombudsman',
+    p_admin_notes TEXT DEFAULT 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.',
+    p_bank_name TEXT DEFAULT NULL,
+    p_account_number TEXT DEFAULT NULL,
+    p_ifsc TEXT DEFAULT NULL,
+    p_utr TEXT DEFAULT NULL
+) RETURNS JSONB AS $$
+DECLARE
+    v_order RECORD;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_utr TEXT;
+BEGIN
+    SELECT * INTO v_order 
+    FROM public.orders 
+    WHERE id = p_order_id OR order_number = p_order_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Order % not found.', p_order_id;
+    END IF;
+
+    IF v_order.escrow_status = 'released' THEN
+        RETURN jsonb_build_object(
+            'success', true,
+            'message', 'Escrow was already released previously.',
+            'order_id', v_order.id,
+            'order_number', v_order.order_number,
+            'bank_utr', v_order.bank_utr,
+            'escrow_status', 'released'
+        );
+    END IF;
+
+    IF v_order.escrow_status NOT IN ('funded', 'escrow_secured', 'held') THEN
+        RAISE EXCEPTION 'Cannot release escrow in current state: %', v_order.escrow_status;
+    END IF;
+
+    v_utr := COALESCE(p_utr, v_order.bank_utr, 'CMSICICI' || to_char(v_now, 'YYYYMMDD') || floor(1000 + random() * 9000)::text);
+
+    UPDATE public.orders SET
+        status = 'completed',
+        escrow_status = 'released',
+        admin_verified_by = p_admin_name,
+        admin_verification_status = 'approved',
+        admin_call_notes = p_admin_notes,
+        admin_verified_at = v_now,
+        payout_bank_name = COALESCE(p_bank_name, v_order.payout_bank_name, 'Bank Account'),
+        payout_account_number = COALESCE(p_account_number, v_order.payout_account_number, '—'),
+        payout_ifsc = COALESCE(p_ifsc, v_order.payout_ifsc, '—'),
+        bank_utr = v_utr,
+        disbursed_at = v_now,
+        updated_at = v_now
+    WHERE id = v_order.id;
+
+    UPDATE public.deliveries SET
+        status = 'completed',
+        updated_at = v_now
+    WHERE order_id = v_order.id OR order_number = v_order.order_number;
+
+    IF v_order.farmer_id IS NOT NULL THEN
+        INSERT INTO public.notifications (
+            id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+        ) VALUES (
+            'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
+            v_order.farmer_id,
+            'farmer',
+            'Payment Disbursed (UTR ' || v_utr || ')',
+            'Escrow payout of ₹' || v_order.total_amount || ' for ' || v_order.commodity || ' (' || v_order.order_number || ') has been disbursed to your bank account.',
+            'escrow',
+            '/farmer-orders',
+            false,
+            v_now
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'order_id', v_order.id,
+        'order_number', v_order.order_number,
+        'escrow_status', 'released',
+        'status', 'completed',
+        'bank_utr', v_utr,
+        'total_amount', v_order.total_amount,
+        'disbursed_at', v_now
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. ATOMIC AUCTION FINALIZATION
+CREATE OR REPLACE FUNCTION public.finalize_auction_atomic(
+    p_auction_id TEXT
+) RETURNS JSONB AS $$
+DECLARE
+    v_auction RECORD;
+    v_existing_order RECORD;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_order_id TEXT;
+    v_order_num TEXT;
+    v_total_amt NUMERIC;
+    v_delivery_id TEXT;
+    v_delivery_num TEXT;
+    v_final_status TEXT;
+BEGIN
+    SELECT * INTO v_auction FROM public.auctions WHERE id = p_auction_id FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Auction lot not found.';
+    END IF;
+
+    IF v_auction.status IN ('completed', 'reserve_not_met', 'cancelled') THEN
+        RETURN jsonb_build_object('success', true, 'status', v_auction.status, 'message', 'Auction already settled.');
+    END IF;
+
+    IF v_auction.highest_bidder_id IS NULL OR v_auction.current_bid < v_auction.reserve_price THEN
+        v_final_status := 'reserve_not_met';
+        UPDATE public.auctions SET status = v_final_status, updated_at = v_now WHERE id = p_auction_id;
+
+        IF v_auction.farmer_id IS NOT NULL THEN
+            INSERT INTO public.notifications (
+                id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+            ) VALUES (
+                'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
+                v_auction.farmer_id, 'farmer',
+                'Auction Ended (Reserve Not Met)',
+                'The bidding for ' || v_auction.commodity || ' concluded below your reserve price of ₹' || v_auction.reserve_price || '. No order was generated.',
+                'order', '/farmer-my-auctions', false, v_now
+            );
+        END IF;
+
+        RETURN jsonb_build_object('success', true, 'status', v_final_status);
+    END IF;
+
+    v_final_status := 'completed';
+    UPDATE public.auctions SET status = v_final_status, updated_at = v_now WHERE id = p_auction_id;
+
+    SELECT * INTO v_existing_order FROM public.orders WHERE auction_id = p_auction_id LIMIT 1;
+
+    IF v_existing_order.id IS NULL THEN
+        v_order_id := 'ord_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 9);
+        v_order_num := '#AGM-' || floor(1000 + random() * 9000)::text;
+        v_total_amt := v_auction.quantity * v_auction.current_bid;
+
+        INSERT INTO public.orders (
+            id, order_number, auction_id, listing_id, buyer_id, buyer_name,
+            farmer_id, farmer_name, commodity, variety, grade, quantity, unit,
+            price_per_unit, total_amount, state, district, escrow_status, status,
+            created_at, updated_at
+        ) VALUES (
+            v_order_id, v_order_num, v_auction.id, NULL, v_auction.highest_bidder_id, COALESCE(v_auction.highest_bidder_name, 'Buyer Partner'),
+            v_auction.farmer_id, COALESCE(v_auction.farmer_name, 'Farmer Partner'), v_auction.commodity, v_auction.variety, v_auction.grade, v_auction.quantity, v_auction.unit,
+            v_auction.current_bid, v_total_amt, v_auction.state, v_auction.district, 'funded', 'order_placed',
+            v_now, v_now
+        );
+
+        v_delivery_id := 'del_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 9);
+        v_delivery_num := 'DEL-' || floor(1000 + random() * 9000)::text;
+
+        INSERT INTO public.deliveries (
+            id, delivery_number, order_id, order_number, farmer_id, farmer_name,
+            buyer_id, buyer_name, commodity, grade, variety, quantity, unit,
+            pickup_location, delivery_location, distance_km, fare_amount, status,
+            tracking_steps, created_at, updated_at
+        ) VALUES (
+            v_delivery_id, v_delivery_num, v_order_id, v_order_num, v_auction.farmer_id, v_auction.farmer_name,
+            v_auction.highest_bidder_id, v_auction.highest_bidder_name, v_auction.commodity, v_auction.grade, v_auction.variety, v_auction.quantity, v_auction.unit,
+            jsonb_build_object('state', v_auction.state, 'district', v_auction.district, 'address', v_auction.district || ' Farmgate Aggregation Depot'),
+            jsonb_build_object('state', 'Tamil Nadu', 'district', 'Chennai', 'address', 'Buyer Central Receiving Hub'),
+            180, 4500, 'transport_requested',
+            jsonb_build_array(
+                jsonb_build_object('step', 'Order Confirmed', 'completed', true, 'timestamp', v_now),
+                jsonb_build_object('step', 'Transporter Assigned', 'completed', false),
+                jsonb_build_object('step', 'Pickup Completed', 'completed', false),
+                jsonb_build_object('step', 'In Transit', 'completed', false),
+                jsonb_build_object('step', 'Delivered', 'completed', false)
+            ),
+            v_now, v_now
+        );
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'status', 'completed', 'order_id', COALESCE(v_order_id, v_existing_order.id));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+
 
 

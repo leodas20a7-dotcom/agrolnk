@@ -1,55 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Landing from './pages/Landing';
 import RoleSelection from './pages/RoleSelection';
 import Register from './pages/Register';
 import Login from './pages/Login';
 
-// Farmer Experience Module Pages
-import FarmerDashboard from './pages/farmer/FarmerDashboard';
-import CreateListing from './pages/farmer/CreateListing';
-import ListingPreview from './pages/farmer/ListingPreview';
-import MyListings from './pages/farmer/MyListings';
-import FarmerOrders from './pages/farmer/FarmerOrders';
-import CreateAuction from './pages/farmer/CreateAuction';
-import MyAuctions from './pages/farmer/MyAuctions';
-import FarmerFinancing from './pages/farmer/FarmerFinancing';
-import FarmerLoanRepayments from './pages/farmer/FarmerLoanRepayments';
-import FarmerDeliveries from './pages/farmer/FarmerDeliveries';
-import FarmerInventory from './pages/farmer/FarmerInventory';
+// Farmer Experience Module Pages (Code-Split)
+const FarmerDashboard = lazy(() => import('./pages/farmer/FarmerDashboard'));
+const CreateListing = lazy(() => import('./pages/farmer/CreateListing'));
+const ListingPreview = lazy(() => import('./pages/farmer/ListingPreview'));
+const MyListings = lazy(() => import('./pages/farmer/MyListings'));
+const FarmerOrders = lazy(() => import('./pages/farmer/FarmerOrders'));
+const CreateAuction = lazy(() => import('./pages/farmer/CreateAuction'));
+const MyAuctions = lazy(() => import('./pages/farmer/MyAuctions'));
+const FarmerFinancing = lazy(() => import('./pages/farmer/FarmerFinancing'));
+const FarmerLoanRepayments = lazy(() => import('./pages/farmer/FarmerLoanRepayments'));
+const FarmerDeliveries = lazy(() => import('./pages/farmer/FarmerDeliveries'));
+const FarmerInventory = lazy(() => import('./pages/farmer/FarmerInventory'));
 
-// Buyer Marketplace Module Pages
-import BuyerDashboard from './pages/buyer/BuyerDashboard';
-import Marketplace from './pages/buyer/Marketplace';
-import ListingDetail from './pages/buyer/ListingDetail';
-import BuyerOrders from './pages/buyer/BuyerOrders';
-import LiveAuctions from './pages/buyer/LiveAuctions';
-import MyBids from './pages/buyer/MyBids';
-import BuyerFinancing from './pages/buyer/BuyerFinancing';
-import BuyerLoanRepayments from './pages/buyer/BuyerLoanRepayments';
-import BuyerDeliveries from './pages/buyer/BuyerDeliveries';
+// Buyer Marketplace Module Pages (Code-Split)
+const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
+const Marketplace = lazy(() => import('./pages/buyer/Marketplace'));
+const ListingDetail = lazy(() => import('./pages/buyer/ListingDetail'));
+const BuyerOrders = lazy(() => import('./pages/buyer/BuyerOrders'));
+const LiveAuctions = lazy(() => import('./pages/buyer/LiveAuctions'));
+const MyBids = lazy(() => import('./pages/buyer/MyBids'));
+const BuyerFinancing = lazy(() => import('./pages/buyer/BuyerFinancing'));
+const BuyerLoanRepayments = lazy(() => import('./pages/buyer/BuyerLoanRepayments'));
+const BuyerDeliveries = lazy(() => import('./pages/buyer/BuyerDeliveries'));
 
-// Shared Auction Room Page
-import AuctionRoom from './pages/auction/AuctionRoom';
+// Shared Auction Room Page (Code-Split)
+const AuctionRoom = lazy(() => import('./pages/auction/AuctionRoom'));
 
-// Financier Portal Experience Pages
-import FinancierDashboard from './pages/dashboards/FinancierDashboard';
-import UnderwritingDesk from './pages/financier/UnderwritingDesk';
-import FinancierPortfolio from './pages/financier/FinancierPortfolio';
-import CollateralVault from './pages/financier/CollateralVault';
-import DisbursementsLedger from './pages/financier/DisbursementsLedger';
+// Financier Portal Experience Pages (Code-Split)
+const FinancierDashboard = lazy(() => import('./pages/dashboards/FinancierDashboard'));
+const UnderwritingDesk = lazy(() => import('./pages/financier/UnderwritingDesk'));
+const FinancierPortfolio = lazy(() => import('./pages/financier/FinancierPortfolio'));
+const CollateralVault = lazy(() => import('./pages/financier/CollateralVault'));
+const DisbursementsLedger = lazy(() => import('./pages/financier/DisbursementsLedger'));
 
-// Transporter Dashboard
-import TransporterDashboard from './pages/transporter/TransporterDashboard';
+// Transporter Dashboard (Code-Split)
+const TransporterDashboard = lazy(() => import('./pages/transporter/TransporterDashboard'));
 
-// Warehouse Dashboard
-import WarehouseDashboard from './pages/warehouse/WarehouseDashboard';
+// Warehouse Dashboard (Code-Split)
+const WarehouseDashboard = lazy(() => import('./pages/warehouse/WarehouseDashboard'));
 
-// Admin Command Center Module Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import UserVerificationQueue from './pages/admin/UserVerificationQueue';
-import EscrowCommissionLedger from './pages/admin/EscrowCommissionLedger';
-import InspectionDisputes from './pages/admin/InspectionDisputes';
-import AdminSettings from './pages/admin/AdminSettings';
+// Admin Command Center Module Pages (Code-Split)
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const UserVerificationQueue = lazy(() => import('./pages/admin/UserVerificationQueue'));
+const EscrowCommissionLedger = lazy(() => import('./pages/admin/EscrowCommissionLedger'));
+const InspectionDisputes = lazy(() => import('./pages/admin/InspectionDisputes'));
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 
 import ProtectedRoute from './components/ProtectedRoute';
 import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
@@ -277,6 +277,7 @@ export default function App() {
     <ErrorBoundary>
       <LoadingProvider>
         <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
+          <Suspense fallback={<FlashLoadingScreen message="Loading Agrolnk Portal..." />}>
       {/* 1. Public Landing Page */}
       {currentPage === 'landing' && (
         <Landing
@@ -619,7 +620,8 @@ export default function App() {
           />
         </ProtectedRoute>
       )}
-      </div>
+          </Suspense>
+        </div>
       </LoadingProvider>
     </ErrorBoundary>
   );

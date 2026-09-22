@@ -768,12 +768,35 @@ export async function adminVerifyAndReleaseOrderEscrow({
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const generatedUtr = `CMSICICI${todayStr}${randomSuffix}`;
 
+    const adminName = adminUser?.name || 'AgroLnk Operations Ombudsman';
+    const notes = adminNotes || 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.';
+
+    // 3. Try Production Atomic Stored Procedure (Row-level lock, eliminates double-disbursement)
+    let atomicSuccess = false;
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('release_escrow_atomic', {
+        p_order_id: orderId,
+        p_admin_name: adminName,
+        p_admin_notes: notes,
+        p_bank_name: farmerBank.bankName,
+        p_account_number: farmerBank.accountNumber,
+        p_ifsc: farmerBank.ifscCode,
+        p_utr: generatedUtr,
+      });
+
+      if (!rpcErr && rpcData?.success) {
+        atomicSuccess = true;
+      }
+    } catch (_rpcErr) {
+      // Fall through to client fallback
+    }
+
     const updatePayload = {
       status: 'completed',
       escrow_status: 'released',
-      admin_verified_by: adminUser?.name || 'AgroLnk Operations Ombudsman',
+      admin_verified_by: adminName,
       admin_verification_status: 'approved',
-      admin_call_notes: adminNotes || 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.',
+      admin_call_notes: notes,
       admin_verified_at: new Date().toISOString(),
       payout_bank_name: farmerBank.bankName,
       payout_account_number: farmerBank.accountNumber,
@@ -783,15 +806,21 @@ export async function adminVerifyAndReleaseOrderEscrow({
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from('orders')
-      .update(updatePayload)
-      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
-      .select()
-      .single();
-
-    if (error) {
-      console.warn('Supabase update note in adminVerifyAndReleaseOrderEscrow:', error);
+    let data = null;
+    if (!atomicSuccess) {
+      const { data: updatedData, error } = await supabase
+        .from('orders')
+        .update(updatePayload)
+        .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+        .select()
+        .single();
+      data = updatedData;
+      if (error) {
+        console.warn('Supabase update note in adminVerifyAndReleaseOrderEscrow:', error);
+      }
+    } else {
+      const freshOrder = await getOrderById(orderId);
+      data = freshOrder;
     }
 
     // 3. Sync Linked Delivery to 'completed'

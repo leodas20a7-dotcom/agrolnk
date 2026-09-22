@@ -495,17 +495,23 @@ export function subscribeToGlobalUnreadMessages(currentUser, onUpdate) {
             const row = payload.new;
             const threadKey = row.thread_key;
             if (threadKey) {
-              const formatted = mapDbRowToMessage(row);
-              const threads = getStoredThreads();
-              const current = threads[threadKey] || [];
-              if (payload.eventType === 'INSERT') {
-                if (!current.some((m) => m.id === formatted.id)) {
-                  threads[threadKey] = [...current, formatted];
+              // Privacy Shield: Only save & process messages for threads the user participates in
+              const authorizedKeys = getUserChannelKeys(currentUser);
+              const isAuthorized = currentUser.role === 'admin' || authorizedKeys.includes(threadKey);
+
+              if (isAuthorized) {
+                const formatted = mapDbRowToMessage(row);
+                const threads = getStoredThreads();
+                const current = threads[threadKey] || [];
+                if (payload.eventType === 'INSERT') {
+                  if (!current.some((m) => m.id === formatted.id)) {
+                    threads[threadKey] = [...current, formatted];
+                    saveStoredThreads(threads);
+                  }
+                } else if (payload.eventType === 'UPDATE') {
+                  threads[threadKey] = current.map((m) => (m.id === formatted.id ? formatted : m));
                   saveStoredThreads(threads);
                 }
-              } else if (payload.eventType === 'UPDATE') {
-                threads[threadKey] = current.map((m) => (m.id === formatted.id ? formatted : m));
-                saveStoredThreads(threads);
               }
             }
           }

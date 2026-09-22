@@ -54,8 +54,14 @@ serve(async (req: Request) => {
     const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "rzp_test_TZQxhpX8xDBPH5";
     const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "hZr37TGB9KVqjmZhhm49tTuv";
 
-    const body = await req.json();
-    const { action } = body;
+    const rawBody = await req.text();
+    let body: any = {};
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      body = {};
+    }
+    const action = body.action || (body.event ? "webhook" : (req.headers.get("X-Razorpay-Signature") ? "webhook" : null));
 
     // =========================================================================
     // ACTION 1: CREATE RAZORPAY ORDER (Server-Side Price & Fee Calculation)
@@ -338,17 +344,26 @@ serve(async (req: Request) => {
       const webhookSignature = req.headers.get("X-Razorpay-Signature") || "";
       const webhookSecret = Deno.env.get("RAZORPAY_WEBHOOK_SECRET") || "";
 
-      if (webhookSecret && webhookSignature) {
-        const isWebhookValid = await verifyHmacSha256(webhookSecret, JSON.stringify(body), webhookSignature);
+      if (webhookSecret) {
+        if (!webhookSignature) {
+          return new Response(JSON.stringify({ error: "Missing X-Razorpay-Signature header" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const isWebhookValid = await verifyHmacSha256(webhookSecret, rawBody, webhookSignature);
         if (!isWebhookValid) {
-          return new Response("Invalid webhook signature", { status: 400 });
+          return new Response(JSON.stringify({ error: "Invalid webhook signature" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
       }
 
       const event = body.event;
-      if (event === "payment.captured") {
+      if (event === "payment.captured" || event === "order.paid") {
         const paymentEntity = body.payload?.payment?.entity;
-        const rzpOrderId = paymentEntity?.order_id;
+        const rzpOrderId = paymentEntity?.order_id || body.payload?.order?.entity?.id;
         if (rzpOrderId) {
           await supabase
             .from("orders")
@@ -358,6 +373,18 @@ serve(async (req: Request) => {
               updated_at: new Date().toISOString(),
             })
             .eq("razorpay_order_id", rzpOrderId);
+        }
+      } else if (event === "transfer.processed") {
+        const transferEntity = body.payload?.transfer?.entity;
+        const transferId = transferEntity?.id;
+        if (transferId) {
+          await supabase
+            .from("orders")
+            .update({
+              settlement_status: "released_to_seller",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("razorpay_transfer_id", transferId);
         }
       }
 

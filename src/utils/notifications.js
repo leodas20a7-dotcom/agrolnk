@@ -453,6 +453,31 @@ if (typeof window !== 'undefined') {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
         if (payload.new) {
           const mapped = mapNotificationFromDb(payload.new);
+          if (!mapped) return;
+
+          // Privacy Guard: Only persist to local storage if notification matches active user session
+          let activeUser = null;
+          try {
+            const rawUser = localStorage.getItem('agrolnk_current_user');
+            if (rawUser) activeUser = JSON.parse(rawUser);
+          } catch {}
+
+          if (activeUser) {
+            const currentId = activeUser.id ? String(activeUser.id).toLowerCase() : '';
+            const currentEmail = activeUser.email ? String(activeUser.email).toLowerCase() : '';
+            const currentRole = activeUser.role ? String(activeUser.role).toLowerCase() : '';
+            const rId = mapped.recipientId ? String(mapped.recipientId).toLowerCase() : '';
+            const rRole = mapped.recipientRole ? String(mapped.recipientRole).toLowerCase() : '';
+
+            const isTarget =
+              (rId && (rId === currentId || (currentEmail && rId === currentEmail))) ||
+              (!rId && rRole && rRole === currentRole);
+
+            if (!isTarget && activeUser.role !== 'admin') {
+              return; // Do not write other users' notifications to this client's storage
+            }
+          }
+
           const current = getLocalNotifications();
           const updated = [mapped, ...current.filter((n) => n.id !== mapped.id)];
           saveLocalNotifications(updated);
