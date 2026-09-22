@@ -35,10 +35,7 @@ ON CONFLICT (id) DO UPDATE SET
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
--- 2. Ensure RLS is active on storage.objects
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
--- 3. Policy: Public Read for Public Buckets ('listings', 'proof')
+-- 2. Policy: Public Read for Public Buckets ('listings', 'proof')
 DROP POLICY IF EXISTS "AgroLnk Public View Listings and Proof" ON storage.objects;
 CREATE POLICY "AgroLnk Public View Listings and Proof"
 ON storage.objects FOR SELECT
