@@ -1,12 +1,15 @@
 import React from 'react';
 import { Check, Clock, Truck, ShieldCheck, PackageCheck, PhoneCall, AlertCircle } from 'lucide-react';
 
-export default function OrderTimeline({ currentStatus = 'pending', className = '' }) {
+export default function OrderTimeline({ currentStatus = 'pending', className = '', escrowStatus, isAuction }) {
+  const isFunded = escrowStatus === 'funded' && !isAuction;
   const steps = [
     {
       id: 'order_placed',
-      title: 'Order Placed (Escrow Funded)',
-      desc: 'Buyer deposited 100% trade funds into RBI Nodal Escrow Trust',
+      title: isFunded ? 'Order Placed (Escrow Funded)' : 'Order Confirmed',
+      desc: isFunded
+        ? 'Buyer deposited 100% trade funds into RBI Nodal Escrow Trust'
+        : 'Trade order confirmed and registered in AgroLnk ledger',
       icon: Clock,
     },
     {

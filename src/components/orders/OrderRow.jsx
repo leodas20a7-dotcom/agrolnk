@@ -99,7 +99,12 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
       {/* Right: Status & Actions (Consistently anchored) */}
       <div className="w-full md:w-[220px] lg:w-[240px] flex items-center justify-between md:justify-end gap-3 shrink-0">
         <div className="shrink-0">
-          <OrderStatus status={order.status} size="sm" />
+          <OrderStatus
+            status={order.status}
+            escrowStatus={order.escrowStatus || order.escrow_status}
+            isAuction={Boolean(order.auctionId || order.auction_id)}
+            size="sm"
+          />
         </div>
 
         <Button

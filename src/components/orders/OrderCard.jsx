@@ -47,7 +47,12 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
               size="sm"
             />
           )}
-          <OrderStatus status={order.status} size="sm" />
+          <OrderStatus
+            status={order.status}
+            escrowStatus={order.escrowStatus || order.escrow_status}
+            isAuction={Boolean(order.auctionId || order.auction_id)}
+            size="sm"
+          />
         </div>
       </div>
 

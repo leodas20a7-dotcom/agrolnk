@@ -1,30 +1,46 @@
 import React from 'react';
 import Badge from '../ui/Badge';
 
-export default function OrderStatus({ status = 'pending', size = 'sm' }) {
+export default function OrderStatus({ status = 'pending', escrowStatus, isAuction, size = 'sm' }) {
+  // If newly placed, pending, or confirmed:
+  if (status === 'order_placed' || status === 'pending' || status === 'confirmed') {
+    if (escrowStatus === 'funded' && !isAuction) {
+      return (
+        <Badge variant="blue" size={size} dot={true}>
+          <span>Escrow Funded</span>
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="emerald" size={size} dot={true}>
+        <span>Order Confirmed</span>
+      </Badge>
+    );
+  }
+
   const statusConfigs = {
-    order_placed: {
-      label: 'Escrow Funded',
-      variant: 'blue',
-      dot: true,
-    },
-    pending: {
-      label: 'Escrow Funded',
-      variant: 'blue',
-      dot: true,
-    },
     in_transit: {
       label: 'In Transit (GPS Tracked)',
       variant: 'blue',
       dot: true,
     },
+    ready_for_delivery: {
+      label: 'Ready for Dispatch',
+      variant: 'amber',
+      dot: true,
+    },
+    dispatched: {
+      label: 'Dispatched',
+      variant: 'blue',
+      dot: true,
+    },
     delivered: {
-      label: '📞 Arrived (Pending Admin Call)',
+      label: '📞 Delivered (Pending Confirmation)',
       variant: 'amber',
       dot: true,
     },
     pending_admin_approval: {
-      label: '📞 Pending Buyer Call Clearance',
+      label: '📞 Pending Delivery Clearance',
       variant: 'amber',
       dot: true,
     },
@@ -45,7 +61,11 @@ export default function OrderStatus({ status = 'pending', size = 'sm' }) {
     },
   };
 
-  const config = statusConfigs[status] || statusConfigs.pending;
+  const config = statusConfigs[status] || {
+    label: 'Order Confirmed',
+    variant: 'emerald',
+    dot: true,
+  };
 
   return (
     <Badge variant={config.variant} size={size} dot={config.dot}>
