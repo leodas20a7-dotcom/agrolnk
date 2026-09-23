@@ -536,7 +536,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
               {/* LTV Presets */}
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-[#1E40AF] font-semibold">Credit Coverage:</span>
-                {[0.5, 0.7, 0.8, 1.0].map((pct) => (
+                {[0.5, 0.7, 0.8].map((pct) => (
                   <button
                     key={pct}
                     type="button"
