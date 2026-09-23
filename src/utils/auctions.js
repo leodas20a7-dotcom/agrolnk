@@ -149,7 +149,9 @@ export async function getAuctionBids(auctionId) {
       id: b.id,
       auctionId: b.auction_id,
       bidderId: b.bidder_id,
+      buyerId: b.bidder_id,
       bidderName: b.bidder_name,
+      buyerName: b.bidder_name,
       amount: Number(b.bid_amount),
       createdAt: b.created_at,
     }));

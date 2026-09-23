@@ -28,8 +28,11 @@ export default function BidHistory({ bids = [], currentUserId, unit = 'kg' }) {
       {bids.length > 0 ? (
         <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
           {bids.map((bid, index) => {
-            const isUser = bid.buyerId === currentUserId;
+            const bidderId = bid.bidderId || bid.buyerId || bid.bidder_id;
+            const bidderName = bid.bidderName || bid.buyerName || bid.bidder_name;
+            const isUser = Boolean(currentUserId && bidderId === currentUserId);
             const isTop = index === 0;
+            const displayName = bidderName || (isUser ? 'You' : 'Buyer');
 
             return (
               <div
@@ -58,7 +61,7 @@ export default function BidHistory({ bids = [], currentUserId, unit = 'kg' }) {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-[#14211D]">
-                        {isUser ? 'You' : bid.buyerName || `Buyer #${bid.buyerId?.slice(-3) || 'X'}`}
+                        {displayName}
                       </span>
                       {isTop && (
                         <Badge variant="emerald" size="sm">
