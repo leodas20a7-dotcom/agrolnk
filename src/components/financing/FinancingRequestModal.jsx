@@ -27,6 +27,9 @@ export default function FinancingRequestModal({
     role: targetItem.farmerId || targetItem.farmerName ? 'farmer' : 'buyer',
   };
 
+  const kycStatus = user.kycStatus || user.verificationStatus || user.kyc_status || 'pending';
+  const isKycVerified = kycStatus === 'verified';
+
   const isBuyer = user.role === 'buyer';
   const totalValue = Number(
     targetItem?.totalAmount ||
@@ -75,6 +78,7 @@ export default function FinancingRequestModal({
         applicantId: user.id || user.email || 'applicant_credit',
         applicantName: user.name || (isBuyer ? 'Buyer Partner' : 'Farmer Partner'),
         applicantRole: user.role || (isBuyer ? 'buyer' : 'farmer'),
+        applicantKycStatus: kycStatus,
         orderId: isGeneral ? null : (targetItem.id || null),
         orderNumber: isGeneral
           ? `#CAP-${Math.floor(1000 + Math.random() * 9000)}`
@@ -136,6 +140,21 @@ export default function FinancingRequestModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* KYC Verification Required Warning Banner */}
+        {!isKycVerified && (
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-bold text-amber-950 block">
+                Verify Your KYC First to Receive Credit Approvals
+              </span>
+              <p className="text-[11px] text-amber-800/90 leading-relaxed">
+                Your account KYC is currently pending. Financial institutions and NBFCs will only consider and review your application after your KYC is verified by the platform admin.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Order Selector (if multiple available or opening general modal) */}
         {availableOrders.length > 0 && !order && (

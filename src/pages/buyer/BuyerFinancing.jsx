@@ -23,11 +23,12 @@ import {
   Gavel,
   Calendar,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  AlertCircle
 } from 'lucide-react';
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerFinancingRequests, getFinancingRequestForOrder } from '../../utils/financing';
-import { getCurrentUser } from '../../utils/auth';
+import { getCurrentUser, getResolvedUserKycStatus } from '../../utils/auth';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 import { supabase } from '../../lib/supabase';
@@ -120,6 +121,9 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
     currentPage * pageSize
   );
 
+  const kycStatus = getResolvedUserKycStatus(user);
+  const isKycVerified = kycStatus === 'verified';
+
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
@@ -163,6 +167,39 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
             </Button>
           </div>
         </div>
+
+        {/* KYC Verification Required Warning Banner for Unverified Buyers */}
+        {!isKycVerified && (
+          <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200">
+                <AlertCircle className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-200/70 text-[11px] font-bold text-amber-900">
+                  KYC VERIFICATION REQUIRED
+                </div>
+                <h3 className="text-base font-bold text-amber-950">
+                  Verify your account KYC to receive trade credit approvals
+                </h3>
+                <p className="text-xs text-amber-800/90 leading-relaxed max-w-2xl">
+                  Financial institutions and NBFCs require verified account KYC before reviewing loan applications. Please ensure your KYC documents are submitted and verified by the platform admin so lenders can process your credit requests.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="accent"
+              size="sm"
+              icon={ArrowRight}
+              iconPosition="right"
+              onClick={() => window.dispatchEvent(new CustomEvent('agrolnk_open_profile_modal'))}
+              className="shrink-0 font-bold text-xs py-2.5 px-4 shadow-xs cursor-pointer whitespace-nowrap"
+            >
+              Verify KYC First
+            </Button>
+          </div>
+        )}
 
         {/* Term-Sheet Offer Confirmation Alert Banner */}
         {safeRequests.filter(r => r.status === 'offer_received').length > 0 && (

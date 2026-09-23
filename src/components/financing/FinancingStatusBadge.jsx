@@ -5,8 +5,13 @@ import { Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 export default function FinancingStatusBadge({ status, applicantKycStatus, size = 'sm' }) {
   if ((status === 'pending' || status === 'under_review') && applicantKycStatus && applicantKycStatus !== 'verified') {
     return (
-      <Badge variant="amber" size={size} dot={true}>
-        <span>KYC Pending Approval</span>
+      <Badge
+        variant="amber"
+        size={size}
+        dot={true}
+        title="Institutional lenders will only consider and review your credit request after your account KYC is verified."
+      >
+        <span>Verify KYC First</span>
       </Badge>
     );
   }

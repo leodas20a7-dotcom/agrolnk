@@ -41,7 +41,11 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
             </Badge>
             {financingReq && (
               <div className="shrink-0">
-                <FinancingStatusBadge status={financingReq.status} size="sm" />
+                <FinancingStatusBadge
+                  status={financingReq.status}
+                  applicantKycStatus={financingReq.applicantKycStatus}
+                  size="sm"
+                />
               </div>
             )}
           </div>
