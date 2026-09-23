@@ -24,7 +24,7 @@ export default function DepositProduceModal({
   });
 
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(
-    preselectedWarehouse?.id || warehouses[0]?.id || ''
+    preselectedWarehouse?.id || ''
   );
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function DepositProduceModal({
         if (isMounted && Array.isArray(live) && live.length > 0) {
           setWarehouses(live);
           if (!preselectedWarehouse?.id) {
-            setSelectedWarehouseId((prev) => (prev && live.some((w) => w.id === prev) ? prev : live[0].id));
+            setSelectedWarehouseId((prev) => (prev && live.some((w) => w.id === prev) ? prev : ''));
           }
         }
       } catch (err) {
@@ -48,10 +48,10 @@ export default function DepositProduceModal({
     };
   }, [preselectedWarehouse?.id]);
 
-  const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0] || null;
+  const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || null;
   const availableChambers = (Array.isArray(currentWarehouse?.chambers) && currentWarehouse.chambers.length > 0)
     ? currentWarehouse.chambers
-    : ['Chamber A1 - General Storage (Ambient)'];
+    : [];
 
   const [commodity, setCommodity] = useState('');
   const [variety, setVariety] = useState('');
@@ -59,16 +59,14 @@ export default function DepositProduceModal({
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('kg');
   const [priceEstimate, setPriceEstimate] = useState('');
-  const [chamber, setChamber] = useState(
-    availableChambers[0] || 'Chamber A1'
-  );
+  const [chamber, setChamber] = useState('');
   const [storageDays, setStorageDays] = useState('30');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (availableChambers?.length > 0 && !availableChambers.includes(chamber)) {
-      setChamber(availableChambers[0]);
+    if (chamber && availableChambers?.length > 0 && !availableChambers.includes(chamber)) {
+      setChamber('');
     }
   }, [selectedWarehouseId, availableChambers]);
 
@@ -78,7 +76,7 @@ export default function DepositProduceModal({
 
   const estimatedTotalValue = Number(quantity || 0) * Number(priceEstimate || 0);
 
-  const baseChamberRate = (currentWarehouse?.chamberRates && currentWarehouse.chamberRates[chamber])
+  const baseChamberRate = (currentWarehouse?.chamberRates && chamber && currentWarehouse.chamberRates[chamber])
     ? Number(currentWarehouse.chamberRates[chamber])
     : Number(currentWarehouse?.monthlyRatePerTonne || 350);
 
@@ -91,6 +89,16 @@ export default function DepositProduceModal({
 
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
+
+    if (!selectedWarehouseId) {
+      setError('Please choose a certified storage facility.');
+      return;
+    }
+
+    if (!chamber) {
+      setError('Please choose a storage chamber / cell.');
+      return;
+    }
 
     if (!commodity || commodity.trim() === '') {
       setError('Please select or specify a commodity / crop.');
@@ -196,7 +204,7 @@ export default function DepositProduceModal({
           ) : (
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                Certified Storage Facility
+                Certified Storage Facility <span className="text-red-500">*</span>
               </label>
               <SearchableSelect
                 options={warehouses.map((wh) => ({
@@ -207,12 +215,9 @@ export default function DepositProduceModal({
                 value={selectedWarehouseId}
                 onChange={(val) => {
                   setSelectedWarehouseId(val);
-                  const selected = warehouses.find((w) => w.id === val);
-                  if (selected && Array.isArray(selected.chambers) && selected.chambers.length > 0) {
-                    setChamber(selected.chambers[0]);
-                  }
+                  setChamber('');
                 }}
-                placeholder="Select Storage Facility"
+                placeholder="Choose Certified Storage Facility..."
                 searchPlaceholder="Search warehouse name, city..."
               />
             </div>
@@ -221,7 +226,7 @@ export default function DepositProduceModal({
           {/* Chamber Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-              Storage Chamber / Cell
+              Storage Chamber / Cell <span className="text-red-500">*</span>
             </label>
             <SearchableSelect
               options={availableChambers.map((ch) => {
@@ -240,7 +245,8 @@ export default function DepositProduceModal({
               })}
               value={chamber}
               onChange={(val) => setChamber(val)}
-              placeholder="Select Chamber"
+              disabled={!selectedWarehouseId}
+              placeholder={selectedWarehouseId ? "Choose Storage Chamber / Cell..." : "Choose Storage Facility First..."}
               searchPlaceholder="Search chamber..."
             />
           </div>
@@ -355,15 +361,23 @@ export default function DepositProduceModal({
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[#566861]">Chamber Storage Fee:</span>
-                  <strong className="text-[#0B3326]">
-                    ₹{effectiveRatePerTonne} / Tonne / mo
-                  </strong>
-                  <span className="text-[11px] text-[#566861]">
-                    (₹{(effectiveRatePerTonne / 1000).toFixed(2)}/kg · ₹{Math.round(effectiveRatePerTonne / 20)}/50kg bag)
-                  </span>
-                  {appliedDiscountPct > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                      {appliedDiscountPct}% Bulk Discount Applied
+                  {chamber && currentWarehouse ? (
+                    <>
+                      <strong className="text-[#0B3326]">
+                        ₹{effectiveRatePerTonne} / Tonne / mo
+                      </strong>
+                      <span className="text-[11px] text-[#566861]">
+                        (₹{(effectiveRatePerTonne / 1000).toFixed(2)}/kg · ₹{Math.round(effectiveRatePerTonne / 20)}/50kg bag)
+                      </span>
+                      {appliedDiscountPct > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                          {appliedDiscountPct}% Bulk Discount Applied
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[#566861] italic text-[11px]">
+                      Choose facility & chamber to calculate rate
                     </span>
                   )}
                 </div>
@@ -381,7 +395,7 @@ export default function DepositProduceModal({
               </div>
               <div className="text-right shrink-0">
                 <span className="font-extrabold text-[#0B3326] text-sm block">
-                  ₹{monthlyRentalEst.toLocaleString('en-IN')} / mo
+                  {chamber && Number(quantity) > 0 ? `₹${monthlyRentalEst.toLocaleString('en-IN')} / mo` : '—'}
                 </span>
                 <span className="text-[10px] text-[#566861]">
                   Est. Rent Quote
