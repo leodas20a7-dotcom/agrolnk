@@ -135,48 +135,40 @@ ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS farmer_
 ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS warehouse_notes TEXT;
 
 -- 6. ROW LEVEL SECURITY (RLS) POLICIES: Allow Read/Write for App Operation
-DO $$
-BEGIN
-  -- Orders
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'orders' AND policyname = 'Allow public read orders') THEN
-    CREATE POLICY "Allow public read orders" ON public.orders FOR SELECT USING (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'orders' AND policyname = 'Allow public write orders') THEN
-    CREATE POLICY "Allow public write orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);
-  END IF;
+-- Orders
+DROP POLICY IF EXISTS "Allow public read orders" ON public.orders;
+CREATE POLICY "Allow public read orders" ON public.orders FOR SELECT USING (true);
 
-  -- Deliveries
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'deliveries' AND policyname = 'Allow public read deliveries') THEN
-    CREATE POLICY "Allow public read deliveries" ON public.deliveries FOR SELECT USING (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'deliveries' AND policyname = 'Allow public write deliveries') THEN
-    CREATE POLICY "Allow public write deliveries" ON public.deliveries FOR ALL USING (true) WITH CHECK (true);
-  END IF;
+DROP POLICY IF EXISTS "Allow public write orders" ON public.orders;
+CREATE POLICY "Allow public write orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);
 
-  -- Financing Requests
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'financing_requests' AND policyname = 'Allow public read financing') THEN
-    CREATE POLICY "Allow public read financing" ON public.financing_requests FOR SELECT USING (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'financing_requests' AND policyname = 'Allow public write financing') THEN
-    CREATE POLICY "Allow public write financing" ON public.financing_requests FOR ALL USING (true) WITH CHECK (true);
-  END IF;
+-- Deliveries
+DROP POLICY IF EXISTS "Allow public read deliveries" ON public.deliveries;
+CREATE POLICY "Allow public read deliveries" ON public.deliveries FOR SELECT USING (true);
 
-  -- Inspections
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'inspections' AND policyname = 'Allow public read inspections') THEN
-    CREATE POLICY "Allow public read inspections" ON public.inspections FOR SELECT USING (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'inspections' AND policyname = 'Allow public write inspections') THEN
-    CREATE POLICY "Allow public write inspections" ON public.inspections FOR ALL USING (true) WITH CHECK (true);
-  END IF;
+DROP POLICY IF EXISTS "Allow public write deliveries" ON public.deliveries;
+CREATE POLICY "Allow public write deliveries" ON public.deliveries FOR ALL USING (true) WITH CHECK (true);
 
-  -- Warehouse Receipts
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'warehouse_receipts' AND policyname = 'Allow public read warehouse_receipts') THEN
-    CREATE POLICY "Allow public read warehouse_receipts" ON public.warehouse_receipts FOR SELECT USING (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'warehouse_receipts' AND policyname = 'Allow public write warehouse_receipts') THEN
-    CREATE POLICY "Allow public write warehouse_receipts" ON public.warehouse_receipts FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
+-- Financing Requests
+DROP POLICY IF EXISTS "Allow public read financing" ON public.financing_requests;
+CREATE POLICY "Allow public read financing" ON public.financing_requests FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public write financing" ON public.financing_requests;
+CREATE POLICY "Allow public write financing" ON public.financing_requests FOR ALL USING (true) WITH CHECK (true);
+
+-- Inspections
+DROP POLICY IF EXISTS "Allow public read inspections" ON public.inspections;
+CREATE POLICY "Allow public read inspections" ON public.inspections FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public write inspections" ON public.inspections;
+CREATE POLICY "Allow public write inspections" ON public.inspections FOR ALL USING (true) WITH CHECK (true);
+
+-- Warehouse Receipts
+DROP POLICY IF EXISTS "Allow public read warehouse_receipts" ON public.warehouse_receipts;
+CREATE POLICY "Allow public read warehouse_receipts" ON public.warehouse_receipts FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public write warehouse_receipts" ON public.warehouse_receipts;
+CREATE POLICY "Allow public write warehouse_receipts" ON public.warehouse_receipts FOR ALL USING (true) WITH CHECK (true);
 
 -- 7. CHAT MESSAGES TABLE: Create table & ensure RLS
 CREATE TABLE IF NOT EXISTS public.chat_messages (
@@ -193,15 +185,12 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 );
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'chat_messages' AND policyname = 'Allow public read chat_messages') THEN
-    CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'chat_messages' AND policyname = 'Allow public write chat_messages') THEN
-    CREATE POLICY "Allow public write chat_messages" ON public.chat_messages FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
+
+DROP POLICY IF EXISTS "Allow public read chat_messages" ON public.chat_messages;
+CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public write chat_messages" ON public.chat_messages;
+CREATE POLICY "Allow public write chat_messages" ON public.chat_messages FOR ALL USING (true) WITH CHECK (true);
 
 -- 8. DUPLICATE ORDER PREVENTION & DEDUPLICATION
 -- Safely deduplicate any legacy test orders sharing the same auction_id before creating the unique index
