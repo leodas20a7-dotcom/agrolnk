@@ -142,6 +142,12 @@ export default function OrderSummary({
               <span className="text-xs text-[#566861] font-mono">
                 {order.orderNumber ? (order.orderNumber.startsWith('#') ? order.orderNumber : `#${order.orderNumber}`) : '#Order'}
               </span>
+              <OrderStatus
+                status={order.status}
+                escrowStatus={order.escrowStatus || order.escrow_status}
+                isAuction={Boolean(order.auctionId || order.auction_id)}
+                size="sm"
+              />
             </div>
             <span className="text-xs text-[#566861] mt-0.5 block">
               Variety: <strong>{order.variety || 'Standard'}</strong> • {order.createdAt && !isNaN(new Date(order.createdAt).getTime()) ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'Recent'}
