@@ -215,12 +215,12 @@ export default function WarehouseSetupModal({
 
   const handleTypeCapacityChange = (typeId, value) => {
     setSelectedTypes((prev) => {
-      const current = prev[typeId] || { enabled: true, capacity: 0, temp: '' };
+      const current = prev[typeId] || { enabled: true, capacity: '', temp: '' };
       return {
         ...prev,
         [typeId]: {
           ...current,
-          capacity: Number(value) || 0,
+          capacity: value,
         },
       };
     });
@@ -228,12 +228,12 @@ export default function WarehouseSetupModal({
 
   const handleTypeRateChange = (typeId, value) => {
     setSelectedTypes((prev) => {
-      const current = prev[typeId] || { enabled: true, capacity: 0, temp: '', rate: 350 };
+      const current = prev[typeId] || { enabled: true, capacity: '', temp: '', rate: '' };
       return {
         ...prev,
         [typeId]: {
           ...current,
-          rate: Number(value) || 0,
+          rate: value,
         },
       };
     });
@@ -338,8 +338,15 @@ export default function WarehouseSetupModal({
       const formattedChambers = STORAGE_TYPE_OPTIONS.filter(
         (opt) => selectedTypes[opt.id]?.enabled
       ).map((opt) => {
-        const rate = Number(selectedTypes[opt.id]?.rate || opt.defaultRate || 350);
-        const chamberTitle = `${opt.name} (${selectedTypes[opt.id]?.capacity || opt.defaultCap}T - ${selectedTypes[opt.id]?.temp || opt.defaultTemp})`;
+        const rawRate = selectedTypes[opt.id]?.rate;
+        const rate = (rawRate !== undefined && rawRate !== '' && !isNaN(Number(rawRate)))
+          ? Number(rawRate)
+          : (opt.defaultRate || 350);
+        const rawCap = selectedTypes[opt.id]?.capacity;
+        const cap = (rawCap !== undefined && rawCap !== '' && !isNaN(Number(rawCap)))
+          ? Number(rawCap)
+          : opt.defaultCap;
+        const chamberTitle = `${opt.name} (${cap}T - ${selectedTypes[opt.id]?.temp || opt.defaultTemp})`;
         chamberRates[chamberTitle] = rate;
         chamberRates[opt.name] = rate;
         chamberRates[opt.id] = rate;
@@ -348,7 +355,7 @@ export default function WarehouseSetupModal({
           id: opt.id,
           name: opt.name,
           temp: selectedTypes[opt.id]?.temp || opt.defaultTemp,
-          capacity: Number(selectedTypes[opt.id]?.capacity || opt.defaultCap),
+          capacity: cap,
           rate,
           description: opt.description,
         };
@@ -737,8 +744,10 @@ export default function WarehouseSetupModal({
                 {STORAGE_TYPE_OPTIONS.map((opt) => {
                   const Icon = opt.icon;
                   const isChecked = selectedTypes[opt.id]?.enabled;
-                  const currentCap = selectedTypes[opt.id]?.capacity || opt.defaultCap;
-                  const currentRate = selectedTypes[opt.id]?.rate || opt.defaultRate || 350;
+                  const capVal = selectedTypes[opt.id]?.capacity;
+                  const currentCap = capVal !== undefined ? capVal : opt.defaultCap;
+                  const rateVal = selectedTypes[opt.id]?.rate;
+                  const currentRate = rateVal !== undefined ? rateVal : (opt.defaultRate || 350);
 
                   return (
                     <div
@@ -796,9 +805,9 @@ export default function WarehouseSetupModal({
                                   type="number"
                                   value={currentCap}
                                   onChange={(e) => handleTypeCapacityChange(opt.id, e.target.value)}
-                                  min="10"
-                                  step="50"
-                                  placeholder="1000"
+                                  min="0"
+                                  step="any"
+                                  placeholder="e.g. 1000"
                                   className="w-full pl-3 pr-16 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[#566861]">
@@ -820,9 +829,9 @@ export default function WarehouseSetupModal({
                                   type="number"
                                   value={currentRate}
                                   onChange={(e) => handleTypeRateChange(opt.id, e.target.value)}
-                                  min="1"
+                                  min="0"
                                   step="any"
-                                  placeholder="350"
+                                  placeholder="e.g. 350"
                                   className="w-full pl-7 pr-24 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[#566861]">
