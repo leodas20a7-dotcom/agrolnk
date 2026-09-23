@@ -346,10 +346,12 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-                  {liveAuctions.length} Live Auctions Active
+                  {liveAuctions.length > 0
+                    ? `${liveAuctions.length} Live Auction${liveAuctions.length === 1 ? '' : 's'} Active`
+                    : 'No Live Auctions Active'}
                 </span>
                 <span className="text-xs font-semibold text-[#D97706]">
-                  • Real-Time Clocks
+                  {liveAuctions.length > 0 ? '• Real-Time Clocks' : '• Check Back Soon'}
                 </span>
               </div>
             </div>

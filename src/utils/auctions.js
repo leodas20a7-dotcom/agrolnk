@@ -47,7 +47,15 @@ export async function getAuctions() {
       return [];
     }
 
-    return (data || []).map(mapAuctionFromDb);
+    const now = Date.now();
+    return (data || []).map((row) => {
+      const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
+      if (row.status === 'live' && isExpired) {
+        finalizeAuction(row.id).catch(() => {});
+        return mapAuctionFromDb({ ...row, status: 'completed' });
+      }
+      return mapAuctionFromDb(row);
+    });
   } catch (err) {
     console.error('Error in getAuctions:', err);
     return [];
@@ -70,7 +78,18 @@ export async function getLiveAuctions() {
       return [];
     }
 
-    return (data || []).map(mapAuctionFromDb);
+    const now = Date.now();
+    const live = [];
+    for (const row of (data || [])) {
+      const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
+      if (isExpired) {
+        finalizeAuction(row.id).catch(() => {});
+      } else {
+        live.push(mapAuctionFromDb(row));
+      }
+    }
+
+    return live;
   } catch (err) {
     console.error('Error in getLiveAuctions:', err);
     return [];
@@ -95,7 +114,15 @@ export async function getFarmerAuctions(farmerId) {
       return [];
     }
 
-    return (data || []).map(mapAuctionFromDb);
+    const now = Date.now();
+    return (data || []).map((row) => {
+      const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
+      if (row.status === 'live' && isExpired) {
+        finalizeAuction(row.id).catch(() => {});
+        return mapAuctionFromDb({ ...row, status: 'completed' });
+      }
+      return mapAuctionFromDb(row);
+    });
   } catch (err) {
     console.error('Error in getFarmerAuctions:', err);
     return [];
