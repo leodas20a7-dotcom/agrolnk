@@ -1,6 +1,7 @@
 // Agrolnk Supabase Auctions & Bidding Engine
 import { supabase } from '../lib/supabase';
 import { COMMODITY_IMAGES } from './listings';
+import { getCurrentUser, isUserKycVerified } from './auth';
 
 function mapAuctionFromDb(row) {
   if (!row) return null;
@@ -219,6 +220,12 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
     }
 
     const numAmount = Number(amount);
+
+    // Verify Buyer KYC Status before placing bid
+    const activeUser = getCurrentUser();
+    if (activeUser && activeUser.role === 'buyer' && !isUserKycVerified(activeUser)) {
+      throw new Error('Buyer KYC verification is mandatory before participating in auctions.');
+    }
 
     // 1. Production Atomic Database RPC with Row Locking (Eliminates Concurrency Race Conditions)
     try {

@@ -24,6 +24,8 @@ import {
 import { createOrder } from '../../utils/orders';
 import { deductListingQuantity, getListingById, COMMODITY_IMAGES } from '../../utils/listings';
 import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
+import { getResolvedUserKycStatus } from '../../utils/auth';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 
 const STORAGE_ACTIVE_LISTING_KEY = 'agrolnk_active_listing_detail';
 
@@ -43,6 +45,23 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
     } catch {}
     return null;
   });
+
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
+  const isVerified = currentKycStatus === 'verified';
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+
+  useEffect(() => {
+    const syncKyc = () => {
+      setCurrentKycStatus(getResolvedUserKycStatus(user));
+    };
+    syncKyc();
+    window.addEventListener('agrolnk_kyc_updated', syncKyc);
+    window.addEventListener('storage', syncKyc);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
+      window.removeEventListener('storage', syncKyc);
+    };
+  }, [user.id, user.email]);
 
   // Sync navState.listing whenever it changes
   useEffect(() => {
@@ -361,7 +380,13 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setIsInspectionOpen(true)}
+                  onClick={() => {
+                    if (!isVerified) {
+                      setIsVerificationModalOpen(true);
+                    } else {
+                      setIsInspectionOpen(true);
+                    }
+                  }}
                   icon={ClipboardCheck}
                   iconPosition="left"
                   className="w-full justify-center py-2 text-xs font-bold border-amber-200 text-amber-950 hover:bg-amber-100/60 cursor-pointer"
@@ -444,7 +469,13 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                     <Button
                       variant="accent"
                       size="lg"
-                      onClick={() => setIsModalOpen(true)}
+                      onClick={() => {
+                        if (!isVerified) {
+                          setIsVerificationModalOpen(true);
+                        } else {
+                          setIsModalOpen(true);
+                        }
+                      }}
                       icon={ShoppingBag}
                       iconPosition="left"
                       className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
@@ -503,6 +534,20 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleOrderConfirmed}
       />
+
+      {/* Verification Required Modal */}
+      {isVerificationModalOpen && (
+        <VerificationRequiredModal
+          isOpen={isVerificationModalOpen}
+          currentUser={user}
+          actionName="place escrow purchase orders and request certified quality assays"
+          onClose={() => setIsVerificationModalOpen(false)}
+          onSuccess={() => {
+            setIsVerificationModalOpen(false);
+            setCurrentKycStatus('pending');
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }

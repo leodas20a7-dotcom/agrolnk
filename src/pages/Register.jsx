@@ -181,7 +181,7 @@ export default function Register({ onNavigate, navState }) {
       });
 
       // Navigate to respective role-based dashboard
-      onNavigate(`${user.role}-dashboard`, { user });
+      onNavigate(`${user.role}-dashboard`, { user, autoOpenKyc: true, isNewlyRegistered: true });
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
       setIsSubmitting(false);

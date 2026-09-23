@@ -5,6 +5,7 @@ import Badge from '../ui/Badge';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 import { createFinancingRequest, getFinancingRequests } from '../../utils/financing';
+import { getResolvedUserKycStatus } from '../../utils/auth';
 
 export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
   const [purchaseQty, setPurchaseQty] = useState(listing ? Math.min(100, listing.quantity) : 100);
@@ -84,6 +85,11 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
   const handleConfirmOrder = () => {
     setError('');
+
+    if (getResolvedUserKycStatus(currentUser) !== 'verified') {
+      setError('Buyer KYC verification is required before placing purchase orders.');
+      return;
+    }
 
     if (!qty || qty <= 0) {
       setError('Please enter a valid purchase quantity.');

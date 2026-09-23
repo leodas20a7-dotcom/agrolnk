@@ -417,6 +417,7 @@ export default function App() {
           <BuyerDashboard
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
+            navState={navState}
           />
         </ProtectedRoute>
       )}

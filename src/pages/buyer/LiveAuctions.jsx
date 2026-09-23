@@ -20,10 +20,13 @@ import {
   ShoppingBag,
   Trophy,
   History,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 import { getAuctions } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 
 export default function LiveAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { id: '', name: 'Buyer', role: 'buyer' };
@@ -31,6 +34,31 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('live'); // 'live' | 'ended'
   const [selectedHistoryAuction, setSelectedHistoryAuction] = useState(null);
+
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
+  const isVerified = currentKycStatus === 'verified';
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+
+  useEffect(() => {
+    const syncKyc = async () => {
+      const status = getResolvedUserKycStatus(user);
+      setCurrentKycStatus(status);
+      try {
+        const profile = await fetchCurrentProfile();
+        if (profile?.kycStatus) {
+          setCurrentKycStatus(profile.kycStatus);
+        }
+      } catch {}
+    };
+
+    syncKyc();
+    window.addEventListener('agrolnk_kyc_updated', syncKyc);
+    window.addEventListener('storage', syncKyc);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
+      window.removeEventListener('storage', syncKyc);
+    };
+  }, [user.id, user.email]);
 
   useEffect(() => {
     let isMounted = true;
@@ -125,6 +153,37 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
             </Button>
           </div>
         </div>
+
+        {/* KYC Verification Required Banner for Unverified Buyers */}
+        {!isVerified && (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <Lock className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <span className="text-xs sm:text-sm font-bold block">
+                  {currentKycStatus === 'pending'
+                    ? 'Auction Bidding Locked — KYC Documents Under Review'
+                    : 'Buyer Verification Required to Bid in Auctions'}
+                </span>
+                <p className="text-xs text-[#566861]">
+                  {currentKycStatus === 'pending'
+                    ? 'Your submitted identity documents are being reviewed by Admin. Bidding rooms will unlock upon verification approval.'
+                    : 'To prevent unauthorized bids and ensure escrow-backed auction settlements, buyers must complete KYC identity verification before participating.'}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsVerificationModalOpen(true)}
+              className="shrink-0 text-xs font-bold py-2 px-4 cursor-pointer"
+            >
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : 'Verify Identity to Bid'}
+            </Button>
+          </div>
+        )}
 
         {/* Filter Tabs & Search Bar Row */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -302,7 +361,13 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                           <Button
                             variant="accent"
                             size="md"
-                            onClick={() => onNavigate('auction-room', { auctionId: lot.id, auction: lot })}
+                            onClick={() => {
+                              if (!isVerified) {
+                                setIsVerificationModalOpen(true);
+                              } else {
+                                onNavigate('auction-room', { auctionId: lot.id, auction: lot });
+                              }
+                            }}
                             icon={ArrowRight}
                             iconPosition="right"
                             className="w-full justify-center font-bold text-xs py-2.5 shadow-2xs cursor-pointer"
@@ -322,7 +387,13 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                     key={lot.id}
                     auction={lot}
                     timeNow={now}
-                    onNavigate={onNavigate}
+                    onNavigate={(page, state) => {
+                      if (!isVerified && page === 'auction-room') {
+                        setIsVerificationModalOpen(true);
+                      } else {
+                        onNavigate(page, state);
+                      }
+                    }}
                     onViewHistory={(a) => setSelectedHistoryAuction(a)}
                   />
                 ))}
@@ -363,6 +434,20 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
           isOpen={Boolean(selectedHistoryAuction)}
           onClose={() => setSelectedHistoryAuction(null)}
           onNavigate={onNavigate}
+        />
+      )}
+
+      {/* Verification Required Modal */}
+      {isVerificationModalOpen && (
+        <VerificationRequiredModal
+          isOpen={isVerificationModalOpen}
+          currentUser={user}
+          actionName="participate in live auctions and place real-time bids"
+          onClose={() => setIsVerificationModalOpen(false)}
+          onSuccess={() => {
+            setIsVerificationModalOpen(false);
+            setCurrentKycStatus('pending');
+          }}
         />
       )}
     </DashboardLayout>

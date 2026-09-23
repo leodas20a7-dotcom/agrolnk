@@ -23,7 +23,8 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
-  Zap
+  Zap,
+  Lock
 } from 'lucide-react';
 import {
   getAuctionById,
@@ -33,6 +34,8 @@ import {
 } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { supabase } from '../../lib/supabase';
+import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 
 const STORAGE_ACTIVE_AUCTION_KEY = 'agrolnk_active_auction_id';
 
@@ -72,6 +75,31 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
+  const isVerified = currentKycStatus === 'verified';
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+
+  useEffect(() => {
+    const syncKyc = async () => {
+      const status = getResolvedUserKycStatus(user);
+      setCurrentKycStatus(status);
+      try {
+        const profile = await fetchCurrentProfile();
+        if (profile?.kycStatus) {
+          setCurrentKycStatus(profile.kycStatus);
+        }
+      } catch {}
+    };
+
+    syncKyc();
+    window.addEventListener('agrolnk_kyc_updated', syncKyc);
+    window.addEventListener('storage', syncKyc);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
+      window.removeEventListener('storage', syncKyc);
+    };
+  }, [user.id, user.email]);
 
   const fetchAuctionData = async () => {
     if (!auctionId) return;
@@ -162,11 +190,22 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
   const isUserOutbid = hasUserBid && !isCurrentUserLeading && !isAuctionEnded;
 
   const handleInitiateBid = (amount) => {
+    if (!isFarmer && !isVerified) {
+      setIsVerificationModalOpen(true);
+      return;
+    }
     setPendingBidAmount(amount);
     setConfirmModalOpen(true);
   };
 
   const handleConfirmBid = async () => {
+    if (!isFarmer && !isVerified) {
+      setIsVerificationModalOpen(true);
+      setConfirmModalOpen(false);
+      setIsSubmittingBid(false);
+      return;
+    }
+
     setIsSubmittingBid(true);
     try {
       await placeBid(auction.id, user.id, user.name, pendingBidAmount);
@@ -249,6 +288,35 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
             />
           </div>
         </div>
+
+        {/* Buyer Spectator Mode Banner when Unverified */}
+        {!isFarmer && !isVerified && (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <Lock className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <h4 className="font-bold text-sm">
+                  Spectator Mode — KYC Identity Verification Required
+                </h4>
+                <p className="text-xs text-[#566861]">
+                  {currentKycStatus === 'pending'
+                    ? 'Your verification documents are currently under review by Admin. Real-time bidding will unlock upon approval.'
+                    : 'You can watch the live clock and floor bids in spectator mode. To submit live bids, please complete buyer identity verification.'}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsVerificationModalOpen(true)}
+              className="shrink-0 text-xs font-bold py-2 px-4 cursor-pointer"
+            >
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : 'Verify Identity to Bid'}
+            </Button>
+          </div>
+        )}
 
         {/* Farmer Early Knockdown Action Card */}
         {isFarmer && !isAuctionEnded && auction.highestBidderId && (
@@ -517,6 +585,20 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
         message={alertModal.message}
         type={alertModal.type}
       />
+
+      {/* Verification Required Modal */}
+      {isVerificationModalOpen && (
+        <VerificationRequiredModal
+          isOpen={isVerificationModalOpen}
+          currentUser={user}
+          actionName="participate in live auctions and place real-time bids"
+          onClose={() => setIsVerificationModalOpen(false)}
+          onSuccess={() => {
+            setIsVerificationModalOpen(false);
+            setCurrentKycStatus('pending');
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }

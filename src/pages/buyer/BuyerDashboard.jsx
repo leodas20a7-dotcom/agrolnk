@@ -34,7 +34,7 @@ import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 
-export default function BuyerDashboard({ currentUser, onNavigate }) {
+export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
     ? currentUser
     : (getCurrentUser() || { name: 'Buyer', id: '', role: 'buyer' });
@@ -95,6 +95,15 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_user_profile_updated', syncKyc);
     };
   }, [user.id, user.email]);
+
+  // Auto-prompt KYC verification modal for newly registered or pending buyers
+  useEffect(() => {
+    if (navState?.autoOpenKyc || navState?.isNewlyRegistered) {
+      if (!isVerified) {
+        setIsVerificationModalOpen(true);
+      }
+    }
+  }, [navState?.autoOpenKyc, navState?.isNewlyRegistered, isVerified]);
 
   const scrollLeft = () => {
     if (sliderRef.current) {
@@ -315,10 +324,10 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
                 </div>
                 <p className="text-xs text-[#566861]">
                   {currentKycStatus === 'pending'
-                    ? 'Documents are under review. Trade credit and bulk procurement will activate once approved.'
+                    ? 'Documents are under review. Trade credit, produce purchasing and live auctions will activate once approved.'
                     : currentKycStatus === 'rejected'
                     ? 'Please review and re-submit your business verification documents.'
-                    : 'Complete trade identity verification to unlock trade financing and bulk contracts.'}
+                    : 'Submit your trade verification (Aadhaar / GSTIN / PAN) to unlock the produce marketplace and participate in live auctions.'}
                 </p>
               </div>
             </div>
@@ -329,7 +338,7 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
               onClick={handleOpenKycAction}
               className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
             >
-              {currentKycStatus === 'pending' ? 'View' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
+              {currentKycStatus === 'pending' ? 'View Submitted Proof' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
             </Button>
           </div>
         )}
@@ -369,10 +378,16 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => onNavigate('buyer-live-auctions')}
+              onClick={() => {
+                if (!isVerified) {
+                  setIsVerificationModalOpen(true);
+                } else {
+                  onNavigate('buyer-live-auctions');
+                }
+              }}
               icon={ArrowRight}
               iconPosition="right"
-              className="text-xs font-bold"
+              className="text-xs font-bold cursor-pointer"
             >
               Join Live Auctions
             </Button>
@@ -403,10 +418,16 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => onNavigate('buyer-marketplace')}
+            onClick={() => {
+              if (!isVerified) {
+                setIsVerificationModalOpen(true);
+              } else {
+                onNavigate('buyer-marketplace');
+              }
+            }}
             icon={ArrowRight}
             iconPosition="right"
-            className="text-xs font-bold"
+            className="text-xs font-bold cursor-pointer"
           >
             Explore Catalog
           </Button>
@@ -490,23 +511,53 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
             <h2 className="text-lg font-bold text-[#0B3326] font-heading flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#10B981]" /> Recommended Direct Lots
             </h2>
-            <button
-              onClick={() => onNavigate('buyer-marketplace')}
-              className="text-xs font-bold text-[#0B3326] hover:text-[#10B981] transition-colors"
-            >
-              View All →
-            </button>
+            {isVerified && (
+              <button
+                onClick={() => onNavigate('buyer-marketplace')}
+                className="text-xs font-bold text-[#0B3326] hover:text-[#10B981] transition-colors cursor-pointer"
+              >
+                View All →
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {listings.slice(0, 3).map((item) => (
-              <MarketplaceCard
-                key={item.id}
-                listing={item}
-                onSelect={(lot) => onNavigate('buyer-listing-detail', { listing: lot })}
-              />
-            ))}
-          </div>
+          {!isVerified ? (
+            <Card className="p-8 sm:p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl bg-gradient-to-b from-[#F8FAF8] to-[#F2FBF6] space-y-4 shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
+                <ShieldCheck className="w-7 h-7 text-amber-700" />
+              </div>
+              <div className="space-y-1.5 max-w-md mx-auto">
+                <h3 className="text-lg font-bold text-[#0B3326] font-heading">
+                  Direct Produce Catalog Locked
+                </h3>
+                <p className="text-xs sm:text-sm text-[#566861] leading-relaxed">
+                  To protect verified farmers, prevent trade fraud, and access farmgate wholesale pricing with escrow settlement, buyer identity verification is mandatory.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleOpenKycAction}
+                  icon={ShieldCheck}
+                  iconPosition="left"
+                  className="font-bold text-xs py-3 px-6 shadow-xs cursor-pointer"
+                >
+                  {currentKycStatus === 'pending' ? 'View Submitted Verification' : 'Complete KYC Verification to Unlock Produce'}
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {listings.slice(0, 3).map((item) => (
+                <MarketplaceCard
+                  key={item.id}
+                  listing={item}
+                  onSelect={(lot) => onNavigate('buyer-listing-detail', { listing: lot })}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
@@ -516,7 +567,7 @@ export default function BuyerDashboard({ currentUser, onNavigate }) {
         <VerificationRequiredModal
           isOpen={isVerificationModalOpen}
           currentUser={user}
-          actionName="unlock high-volume procurement and trade credit"
+          actionName="unlock produce marketplace catalog & participate in live auctions"
           onClose={() => setIsVerificationModalOpen(false)}
           onSuccess={() => {
             setIsVerificationModalOpen(false);

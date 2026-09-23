@@ -411,6 +411,14 @@ export function getResolvedUserKycStatus(user) {
 }
 
 /**
+ * Check if user's KYC verification is approved
+ */
+export function isUserKycVerified(user) {
+  if (!user) return false;
+  return getResolvedUserKycStatus(user) === 'verified';
+}
+
+/**
  * Fetch latest profile for current user from Supabase & KYC Registry
  */
 export async function fetchCurrentProfile() {
