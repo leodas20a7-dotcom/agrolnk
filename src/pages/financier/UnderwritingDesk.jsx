@@ -24,6 +24,9 @@ import {
 } from 'lucide-react';
 import { getFinancingRequests, isFinancierMatch } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
+import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 
 export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -42,6 +45,54 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const [viewMode, setViewMode] = useState('row');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
+
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
+  const isVerified = currentKycStatus === 'verified';
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [inspectingDoc, setInspectingDoc] = useState(null);
+
+  const handleOpenKycAction = () => {
+    if (currentKycStatus === 'pending') {
+      try {
+        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+        const registry = storedRaw ? JSON.parse(storedRaw) : [];
+        const found = registry.find((u) => u.id === user.id || u.email === user.email);
+        if (found?.documents && found.documents.length > 0) {
+          setInspectingDoc(found.documents[0]);
+          return;
+        }
+      } catch { }
+      if (user.documents && user.documents.length > 0) {
+        setInspectingDoc(user.documents[0]);
+        return;
+      }
+    }
+    setIsVerificationModalOpen(true);
+  };
+
+  useEffect(() => {
+    const syncKyc = async () => {
+      const status = getResolvedUserKycStatus(user);
+      setCurrentKycStatus(status);
+      try {
+        const profile = await fetchCurrentProfile();
+        if (profile?.kycStatus) {
+          setCurrentKycStatus(profile.kycStatus);
+        }
+      } catch {}
+    };
+
+    syncKyc();
+
+    window.addEventListener('agrolnk_kyc_updated', syncKyc);
+    window.addEventListener('storage', syncKyc);
+    window.addEventListener('agrolnk_user_profile_updated', syncKyc);
+    return () => {
+      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
+      window.removeEventListener('storage', syncKyc);
+      window.removeEventListener('agrolnk_user_profile_updated', syncKyc);
+    };
+  }, [user.id, user.email]);
 
   const loadRequests = async (showFlash = false) => {
     if (showFlash) {
@@ -149,8 +200,75 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E5EDE8] shadow-xs space-y-3">
+        {/* Conditional Content: Institutional KYC Compliance Gate vs Underwriting Workspace */}
+        {!isVerified ? (
+          <Card className="p-8 sm:p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl bg-gradient-to-b from-[#F8FAF8] to-[#F2FBF6] space-y-6 shadow-xs max-w-3xl mx-auto">
+            <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto shadow-xs ${
+              currentKycStatus === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-[#EBF5F0] text-[#0B3326]'
+            }`}>
+              {currentKycStatus === 'pending' ? (
+                <Clock className="w-8 h-8 text-amber-700 animate-pulse" />
+              ) : (
+                <Lock className="w-8 h-8 text-[#0B3326]" />
+              )}
+            </div>
+
+            <div className="space-y-2 max-w-lg mx-auto">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-xs font-semibold text-amber-800 border border-amber-200">
+                <Lock className="w-3.5 h-3.5" />
+                <span>{currentKycStatus === 'pending' ? 'Institutional KYC In Progress' : 'Lending Verification Required'}</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-[#0B3326] font-heading">
+                {currentKycStatus === 'pending'
+                  ? 'Your Institutional Verification Is Under Review'
+                  : 'Verify Institution to Access Credit Assessment'}
+              </h3>
+              <p className="text-xs sm:text-sm text-[#566861] leading-relaxed">
+                {currentKycStatus === 'pending'
+                  ? 'We have received your institutional registration documents (RBI / NBFC registration). Once verified by the platform compliance team, borrower loan applications, credit requests, and escrow disbursals will unlock automatically.'
+                  : 'Agrolnk enforces statutory RBI digital lending norms. Financial institutions must complete regulatory authentication before reviewing borrower applications, evaluating collateral, or quoting trade financing.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-2">
+              <div className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
+                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                  <span>Borrower Privacy</span>
+                </div>
+                <p className="text-[11px] text-[#566861]">Borrower identities and loan requests masked until authorized.</p>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
+                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                  <span>RBI Fair Practice</span>
+                </div>
+                <p className="text-[11px] text-[#566861]">Full statutory compliance with digital lending directives.</p>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
+                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                  <span>Escrow Lien Security</span>
+                </div>
+                <p className="text-[11px] text-[#566861]">Legal first-charge repayment security on agricultural trades.</p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleOpenKycAction}
+                className="font-bold text-xs shadow-md cursor-pointer px-6"
+              >
+                {currentKycStatus === 'pending' ? 'View Submitted Verification' : 'Verify Institutional Account'}
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <>
+            {/* Filter Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-[#E5EDE8] shadow-xs space-y-3">
           <div className="flex flex-col sm:flex-row items-center gap-3">
             {/* Search */}
             <div className="relative flex-1 w-full">
@@ -483,6 +601,9 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           />
         )}
 
+          </>
+        )}
+
       </div>
 
       {/* Underwriting Modal */}
@@ -491,7 +612,8 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           isOpen={Boolean(selectedRequestForReview)}
           onClose={() => setSelectedRequestForReview(null)}
           request={selectedRequestForReview}
-          currentUser={user}
+          currentUser={{ ...user, kycStatus: currentKycStatus }}
+          isVerified={isVerified}
           onUpdated={(newStatus) => {
             loadRequests(false);
             if (newStatus) {
@@ -500,6 +622,26 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           }}
         />
       )}
+
+      {/* Verification Modals */}
+      <VerificationRequiredModal
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+        currentUser={user}
+        onSuccess={() => {
+          setIsVerificationModalOpen(false);
+          const status = getResolvedUserKycStatus(user);
+          setCurrentKycStatus(status);
+        }}
+      />
+
+      <DocumentViewerModal
+        isOpen={Boolean(inspectingDoc)}
+        onClose={() => setInspectingDoc(null)}
+        documentUrl={inspectingDoc?.url}
+        documentName={inspectingDoc?.name || inspectingDoc?.type}
+        fileType={inspectingDoc?.fileType || 'image'}
+      />
     </DashboardLayout>
   );
 }

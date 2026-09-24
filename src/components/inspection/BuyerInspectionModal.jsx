@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X,
   ShieldCheck,
@@ -25,6 +25,7 @@ export default function BuyerInspectionModal({
   buyerUser,
   currentUser,
   isOpen = true,
+  autoOpenPayment = false,
   onClose,
   onSuccess,
   onProceedToBuy,
@@ -35,6 +36,7 @@ export default function BuyerInspectionModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPayingFee, setIsPayingFee] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
+  const hasAutoTriggeredRef = useRef(false);
 
   const orderKey = order?.orderNumber || order?.id || order?.listingId;
   const isPreBuy = !order?.orderNumber;
@@ -56,8 +58,6 @@ export default function BuyerInspectionModal({
       });
     }
   }, [isOpen, orderKey, order, initialInspection, activeBuyer]);
-
-  if (!isOpen || !order) return null;
 
   const handleRequestInspection = async () => {
     setIsSubmitting(true);
@@ -83,7 +83,7 @@ export default function BuyerInspectionModal({
     }
   };
 
-  const handlePayInspectionFee = () => {
+  const handlePayInspectionFee = useCallback(() => {
     if (!inspection) return;
     setIsPayingFee(true);
     setPaymentError(null);
@@ -91,23 +91,49 @@ export default function BuyerInspectionModal({
     initiateRazorpayInspectionFeeCheckout({
       inspection,
       buyerUser: {
-        name: order.buyerName || 'Procurement Buyer',
-        email: order.buyerEmail || 'buyer@agrolnk.com',
+        name: order.buyerName || activeBuyer?.name || 'Procurement Buyer',
+        email: order.buyerEmail || activeBuyer?.email || 'buyer@agrolnk.com',
       },
-      onSuccess: (paymentData) => {
+      onSuccess: async (paymentData) => {
         setIsPayingFee(false);
-        const updated = payInspectionFee(inspection.id, {
+        const updated = await payInspectionFee(inspection.id, {
           paymentId: paymentData.razorpay_payment_id,
           method: 'Razorpay Gateway',
         });
-        setInspection(updated || { ...inspection, feeStatus: 'paid', feePaymentId: paymentData.razorpay_payment_id });
+        const finalRecord = updated || { ...inspection, feeStatus: 'paid', feePaymentId: paymentData.razorpay_payment_id };
+        setInspection(finalRecord);
+        if (onSuccess) onSuccess(finalRecord);
       },
       onFailure: (err) => {
         setIsPayingFee(false);
         setPaymentError(err?.message || 'Payment was not completed. Please try again.');
       }
     });
-  };
+  }, [inspection, order, activeBuyer, onSuccess]);
+
+  // Auto-launch Razorpay if modal was opened via "Pay Lab Fee & View Report" button
+  useEffect(() => {
+    if (!isOpen) {
+      hasAutoTriggeredRef.current = false;
+      setPaymentError(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (
+      isOpen &&
+      autoOpenPayment &&
+      !hasAutoTriggeredRef.current &&
+      inspection &&
+      (inspection.status === 'passed' || inspection.status === 'resolved') &&
+      inspection.feeStatus !== 'paid'
+    ) {
+      hasAutoTriggeredRef.current = true;
+      handlePayInspectionFee();
+    }
+  }, [isOpen, autoOpenPayment, inspection, handlePayInspectionFee]);
+
+  if (!isOpen || !order) return null;
 
   const handleAcceptReport = () => {
     if (onSuccess) onSuccess(inspection);
@@ -238,39 +264,86 @@ export default function BuyerInspectionModal({
         {inspection && (inspection.status === 'passed' || inspection.status === 'resolved') && (
           <div className="space-y-4">
             {/* Assay Report Card */}
-            <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-950 space-y-3">
+            <div className={`p-4 rounded-2xl transition-all relative overflow-hidden ${
+              isFeePaid 
+                ? 'bg-emerald-50/80 border border-emerald-200 text-emerald-950' 
+                : 'bg-amber-50/60 border border-amber-200/90 text-amber-950'
+            } text-xs space-y-3`}>
               <div className="flex items-center justify-between">
-                <span className="font-bold flex items-center gap-1 text-emerald-900">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Official Certified Assay Report
+                <span className={`font-bold flex items-center gap-1.5 ${isFeePaid ? 'text-emerald-900' : 'text-amber-900'}`}>
+                  {isFeePaid ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Lock className="w-4 h-4 text-amber-600" />}
+                  {isFeePaid ? 'Official Certified Assay Report' : 'Official Certified Assay Report (Locked)'}
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-900">
-                  Verified by Inspector
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  isFeePaid 
+                    ? 'bg-emerald-200/60 text-emerald-900' 
+                    : 'bg-amber-200/80 text-amber-900'
+                }`}>
+                  {isFeePaid ? 'Verified by Inspector' : '🔒 Pay Lab Fee to View'}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-emerald-200">
-                <div>
-                  <span className="text-emerald-800 text-[11px] block">Assayer Name</span>
-                  <span className="font-bold text-[#0B3326]">{inspection.inspectorName || 'Govind (Certified Assayer)'}</span>
-                </div>
-                <div>
-                  <span className="text-emerald-800 text-[11px] block">Certified Grade</span>
-                  <span className="font-bold text-[#0B3326]">Grade {inspection.grade || 'A'} (Commercial)</span>
-                </div>
-                <div>
-                  <span className="text-emerald-800 text-[11px] block">Moisture Content</span>
-                  <span className="font-bold text-[#0B3326]">{inspection.moisture || '10.5'}% (Within Limit &lt;12%)</span>
-                </div>
-                <div>
-                  <span className="text-emerald-800 text-[11px] block">Foreign Matter</span>
-                  <span className="font-bold text-[#0B3326]">{inspection.foreignMatter || '0.4'}%</span>
-                </div>
-              </div>
+              {isFeePaid ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-emerald-200">
+                    <div>
+                      <span className="text-emerald-800 text-[11px] block">Assayer Name</span>
+                      <span className="font-bold text-[#0B3326]">{inspection.inspectorName || 'Govind (Certified Assayer)'}</span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-800 text-[11px] block">Certified Grade</span>
+                      <span className="font-bold text-[#0B3326]">Grade {inspection.grade || 'A'} (Commercial)</span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-800 text-[11px] block">Moisture Content</span>
+                      <span className="font-bold text-[#0B3326]">{inspection.moisture || '10.5'}% (Within Limit &lt;12%)</span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-800 text-[11px] block">Foreign Matter</span>
+                      <span className="font-bold text-[#0B3326]">{inspection.foreignMatter || '0.4'}%</span>
+                    </div>
+                  </div>
 
-              <p className="text-[11px] text-emerald-800 italic pt-1">
-                "{inspection.inspectorNotes || 'Physical quality and assay parameters confirmed matching agreement at farmgate hub.'}"
-              </p>
+                  <p className="text-[11px] text-emerald-800 italic pt-1">
+                    "{inspection.inspectorNotes || 'Physical quality and assay parameters confirmed matching agreement at farmgate hub.'}"
+                  </p>
+                </>
+              ) : (
+                <div className="pt-2 border-t border-amber-200/70 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-amber-900 font-medium">Assayer In-Charge:</span>
+                    <span className="font-bold text-[#0B3326]">{inspection.inspectorName || 'AgroLnk Certified Assayer'}</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-white/85 border border-amber-200/80 relative overflow-hidden">
+                    <div className="grid grid-cols-2 gap-2 filter blur-[5px] select-none opacity-30">
+                      <div>
+                        <span className="text-[11px] block">Certified Grade</span>
+                        <span className="font-bold text-sm">Grade A (Commercial)</span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] block">Moisture Content</span>
+                        <span className="font-bold text-sm">11.2% (Within Limit)</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-[11px] block">Inspector Observations</span>
+                        <span className="text-xs">Physical inspection confirmed high grade farmgate lot...</span>
+                      </div>
+                    </div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-amber-50/85 p-3 text-center">
+                      <div className="p-1.5 bg-amber-100 text-amber-800 rounded-full mb-1">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-amber-950">
+                        Assay Parameters Locked
+                      </span>
+                      <span className="text-[10px] text-amber-800 mt-0.5 max-w-xs">
+                        Pay the ₹{feeAmount} lab fee via Razorpay to unlock official moisture, grade certificate & enable purchase.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Inspection Fee Card */}
@@ -290,7 +363,7 @@ export default function BuyerInspectionModal({
                   </div>
                 </div>
                 <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                  Settled
+                  Settled ✓
                 </span>
               </div>
             ) : (
@@ -316,8 +389,9 @@ export default function BuyerInspectionModal({
                 </div>
 
                 {paymentError && (
-                  <p className="text-[11px] text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
-                    {paymentError}
+                  <p className="text-[11px] text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-500" />
+                    <span>{paymentError}</span>
                   </p>
                 )}
               </div>
@@ -336,7 +410,7 @@ export default function BuyerInspectionModal({
                   className="px-4 py-2.5 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-2 transition-all"
                 >
                   <CreditCard className="w-4 h-4 text-[#34D399]" />
-                  {isPayingFee ? 'Opening Razorpay...' : `Pay ₹${feeAmount} via Razorpay & Accept Report`}
+                  {isPayingFee ? 'Opening Razorpay...' : `Pay ₹${feeAmount} via Razorpay & Unlock Report`}
                 </button>
               ) : (
                 <Button

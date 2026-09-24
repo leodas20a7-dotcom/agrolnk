@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { submitFinancierOffer, disburseAcceptedLoan, updateFinancingStatus, getLiquidityPool } from '../../utils/financing';
 import { initiateFinancierEscrowDisbursement } from '../../utils/razorpayRouteClient';
+import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 
 export default function InstitutionalUnderwriteModal({
   isOpen,
@@ -27,7 +28,45 @@ export default function InstitutionalUnderwriteModal({
   request,
   onUpdated,
   currentUser,
+  isVerified: propIsVerified,
 }) {
+  const [liveKycStatus, setLiveKycStatus] = useState(() => {
+    if (propIsVerified !== undefined) return propIsVerified ? 'verified' : 'pending';
+    if (currentUser?.kycStatus === 'verified' || currentUser?.verificationStatus === 'verified') return 'verified';
+    return getResolvedUserKycStatus(currentUser);
+  });
+
+  const isVerified = propIsVerified !== undefined
+    ? Boolean(propIsVerified)
+    : liveKycStatus === 'verified' ||
+      currentUser?.kycStatus === 'verified' ||
+      currentUser?.verificationStatus === 'verified' ||
+      getResolvedUserKycStatus(currentUser) === 'verified';
+
+  useEffect(() => {
+    if (propIsVerified !== undefined) {
+      setLiveKycStatus(propIsVerified ? 'verified' : 'pending');
+      return;
+    }
+    const checkKyc = async () => {
+      if (currentUser?.kycStatus === 'verified' || currentUser?.verificationStatus === 'verified') {
+        setLiveKycStatus('verified');
+        return;
+      }
+      const status = getResolvedUserKycStatus(currentUser);
+      setLiveKycStatus(status);
+      try {
+        const profile = await fetchCurrentProfile();
+        if (profile?.kycStatus) {
+          setLiveKycStatus(profile.kycStatus);
+        }
+      } catch {}
+    };
+    if (isOpen) {
+      checkKyc();
+    }
+  }, [isOpen, propIsVerified, currentUser]);
+
   const [approvedAmount, setApprovedAmount] = useState(50000);
   const [interestRate, setInterestRate] = useState(0.85);
   const [tenorDays, setTenorDays] = useState(30);
@@ -71,8 +110,13 @@ export default function InstitutionalUnderwriteModal({
   const isBalanceInsufficient = availableBalance < Number(approvedAmount);
 
   const handleSendOffer = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError('');
+
+    if (!isVerified) {
+      setError('Institutional verification must be completed by Admin before sending loan offers.');
+      return;
+    }
 
     if (isBalanceZero) {
       setError('Cannot send quote: Your available lending balance is ₹0. Please deploy lending capital to your pool on the dashboard first.');
@@ -112,6 +156,11 @@ export default function InstitutionalUnderwriteModal({
   const handleDisburseEscrow = (e) => {
     e.preventDefault();
     setError('');
+
+    if (!isVerified) {
+      setError('Institutional verification must be completed by Admin before disbursing capital into Escrow.');
+      return;
+    }
 
     if (isBalanceInsufficient) {
       setError(
@@ -478,13 +527,26 @@ export default function InstitutionalUnderwriteModal({
               </span>
             </div>
 
+            {/* Institutional KYC Locked Banner */}
+            {!isVerified && (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2.5">
+                <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                <div>
+                  <span className="font-bold block">Institutional Verification Required</span>
+                  <span className="text-[11px] text-amber-800">
+                    Your institutional account is pending verification. Loan quotes and capital disbursements activate upon compliance approval.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="pt-2 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
               <button
                 type="button"
                 onClick={handleReject}
-                disabled={isSubmitting}
-                className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors cursor-pointer w-full sm:w-auto text-center"
+                disabled={isSubmitting || !isVerified}
+                className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors cursor-pointer w-full sm:w-auto text-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <XCircle className="w-4 h-4" /> Decline Request
               </button>
@@ -506,7 +568,7 @@ export default function InstitutionalUnderwriteModal({
                   size="sm"
                   icon={isAcceptedByBorrower ? Zap : CheckCircle2}
                   iconPosition="right"
-                  disabled={isSubmitting || (isAcceptedByBorrower && isBalanceInsufficient) || isBalanceZero}
+                  disabled={isSubmitting || !isVerified || (isAcceptedByBorrower && isBalanceInsufficient) || isBalanceZero}
                   className="font-bold cursor-pointer justify-center w-full sm:w-auto text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting

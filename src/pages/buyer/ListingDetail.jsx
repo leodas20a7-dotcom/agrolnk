@@ -93,8 +93,18 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInspectionOpen, setIsInspectionOpen] = useState(false);
+  const [autoTriggerInspectionPayment, setAutoTriggerInspectionPayment] = useState(false);
   const [existingInspection, setExistingInspection] = useState(null);
   const estimatedTotal = Number(listing?.quantity || 0) * Number(listing?.price || 0);
+
+  const handleOpenInspectionPayment = () => {
+    if (!isVerified) {
+      setIsVerificationModalOpen(true);
+      return;
+    }
+    setAutoTriggerInspectionPayment(true);
+    setIsInspectionOpen(true);
+  };
 
   const loadInspection = async () => {
     if (listing?.id) {
@@ -372,7 +382,9 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </div>
                 <p className="text-[11px] text-[#566861]">
                   {existingInspection?.status === 'passed'
-                    ? `Assayed by ${existingInspection.inspectorName || 'AgroLnk Assayer'}: Grade ${existingInspection.grade || 'A'}, Moisture ${existingInspection.moisture || '10.5'}%. ${existingInspection.feeStatus === 'paid' ? 'Lab fee paid.' : 'Lab fee payment pending.'}`
+                    ? existingInspection.feeStatus === 'paid'
+                      ? `Assayed by ${existingInspection.inspectorName || 'AgroLnk Assayer'}: Grade ${existingInspection.grade || 'A'}, Moisture ${existingInspection.moisture || '10.5'}%. Official lab certificate verified.`
+                      : `Official lab assay completed by ${existingInspection.inspectorName || 'certified assayer'}. Pay the ₹${existingInspection.inspectionFee || 500} lab fee via Razorpay to unlock and view the report.`
                     : existingInspection?.status === 'requested'
                     ? 'Admin has dispatched an official assayer to test this lot before you purchase.'
                     : 'Want quality verification? Request an official assayer check before buying.'}
@@ -383,7 +395,10 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   onClick={() => {
                     if (!isVerified) {
                       setIsVerificationModalOpen(true);
+                    } else if (existingInspection?.status === 'passed' && existingInspection?.feeStatus !== 'paid') {
+                      handleOpenInspectionPayment();
                     } else {
+                      setAutoTriggerInspectionPayment(false);
                       setIsInspectionOpen(true);
                     }
                   }}
@@ -408,7 +423,10 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => setIsInspectionOpen(true)}
+                      onClick={() => {
+                        setAutoTriggerInspectionPayment(false);
+                        setIsInspectionOpen(true);
+                      }}
                       className="w-full py-3.5 px-4 bg-gray-100 border border-gray-300 text-gray-500 font-bold text-sm rounded-xl cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-200/80 transition-all"
                     >
                       <Lock className="w-4 h-4 text-amber-600" />
@@ -426,14 +444,14 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => setIsInspectionOpen(true)}
+                      onClick={handleOpenInspectionPayment}
                       className="w-full py-3.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2 transition-all"
                     >
                       <Scale className="w-4 h-4 text-amber-200" />
                       Pay Lab Assay Fee (₹{existingInspection.inspectionFee || 500}) to Unlock Buy
                     </button>
                     <p className="text-[11px] text-amber-900 text-center font-medium bg-amber-50 p-2 rounded-lg border border-amber-200">
-                      🔬 Certified assay is ready! Pay the ₹{existingInspection.inspectionFee || 500} lab fee via Razorpay to unlock purchase.
+                      🔬 Certified assay is ready! Pay the ₹{existingInspection.inspectionFee || 500} lab fee via Razorpay to unlock and view the report.
                     </p>
                   </div>
                 )}
@@ -512,8 +530,10 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         initialInspection={existingInspection}
         buyerUser={user}
         isOpen={isInspectionOpen}
+        autoOpenPayment={autoTriggerInspectionPayment}
         onClose={() => {
           setIsInspectionOpen(false);
+          setAutoTriggerInspectionPayment(false);
           loadInspection();
         }}
         onSuccess={(insp) => {
@@ -522,6 +542,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         }}
         onProceedToBuy={() => {
           setIsInspectionOpen(false);
+          setAutoTriggerInspectionPayment(false);
           setIsModalOpen(true);
         }}
       />

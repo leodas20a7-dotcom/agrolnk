@@ -92,6 +92,16 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
         const profile = await fetchCurrentProfile();
         if (profile?.kycStatus) {
           setCurrentKycStatus(profile.kycStatus);
+          try {
+            const raw = localStorage.getItem('agrolnkUser');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed.kycStatus !== profile.kycStatus) {
+                parsed.kycStatus = profile.kycStatus;
+                localStorage.setItem('agrolnkUser', JSON.stringify(parsed));
+              }
+            }
+          } catch {}
         }
       } catch {}
     };
@@ -223,7 +233,13 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               size="sm"
               icon={Plus}
               iconPosition="left"
-              onClick={() => setIsAddLiquidityOpen(true)}
+              onClick={() => {
+                if (!isVerified) {
+                  handleOpenKycAction();
+                } else {
+                  setIsAddLiquidityOpen(true);
+                }
+              }}
               className="font-bold text-xs shadow-md cursor-pointer py-2.5 px-4"
             >
               Add Lending Balance
@@ -283,8 +299,8 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
           </div>
         )}
 
-        {/* Ready to Disburse Banner */}
-        {readyToDisburseLoans.length > 0 && (
+        {/* Ready to Disburse Banner (Verified Institutions Only) */}
+        {isVerified && readyToDisburseLoans.length > 0 && (
           <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950 via-[#0B3326] to-[#0F4A37] text-white border-2 border-emerald-500/60 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-400/30">
@@ -392,7 +408,13 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
         {/* 3. Two Clear Quick Navigation Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
-            onClick={() => onNavigate('financier-underwriting')}
+            onClick={() => {
+              if (!isVerified) {
+                handleOpenKycAction();
+              } else {
+                onNavigate('financier-underwriting');
+              }
+            }}
             className="p-5 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer text-left"
           >
             <div className="flex items-center gap-3.5">
@@ -401,7 +423,9 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               </div>
               <div>
                 <span className="font-bold text-sm text-[#0B3326] block">Loan Requests & Approvals</span>
-                <span className="text-xs text-[#566861]">{pendingRequests.length} requests waiting for approval</span>
+                <span className="text-xs text-[#566861]">
+                  {isVerified ? `${pendingRequests.length} requests waiting for approval` : 'Institutional KYC Required'}
+                </span>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-[#566861] group-hover:translate-x-1 transition-transform" />
@@ -432,13 +456,13 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  New Loan Requests ({pendingRequests.length})
+                  New Loan Requests ({isVerified ? pendingRequests.length : 0})
                 </h2>
                 <p className="text-xs text-[#566861]">
                   Farmers and retailers asking for working capital or trade credit
                 </p>
               </div>
-              {pendingRequests.length > 0 && (
+              {isVerified && pendingRequests.length > 0 && (
                 <button
                   onClick={() => onNavigate('financier-underwriting')}
                   className="text-xs font-bold text-[#10B981] hover:underline inline-flex items-center gap-1 cursor-pointer"
@@ -449,7 +473,71 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               )}
             </div>
 
-            {pendingRequests.length === 0 ? (
+            {!isVerified ? (
+              <Card className="p-8 sm:p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl bg-gradient-to-b from-[#F8FAF8] to-[#F2FBF6] space-y-5 shadow-xs">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-xs ${
+                  currentKycStatus === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-[#EBF5F0] text-[#0B3326]'
+                }`}>
+                  {currentKycStatus === 'pending' ? (
+                    <Clock className="w-7 h-7 text-amber-700 animate-pulse" />
+                  ) : (
+                    <Lock className="w-7 h-7 text-[#0B3326]" />
+                  )}
+                </div>
+
+                <div className="space-y-2 max-w-md mx-auto">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-xs font-semibold text-amber-800 border border-amber-200">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>{currentKycStatus === 'pending' ? 'Institutional KYC Under Review' : 'Lending Verification Required'}</span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-[#0B3326] font-heading">
+                    {currentKycStatus === 'pending'
+                      ? 'Borrower Applications Locked Pending Approval'
+                      : 'Verify Institution to Access Credit Assessment'}
+                  </h3>
+                  <p className="text-xs text-[#566861] leading-relaxed">
+                    {currentKycStatus === 'pending'
+                      ? 'Under statutory data protection & RBI lending guidelines, borrower credit requests, harvest collateral, and underwriting desks unlock once your institutional documents are verified by AgroLnk Compliance.'
+                      : 'Institutional authentication is required before accessing borrower credit applications, quoting term-sheets, or disbursing working capital.'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-left max-w-xl mx-auto pt-1">
+                  <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                      <span>Data Protection</span>
+                    </div>
+                    <p className="text-[10px] text-[#566861]">Borrower identities & credit masked until verified.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                      <span>Statutory Lending</span>
+                    </div>
+                    <p className="text-[10px] text-[#566861]">Compliant with RBI digital lending norms.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                      <span>Escrow Lien</span>
+                    </div>
+                    <p className="text-[10px] text-[#566861]">Enforceable first-charge escrow settlement.</p>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleOpenKycAction}
+                    className="text-xs font-bold px-5 cursor-pointer shadow-xs"
+                  >
+                    {currentKycStatus === 'pending' ? 'View Submitted Verification' : 'Verify Institutional Account'}
+                  </Button>
+                </div>
+              </Card>
+            ) : pendingRequests.length === 0 ? (
               <Card className="p-8 bg-white border border-[#E5EDE8] text-center space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-[#10B981] mx-auto" />
                 <h4 className="text-sm font-bold text-[#0B3326]">All Requests Cleared</h4>
@@ -709,7 +797,8 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
           isOpen={Boolean(selectedRequestForReview)}
           onClose={() => setSelectedRequestForReview(null)}
           request={selectedRequestForReview}
-          currentUser={user}
+          currentUser={{ ...user, kycStatus: currentKycStatus }}
+          isVerified={isVerified}
           onUpdated={loadData}
         />
       )}
