@@ -25,8 +25,8 @@ export default function FinancingRow({
 
   return (
     <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/50 hover:shadow-sm transition-all flex flex-col md:grid md:grid-cols-12 md:items-center gap-3.5 md:gap-4 text-left">
-      {/* Left (Col 1-5): Request ID, Role & Borrower Details */}
-      <div className="md:col-span-5 flex items-center gap-3 min-w-0">
+      {/* Left (Col 1-4): Request ID, Role & Borrower Details */}
+      <div className="md:col-span-4 flex items-center gap-3 min-w-0">
         <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center shrink-0 shadow-2xs">
           <Landmark className="w-5 h-5 text-[#10B981]" />
         </div>
@@ -58,7 +58,7 @@ export default function FinancingRow({
             <span className="font-semibold text-[#14211D]">{request.commodity || 'Produce Lot'}</span>
             <span>&bull;</span>
             <span
-              className="text-[#0B3326] font-medium truncate max-w-[140px] sm:max-w-[200px]"
+              className="text-[#0B3326] font-medium truncate max-w-[120px] sm:max-w-[160px]"
               title={request.purposeLabel || 'Working Capital'}
             >
               {request.purposeLabel || 'Working Capital'}
@@ -71,7 +71,7 @@ export default function FinancingRow({
         </div>
       </div>
 
-      {/* Middle (Col 6-9): Evenly Fitted Financials Pod */}
+      {/* Middle (Col 5-8): Evenly Fitted Financials Pod */}
       <div className="md:col-span-4 w-full">
         <div className="bg-[#F8FAF8] rounded-xl border border-[#E5EDE8] py-2 px-3.5 grid grid-cols-2 gap-3 items-center">
           {/* Order Value */}
@@ -103,8 +103,8 @@ export default function FinancingRow({
         </div>
       </div>
 
-      {/* Right (Col 10-12): Status & Action Bay */}
-      <div className="md:col-span-3 flex items-center justify-between md:justify-end gap-2.5 shrink-0">
+      {/* Right (Col 9-12): Status & Action Bay */}
+      <div className="md:col-span-4 flex items-center justify-between md:justify-end gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
         <div className="shrink-0">
           {isSettled ? (
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
