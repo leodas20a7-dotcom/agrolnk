@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Supabase Edge Function: Razorpay Route Marketplace Settlement Engine
 // Security Compliance:
 // 1. RAZORPAY_KEY_SECRET is strictly server-side (never exposed to browser client).
@@ -7,6 +8,13 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// Ambient declaration for Deno runtime globals (used by Supabase Edge Functions)
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
