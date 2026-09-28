@@ -315,8 +315,8 @@ export async function createOrder(orderData) {
       return `#AGM-${num}`;
     };
 
-    const orderId = orderData.id || generateId();
-    const orderNumber = orderData.orderNumber || generateOrderNum();
+    let orderId = orderData.id || generateId();
+    let orderNumber = orderData.orderNumber || generateOrderNum();
     const isTradeCredit = orderData.paymentMode === 'trade_credit';
 
     const deliveryLocation = orderData.deliveryLocation || {
