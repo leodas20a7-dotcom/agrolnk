@@ -71,7 +71,7 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
       </div>
 
       {/* Middle: Lot Breakdown & Amount (Evenly locked 3-column bay) */}
-      <div className="w-full md:w-[350px] lg:w-[380px] shrink-0 grid grid-cols-3 gap-2 sm:gap-4 py-2.5 md:py-0 border-y md:border-y-0 md:border-x border-[#E5EDE8] md:px-5 lg:px-6 text-xs">
+      <div className="w-full md:w-[270px] lg:w-[310px] shrink-0 grid grid-cols-3 gap-2 sm:gap-4 py-2.5 md:py-0 border-y md:border-y-0 md:border-x border-[#E5EDE8] md:px-4 lg:px-5 text-xs">
         <div className="min-w-0">
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Volume</span>
           <span className="font-extrabold text-sm text-[#0B3326] block truncate">
@@ -96,9 +96,9 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
         </div>
       </div>
 
-      {/* Right: Status & Actions (Consistently anchored) */}
-      <div className="w-full md:w-[220px] lg:w-[240px] flex items-center justify-between md:justify-end gap-3 shrink-0">
-        <div className="shrink-0">
+      {/* Right: Status & Actions (Consistently anchored with ample room) */}
+      <div className="w-full md:w-auto md:min-w-[240px] flex items-center justify-between md:justify-end gap-3 shrink-0">
+        <div className="shrink-0 flex items-center">
           <OrderStatus
             status={order.status}
             escrowStatus={order.escrowStatus || order.escrow_status}
@@ -113,7 +113,7 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
           onClick={() => onView(order)}
           icon={ArrowRight}
           iconPosition="right"
-          className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] cursor-pointer whitespace-nowrap"
+          className="text-xs font-bold py-2 px-3 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] cursor-pointer shrink-0 whitespace-nowrap"
         >
           Manage
         </Button>

@@ -20,7 +20,7 @@ export default function OrderStatus({ status = 'pending', escrowStatus, isAuctio
 
   const statusConfigs = {
     in_transit: {
-      label: 'In Transit (GPS Tracked)',
+      label: 'In Transit',
       variant: 'blue',
       dot: true,
     },
@@ -35,22 +35,22 @@ export default function OrderStatus({ status = 'pending', escrowStatus, isAuctio
       dot: true,
     },
     delivered: {
-      label: '📞 Delivered (Pending Confirmation)',
+      label: 'Pending Confirmation',
       variant: 'amber',
       dot: true,
     },
     pending_admin_approval: {
-      label: '📞 Pending Delivery Clearance',
+      label: 'Clearance Pending',
       variant: 'amber',
       dot: true,
     },
     disputed: {
-      label: '⚠️ Escrow Disputed / Hold',
+      label: 'Escrow Disputed',
       variant: 'amber',
       dot: true,
     },
     completed: {
-      label: 'Settled to Bank (100%)',
+      label: 'Settled to Bank',
       variant: 'emerald',
       dot: false,
     },
@@ -68,7 +68,7 @@ export default function OrderStatus({ status = 'pending', escrowStatus, isAuctio
   };
 
   return (
-    <Badge variant={config.variant} size={size} dot={config.dot}>
+    <Badge variant={config.variant} size={size} dot={config.dot} className="whitespace-nowrap">
       {config.label}
     </Badge>
   );
