@@ -254,6 +254,25 @@ export async function sendInspectionReportToBuyer(inspectionId, reportData) {
   try {
     const dbPayload = mapInspectionToDb(updated);
     await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
+
+    // If dispute is raised, atomically freeze linked order escrow
+    if (updated.status === 'disputed' && (updated.orderNumber || updated.orderId)) {
+      try {
+        await supabase.rpc('freeze_order_on_dispute_atomic', {
+          p_order_id: updated.orderNumber || updated.orderId,
+          p_dispute_reason: updated.inspectorNotes || 'Assay discrepancy detected during physical inspection',
+        });
+      } catch (_rpcErr) {
+        await supabase
+          .from('orders')
+          .update({
+            escrow_status: 'held',
+            status: 'disputed',
+            updated_at: new Date().toISOString(),
+          })
+          .or(`order_number.eq.${updated.orderNumber},id.eq.${updated.orderId}`);
+      }
+    }
   } catch (err) {
     console.warn('Could not sync assay report to Supabase:', err);
   }

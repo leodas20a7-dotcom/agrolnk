@@ -378,3 +378,183 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- ----------------------------------------------------------------------------
+-- 4. ATOMIC DIRECT MARKETPLACE PURCHASE & STOCK RESERVATION
+-- Concurrency lock: FOR UPDATE on listings row
+-- Enforces: stock availability check, atomic inventory reduction, duplicate prevention
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.create_direct_order_atomic(
+    p_listing_id TEXT,
+    p_buyer_id TEXT,
+    p_buyer_name TEXT,
+    p_quantity NUMERIC,
+    p_delivery_location JSONB DEFAULT '{}'::jsonb,
+    p_is_trade_credit BOOLEAN DEFAULT false
+) RETURNS JSONB AS $$
+DECLARE
+    v_listing RECORD;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_order_id TEXT;
+    v_order_num TEXT;
+    v_delivery_id TEXT;
+    v_delivery_num TEXT;
+    v_unit_price NUMERIC;
+    v_total_amt NUMERIC;
+    v_buyer_fee NUMERIC;
+    v_seller_fee NUMERIC;
+    v_platform_fee NUMERIC;
+    v_net_seller NUMERIC;
+    v_new_qty NUMERIC;
+    v_escrow_status TEXT;
+    v_status TEXT;
+BEGIN
+    -- 1. Acquire exclusive lock on the listing row
+    SELECT * INTO v_listing
+    FROM public.listings
+    WHERE id = p_listing_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Listing % not found.', p_listing_id;
+    END IF;
+
+    -- 2. Validate listing status
+    IF v_listing.status = 'sold' OR v_listing.quantity <= 0 THEN
+        RAISE EXCEPTION 'This lot is already sold out.';
+    END IF;
+
+    -- 3. Check inventory availability
+    IF p_quantity > v_listing.quantity THEN
+        RAISE EXCEPTION 'Requested quantity (% %) exceeds available inventory (% %).', 
+            p_quantity, COALESCE(v_listing.unit, 'kg'), v_listing.quantity, COALESCE(v_listing.unit, 'kg');
+    END IF;
+
+    -- 4. Compute financial breakdown
+    v_unit_price := v_listing.price;
+    v_total_amt := p_quantity * v_unit_price;
+    v_buyer_fee := ROUND(v_total_amt * 0.0025, 2);
+    v_seller_fee := ROUND(v_total_amt * 0.0025, 2);
+    v_platform_fee := v_buyer_fee + v_seller_fee;
+    v_net_seller := v_total_amt - v_seller_fee;
+
+    -- 5. Deduct inventory and update listing status
+    v_new_qty := v_listing.quantity - p_quantity;
+    UPDATE public.listings SET
+        quantity = v_new_qty,
+        status = CASE WHEN v_new_qty <= 0 THEN 'sold' ELSE 'active' END,
+        updated_at = v_now
+    WHERE id = p_listing_id;
+
+    -- 6. Create Order atomically
+    v_order_id := 'ord_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 9);
+    v_order_num := '#AGM-' || floor(1000 + random() * 9000)::text;
+    v_escrow_status := CASE WHEN p_is_trade_credit THEN 'pending' ELSE 'funded' END;
+    v_status := 'order_placed';
+
+    INSERT INTO public.orders (
+        id, order_number, listing_id, auction_id, buyer_id, buyer_name,
+        farmer_id, farmer_name, commodity, variety, grade, quantity, unit,
+        price_per_unit, total_amount, buyer_fee_amount, seller_fee_amount,
+        platform_commission_amount, net_seller_amount, delivery_location,
+        state, district, escrow_status, status, created_at, updated_at
+    ) VALUES (
+        v_order_id, v_order_num, v_listing.id, NULL, p_buyer_id, COALESCE(p_buyer_name, 'Wholesale Buyer'),
+        v_listing.farmer_id, COALESCE(v_listing.farmer_name, 'Verified Producer'), v_listing.commodity,
+        v_listing.variety, v_listing.grade, p_quantity, v_listing.unit,
+        v_unit_price, v_total_amt, v_buyer_fee, v_seller_fee,
+        v_platform_fee, v_net_seller, p_delivery_location,
+        COALESCE(p_delivery_location->>'state', v_listing.state, ''),
+        COALESCE(p_delivery_location->>'district', v_listing.district, ''),
+        v_escrow_status, v_status, v_now, v_now
+    );
+
+    -- 7. Create linked Delivery record
+    v_delivery_id := 'del_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 9);
+    v_delivery_num := 'DEL-' || floor(1000 + random() * 9000)::text;
+
+    INSERT INTO public.deliveries (
+        id, delivery_number, order_id, order_number, farmer_id, farmer_name,
+        buyer_id, buyer_name, commodity, grade, variety, quantity, unit,
+        pickup_location, delivery_location, distance_km, fare_amount, status,
+        delivery_otp, created_at, updated_at
+    ) VALUES (
+        v_delivery_id, v_delivery_num, v_order_id, v_order_num, v_listing.farmer_id, v_listing.farmer_name,
+        p_buyer_id, p_buyer_name, v_listing.commodity, v_listing.grade, v_listing.variety, p_quantity, v_listing.unit,
+        jsonb_build_object('state', v_listing.state, 'district', v_listing.district, 'address', v_listing.district || ' Farmgate Aggregation Hub'),
+        p_delivery_location, 180, 4500, 'transport_requested',
+        floor(100000 + random() * 900000)::text, v_now, v_now
+    );
+
+    -- 8. Notify Producer
+    IF v_listing.farmer_id IS NOT NULL THEN
+        INSERT INTO public.notifications (
+            id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+        ) VALUES (
+            'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
+            v_listing.farmer_id,
+            'farmer',
+            'New Purchase Order ' || v_order_num,
+            'Order for ' || p_quantity || ' ' || v_listing.unit || ' of ' || v_listing.commodity || ' received from ' || COALESCE(p_buyer_name, 'Buyer') || '. Total: ₹' || v_total_amt || '.',
+            'order',
+            '/farmer-orders',
+            false,
+            v_now
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'order_id', v_order_id,
+        'order_number', v_order_num,
+        'listing_id', v_listing.id,
+        'quantity', p_quantity,
+        'remaining_stock', v_new_qty,
+        'total_amount', v_total_amt,
+        'escrow_status', v_escrow_status,
+        'status', v_status
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- ----------------------------------------------------------------------------
+-- 5. ATOMIC DISPUTE ESCROW FREEZING
+-- Concurrency lock: FOR UPDATE on orders row
+-- Enforces: immediate escrow freeze to 'held' when quality assay dispute is raised
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.freeze_order_on_dispute_atomic(
+    p_order_id TEXT,
+    p_dispute_reason TEXT DEFAULT 'Quality / moisture grade discrepancy reported by buyer'
+) RETURNS JSONB AS $$
+DECLARE
+    v_order RECORD;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+    SELECT * INTO v_order
+    FROM public.orders
+    WHERE id = p_order_id OR order_number = p_order_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Order % not found.', p_order_id;
+    END IF;
+
+    -- Freeze escrow and mark dispute
+    UPDATE public.orders SET
+        escrow_status = 'held',
+        status = 'disputed',
+        admin_call_notes = 'DISPUTE ACTIVE: ' || p_dispute_reason,
+        updated_at = v_now
+    WHERE id = v_order.id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'order_id', v_order.id,
+        'order_number', v_order.order_number,
+        'escrow_status', 'held',
+        'status', 'disputed'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -34,10 +34,40 @@ function mapAuctionFromDb(row) {
 }
 
 /**
- * Get all auctions from Supabase
+ * Automatically check and atomically finalize all expired live auctions
+ */
+export async function checkAndFinalizeExpiredAuctions() {
+  try {
+    const nowIso = new Date().toISOString();
+    const { data: expiredLots, error } = await supabase
+      .from('auctions')
+      .select('id, end_time, status')
+      .eq('status', 'live')
+      .lte('end_time', nowIso);
+
+    if (error || !expiredLots || expiredLots.length === 0) return [];
+
+    const finalizedResults = await Promise.allSettled(
+      expiredLots.map((lot) => finalizeAuction(lot.id))
+    );
+
+    return finalizedResults
+      .filter((r) => r.status === 'fulfilled' && r.value)
+      .map((r) => r.value);
+  } catch (err) {
+    console.warn('Auto-finalize expired auctions notice:', err);
+    return [];
+  }
+}
+
+/**
+ * Get all auctions from Supabase with authoritative expired state resolution
  */
 export async function getAuctions() {
   try {
+    // Proactively settle any expired auctions
+    await checkAndFinalizeExpiredAuctions();
+
     const { data, error } = await supabase
       .from('auctions')
       .select('*')
@@ -52,7 +82,6 @@ export async function getAuctions() {
     return (data || []).map((row) => {
       const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
       if (row.status === 'live' && isExpired) {
-        finalizeAuction(row.id).catch(() => {});
         return mapAuctionFromDb({ ...row, status: 'completed' });
       }
       return mapAuctionFromDb(row);
@@ -64,14 +93,18 @@ export async function getAuctions() {
 }
 
 /**
- * Get live active auctions
+ * Get live active auctions (strictly non-expired)
  */
 export async function getLiveAuctions() {
   try {
+    await checkAndFinalizeExpiredAuctions();
+
+    const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from('auctions')
       .select('*')
       .eq('status', 'live')
+      .gt('end_time', nowIso)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -79,18 +112,7 @@ export async function getLiveAuctions() {
       return [];
     }
 
-    const now = Date.now();
-    const live = [];
-    for (const row of (data || [])) {
-      const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
-      if (isExpired) {
-        finalizeAuction(row.id).catch(() => {});
-      } else {
-        live.push(mapAuctionFromDb(row));
-      }
-    }
-
-    return live;
+    return (data || []).map(mapAuctionFromDb);
   } catch (err) {
     console.error('Error in getLiveAuctions:', err);
     return [];
@@ -104,6 +126,8 @@ export async function getFarmerAuctions(farmerId) {
   try {
     if (!farmerId) return [];
 
+    await checkAndFinalizeExpiredAuctions();
+
     const { data, error } = await supabase
       .from('auctions')
       .select('*')
@@ -115,15 +139,7 @@ export async function getFarmerAuctions(farmerId) {
       return [];
     }
 
-    const now = Date.now();
-    return (data || []).map((row) => {
-      const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
-      if (row.status === 'live' && isExpired) {
-        finalizeAuction(row.id).catch(() => {});
-        return mapAuctionFromDb({ ...row, status: 'completed' });
-      }
-      return mapAuctionFromDb(row);
-    });
+    return (data || []).map(mapAuctionFromDb);
   } catch (err) {
     console.error('Error in getFarmerAuctions:', err);
     return [];

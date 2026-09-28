@@ -59,8 +59,8 @@ serve(async (req: Request) => {
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "rzp_test_TZQxhpX8xDBPH5";
-    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "hZr37TGB9KVqjmZhhm49tTuv";
+    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
+    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
 
     const rawBody = await req.text();
     let body: any = {};
@@ -70,6 +70,11 @@ serve(async (req: Request) => {
       body = {};
     }
     const action = body.action || (body.event ? "webhook" : (req.headers.get("X-Razorpay-Signature") ? "webhook" : null));
+
+    // Enforce secret presence for all authenticated merchant actions
+    if (action && action !== "webhook" && (!razorpayKeyId || !razorpayKeySecret)) {
+      throw new Error("Razorpay API credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are not configured in Supabase Edge Function secrets.");
+    }
 
     // =========================================================================
     // ACTION 1: CREATE RAZORPAY ORDER (Server-Side Price & Fee Calculation)
@@ -288,9 +293,9 @@ serve(async (req: Request) => {
     if (action === "release_hold") {
       const { orderNumber, otpCode } = body;
 
-      // 1. Authorize Delivery OTP server-side (Rule #8)
-      if (!otpCode || String(otpCode).length < 6) {
-        throw new Error("Invalid delivery confirmation OTP code.");
+      const cleanOtp = String(otpCode || "").trim();
+      if (!cleanOtp || cleanOtp.length < 6) {
+        throw new Error("Invalid delivery confirmation OTP code format.");
       }
 
       const { data: order, error: orderErr } = await supabase
@@ -301,6 +306,17 @@ serve(async (req: Request) => {
 
       if (orderErr || !order) {
         throw new Error("Order not found for settlement release.");
+      }
+
+      // 1. Authorize Delivery OTP against linked delivery record
+      const { data: delivery } = await supabase
+        .from("deliveries")
+        .select("delivery_otp, status")
+        .or(`order_id.eq.${order.id},order_number.eq.${order.order_number}`)
+        .maybeSingle();
+
+      if (delivery?.delivery_otp && String(delivery.delivery_otp).trim() !== cleanOtp) {
+        throw new Error("Security Violation: Mismatched delivery OTP code. Settlement release rejected.");
       }
 
       // 2. If Route transfer ID exists, release hold via Razorpay API

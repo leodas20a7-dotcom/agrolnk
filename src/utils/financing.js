@@ -272,76 +272,62 @@ export async function getFinancingRequests() {
     }
   });
 
-  const mergedRemote = remote.map((r) => {
-    const rawReq = r.requestNumber ? r.requestNumber.replace(/^#/, '') : '';
-    const rawOrd = r.orderNumber ? r.orderNumber.replace(/^#/, '') : '';
-    const localMatch =
-      (r.id && localMap.get(r.id)) ||
-      (r.requestNumber && (localMap.get(r.requestNumber) || localMap.get(rawReq) || localMap.get(`#${rawReq}`))) ||
-      (r.orderNumber && r.applicantRole && (localMap.get(`${r.orderNumber}_${r.applicantRole}`) || localMap.get(`${rawOrd}_${r.applicantRole}`) || localMap.get(`#${rawOrd}_${r.applicantRole}`))) ||
-      (r.orderId && r.applicantRole && localMap.get(`${r.orderId}_${r.applicantRole}`));
+  let combined = [];
 
-    if (localMatch) {
+  if (remote.length > 0) {
+    const mergedRemote = remote.map((r) => {
+      const rawReq = r.requestNumber ? r.requestNumber.replace(/^#/, '') : '';
+      const rawOrd = r.orderNumber ? r.orderNumber.replace(/^#/, '') : '';
+      const localMatch =
+        (r.id && localMap.get(r.id)) ||
+        (r.requestNumber && (localMap.get(r.requestNumber) || localMap.get(rawReq) || localMap.get(`#${rawReq}`))) ||
+        (r.orderNumber && r.applicantRole && (localMap.get(`${r.orderNumber}_${r.applicantRole}`) || localMap.get(`${rawOrd}_${r.applicantRole}`) || localMap.get(`#${rawOrd}_${r.applicantRole}`))) ||
+        (r.orderId && r.applicantRole && localMap.get(`${r.orderId}_${r.applicantRole}`));
+
       const appId = String(r.applicantId || '').toLowerCase();
       const appName = String(r.applicantName || '').toLowerCase();
-      const resolvedKyc = r.applicantKycStatus || localMatch.applicantKycStatus || kycMap.get(appId) || kycMap.get(appName) || 'pending';
-      const resolvedStatus = resolveFinancingStatus(r.status, localMatch.status);
+      const resolvedKyc = r.applicantKycStatus || localMatch?.applicantKycStatus || kycMap.get(appId) || kycMap.get(appName) || 'pending';
 
-      return {
-        ...localMatch,
-        ...r, // Remote server data is authoritative for applicant identity, role, and amounts
-        id: r.id || localMatch.id,
-        requestNumber: r.requestNumber || localMatch.requestNumber,
-        applicantId: r.applicantId,
-        applicantName: r.applicantName,
-        applicantRole: r.applicantRole,
-        purpose: r.purpose,
-        purposeLabel: r.purposeLabel,
-        transactionValue: Number(r.transactionValue || localMatch.transactionValue || 0),
-        requestedAmount: Number(r.requestedAmount || localMatch.requestedAmount || 0),
-        orderId: r.orderId || localMatch.orderId,
-        orderNumber: r.orderNumber || localMatch.orderNumber,
-        status: resolvedStatus,
-        financierId: r.financierId || localMatch.financierId || null,
-        financierName: r.financierName || localMatch.financierName || null,
-        financierEmail: r.financierEmail || localMatch.financierEmail || null,
+      const resolved = {
+        ...(localMatch || {}),
+        ...r, // Remote server data is strictly authoritative for status, amounts, and underwriting terms
+        id: r.id || localMatch?.id,
+        requestNumber: r.requestNumber || localMatch?.requestNumber,
+        status: r.status || localMatch?.status || 'pending',
         applicantKycStatus: resolvedKyc,
-        approvedAmount: Number(r.approvedAmount || localMatch.approvedAmount || r.requestedAmount || 0),
-        offeredAmount: Number(r.offeredAmount || localMatch.offeredAmount || r.approvedAmount || r.requestedAmount || 0),
-        interestRate: r.interestRate !== undefined ? Number(r.interestRate) : (localMatch.interestRate !== undefined ? Number(localMatch.interestRate) : 0.85),
-        tenorDays: r.tenorDays !== undefined ? Number(r.tenorDays) : (localMatch.tenorDays !== undefined ? Number(localMatch.tenorDays) : 30),
-        offerNotes: r.offerNotes || localMatch.offerNotes || null,
-        offeredAt: r.offeredAt || localMatch.offeredAt || null,
-        borrowerAcceptedAt: r.borrowerAcceptedAt || localMatch.borrowerAcceptedAt || null,
-        disbursedAt: r.disbursedAt || localMatch.disbursedAt || null,
-        bankUtr: r.bankUtr || localMatch.bankUtr || null,
-        marginPaid: Boolean(r.marginPaid || localMatch.marginPaid),
-        escrowFunded: Boolean(r.escrowFunded || localMatch.escrowFunded),
-        paymentId: r.paymentId || localMatch.paymentId || null,
-        updatedAt: r.updatedAt || localMatch.updatedAt,
+        approvedAmount: Number(r.approvedAmount !== undefined ? r.approvedAmount : (localMatch?.approvedAmount || r.requestedAmount || 0)),
+        offeredAmount: Number(r.offeredAmount !== undefined ? r.offeredAmount : (localMatch?.offeredAmount || r.approvedAmount || r.requestedAmount || 0)),
       };
-    }
 
-    const appId = String(r.applicantId || '').toLowerCase();
-    const appName = String(r.applicantName || '').toLowerCase();
-    if (!r.applicantKycStatus) {
-      r.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
-    }
-    return r;
-  });
+      // Keep local cache fresh with latest server state
+      saveLocalFinancingRequest(resolved);
+      return resolved;
+    });
 
-  // When Supabase is connected, also include any locally created requests that haven't synced yet
-  const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber, r.orderId].filter(Boolean)));
-  const localOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber))).map((l) => {
-    const appId = String(l.applicantId || '').toLowerCase();
-    const appName = String(l.applicantName || '').toLowerCase();
-    if (!l.applicantKycStatus) {
-      l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
-    }
-    return l;
-  });
+    const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber, r.orderId].filter(Boolean)));
+    const pendingLocalOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber)) && l.isOfflinePending).map((l) => {
+      const appId = String(l.applicantId || '').toLowerCase();
+      const appName = String(l.applicantName || '').toLowerCase();
+      if (!l.applicantKycStatus) {
+        l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+      }
+      return l;
+    });
 
-  return [...mergedRemote, ...localOnly];
+    combined = [...mergedRemote, ...pendingLocalOnly];
+  } else {
+    // Offline fallback when database query returns empty or network is disconnected
+    combined = local.map((l) => {
+      const appId = String(l.applicantId || '').toLowerCase();
+      const appName = String(l.applicantName || '').toLowerCase();
+      if (!l.applicantKycStatus) {
+        l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+      }
+      return l;
+    });
+  }
+
+  return combined;
 }
 
 /**

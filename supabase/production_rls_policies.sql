@@ -70,7 +70,7 @@ CREATE POLICY "profiles_update_policy" ON public.profiles
     );
 
 -- ----------------------------------------------------------------------------
--- 2. ORDERS TABLE RLS
+-- 2. ORDERS TABLE RLS & FINANCIAL FIELD PROTECTION
 -- ----------------------------------------------------------------------------
 ALTER TABLE IF EXISTS public.orders ENABLE ROW LEVEL SECURITY;
 
@@ -106,6 +106,38 @@ CREATE POLICY "orders_update_policy" ON public.orders
         auth.uid()::text = buyer_id OR
         public.is_admin()
     );
+
+-- Anti-tampering trigger: Prevents non-admin users from altering price, escrow, or payout fields directly
+CREATE OR REPLACE FUNCTION public.protect_order_financial_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Permit all modifications by Admin or Supabase Service Role (Edge Functions)
+    IF public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role' THEN
+        RETURN NEW;
+    END IF;
+
+    -- Block direct client manipulation of sensitive financial & escrow columns
+    IF (NEW.total_amount IS DISTINCT FROM OLD.total_amount) OR
+       (NEW.price_per_unit IS DISTINCT FROM OLD.price_per_unit) OR
+       (NEW.buyer_fee_amount IS DISTINCT FROM OLD.buyer_fee_amount) OR
+       (NEW.seller_fee_amount IS DISTINCT FROM OLD.seller_fee_amount) OR
+       (NEW.platform_commission_amount IS DISTINCT FROM OLD.platform_commission_amount) OR
+       (NEW.net_seller_amount IS DISTINCT FROM OLD.net_seller_amount) OR
+       (NEW.escrow_status IS DISTINCT FROM OLD.escrow_status AND NEW.escrow_status IN ('released', 'disbursed')) OR
+       (NEW.disbursed_at IS DISTINCT FROM OLD.disbursed_at) OR
+       (NEW.bank_utr IS DISTINCT FROM OLD.bank_utr) THEN
+        RAISE EXCEPTION 'Security Policy: Direct client modification of protected financial & escrow fields is forbidden.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_protect_order_financial_fields ON public.orders;
+CREATE TRIGGER trg_protect_order_financial_fields
+    BEFORE UPDATE ON public.orders
+    FOR EACH ROW
+    EXECUTE FUNCTION public.protect_order_financial_fields();
 
 -- ----------------------------------------------------------------------------
 -- 3. DELIVERIES TABLE RLS (With Transporter & OTP Boundary)
@@ -146,7 +178,7 @@ CREATE POLICY "deliveries_update_policy" ON public.deliveries
     );
 
 -- ----------------------------------------------------------------------------
--- 4. FINANCING REQUESTS TABLE RLS (Trade Credit & Liens)
+-- 4. FINANCING REQUESTS TABLE RLS & SELF-APPROVAL PREVENTION
 -- ----------------------------------------------------------------------------
 ALTER TABLE IF EXISTS public.financing_requests ENABLE ROW LEVEL SECURITY;
 
@@ -166,19 +198,56 @@ CREATE POLICY "financing_insert_policy" ON public.financing_requests
         public.is_admin()
     );
 
-DROP POLICY IF EXISTS "financing_update_policy" ON public.financing_requests;
-CREATE POLICY "financing_update_policy" ON public.financing_requests
+-- Split Update Policies: Financiers have full underwriting authority; Borrowers can only submit acceptance/notes
+DROP POLICY IF EXISTS "financing_financier_update_policy" ON public.financing_requests;
+CREATE POLICY "financing_financier_update_policy" ON public.financing_requests
     FOR UPDATE USING (
-        auth.uid()::text = applicant_id OR
-        auth.uid()::text = financier_id OR
         public.is_verified_financier() OR
+        auth.uid()::text = financier_id OR
         public.is_admin()
     ) WITH CHECK (
-        auth.uid()::text = applicant_id OR
-        auth.uid()::text = financier_id OR
         public.is_verified_financier() OR
+        auth.uid()::text = financier_id OR
         public.is_admin()
     );
+
+DROP POLICY IF EXISTS "financing_borrower_update_policy" ON public.financing_requests;
+CREATE POLICY "financing_borrower_update_policy" ON public.financing_requests
+    FOR UPDATE USING (
+        auth.uid()::text = applicant_id
+    ) WITH CHECK (
+        auth.uid()::text = applicant_id
+    );
+
+-- Anti-self-approval trigger: Strictly blocks borrowers from self-approving or altering loan terms
+CREATE OR REPLACE FUNCTION public.protect_financing_approval_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Permit all underwriting actions by Verified Financier, Admin, or Service Role
+    IF public.is_verified_financier() OR public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role' THEN
+        RETURN NEW;
+    END IF;
+
+    -- If a regular applicant attempts to modify approval status, amounts, rates, or tenor
+    IF (NEW.status IN ('approved', 'disbursed') AND OLD.status NOT IN ('approved', 'disbursed')) OR
+       (NEW.approved_amount IS DISTINCT FROM OLD.approved_amount) OR
+       (NEW.offered_amount IS DISTINCT FROM OLD.offered_amount) OR
+       (NEW.interest_rate IS DISTINCT FROM OLD.interest_rate) OR
+       (NEW.tenor_days IS DISTINCT FROM OLD.tenor_days) OR
+       (NEW.disbursed_at IS DISTINCT FROM OLD.disbursed_at) OR
+       (NEW.bank_utr IS DISTINCT FROM OLD.bank_utr) THEN
+        RAISE EXCEPTION 'Security Policy: Borrowers are not permitted to approve loans or modify underwriting terms.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_protect_financing_approval_fields ON public.financing_requests;
+CREATE TRIGGER trg_protect_financing_approval_fields
+    BEFORE UPDATE ON public.financing_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION public.protect_financing_approval_fields();
 
 -- ----------------------------------------------------------------------------
 -- 5. CHAT MESSAGES TABLE RLS (Thread Privacy & Anti-Leakage)
