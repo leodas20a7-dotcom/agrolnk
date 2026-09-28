@@ -73,6 +73,8 @@ CREATE POLICY "profiles_update_policy" ON public.profiles
 -- 2. ORDERS TABLE RLS & FINANCIAL FIELD PROTECTION
 -- ----------------------------------------------------------------------------
 ALTER TABLE IF EXISTS public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS farmer_email TEXT;
+ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS farmer_phone TEXT;
 
 DROP POLICY IF EXISTS "orders_select_policy" ON public.orders;
 CREATE POLICY "orders_select_policy" ON public.orders
@@ -80,10 +82,19 @@ CREATE POLICY "orders_select_policy" ON public.orders
         auth.uid()::text = farmer_id OR
         auth.uid()::text = buyer_id OR
         public.is_admin() OR
+        -- Match if user's profile email or name matches farmer or buyer on the order
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid()::text
+              AND (
+                (p.name IS NOT NULL AND (LOWER(p.name) = LOWER(orders.farmer_name) OR LOWER(p.name) = LOWER(orders.buyer_name))) OR
+                (p.email IS NOT NULL AND (LOWER(p.email) = LOWER(orders.buyer_email) OR (orders.farmer_email IS NOT NULL AND LOWER(p.email) = LOWER(orders.farmer_email))))
+              )
+        ) OR
         -- Transporters assigned to linked delivery can read order details
         EXISTS (
             SELECT 1 FROM public.deliveries d 
-            WHERE d.order_id = orders.id 
+            WHERE (d.order_id = orders.id OR d.order_number = orders.order_number)
               AND d.transporter_id = auth.uid()::text
         )
     );
@@ -92,7 +103,8 @@ DROP POLICY IF EXISTS "orders_insert_policy" ON public.orders;
 CREATE POLICY "orders_insert_policy" ON public.orders
     FOR INSERT WITH CHECK (
         auth.uid()::text = buyer_id OR
-        public.is_admin()
+        public.is_admin() OR
+        auth.role() = 'authenticated'
     );
 
 DROP POLICY IF EXISTS "orders_update_policy" ON public.orders;
@@ -100,11 +112,27 @@ CREATE POLICY "orders_update_policy" ON public.orders
     FOR UPDATE USING (
         auth.uid()::text = farmer_id OR
         auth.uid()::text = buyer_id OR
-        public.is_admin()
+        public.is_admin() OR
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid()::text
+              AND (
+                (p.name IS NOT NULL AND (LOWER(p.name) = LOWER(orders.farmer_name) OR LOWER(p.name) = LOWER(orders.buyer_name))) OR
+                (p.email IS NOT NULL AND (LOWER(p.email) = LOWER(orders.buyer_email) OR (orders.farmer_email IS NOT NULL AND LOWER(p.email) = LOWER(orders.farmer_email))))
+              )
+        )
     ) WITH CHECK (
         auth.uid()::text = farmer_id OR
         auth.uid()::text = buyer_id OR
-        public.is_admin()
+        public.is_admin() OR
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid()::text
+              AND (
+                (p.name IS NOT NULL AND (LOWER(p.name) = LOWER(orders.farmer_name) OR LOWER(p.name) = LOWER(orders.buyer_name))) OR
+                (p.email IS NOT NULL AND (LOWER(p.email) = LOWER(orders.buyer_email) OR (orders.farmer_email IS NOT NULL AND LOWER(p.email) = LOWER(orders.farmer_email))))
+              )
+        )
     );
 
 -- Anti-tampering trigger: Prevents non-admin users from altering price, escrow, or payout fields directly
@@ -151,8 +179,19 @@ CREATE POLICY "deliveries_select_policy" ON public.deliveries
         public.is_admin() OR
         EXISTS (
             SELECT 1 FROM public.orders o 
-            WHERE o.id = deliveries.order_id 
-              AND (o.farmer_id = auth.uid()::text OR o.buyer_id = auth.uid()::text)
+            WHERE (o.id = deliveries.order_id OR o.order_number = deliveries.order_number)
+              AND (
+                o.farmer_id = auth.uid()::text OR 
+                o.buyer_id = auth.uid()::text OR
+                EXISTS (
+                    SELECT 1 FROM public.profiles p
+                    WHERE p.id = auth.uid()::text
+                      AND (
+                        (p.name IS NOT NULL AND (LOWER(p.name) = LOWER(o.farmer_name) OR LOWER(p.name) = LOWER(o.buyer_name))) OR
+                        (p.email IS NOT NULL AND (LOWER(p.email) = LOWER(o.farmer_email) OR LOWER(p.email) = LOWER(o.buyer_email)))
+                      )
+                )
+              )
         )
     );
 

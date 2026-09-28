@@ -278,11 +278,16 @@ export async function getFarmerOrders(farmerId, currentUser) {
     return all.filter((o) => {
       const fName = (o.farmerName || '').toLowerCase().trim();
       const fEmail = (o.farmerEmail || '').toLowerCase().trim();
-      const fId = String(o.farmerId || '').trim();
+      const fId = String(o.farmerId || '').toLowerCase().trim();
 
-      const matchId = Boolean(uid && fId && (fId.toLowerCase() === uid.toLowerCase()));
-      const matchEmail = Boolean(userEmail && fEmail && (fEmail === userEmail || fId.toLowerCase() === userEmail));
-      const matchName = Boolean(userName && fName && !['farmer', 'verified producer', 'producer', 'user'].includes(fName) && fName === userName);
+      const matchId = Boolean(uid && fId && (fId === uid.toLowerCase()));
+      const matchEmail = Boolean(userEmail && (fEmail === userEmail || fId === userEmail));
+      const matchName = Boolean(
+        userName &&
+        fName &&
+        !['farmer', 'verified producer', 'producer', 'user'].includes(fName) &&
+        (fName === userName || fName.includes(userName) || userName.includes(fName))
+      );
 
       return matchId || matchEmail || matchName;
     });
