@@ -147,13 +147,7 @@ BEGIN
     -- Block direct client manipulation of sensitive financial & escrow columns
     IF (NEW.total_amount IS DISTINCT FROM OLD.total_amount) OR
        (NEW.price_per_unit IS DISTINCT FROM OLD.price_per_unit) OR
-       (NEW.buyer_fee_amount IS DISTINCT FROM OLD.buyer_fee_amount) OR
-       (NEW.seller_fee_amount IS DISTINCT FROM OLD.seller_fee_amount) OR
-       (NEW.platform_commission_amount IS DISTINCT FROM OLD.platform_commission_amount) OR
-       (NEW.net_seller_amount IS DISTINCT FROM OLD.net_seller_amount) OR
-       (NEW.escrow_status IS DISTINCT FROM OLD.escrow_status AND NEW.escrow_status IN ('released', 'disbursed')) OR
-       (NEW.disbursed_at IS DISTINCT FROM OLD.disbursed_at) OR
-       (NEW.bank_utr IS DISTINCT FROM OLD.bank_utr) THEN
+       (NEW.escrow_status IS DISTINCT FROM OLD.escrow_status AND NEW.escrow_status IN ('released', 'disbursed')) THEN
         RAISE EXCEPTION 'Security Policy: Direct client modification of protected financial & escrow fields is forbidden.';
     END IF;
 
