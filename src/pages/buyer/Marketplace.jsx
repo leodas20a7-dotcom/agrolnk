@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { supabase } from '../../lib/supabase';
 import MarketplaceCard from '../../components/buyer/MarketplaceCard';
@@ -131,47 +131,52 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const grades = ['All', 'A', 'B', 'C'];
   const locations = ['All', 'Tamil Nadu', 'Maharashtra', 'Madhya Pradesh', 'Himachal Pradesh'];
 
-  // Filter listings
-  const filteredListings = allListings.filter((lot) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      lot.commodity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lot.variety?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lot.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lot.district?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCommodity =
-      selectedCommodity === 'All' ||
-      lot.commodity.toLowerCase() === selectedCommodity.toLowerCase();
-
-    const matchesGrade =
-      selectedGrade === 'All' || lot.grade === selectedGrade;
-
-    const matchesLocation =
-      selectedLocation === 'All' ||
-      lot.state.toLowerCase().includes(selectedLocation.toLowerCase());
-
-    return matchesSearch && matchesCommodity && matchesGrade && matchesLocation;
-  });
-
   // Reset to page 1 on filter/search change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCommodity, selectedGrade, selectedLocation, sortBy]);
 
-  // Sort listings
-  const sortedListings = [...filteredListings].sort((a, b) => {
-    if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
-    if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
+  // Memoized Filter & Sort
+  const sortedListings = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const hasQuery = query.length > 0;
+
+    const filtered = allListings.filter((lot) => {
+      if (selectedCommodity !== 'All' && lot.commodity?.toLowerCase() !== selectedCommodity.toLowerCase()) {
+        return false;
+      }
+      if (selectedGrade !== 'All' && lot.grade !== selectedGrade) {
+        return false;
+      }
+      if (selectedLocation !== 'All' && !lot.state?.toLowerCase().includes(selectedLocation.toLowerCase())) {
+        return false;
+      }
+      if (hasQuery) {
+        const matches =
+          lot.commodity?.toLowerCase().includes(query) ||
+          lot.variety?.toLowerCase().includes(query) ||
+          lot.state?.toLowerCase().includes(query) ||
+          lot.district?.toLowerCase().includes(query);
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    return filtered.sort((a, b) => {
+      if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
+      if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+  }, [allListings, searchQuery, selectedCommodity, selectedGrade, selectedLocation, sortBy]);
 
   // Pagination calculation
   const totalPages = Math.ceil(sortedListings.length / pageSize) || 1;
-  const paginatedListings = sortedListings.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const paginatedListings = useMemo(() => {
+    return sortedListings.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [sortedListings, currentPage, pageSize]);
 
   const resetFilters = () => {
     setSearchQuery('');

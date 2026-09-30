@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import AuctionTimer from '../../components/auction/AuctionTimer';
 import Card from '../../components/ui/Card';
@@ -81,9 +81,20 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
 
   const safeAuctions = Array.isArray(auctions) ? auctions : [];
 
-  const now = Date.now();
-  const liveCount = safeAuctions.filter((a) => a.status === 'live' && (!a.endsAt || new Date(a.endsAt).getTime() > now)).length;
-  const endedCount = safeAuctions.filter((a) => a.status === 'ended' || (a.endsAt && new Date(a.endsAt).getTime() <= now)).length;
+  const { liveCount, endedCount } = useMemo(() => {
+    const currentTime = Date.now();
+    let live = 0;
+    let ended = 0;
+    for (const a of safeAuctions) {
+      const isEnded = a.status === 'ended' || (a.endsAt && new Date(a.endsAt).getTime() <= currentTime);
+      if (a.status === 'live' && !isEnded) {
+        live++;
+      } else if (isEnded) {
+        ended++;
+      }
+    }
+    return { liveCount: live, endedCount: ended };
+  }, [safeAuctions]);
 
   const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,25 +105,33 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
     setCurrentPage(1);
   }, [filterTab, searchQuery]);
 
-  const filteredAuctions = safeAuctions.filter((a) => {
-    const isEnded = a.status === 'ended' || (a.endsAt && new Date(a.endsAt).getTime() <= now);
-    
-    if (filterTab === 'live' && isEnded) return false;
-    if (filterTab === 'ended' && !isEnded) return false;
+  const filteredAuctions = useMemo(() => {
+    const currentTime = Date.now();
+    const query = searchQuery.trim().toLowerCase();
 
-    return (
-      searchQuery === '' ||
-      a.commodity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.district?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
+    return safeAuctions.filter((a) => {
+      const isEnded = a.status === 'ended' || (a.endsAt && new Date(a.endsAt).getTime() <= currentTime);
+
+      if (filterTab === 'live' && isEnded) return false;
+      if (filterTab === 'ended' && !isEnded) return false;
+
+      if (!query) return true;
+
+      return (
+        a.commodity?.toLowerCase().includes(query) ||
+        a.state?.toLowerCase().includes(query) ||
+        a.district?.toLowerCase().includes(query)
+      );
+    });
+  }, [safeAuctions, filterTab, searchQuery]);
 
   const totalPages = Math.ceil(filteredAuctions.length / pageSize) || 1;
-  const paginatedAuctions = filteredAuctions.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const paginatedAuctions = useMemo(() => {
+    return filteredAuctions.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredAuctions, currentPage, pageSize]);
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
