@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities, saveListingDraft, getListingDraft, clearListingDraft } from '../../utils/listings';
 import { uploadProduceImage } from '../../utils/imageUpload';
+import { toast } from '../../context/ToastContext';
 import { createAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
@@ -149,6 +150,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
             images: [permanentUrl],
             isDefaultImage: false,
           }));
+          toast.success('Produce photo optimized & attached!');
         }
       } catch (err) {
         console.warn('Image upload error:', err);

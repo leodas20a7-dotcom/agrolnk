@@ -28,7 +28,8 @@ import {
   AlertCircle,
   Landmark,
   Info,
-  Receipt
+  Receipt,
+  Plus
 } from 'lucide-react';
 import { getFarmerOrders, updateOrderStatus } from '../../utils/orders';
 import { getDeliveryForOrder } from '../../utils/deliveries';
@@ -317,16 +318,52 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             />
           </div>
         ) : (
-          <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
+          <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto shadow-2xs">
               <ShoppingBag className="w-6 h-6 text-[#10B981]" />
             </div>
-            <h3 className="text-base font-bold text-[#0B3326] font-heading">
-              No {activeTab} orders found
-            </h3>
-            <p className="text-xs text-[#566861] max-w-sm mx-auto">
-              When buyers purchase your produce lots from the marketplace, incoming agreements will appear here.
-            </p>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                No {activeTab} orders found
+              </h3>
+              <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                {activeTab === 'all'
+                  ? 'List fresh harvest lots on the marketplace to start receiving direct procurement orders from verified buyers.'
+                  : `There are currently no orders under "${activeTab}".`}
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              {activeTab !== 'all' && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => handleTabChange('all')}
+                  className="text-xs font-bold py-2.5 px-4 cursor-pointer"
+                >
+                  View All Orders
+                </Button>
+              )}
+              <Button
+                variant="accent"
+                size="md"
+                onClick={() => onNavigate('farmer-create-listing')}
+                icon={Plus}
+                iconPosition="left"
+                className="text-xs font-bold py-2.5 px-4 shadow-sm cursor-pointer"
+              >
+                Create Produce Lot
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => onNavigate('farmer-listings')}
+                icon={Package}
+                iconPosition="left"
+                className="text-xs font-bold py-2.5 px-4 cursor-pointer"
+              >
+                My Active Listings
+              </Button>
+            </div>
           </Card>
         )}
 

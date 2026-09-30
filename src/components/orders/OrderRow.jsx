@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowRight, User, MapPin, ShieldCheck, Clock, ShoppingBag } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import CopyButton from '../ui/CopyButton';
 import OrderStatus from './OrderStatus';
 import FinancingStatusBadge from '../financing/FinancingStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
@@ -36,6 +37,13 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
             <span className="text-sm font-extrabold text-[#0B3326] font-heading shrink-0">
               {order.orderNumber || 'Order'}
             </span>
+            {order.orderNumber && (
+              <CopyButton
+                text={order.orderNumber}
+                label="Order Number"
+                title="Copy Order Number"
+              />
+            )}
             <Badge variant="dark" size="sm" className="shrink-0">
               Grade {order.grade || 'A'}
             </Badge>

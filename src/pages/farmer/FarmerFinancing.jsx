@@ -437,12 +437,36 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
               />
             </div>
           ) : (
-            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
+            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
               <Landmark className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No financing requests yet</h4>
-              <p className="text-xs text-[#566861]">
-                Select any eligible order above to request working capital liquidity.
-              </p>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[#0B3326]">No financing requests yet</h4>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  Select any eligible order above or apply for pre-harvest capital to unlock trade credit.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onNavigate('farmer-orders')}
+                  icon={ShoppingBag}
+                  iconPosition="left"
+                  className="text-xs font-bold py-2 px-3.5 cursor-pointer"
+                >
+                  View Orders for Financing
+                </Button>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setIsUrgentRequestOpen(true)}
+                  icon={Banknote}
+                  iconPosition="left"
+                  className="text-xs font-bold py-2 px-3.5 shadow-sm cursor-pointer"
+                >
+                  Apply Urgent Liquidity
+                </Button>
+              </div>
             </Card>
           )}
         </div>

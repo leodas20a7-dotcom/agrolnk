@@ -36,6 +36,7 @@ import { getListings, checkListingBookings, deleteListing, COMMODITY_IMAGES } fr
 import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
 import ProduceDetailModal from '../../components/farmer/ProduceDetailModal';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { toast } from '../../context/ToastContext';
 
 export default function AdminDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -148,7 +149,9 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
     setIsDeleting(true);
     try {
       await deleteListing(listingToDelete.id, user.id);
-      setDeleteSuccessMsg(`"${listingToDelete.commodity}" listing was removed successfully from the marketplace.`);
+      const msg = `"${listingToDelete.commodity}" listing was removed successfully from the marketplace.`;
+      setDeleteSuccessMsg(msg);
+      toast.success(msg);
       setTimeout(() => setDeleteSuccessMsg(null), 4000);
       setListingToDelete(null);
       if (selectedListing?.id === listingToDelete.id) {
@@ -157,7 +160,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
       await fetchListingsData();
     } catch (err) {
       console.error('Error deleting listing:', err);
-      alert(err.message || 'Failed to delete listing.');
+      toast.error(err.message || 'Failed to delete listing.');
     } finally {
       setIsDeleting(false);
     }

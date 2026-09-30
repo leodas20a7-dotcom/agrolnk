@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import CopyButton from '../ui/CopyButton';
 import OrderStatus from './OrderStatus';
 import DeliveryTimeline from '../delivery/DeliveryTimeline';
 import OrderReceiptModal from './OrderReceiptModal';
@@ -139,9 +140,12 @@ export default function OrderSummary({
               <Badge variant="dark" size="sm">
                 Grade {order.grade || 'A'}
               </Badge>
-              <span className="text-xs text-[#566861] font-mono">
-                {order.orderNumber ? (order.orderNumber.startsWith('#') ? order.orderNumber : `#${order.orderNumber}`) : '#Order'}
-              </span>
+              <CopyButton
+                text={order.orderNumber ? (order.orderNumber.startsWith('#') ? order.orderNumber : `#${order.orderNumber}`) : '#Order'}
+                label="Order Number"
+                variant="badge"
+                title="Click to copy Order Number"
+              />
               <OrderStatus
                 status={order.status}
                 escrowStatus={order.escrowStatus || order.escrow_status}

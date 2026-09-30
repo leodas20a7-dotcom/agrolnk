@@ -31,6 +31,7 @@ import {
   deleteListing
 } from '../../utils/listings';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { toast } from '../../context/ToastContext';
 
 export default function MyListings({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -128,7 +129,9 @@ export default function MyListings({ currentUser, onNavigate }) {
     setIsDeleting(true);
     try {
       await deleteListing(listingToDelete.id, user.id);
-      setDeleteSuccessMsg(`"${listingToDelete.commodity}" listing was removed successfully.`);
+      const msg = `"${listingToDelete.commodity}" listing was removed successfully.`;
+      setDeleteSuccessMsg(msg);
+      toast.success(msg);
       setTimeout(() => setDeleteSuccessMsg(null), 4000);
       setListingToDelete(null);
       if (selectedListing?.id === listingToDelete.id) {
@@ -137,7 +140,7 @@ export default function MyListings({ currentUser, onNavigate }) {
       await fetchListings(false);
     } catch (err) {
       console.error('Error deleting listing:', err);
-      alert(err.message || 'Failed to delete listing.');
+      toast.error(err.message || 'Failed to delete listing.');
     } finally {
       setIsDeleting(false);
     }

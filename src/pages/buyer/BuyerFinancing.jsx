@@ -353,12 +353,38 @@ export default function BuyerFinancing({ currentUser, onNavigate }) {
               />
             </div>
           ) : (
-            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
-              <CreditCard className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No trade credit applications yet</h4>
-              <p className="text-xs text-[#566861]">
-                Select "Trade Credit (NBFC)" at purchase checkout in the Marketplace.
-              </p>
+            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-bold text-[#0B3326]">No trade credit applications yet</h4>
+                <p className="text-xs text-[#566861] max-w-md mx-auto">
+                  Trade credit unlocks up to 90 days repayment flexibility. Select "Trade Credit (NBFC)" during purchase checkout in the Marketplace.
+                </p>
+              </div>
+              {onNavigate && (
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => onNavigate('buyer-marketplace')}
+                    className="font-bold gap-2 shadow-xs"
+                  >
+                    <Compass className="w-4 h-4" />
+                    Browse Marketplace Lots
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onNavigate('buyer-orders')}
+                    className="gap-2"
+                  >
+                    <ShoppingBag className="w-4 h-4 text-[#10B981]" />
+                    View My Orders
+                  </Button>
+                </div>
+              )}
             </Card>
           )}
         </div>

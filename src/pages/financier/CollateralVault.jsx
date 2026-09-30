@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import CopyButton from '../../components/ui/CopyButton';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import Pagination from '../../components/ui/Pagination';
 import CollateralRow from '../../components/financing/CollateralRow';
@@ -198,9 +199,16 @@ export default function CollateralVault({ currentUser, onNavigate }) {
                   <div className="space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="font-extrabold text-sm text-[#0B3326] block">
-                          {item.receiptNumber}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-extrabold text-sm text-[#0B3326]">
+                            {item.receiptNumber}
+                          </span>
+                          <CopyButton
+                            text={item.receiptNumber}
+                            label="Warehouse Receipt Number"
+                            title="Copy eNWR Receipt"
+                          />
+                        </div>
                         <span className="text-xs text-[#566861]">
                           Owner: <b>{item.farmerName}</b>
                         </span>

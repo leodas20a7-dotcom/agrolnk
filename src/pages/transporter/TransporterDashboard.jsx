@@ -585,16 +585,52 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                 />
               </div>
             ) : (
-              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
-                  <Truck className="w-6 h-6 text-[#10B981]" />
+              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
+                  <Truck className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                  No {activeTab} delivery manifests found
-                </h3>
-                <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                  When farmers arrange transport for confirmed orders, new freight jobs will appear here for bidding and acceptance.
-                </p>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                    {activeTab === 'available'
+                      ? 'No available freight jobs right now'
+                      : `No ${activeTab} delivery trips found`}
+                  </h3>
+                  <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                    {activeTab === 'available'
+                      ? 'When farmers dispatch agricultural lots to buyers, freight manifests will appear here for quoting and instant dispatch.'
+                      : activeTab === 'active'
+                      ? 'You have no active trips currently en route. Check open jobs to quote on cargo bookings.'
+                      : 'Completed haulage trips and delivery receipts will be logged here.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  {activeTab !== 'available' ? (
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => {
+                        setActiveTab('available');
+                        setCurrentPage(1);
+                      }}
+                      className="font-bold gap-2 shadow-xs"
+                    >
+                      <Truck className="w-4 h-4" />
+                      Check Available Freight Jobs
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant={activeTab === 'available' ? 'accent' : 'secondary'}
+                    size="sm"
+                    onClick={() => {
+                      setActiveTab('fleet');
+                      setCurrentPage(1);
+                    }}
+                    className={`gap-2 ${activeTab === 'available' ? 'font-bold shadow-xs' : ''}`}
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Manage Truck Fleet
+                  </Button>
+                </div>
               </Card>
             )
           )}

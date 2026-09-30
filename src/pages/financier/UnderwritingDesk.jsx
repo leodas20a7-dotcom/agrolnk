@@ -20,7 +20,8 @@ import {
   User,
   MapPin,
   Lock,
-  ArrowUpRight
+  ArrowUpRight,
+  RotateCcw
 } from 'lucide-react';
 import { getFinancingRequests, isFinancierMatch } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
@@ -394,16 +395,60 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
 
         {/* Requests List */}
         {filteredRequests.length === 0 ? (
-          <Card className="p-12 bg-white border border-[#E5EDE8] text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto">
+          <Card className="p-12 bg-white border border-[#E5EDE8] rounded-3xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
               <FileText className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-[#0B3326] font-heading">
-              No matching applications found
-            </h3>
-            <p className="text-xs text-[#566861] max-w-sm mx-auto">
-              Try adjusting your search keywords or switching filter criteria.
-            </p>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                No underwriting applications found
+              </h3>
+              <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                {searchQuery || selectedStatusFilter !== 'all' || selectedRoleFilter !== 'all'
+                  ? 'No credit applications match your current search and filter criteria.'
+                  : 'All institutional credit applications are currently up to date.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              {(searchQuery || selectedStatusFilter !== 'all' || selectedRoleFilter !== 'all' || selectedCommodity !== 'all') && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedStatusFilter('all');
+                    setSelectedRoleFilter('all');
+                    setSelectedCommodity('all');
+                  }}
+                  className="gap-2"
+                >
+                  <RotateCcw className="w-4 h-4 text-[#566861]" />
+                  Reset Desk Filters
+                </Button>
+              )}
+              {onNavigate && (
+                <>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => onNavigate('financier-collateral-vault')}
+                    className="font-bold gap-2 shadow-xs"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Inspect Collateral Vault
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onNavigate('financier-portfolio')}
+                    className="text-xs text-[#566861] hover:text-[#0B3326] gap-1.5"
+                  >
+                    <Landmark className="w-4 h-4 text-[#10B981]" />
+                    Credit Portfolio
+                  </Button>
+                </>
+              )}
+            </div>
           </Card>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

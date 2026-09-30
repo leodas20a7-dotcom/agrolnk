@@ -6,6 +6,7 @@ import Badge from '../../components/ui/Badge';
 import Pagination from '../../components/ui/Pagination';
 import UrgentLoanRequestModal from '../../components/financing/UrgentLoanRequestModal';
 import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTermAcceptanceModal';
+import CopyButton from '../../components/ui/CopyButton';
 import {
   Calendar,
   ArrowLeft,
@@ -282,12 +283,50 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
         {/* Abstract Records List */}
         <div className="space-y-3">
           {paginatedLoans.length === 0 ? (
-            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No loans in this view</h4>
-              <p className="text-xs text-[#566861]">
-                Need liquidity? Click "Need Urgent Money" to submit an application.
-              </p>
+            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-bold text-[#0B3326]">No loans found in this view</h4>
+                <p className="text-xs text-[#566861] max-w-md mx-auto">
+                  {activeTab !== 'all'
+                    ? `You currently have no ${activeTab} loans. Check other tabs or submit a new financing request.`
+                    : 'Need quick working capital for crop cycles or input purchases? Apply for urgent financing.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setIsUrgentRequestOpen(true)}
+                  className="font-bold gap-2 shadow-xs"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Need Urgent Money
+                </Button>
+                {onNavigate && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onNavigate('farmer-financing')}
+                    className="gap-2"
+                  >
+                    <Landmark className="w-4 h-4 text-[#10B981]" />
+                    Trade Financing Desk
+                  </Button>
+                )}
+                {activeTab !== 'all' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveTab('all')}
+                    className="text-xs text-[#566861] hover:text-[#0B3326]"
+                  >
+                    View All Records
+                  </Button>
+                )}
+              </div>
             </Card>
           ) : (
             paginatedLoans.map((loan) => {
@@ -311,10 +350,20 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                         <span className="text-sm font-extrabold text-[#0B3326] font-heading">
                           {loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`}
                         </span>
+                        <CopyButton
+                          text={loan.requestNumber || loan.id}
+                          label="Loan Reference"
+                          title="Copy Loan ID"
+                        />
                         {loan.orderNumber && (
-                          <Badge variant="dark" size="sm">
+                          <CopyButton
+                            text={loan.orderNumber}
+                            label="Order Number"
+                            variant="badge"
+                            title="Copy linked Order Number"
+                          >
                             {loan.orderNumber}
-                          </Badge>
+                          </CopyButton>
                         )}
                         <Badge
                           variant={isRepaid ? 'emerald' : isPending ? 'blue' : maturity.isOverdue ? 'amber' : 'teal'}

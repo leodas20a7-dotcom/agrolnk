@@ -3,6 +3,7 @@ import { ArrowRight, User, MapPin, ShieldCheck, Clock, Landmark } from 'lucide-r
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import CopyButton from '../ui/CopyButton';
 import OrderStatus from './OrderStatus';
 import FinancingStatusBadge from '../financing/FinancingStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
@@ -28,10 +29,17 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
     <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4 text-left">
       {/* Top Header: Order Number & Status */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-base font-extrabold text-[#0B3326] font-heading">
             {order.orderNumber || 'Order'}
           </span>
+          {order.orderNumber && (
+            <CopyButton
+              text={order.orderNumber}
+              label="Order Number"
+              title="Copy Order Number"
+            />
+          )}
           <span className="text-xs text-[#566861]">
             • {order.createdAt && !isNaN(new Date(order.createdAt).getTime())
               ? new Date(order.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })

@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   Lock,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Gavel
 } from 'lucide-react';
 import { getActiveMarketplaceListings, getPlatformCommodities, fetchRemoteCommodities } from '../../utils/listings';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
@@ -451,20 +452,45 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
                 />
               </div>
             ) : (
-              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
+              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto shadow-2xs">
                   <Search className="w-6 h-6 text-[#10B981]" />
                 </div>
-                <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                  No matching produce found
-                </h3>
-                <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                  Try adjusting your search terms or resetting filters to see all available lots.
-                </p>
-                <div className="pt-2">
-                  <Button variant="secondary" size="sm" onClick={resetFilters}>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                    No matching produce found
+                  </h3>
+                  <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                    Try adjusting your search terms or resetting filters to explore all active farm harvests and warehouse lots.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  <Button variant="secondary" size="sm" onClick={resetFilters} className="gap-2">
+                    <RotateCcw className="w-4 h-4 text-[#566861]" />
                     Reset All Filters
                   </Button>
+                  {onNavigate && (
+                    <>
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        onClick={() => onNavigate('buyer-live-auctions')}
+                        className="font-bold gap-2 shadow-xs"
+                      >
+                        <Gavel className="w-4 h-4" />
+                        Explore Live Auctions
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onNavigate('buyer-orders')}
+                        className="text-xs text-[#566861] hover:text-[#0B3326] gap-1.5"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-[#10B981]" />
+                        My Orders
+                      </Button>
+                    </>
+                  )}
                 </div>
               </Card>
             )}

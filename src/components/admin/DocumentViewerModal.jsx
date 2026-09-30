@@ -23,6 +23,7 @@ import {
   Minimize2
 } from 'lucide-react';
 import Button from '../ui/Button';
+import { copyToClipboard } from '../../context/ToastContext';
 
 export default function DocumentViewerModal({
   isOpen,
@@ -69,10 +70,12 @@ export default function DocumentViewerModal({
     }
   };
 
-  const handleCopyId = () => {
-    navigator.clipboard?.writeText(docNumber);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2500);
+  const handleCopyId = async () => {
+    const ok = await copyToClipboard(docNumber, `${docType || 'Document'} Number`);
+    if (ok) {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2500);
+    }
   };
 
   // Determine Certificate Theme based on document type (for fallback certificate template)

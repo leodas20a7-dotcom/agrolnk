@@ -349,12 +349,26 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
               />
             </div>
           ) : (
-            <Card className="p-8 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
+            <Card className="p-8 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
               <Package className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No orders awaiting transport</h4>
-              <p className="text-xs text-[#566861]">
-                Confirmed buyer orders needing logistics dispatch will appear here.
-              </p>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[#0B3326]">No orders awaiting transport</h4>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  Confirmed buyer orders needing logistics dispatch will appear here.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center justify-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onNavigate('farmer-orders')}
+                  icon={ShoppingBag}
+                  iconPosition="left"
+                  className="text-xs font-bold py-2 px-3.5 cursor-pointer"
+                >
+                  View Orders Received
+                </Button>
+              </div>
             </Card>
           )}
         </div>
@@ -416,12 +430,26 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
               />
             </div>
           ) : (
-            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
+            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
               <Truck className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No delivery manifests yet</h4>
-              <p className="text-xs text-[#566861]">
-                Click "Arrange Delivery" on any confirmed order above to dispatch your produce.
-              </p>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[#0B3326]">No outbound deliveries yet</h4>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  When shipments are dispatched to buyers, live tracking and driver manifests will appear here.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center justify-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onNavigate('farmer-orders')}
+                  icon={ShoppingBag}
+                  iconPosition="left"
+                  className="text-xs font-bold py-2 px-3.5 cursor-pointer"
+                >
+                  Dispatch from Orders Desk
+                </Button>
+              </div>
             </Card>
           )}
         </div>

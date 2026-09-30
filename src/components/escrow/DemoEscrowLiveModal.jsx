@@ -28,6 +28,7 @@ import {
   resetDemoEscrowLedger,
   ESCROW_NODAL_ACCOUNT
 } from '../../utils/escrowApi';
+import { toast, copyToClipboard as unifiedCopy } from '../../context/ToastContext';
 import { formatINR } from '../../utils/commission';
 
 export default function DemoEscrowLiveModal({ isOpen, onClose }) {
@@ -82,11 +83,13 @@ export default function DemoEscrowLiveModal({ isOpen, onClose }) {
 
   const showToast = (msg) => {
     setFeedbackToast(msg);
+    toast.success(msg);
     setTimeout(() => setFeedbackToast(''), 4000);
   };
 
   const copyToClipboard = (text, fieldName) => {
-    navigator.clipboard.writeText(text);
+    const label = fieldName === 'acc' ? 'Escrow Account Number' : fieldName === 'ifsc' ? 'Escrow IFSC Code' : 'Escrow Detail';
+    unifiedCopy(text, label);
     setCopiedField(fieldName);
     setTimeout(() => setCopiedField(''), 2500);
   };

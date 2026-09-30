@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import CopyButton from '../../components/ui/CopyButton';
 import Pagination from '../../components/ui/Pagination';
 import {
   Receipt,
@@ -259,9 +260,16 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
                         </td>
 
                         <td className="p-4">
-                          <span className="font-mono text-[11px] text-[#14211D] block font-bold">
-                            {d.bankUtr}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[11px] text-[#14211D] font-bold">
+                              {d.bankUtr}
+                            </span>
+                            <CopyButton
+                              text={d.bankUtr}
+                              label="Bank UTR"
+                              title="Copy Bank UTR"
+                            />
+                          </div>
                           <span className="text-[10px] text-[#10B981] flex items-center gap-1">
                             <ShieldCheck className="w-3 h-3" />
                             <span>{d.status === 'settled' ? `Cleared (${d.paymentMethod || 'Razorpay'})` : 'Escrow Lien Active'}</span>

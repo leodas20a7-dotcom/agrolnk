@@ -303,12 +303,38 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
               />
             </div>
           ) : (
-            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-2">
-              <Truck className="w-8 h-8 text-[#10B981] mx-auto" />
-              <h4 className="text-sm font-bold text-[#0B3326]">No inbound shipments</h4>
-              <p className="text-xs text-[#566861]">
-                When you purchase produce in the marketplace, freight dispatch updates will appear here.
-              </p>
+            <Card className="p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
+                <Truck className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-bold text-[#0B3326]">No inbound shipments</h4>
+                <p className="text-xs text-[#566861] max-w-md mx-auto">
+                  When you purchase produce in the marketplace, freight dispatch and live tracking updates will appear here.
+                </p>
+              </div>
+              {onNavigate && (
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => onNavigate('buyer-marketplace')}
+                    className="font-bold gap-2 shadow-xs"
+                  >
+                    <Compass className="w-4 h-4" />
+                    Explore Marketplace Lots
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onNavigate('buyer-orders')}
+                    className="gap-2"
+                  >
+                    <ShoppingBag className="w-4 h-4 text-[#10B981]" />
+                    View My Orders
+                  </Button>
+                </div>
+              )}
             </Card>
           )}
         </div>

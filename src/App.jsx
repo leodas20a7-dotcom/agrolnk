@@ -55,6 +55,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { LoadingProvider, showGlobalLoader, hideGlobalLoader } from './context/LoadingContext';
+import { ToastProvider } from './context/ToastContext';
 import { getCurrentUser } from './utils/auth';
 
 const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
@@ -276,8 +277,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <LoadingProvider>
-        <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
-          <Suspense fallback={<FlashLoadingScreen message="Loading Agrolnk Portal..." />}>
+        <ToastProvider>
+          <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
+            <Suspense fallback={<FlashLoadingScreen message="Loading Agrolnk Portal..." />}>
       {/* 1. Public Landing Page */}
       {currentPage === 'landing' && (
         <Landing
@@ -623,6 +625,7 @@ export default function App() {
       )}
           </Suspense>
         </div>
+        </ToastProvider>
       </LoadingProvider>
     </ErrorBoundary>
   );

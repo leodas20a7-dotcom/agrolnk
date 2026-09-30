@@ -6,6 +6,7 @@ import CommoditySelect from '../ui/CommoditySelect';
 import SearchableSelect from '../ui/SearchableSelect';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 import { uploadProduceImage } from '../../utils/imageUpload';
+import { toast } from '../../context/ToastContext';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
   const grades = ['Grade A', 'Grade B', 'Grade C'];
@@ -24,6 +25,7 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
         const permanentUrl = await uploadProduceImage(file);
         if (permanentUrl) {
           onImageChange(permanentUrl, false);
+          toast.success('Produce photo optimized & attached!');
         }
       } catch (err) {
         console.warn('Produce image upload error:', err);

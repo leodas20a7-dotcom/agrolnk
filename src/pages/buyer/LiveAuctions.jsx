@@ -410,18 +410,55 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
             />
           </div>
         ) : (
-          <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
-              <Gavel className="w-6 h-6 text-[#10B981]" />
+          <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
+              <Gavel className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-[#0B3326] font-heading">
-              No auctions found
-            </h3>
-            <p className="text-xs text-[#566861] max-w-sm mx-auto">
-              {filterTab === 'ended'
-                ? 'No past auction records matching your search.'
-                : 'There are currently no active auctions matching your search criteria.'}
-            </p>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                {searchQuery ? 'No matching auctions found' : 'No auctions in this view'}
+              </h3>
+              <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                {searchQuery
+                  ? `No auctions found matching "${searchQuery}". Try a different keyword or reset filters.`
+                  : filterTab === 'ended'
+                  ? 'No past auction records available. Check out the live bidding floor or browse the marketplace.'
+                  : 'There are currently no active auctions open for bidding right now.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              {searchQuery ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                  className="gap-2"
+                >
+                  Clear Search Query
+                </Button>
+              ) : filterTab === 'ended' ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setFilterTab('live')}
+                  className="gap-2"
+                >
+                  <Gavel className="w-4 h-4 text-[#10B981]" />
+                  View Live Auctions
+                </Button>
+              ) : null}
+              {onNavigate && (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => onNavigate('buyer-marketplace')}
+                  className="font-bold gap-2 shadow-xs"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Explore Marketplace Lots
+                </Button>
+              )}
+            </div>
           </Card>
         )}
 

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import CopyButton from '../ui/CopyButton';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 
 export default function OrderReceiptModal({
@@ -103,11 +104,13 @@ export default function OrderReceiptModal({
             </div>
 
             <div className="text-left sm:text-right space-y-1">
-              <div className="text-sm font-extrabold font-mono text-[#0B3326]">
-                #{receiptNumber}
+              <div className="text-sm font-extrabold font-mono text-[#0B3326] flex items-center sm:justify-end gap-1">
+                <span>#{receiptNumber}</span>
+                <CopyButton text={`#${receiptNumber}`} label="Receipt Number" title="Copy Receipt Number" />
               </div>
-              <div className="text-[11px] text-[#566861]">
-                Order: <strong className="font-mono text-[#0B3326]">{order.orderNumber}</strong>
+              <div className="text-[11px] text-[#566861] flex items-center sm:justify-end gap-1">
+                <span>Order: <strong className="font-mono text-[#0B3326]">{order.orderNumber}</strong></span>
+                <CopyButton text={order.orderNumber} label="Order Number" title="Copy Order Number" />
               </div>
               <div className="text-[11px] text-[#566861]">
                 Date: <strong>{new Date(settlementDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
@@ -203,9 +206,12 @@ export default function OrderReceiptModal({
                   <span className="text-[#566861]">Settlement Status:</span>
                   <strong className="text-emerald-700">✓ 100% Disbursed to Bank</strong>
                 </div>
-                <div className="flex justify-between font-mono">
+                <div className="flex justify-between items-center font-mono">
                   <span className="text-[#566861]">Bank UTR No:</span>
-                  <strong className="font-bold">{utrNumber}</strong>
+                  <div className="flex items-center gap-1">
+                    <strong className="font-bold">{utrNumber}</strong>
+                    <CopyButton text={utrNumber} label="Bank UTR" title="Copy Bank UTR" />
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#566861]">Supervised By:</span>

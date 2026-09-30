@@ -21,6 +21,7 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 
 import { COMMODITY_IMAGES } from '../../utils/listings';
+import { copyToClipboard } from '../../context/ToastContext';
 
 export default function ProduceDetailModal({
   listing,
@@ -39,11 +40,13 @@ export default function ProduceDetailModal({
     Number(listing.quantity || 0) * Number(listing.price || 0);
   const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     const text = `Agrolnk Produce Lot #${listing.id}: ${listing.commodity} (${listing.variety || 'Standard'}), ${listing.quantity} ${listing.unit} at ₹${listing.price}/${listing.unit} from ${listing.district || ''}, ${listing.state}. Grade ${listing.grade}.`;
-    navigator.clipboard?.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    const ok = await copyToClipboard(text, `Lot #${listing.id} Specifications`);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
   };
 
   return (
