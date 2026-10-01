@@ -285,6 +285,8 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                               'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'
                             }
                             alt={lot.commodity}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
 

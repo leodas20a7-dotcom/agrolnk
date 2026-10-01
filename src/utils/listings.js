@@ -270,14 +270,20 @@ export async function getFarmerListings(farmerId) {
 /**
  * Get active marketplace listings for buyers
  */
-export async function getActiveMarketplaceListings() {
+export async function getActiveMarketplaceListings(limit = null) {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('listings')
-      .select('*')
+      .select('id, farmer_id, farmer_name, commodity, variety, grade, quantity, unit, price, sale_type, state, district, harvest_date, images, status, origin_warehouse_id, origin_receipt_number, created_at, updated_at')
       .eq('status', 'active')
       .gt('quantity', 0)
       .order('created_at', { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Failed to fetch active marketplace listings from Supabase:', error);

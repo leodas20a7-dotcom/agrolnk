@@ -21,6 +21,8 @@ export default function MarketplaceCard({ listing, onSelect }) {
               'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'
             }
             alt={listing.commodity}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
           />
 

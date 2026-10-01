@@ -63,15 +63,21 @@ export async function checkAndFinalizeExpiredAuctions() {
 /**
  * Get all auctions from Supabase with authoritative expired state resolution
  */
-export async function getAuctions() {
+export async function getAuctions(limit = null) {
   try {
-    // Proactively settle any expired auctions
-    await checkAndFinalizeExpiredAuctions();
+    // Settle expired auctions in the background without blocking the read query
+    checkAndFinalizeExpiredAuctions().catch((e) => console.warn('Background finalize check:', e));
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('auctions')
-      .select('*')
+      .select('id, farmer_id, farmer_name, commodity, variety, grade, quantity, unit, base_price, reserve_price, current_bid, highest_bidder_id, highest_bidder_name, total_bids, start_time, end_time, status, state, district, images, created_at, updated_at')
       .order('created_at', { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Failed to fetch auctions from Supabase:', error);
@@ -95,17 +101,24 @@ export async function getAuctions() {
 /**
  * Get live active auctions (strictly non-expired)
  */
-export async function getLiveAuctions() {
+export async function getLiveAuctions(limit = null) {
   try {
-    await checkAndFinalizeExpiredAuctions();
+    // Settle expired auctions in the background without blocking the read query
+    checkAndFinalizeExpiredAuctions().catch((e) => console.warn('Background finalize check:', e));
 
     const nowIso = new Date().toISOString();
-    const { data, error } = await supabase
+    let query = supabase
       .from('auctions')
-      .select('*')
+      .select('id, farmer_id, farmer_name, commodity, variety, grade, quantity, unit, base_price, reserve_price, current_bid, highest_bidder_id, highest_bidder_name, total_bids, start_time, end_time, status, state, district, images, created_at, updated_at')
       .eq('status', 'live')
       .gt('end_time', nowIso)
       .order('created_at', { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Failed to fetch live auctions from Supabase:', error);

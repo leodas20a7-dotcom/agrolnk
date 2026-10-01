@@ -160,8 +160,8 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
       try {
         setIsLoading(true);
         const [fetchedAuctions, fetchedListings] = await Promise.all([
-          getLiveAuctions(),
-          getActiveMarketplaceListings(),
+          getLiveAuctions(6),
+          getActiveMarketplaceListings(6),
         ]);
 
         if (!isMounted) return;
@@ -295,8 +295,28 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
           </div>
         </div>
 
+        {/* Skeleton Cards during initial mobile load */}
+        {isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="p-5 bg-white border border-[#E5EDE8] rounded-3xl shadow-xs space-y-4 animate-pulse"
+              >
+                <div className="h-44 rounded-2xl bg-gray-100" />
+                <div className="space-y-2">
+                  <div className="h-4 w-2/3 bg-gray-200 rounded" />
+                  <div className="h-3 w-1/3 bg-gray-100 rounded" />
+                </div>
+                <div className="h-14 bg-gray-50 rounded-2xl border border-[#E5EDE8]" />
+                <div className="h-9 bg-gray-100 rounded-xl" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* TAB 1: DIRECT HARVEST SALES */}
-        {activeTab === 'direct' && (
+        {!isLoading && activeTab === 'direct' && (
           <div className="space-y-8 animate-in fade-in duration-300">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
               {directListings.map((lot) => (
@@ -311,6 +331,8 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
                       <img
                         src={lot.images?.[0] || COMMODITY_IMAGES[lot.commodity] || COMMODITY_IMAGES.Other}
                         alt={lot.commodity}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
 
@@ -408,7 +430,7 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
         )}
 
         {/* TAB 2: LIVE AUCTIONS */}
-        {activeTab === 'auctions' && (
+        {!isLoading && activeTab === 'auctions' && (
           <div className="space-y-8 animate-in fade-in duration-300">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
               {liveAuctions.map((lot) => (
@@ -423,6 +445,8 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
                       <img
                         src={lot.images?.[0] || COMMODITY_IMAGES[lot.commodity] || COMMODITY_IMAGES.Other}
                         alt={lot.commodity}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
 
