@@ -303,11 +303,11 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                             )}
                           </div>
 
-                          <div className="absolute bottom-2 left-2 right-2">
+                          <div className="absolute bottom-2.5 right-2.5">
                             <AuctionTimer
                               endsAt={lot.endsAt}
                               status={lot.status}
-                              className="w-full justify-center shadow-xs"
+                              showOnlyTime={true}
                             />
                           </div>
                         </div>

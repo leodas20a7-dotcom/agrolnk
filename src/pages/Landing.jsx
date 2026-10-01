@@ -26,10 +26,11 @@ export default function Landing({ onNavigate }) {
         {/* Step 6: Visual Ecosystem */}
         <EcosystemFlow />
 
-        {/* Step 7: Direct Sale & Live Auction */}
+        {/* Step 7: Direct Sale & Live Auction Real-time Floor */}
         <SellingMethods
-          onExploreDirect={() => onNavigate('register')}
-          onExploreAuction={() => onNavigate('register')}
+          onNavigate={onNavigate}
+          onExploreDirect={() => onNavigate('register', { initialRole: 'buyer' })}
+          onExploreAuction={() => onNavigate('register', { initialRole: 'buyer' })}
         />
 
         {/* Step 8: Stakeholders Breakdown */}

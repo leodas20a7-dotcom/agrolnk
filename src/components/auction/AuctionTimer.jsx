@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 
-export default function AuctionTimer({ endsAt, status = 'live', onTimeUp, className = '' }) {
+export default function AuctionTimer({
+  endsAt,
+  status = 'live',
+  onTimeUp,
+  className = '',
+  showOnlyTime = false,
+}) {
   const [timeRemaining, setTimeRemaining] = useState(() => {
     return Math.max(0, new Date(endsAt).getTime() - Date.now());
   });
@@ -24,6 +30,16 @@ export default function AuctionTimer({ endsAt, status = 'live', onTimeUp, classN
 
   // State 3: ⚫ AUCTION ENDED
   if (status !== 'live' || timeRemaining <= 0) {
+    if (showOnlyTime) {
+      return (
+        <div
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gray-900/80 backdrop-blur-xs text-white text-xs font-bold ${className}`}
+        >
+          <Clock className="w-3.5 h-3.5 text-gray-300" />
+          <span>Ended</span>
+        </div>
+      );
+    }
     return (
       <div
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold border border-gray-200 ${className}`}
@@ -40,12 +56,32 @@ export default function AuctionTimer({ endsAt, status = 'live', onTimeUp, classN
   const seconds = totalSeconds % 60;
 
   const pad = (n) => String(n).padStart(2, '0');
+  const formattedTime = hours > 0
+    ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
 
   // State 2: 🟡 ENDING SOON (<= 5 minutes)
   const isEndingSoon = totalSeconds <= 300;
   const isUrgent = totalSeconds < 60;
 
   if (isEndingSoon) {
+    if (showOnlyTime) {
+      return (
+        <div
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-colors shadow-xs ${
+            isUrgent
+              ? 'bg-red-600 text-white animate-pulse'
+              : 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
+          } ${className}`}
+        >
+          <Clock className={`w-3.5 h-3.5 ${isUrgent ? 'text-white' : 'text-[#D97706]'}`} />
+          <span className="font-mono tracking-wider font-extrabold text-xs">
+            {formattedTime}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div
         className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
@@ -59,15 +95,26 @@ export default function AuctionTimer({ endsAt, status = 'live', onTimeUp, classN
           {isUrgent ? 'FINAL SECONDS' : 'ENDING SOON'}
         </span>
         <span className="font-mono tracking-wider font-extrabold text-sm">
-          {hours > 0
-            ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
-            : `${pad(minutes)}:${pad(seconds)}`}
+          {formattedTime}
         </span>
       </div>
     );
   }
 
   // State 1: 🟢 LIVE (> 5 minutes)
+  if (showOnlyTime) {
+    return (
+      <div
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-white/95 backdrop-blur-md text-[#0B3326] border border-[#E5EDE8] shadow-xs ${className}`}
+      >
+        <Clock className="w-3.5 h-3.5 text-[#10B981]" />
+        <span className="font-mono tracking-wider font-extrabold text-xs text-[#0B3326]">
+          {formattedTime}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#EBF5F0] text-[#0B3326] border border-[#10B981]/30 ${className}`}
@@ -77,9 +124,7 @@ export default function AuctionTimer({ endsAt, status = 'live', onTimeUp, classN
         LIVE
       </span>
       <span className="font-mono tracking-wider font-extrabold text-sm text-[#0B3326]">
-        {hours > 0
-          ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
-          : `${pad(minutes)}:${pad(seconds)}`}
+        {formattedTime}
       </span>
     </div>
   );
