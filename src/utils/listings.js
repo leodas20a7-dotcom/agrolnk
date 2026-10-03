@@ -1,23 +1,12 @@
 // Agrolnk Supabase Listings Management Engine
 import { supabase } from '../lib/supabase';
+import {
+  getAllCommodityNames,
+  getCommodityGroup,
+  CATEGORY_FALLBACK_IMAGES,
+} from '../data/commodityTaxonomy';
 
-export const DEFAULT_COMMODITIES = [
-  'Tomato',
-  'Onion',
-  'Potato',
-  'Mango',
-  'Red Chilli',
-  'Turmeric',
-  'Basmati Rice',
-  'Cotton',
-  'Wheat',
-  'Cardamom',
-  'Ginger',
-  'Apple',
-  'Maize',
-  'Soybean',
-  'Banana',
-];
+export const DEFAULT_COMMODITIES = getAllCommodityNames();
 
 const CUSTOM_COMMODITIES_KEY = 'agrolnk_custom_commodities';
 
@@ -182,8 +171,16 @@ export const COMMODITY_IMAGES = {
   Other: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
 };
 
+export function getCommodityFallbackImage(commodity) {
+  if (commodity && COMMODITY_IMAGES[commodity]) {
+    return COMMODITY_IMAGES[commodity];
+  }
+  const group = getCommodityGroup(commodity);
+  return CATEGORY_FALLBACK_IMAGES[group] || COMMODITY_IMAGES.Other;
+}
+
 function sanitizeImages(images, commodity) {
-  const fallback = COMMODITY_IMAGES[commodity] || COMMODITY_IMAGES.Other;
+  const fallback = getCommodityFallbackImage(commodity);
   if (!Array.isArray(images) || images.length === 0) {
     return [fallback];
   }

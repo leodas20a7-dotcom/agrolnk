@@ -5,6 +5,7 @@ import {
   fetchRemoteCommodities,
   registerCustomCommodity,
   COMMODITY_IMAGES,
+  getCommodityFallbackImage,
 } from '../../utils/listings';
 
 export default function CommoditySelect({
@@ -69,7 +70,7 @@ export default function CommoditySelect({
   const handleSelect = (commodityName) => {
     onChange?.(commodityName);
     if (onImageChange) {
-      const defaultImg = COMMODITY_IMAGES[commodityName] || COMMODITY_IMAGES.Other;
+      const defaultImg = getCommodityFallbackImage(commodityName);
       onImageChange(defaultImg, true);
     }
     setIsOpen(false);
@@ -201,17 +202,16 @@ export default function CommoditySelect({
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {COMMODITY_IMAGES[item] ? (
-                        <img
-                          src={COMMODITY_IMAGES[item]}
-                          alt={item}
-                          className="w-5 h-5 rounded-md object-cover border border-[#E5EDE8] shrink-0"
-                        />
-                      ) : (
-                        <div className="w-5 h-5 rounded-md bg-[#E5EDE8] flex items-center justify-center text-[10px] shrink-0 text-[#0B3326] font-bold">
-                          {item.charAt(0)}
-                        </div>
-                      )}
+                      <img
+                        src={getCommodityFallbackImage(item)}
+                        alt={item}
+                        className="w-5 h-5 rounded-md object-cover border border-[#E5EDE8] shrink-0"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.src = COMMODITY_IMAGES.Other;
+                        }}
+                      />
                       <span className="truncate group-hover:text-[#0B3326]">{item}</span>
                     </div>
                     {isSelected && (

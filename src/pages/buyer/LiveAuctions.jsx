@@ -119,6 +119,7 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
 
       return (
         a.commodity?.toLowerCase().includes(query) ||
+        a.variety?.toLowerCase().includes(query) ||
         a.state?.toLowerCase().includes(query) ||
         a.district?.toLowerCase().includes(query)
       );

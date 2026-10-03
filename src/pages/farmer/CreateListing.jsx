@@ -28,6 +28,7 @@ import { isUserVerified } from '../../utils/admin';
 import { getResolvedUserKycStatus } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
+import VarietySelect from '../../components/ui/VarietySelect';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -548,6 +549,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     setFormData((prev) => ({
                       ...prev,
                       commodity: val,
+                      variety: '',
                       images: prev.isDefaultImage ? [defaultImg] : (prev.images.length ? prev.images : [defaultImg]),
                     }));
                   }}
@@ -567,12 +569,11 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 <label className="text-xs font-bold text-[#0B3326] block">
                   Variety / Cultivar
                 </label>
-                <input
-                  type="text"
+                <VarietySelect
+                  commodity={formData.commodity}
                   value={formData.variety}
-                  onChange={(e) => setFormData({ ...formData, variety: e.target.value })}
-                  placeholder="e.g. Hybrid Shivam, Nasik Red"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  onChange={(val) => setFormData((prev) => ({ ...prev, variety: val }))}
+                  placeholder="Select or enter variety..."
                 />
               </div>
 

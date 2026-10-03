@@ -22,6 +22,7 @@ import { isUserVerified } from '../../utils/admin';
 import { getResolvedUserKycStatus } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
+import VarietySelect from '../../components/ui/VarietySelect';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -257,6 +258,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                     setFormData((prev) => ({
                       ...prev,
                       commodity: val,
+                      variety: '',
                       images: prev.images.length > 0 ? prev.images : [defaultImg],
                     }));
                   }}
@@ -268,15 +270,13 @@ export default function CreateAuction({ currentUser, onNavigate }) {
 
               <div>
                 <label className="block text-xs font-bold text-[#14211D] mb-1.5">
-                  Variety <span className="text-[10px] text-[#566861] font-normal">(Optional)</span>
+                  Variety / Cultivar <span className="text-[10px] text-[#566861] font-normal">(Optional)</span>
                 </label>
-                <input
-                  type="text"
-                  name="variety"
+                <VarietySelect
+                  commodity={formData.commodity}
                   value={formData.variety}
-                  onChange={handleChange}
-                  placeholder="e.g. Hybrid Shivam / Kufri"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
+                  onChange={(val) => setFormData((prev) => ({ ...prev, variety: val }))}
+                  placeholder="Select or enter variety..."
                 />
               </div>
             </div>

@@ -24,6 +24,7 @@ import {
   Gavel
 } from 'lucide-react';
 import { getActiveMarketplaceListings, getPlatformCommodities, fetchRemoteCommodities } from '../../utils/listings';
+import { getVarietiesForCommodity } from '../../data/commodityTaxonomy';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
@@ -34,6 +35,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   
   const [searchQuery, setSearchQuery] = useState(navState?.initialQuery || '');
   const [selectedCommodity, setSelectedCommodity] = useState(navState?.initialCommodity || 'All');
+  const [selectedVariety, setSelectedVariety] = useState('All');
   const [selectedGrade, setSelectedGrade] = useState('All');
   const [selectedLocation, setSelectedLocation] = useState(navState?.initialLocation || 'All');
   const [sortBy, setSortBy] = useState('latest');
@@ -131,10 +133,16 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const grades = ['All', 'A', 'B', 'C'];
   const locations = ['All', 'Tamil Nadu', 'Maharashtra', 'Madhya Pradesh', 'Himachal Pradesh'];
 
+  const availableVarieties = useMemo(() => {
+    if (!selectedCommodity || selectedCommodity === 'All') return [];
+    const vars = getVarietiesForCommodity(selectedCommodity);
+    return ['All', ...vars];
+  }, [selectedCommodity]);
+
   // Reset to page 1 on filter/search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCommodity, selectedGrade, selectedLocation, sortBy]);
+  }, [searchQuery, selectedCommodity, selectedVariety, selectedGrade, selectedLocation, sortBy]);
 
   // Memoized Filter & Sort
   const sortedListings = useMemo(() => {
@@ -143,6 +151,9 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
 
     const filtered = allListings.filter((lot) => {
       if (selectedCommodity !== 'All' && lot.commodity?.toLowerCase() !== selectedCommodity.toLowerCase()) {
+        return false;
+      }
+      if (selectedVariety !== 'All' && lot.variety?.toLowerCase() !== selectedVariety.toLowerCase()) {
         return false;
       }
       if (selectedGrade !== 'All' && lot.grade !== selectedGrade) {
@@ -167,7 +178,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
       if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
       return new Date(b.createdAt) - new Date(a.createdAt);
     });
-  }, [allListings, searchQuery, selectedCommodity, selectedGrade, selectedLocation, sortBy]);
+  }, [allListings, searchQuery, selectedCommodity, selectedVariety, selectedGrade, selectedLocation, sortBy]);
 
   // Pagination calculation
   const totalPages = Math.ceil(sortedListings.length / pageSize) || 1;
@@ -181,6 +192,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedCommodity('All');
+    setSelectedVariety('All');
     setSelectedGrade('All');
     setSelectedLocation('All');
     setSortBy('latest');
@@ -327,7 +339,10 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
                       label: c === 'All' ? 'All Commodities' : c,
                     }))}
                     value={selectedCommodity}
-                    onChange={(val) => setSelectedCommodity(val)}
+                    onChange={(val) => {
+                      setSelectedCommodity(val);
+                      setSelectedVariety('All');
+                    }}
                     placeholder="Commodity"
                     searchPlaceholder="Search commodity..."
                     buttonClassName="py-2 text-xs"
@@ -391,6 +406,30 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
 
               </div>
 
+              {/* Contextual Variety Filter Pills */}
+              {selectedCommodity !== 'All' && availableVarieties.length > 1 && (
+                <div className="pt-2.5 border-t border-[#E5EDE8]/60 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                  <span className="text-[11px] font-bold text-[#566861] shrink-0">Varieties:</span>
+                  {availableVarieties.map((v) => {
+                    const isSelected = selectedVariety === v;
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setSelectedVariety(v)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#10B981] text-white shadow-xs'
+                            : 'bg-[#F2FBF6] text-[#0B3326] hover:bg-[#E5EDE8]'
+                        }`}
+                      >
+                        {v === 'All' ? `All ${selectedCommodity}` : v}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
             </Card>
 
             {/* Results Header */}
@@ -405,7 +444,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               </div>
 
               <div className="flex items-center gap-3">
-                {(selectedCommodity !== 'All' || selectedGrade !== 'All' || selectedLocation !== 'All' || searchQuery !== '') && (
+                {(selectedCommodity !== 'All' || selectedVariety !== 'All' || selectedGrade !== 'All' || selectedLocation !== 'All' || searchQuery !== '') && (
                   <button
                     onClick={resetFilters}
                     className="text-xs font-semibold text-[#10B981] hover:text-[#0B3326] flex items-center gap-1 cursor-pointer"
