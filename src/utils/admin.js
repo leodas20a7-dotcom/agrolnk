@@ -168,7 +168,7 @@ export function extractUserDocuments(p) {
 }
 
 /**
- * Get all users with KYC status (Merged from Supabase profiles + Local Registry)
+ * Get all users with KYC status (Authoritative Supabase profiles + Local Cache Fallback)
  */
 export async function getAllKYCUsers() {
   const localList = getStoredKYC();
@@ -179,64 +179,54 @@ export async function getAllKYCUsers() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error || !dbProfiles) {
-      return localList;
-    }
-
-    const merged = [...localList];
-
-    dbProfiles.forEach((p) => {
-      const existingIndex = merged.findIndex(
-        (u) => (u.id && u.id === p.id) || (u.email && u.email.toLowerCase() === (p.email || '').toLowerCase())
-      );
-
-      const dbKycStatus = p.kyc_status || 'pending';
-      const meta = p.meta || {};
-      const resolvedDocs = extractUserDocuments(p);
-
-      if (existingIndex >= 0) {
-        // Enrich existing with DB data
-        const currentExistingDocs = merged[existingIndex].documents;
-        merged[existingIndex] = {
-          ...merged[existingIndex],
-          name: p.name || merged[existingIndex].name,
-          role: p.role || merged[existingIndex].role,
-          email: p.email || merged[existingIndex].email,
-          phone: p.phone || merged[existingIndex].phone,
-          state: p.state || merged[existingIndex].state,
-          district: p.district || merged[existingIndex].district,
-          orgName: p.company_name || merged[existingIndex].orgName,
-          verificationStatus: dbKycStatus,
-          documents: resolvedDocs.length > 0 ? resolvedDocs : (currentExistingDocs && currentExistingDocs.length > 0 ? currentExistingDocs : []),
-          auditNotes: meta.auditNotes || merged[existingIndex].auditNotes,
-        };
-      } else {
-        // Add new DB profile into KYC queue
-        merged.unshift({
-          id: p.id,
-          name: p.name || 'Registered Partner',
-          role: p.role || 'farmer',
-          email: p.email || '',
-          phone: p.phone || '',
-          state: p.state || 'Tamil Nadu',
-          district: p.district || 'Salem',
-          orgName: p.company_name || `${p.name} Enterprise`,
-          verificationStatus: dbKycStatus,
-          submittedAt: p.created_at || new Date().toISOString(),
-          verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || new Date().toISOString()) : null,
-          verifiedBy: dbKycStatus === 'verified' ? 'Admin' : null,
-          documents: resolvedDocs,
-          auditNotes: meta.auditNotes || `Registered ${p.role}. Awaiting KYC document submission.`,
-        });
+    if (!error && Array.isArray(dbProfiles)) {
+      if (dbProfiles.length === 0) {
+        // Database is online and empty! Purge stale local cache so deleted users do not resurrect
+        try {
+          localStorage.removeItem(ADMIN_KYC_STORAGE_KEY);
+        } catch {}
+        return [];
       }
-    });
 
-    saveStoredKYC(merged);
-    return merged;
+      const localMap = new Map();
+      localList.forEach((u) => {
+        if (u.id) localMap.set(u.id, u);
+        if (u.email) localMap.set(u.email.toLowerCase(), u);
+      });
+
+      const merged = dbProfiles.map((p) => {
+        const localMatch = localMap.get(p.id) || (p.email ? localMap.get(p.email.toLowerCase()) : null);
+        const dbKycStatus = p.kyc_status || 'pending';
+        const meta = p.meta || {};
+        const resolvedDocs = extractUserDocuments(p);
+        const localDocs = localMatch?.documents;
+
+        return {
+          id: p.id,
+          name: p.name || localMatch?.name || 'Registered Partner',
+          role: p.role || localMatch?.role || 'farmer',
+          email: p.email || localMatch?.email || '',
+          phone: p.phone || localMatch?.phone || '',
+          state: p.state || localMatch?.state || 'Tamil Nadu',
+          district: p.district || localMatch?.district || 'Salem',
+          orgName: p.company_name || localMatch?.orgName || `${p.name || 'Partner'} Enterprise`,
+          verificationStatus: dbKycStatus,
+          submittedAt: p.created_at || localMatch?.submittedAt || new Date().toISOString(),
+          verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || localMatch?.verifiedAt || new Date().toISOString()) : null,
+          verifiedBy: dbKycStatus === 'verified' ? (localMatch?.verifiedBy || 'Admin') : null,
+          documents: resolvedDocs.length > 0 ? resolvedDocs : (Array.isArray(localDocs) && localDocs.length > 0 ? localDocs : []),
+          auditNotes: meta.auditNotes || localMatch?.auditNotes || `Registered ${p.role || 'user'}.`,
+        };
+      });
+
+      saveStoredKYC(merged);
+      return merged;
+    }
   } catch (err) {
-    console.warn('Could not merge DB profiles for KYC queue:', err);
-    return localList;
+    console.warn('Could not fetch DB profiles for KYC queue, fallback to local:', err);
   }
+
+  return localList;
 }
 
 /**

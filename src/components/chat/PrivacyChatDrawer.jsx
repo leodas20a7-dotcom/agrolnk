@@ -184,9 +184,11 @@ export default function PrivacyChatDrawer({
           }
         });
 
-        // Admin: Also discover and load all user support threads (support_*)
+        // Admin: Also discover and load all user support threads (support_*) that contain active messages
         const allStored = getAllStoredThreads();
-        const supportKeys = Object.keys(allStored).filter((k) => k.startsWith('support_'));
+        const supportKeys = Object.keys(allStored).filter(
+          (k) => k.startsWith('support_') && Array.isArray(allStored[k]) && allStored[k].length > 0
+        );
         let registry = [];
         try {
           const raw = localStorage.getItem('agrolnk_admin_kyc_registry');

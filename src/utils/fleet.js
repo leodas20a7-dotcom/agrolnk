@@ -70,10 +70,16 @@ export async function getTransporterFleet(transporterId, userEmail) {
           .or(`id.eq.${transporterId},email.eq.${userEmail}`)
           .maybeSingle();
 
-        if (!error && data?.meta?.fleet && Array.isArray(data.meta.fleet)) {
-          localFleet = data.meta.fleet;
-          localStorage.setItem(storageKey, JSON.stringify(localFleet));
-          return localFleet;
+        if (!error && data) {
+          if (data?.meta?.fleet && Array.isArray(data.meta.fleet)) {
+            localFleet = data.meta.fleet;
+            localStorage.setItem(storageKey, JSON.stringify(localFleet));
+            return localFleet;
+          } else {
+            // Profile exists in DB with no fleet
+            localStorage.removeItem(storageKey);
+            return [];
+          }
         }
       } catch (dbErr) {
         console.warn('Supabase fleet fetch notice:', dbErr);

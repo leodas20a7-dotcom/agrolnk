@@ -101,26 +101,17 @@ export async function getInspectionRecords() {
       .order('created_at', { ascending: false });
 
     if (!error && Array.isArray(data)) {
-      const mapped = data.map(mapInspectionFromDb);
-      const local = getStoredInspections();
-      
-      const mergedMap = new Map();
-      // First put all mapped from Supabase
-      mapped.forEach((item) => {
-        if (item?.id) mergedMap.set(item.id, item);
-      });
-      // Then merge local records if not yet in Supabase or if more recently updated locally
-      local.forEach((item) => {
-        if (item?.id && !mergedMap.has(item.id)) {
-          mergedMap.set(item.id, item);
-        }
-      });
+      if (data.length === 0) {
+        // Database is online and empty! Purge stale local cache so deleted inspections do not resurrect
+        try {
+          localStorage.removeItem(INSPECTION_STORAGE_KEY);
+        } catch {}
+        return [];
+      }
 
-      const combined = Array.from(mergedMap.values()).sort(
-        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-      );
-      saveStoredInspections(combined);
-      return combined;
+      const mapped = data.map(mapInspectionFromDb);
+      saveStoredInspections(mapped);
+      return mapped;
     }
   } catch (err) {
     console.warn('Supabase inspections fetch fallback to local:', err);
@@ -144,15 +135,18 @@ export async function getInspectionForOrder(orderNumberOrId) {
       .limit(1)
       .maybeSingle();
 
-    if (!error && data) {
-      const mapped = mapInspectionFromDb(data);
-      // Update local storage
-      const all = getStoredInspections();
-      const idx = all.findIndex((r) => r.id === mapped.id || r.orderNumber === mapped.orderNumber);
-      if (idx >= 0) all[idx] = mapped;
-      else all.unshift(mapped);
-      saveStoredInspections(all);
-      return mapped;
+    if (!error) {
+      if (data) {
+        const mapped = mapInspectionFromDb(data);
+        // Update local storage
+        const all = getStoredInspections();
+        const idx = all.findIndex((r) => r.id === mapped.id || r.orderNumber === mapped.orderNumber);
+        if (idx >= 0) all[idx] = mapped;
+        else all.unshift(mapped);
+        saveStoredInspections(all);
+        return mapped;
+      }
+      return null;
     }
   } catch (err) {
     console.warn('Supabase inspection query fallback:', err);

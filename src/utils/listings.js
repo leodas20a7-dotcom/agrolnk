@@ -492,25 +492,27 @@ export async function checkListingBookings(listingId) {
       }
     }
 
-    // 2. Check local orders cache (for resilience)
-    try {
-      const rawLocal = localStorage.getItem('agrolnk_orders_local');
-      if (rawLocal) {
-        const localOrders = JSON.parse(rawLocal);
-        const match = localOrders.find(
-          (o) => (o.listingId === listingId || o.listing_id === listingId) && o.status !== 'cancelled'
-        );
-        if (match) {
-          return {
-            canDelete: false,
-            activeOrdersCount: 1,
-            orderNumber: match.orderNumber || match.id,
-            buyerName: match.buyerName,
-            reason: `A buyer (${match.buyerName || 'Buyer Partner'}) has already confirmed Order ${match.orderNumber || ''} for this produce lot. Booked produce cannot be deleted to protect active delivery and payment escrow.`,
-          };
+    // 2. Check local orders cache only if remote DB check failed
+    if (orderErr) {
+      try {
+        const rawLocal = localStorage.getItem('agrolnk_orders_local');
+        if (rawLocal) {
+          const localOrders = JSON.parse(rawLocal);
+          const match = localOrders.find(
+            (o) => (o.listingId === listingId || o.listing_id === listingId) && o.status !== 'cancelled'
+          );
+          if (match) {
+            return {
+              canDelete: false,
+              activeOrdersCount: 1,
+              orderNumber: match.orderNumber || match.id,
+              buyerName: match.buyerName,
+              reason: `A buyer (${match.buyerName || 'Buyer Partner'}) has already confirmed Order ${match.orderNumber || ''} for this produce lot. Booked produce cannot be deleted to protect active delivery and payment escrow.`,
+            };
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     // 3. Check financing requests / trade credit on this listing
     try {

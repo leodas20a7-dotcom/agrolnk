@@ -309,10 +309,16 @@ function getStoredThreads() {
             !m.text?.includes('e-NWR') &&
             !m.text?.includes('Privacy Shield')
         );
-        if (cleaned.length !== threads[key].length) {
+        if (cleaned.length === 0) {
+          delete threads[key];
+          modified = true;
+        } else if (cleaned.length !== threads[key].length) {
           threads[key] = cleaned;
           modified = true;
         }
+      } else {
+        delete threads[key];
+        modified = true;
       }
     }
     if (modified && typeof localStorage !== 'undefined') {
@@ -692,7 +698,15 @@ export async function fetchThreadMessages(threadKey) {
       return localCached;
     }
 
-    if (data && data.length > 0) {
+    if (!error && Array.isArray(data)) {
+      if (data.length === 0) {
+        // Authoritative empty thread in Supabase: clear local cache
+        const threads = getStoredThreads();
+        delete threads[threadKey];
+        saveStoredThreads(threads);
+        return [];
+      }
+
       const dummyIds = [];
       const genuine = data
         .map(mapDbRowToMessage)

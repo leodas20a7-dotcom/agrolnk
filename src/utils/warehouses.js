@@ -995,7 +995,24 @@ export async function getWarehouses() {
       .select('*')
       .eq('role', 'warehouse');
 
-    if (!error && Array.isArray(dbProfiles) && dbProfiles.length > 0) {
+    if (!error && Array.isArray(dbProfiles)) {
+      if (dbProfiles.length === 0) {
+        try {
+          localStorage.removeItem(WAREHOUSE_PROFILES_KEY);
+        } catch {}
+        return [];
+      }
+
+      // Sync active DB warehouse profiles into cache
+      try {
+        const cleanProfiles = {};
+        dbProfiles.forEach((p) => {
+          if (p.id) cleanProfiles[p.id] = p;
+          if (p.email) cleanProfiles[p.email] = p;
+        });
+        localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(cleanProfiles));
+      } catch {}
+
       dbProfiles.forEach((p) => {
         const meta = p.meta || {};
         const isVerified = p.kyc_status === 'verified' || meta.verificationStatus === 'verified';
@@ -1074,6 +1091,7 @@ export function getWarehousesSync() {
     const profiles = raw ? JSON.parse(raw) : {};
     Object.values(profiles).forEach((p) => {
       if (p && (p.verificationStatus === 'verified' || p.kycStatus === 'verified')) {
+        if (p.id?.startsWith('wh_demo_') || p.id === 'usr_warehouse_04') return;
         const existingIdx = active.findIndex((w) => w.id === p.userId || w.id === p.id);
         if (existingIdx >= 0) {
           active[existingIdx] = { ...active[existingIdx], ...p };

@@ -32,7 +32,11 @@ function getStoredLedger() {
       localStorage.setItem(ESCROW_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_TRANSACTIONS));
       return DEFAULT_INITIAL_TRANSACTIONS;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_INITIAL_TRANSACTIONS;
+    return parsed.filter(
+      (t) => t && !t.id?.startsWith('TXN_DEMO_') && t.orderNumber !== 'ORD-9821' && t.orderNumber !== 'ORD-9822'
+    );
   } catch (_e) {
     return DEFAULT_INITIAL_TRANSACTIONS;
   }

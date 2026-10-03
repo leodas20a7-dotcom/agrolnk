@@ -224,6 +224,7 @@ export async function getNotificationsForUser(user) {
   const currentRole = user.role ? String(user.role).toLowerCase() : '';
 
   let remoteItems = [];
+  let isDbSuccess = false;
 
   // 1. Fetch from Supabase (if connected)
   try {
@@ -238,13 +239,24 @@ export async function getNotificationsForUser(user) {
     const { data, error } = await query;
     if (!error && Array.isArray(data)) {
       remoteItems = data.map(mapNotificationFromDb);
+      isDbSuccess = true;
     }
   } catch (err) {
     // Fallback gracefully to local storage
   }
 
   // 2. Fetch local storage items
-  const localList = getLocalNotifications();
+  let localList = getLocalNotifications();
+
+  // If DB query succeeded and was empty, prune stale operational notifications from local storage
+  if (isDbSuccess && remoteItems.length === 0) {
+    localList = localList.filter(
+      (n) => n?.type === 'system' && (!n.recipientId || n.recipientId === currentId || n.recipientId === currentEmail)
+    );
+    try {
+      localStorage.setItem(LOCAL_NOTIFICATIONS_KEY, JSON.stringify(localList));
+    } catch {}
+  }
 
   // Merge and deduplicate by ID
   const map = new Map();
