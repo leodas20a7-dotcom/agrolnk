@@ -22,17 +22,20 @@ export async function resetAllTestingData() {
   // 1. Wipe Supabase Tables (if connected)
   try {
     if (supabase) {
+      // Child-to-parent deletion order to respect foreign key constraints
       const tablesToClear = [
+        'auction_bids',
+        'inspections',
         'deliveries',
-        'orders',
         'financing_requests',
-        'auctions',
-        'bids',
-        'listings',
+        'orders',
         'warehouse_receipts',
-        'inspection_reports',
+        'warehouses',
+        'auctions',
+        'listings',
+        'commodities',
+        'user_bank_accounts',
         'chat_messages',
-        'messages',
         'notifications',
       ];
 
@@ -71,12 +74,14 @@ export async function resetAllTestingData() {
       'agrolnk_escrow_fundings',
       'agrolnk_warehouse_receipts_local',
       'agrolnk_warehouse_rent_payments',
+      'agrolnk_warehouse_profiles',
       'agrolnk_quality_inspections',
       'agrolnk_escrow_transactions_local',
       'agrolnk_escrow_events_local',
       'agrolnk_chat_threads_local',
       'agrolnk_chat_messages_local',
       'agrolnk_orders',
+      'agrolnk_orders_local',
       'agrolnk_buyer_orders',
       'agrolnk_farmer_orders',
       'agrolnk_deliveries',
@@ -93,6 +98,19 @@ export async function resetAllTestingData() {
         localStorage.removeItem(k);
       } catch {}
     });
+
+    // Dynamically purge any other agrolnk test keys (e.g. buyer verification flags)
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (
+          key.startsWith('agrolnk_') &&
+          key !== 'agrolnk_admin_kyc_registry' &&
+          key !== 'agrolnkUser'
+        ) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch {}
 
     // Reset Admin KYC Registry to ONLY Admin
     try {
