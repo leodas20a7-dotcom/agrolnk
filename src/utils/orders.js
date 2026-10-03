@@ -119,44 +119,55 @@ const generateStandardUuid = () => {
  */
 export async function getOrders() {
   let remote = [];
+  let isDbSuccess = false;
   try {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (!error && Array.isArray(data)) {
       remote = data.map(mapOrderFromDb);
+      isDbSuccess = true;
     }
   } catch (err) {
     console.error('Error in getOrders:', err);
   }
 
-  const local = getLocalOrders();
-  const localMap = new Map();
-  local.forEach((l) => {
-    if (l.id) localMap.set(l.id, l);
-    if (l.orderNumber) localMap.set(l.orderNumber, l);
-  });
+  // When database query succeeds, Supabase is the single source of truth!
+  if (isDbSuccess) {
+    if (remote.length === 0) {
+      // Database is online and empty! Purge stale local cache so deleted/wiped orders do not resurrect
+      try {
+        localStorage.removeItem(LOCAL_ORDERS_KEY);
+        localStorage.removeItem('agrolnk_orders');
+        localStorage.removeItem('agrolnk_farmer_orders');
+        localStorage.removeItem('agrolnk_buyer_orders');
+      } catch {}
+      return [];
+    }
 
-  const isConfirmed = (r, localMatch) => Boolean(
-    r.buyerConfirmedArrival ||
-    r.buyerArrivalVerified ||
-    (localMatch && (localMatch.buyerConfirmedArrival || localMatch.buyerArrivalVerified)) ||
-    (typeof window !== 'undefined' && (
-      localStorage.getItem(`agrolnk_buyer_verified_${r.id}`) === 'true' ||
-      localStorage.getItem(`agrolnk_buyer_verified_${r.orderNumber}`) === 'true' ||
-      (localMatch && (
-        localStorage.getItem(`agrolnk_buyer_verified_${localMatch.id}`) === 'true' ||
-        localStorage.getItem(`agrolnk_buyer_verified_${localMatch.orderNumber}`) === 'true'
+    const local = getLocalOrders();
+    const localMap = new Map();
+    local.forEach((l) => {
+      if (l.id) localMap.set(l.id, l);
+      if (l.orderNumber) localMap.set(l.orderNumber, l);
+    });
+
+    const isConfirmed = (r, localMatch) => Boolean(
+      r.buyerConfirmedArrival ||
+      r.buyerArrivalVerified ||
+      (localMatch && (localMatch.buyerConfirmedArrival || localMatch.buyerArrivalVerified)) ||
+      (typeof window !== 'undefined' && (
+        localStorage.getItem(`agrolnk_buyer_verified_${r.id}`) === 'true' ||
+        localStorage.getItem(`agrolnk_buyer_verified_${r.orderNumber}`) === 'true' ||
+        (localMatch && (
+          localStorage.getItem(`agrolnk_buyer_verified_${localMatch.id}`) === 'true' ||
+          localStorage.getItem(`agrolnk_buyer_verified_${localMatch.orderNumber}`) === 'true'
+        ))
       ))
-    ))
-  );
+    );
 
-  let combined = [];
-
-  if (remote.length > 0) {
-    // Database is authoritative when connected
     const mergedRemote = remote.map((r) => {
       const localMatch = localMap.get(r.id) || (r.orderNumber && localMap.get(r.orderNumber));
       const confirmed = isConfirmed(r, localMatch);
@@ -176,11 +187,11 @@ export async function getOrders() {
     // Only include local-only orders that were created offline and have pending sync
     const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.orderNumber].filter(Boolean)));
     const pendingLocalOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.orderNumber) && l.isOfflinePending);
-    combined = [...mergedRemote, ...pendingLocalOnly];
-  } else {
-    // Offline fallback when database query returns empty or network is disconnected
-    combined = local;
+    return [...mergedRemote, ...pendingLocalOnly];
   }
+
+  // True offline fallback when database request failed (network error)
+  return getLocalOrders();
 
   // Guarantee cross-portal sync: If a trade credit application exists in Supabase with an order number,
   // ensure the order is present so both buyer and farmer immediately see it

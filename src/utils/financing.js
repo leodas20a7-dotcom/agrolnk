@@ -272,9 +272,19 @@ export async function getFinancingRequests() {
     }
   });
 
-  let combined = [];
+  if (isSupabaseConnected) {
+    if (remote.length === 0) {
+      // Database is online and empty! Purge stale local cache so deleted/wiped loans do not resurrect
+      try {
+        localStorage.removeItem(LOCAL_FINANCING_KEY);
+        localStorage.removeItem('agrolnk_farmer_financing_local');
+        localStorage.removeItem('agrolnk_financing_requests_local');
+        localStorage.removeItem('agrolnk_margin_deposits');
+        localStorage.removeItem('agrolnk_escrow_fundings');
+      } catch {}
+      return [];
+    }
 
-  if (remote.length > 0) {
     const mergedRemote = remote.map((r) => {
       const rawReq = r.requestNumber ? r.requestNumber.replace(/^#/, '') : '';
       const rawOrd = r.orderNumber ? r.orderNumber.replace(/^#/, '') : '';
@@ -314,20 +324,18 @@ export async function getFinancingRequests() {
       return l;
     });
 
-    combined = [...mergedRemote, ...pendingLocalOnly];
-  } else {
-    // Offline fallback when database query returns empty or network is disconnected
-    combined = local.map((l) => {
-      const appId = String(l.applicantId || '').toLowerCase();
-      const appName = String(l.applicantName || '').toLowerCase();
-      if (!l.applicantKycStatus) {
-        l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
-      }
-      return l;
-    });
+    return [...mergedRemote, ...pendingLocalOnly];
   }
 
-  return combined;
+  // True offline fallback when database query failed
+  return local.map((l) => {
+    const appId = String(l.applicantId || '').toLowerCase();
+    const appName = String(l.applicantName || '').toLowerCase();
+    if (!l.applicantKycStatus) {
+      l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+    }
+    return l;
+  });
 }
 
 /**
