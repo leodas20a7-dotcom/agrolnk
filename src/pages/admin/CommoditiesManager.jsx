@@ -869,7 +869,7 @@ export default function CommoditiesManager({ onNavigate }) {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
                 <div>
                   <label className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block mb-1">
                     Variety Name *
@@ -893,20 +893,6 @@ export default function CommoditiesManager({ onNavigate }) {
                   />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-[#566861] uppercase tracking-wider">
-                      Direct Image URL (Optional)
-                    </label>
-                    {varietyInput && CULTIVAR_IMAGE_PRESETS[varietyInput.trim().toLowerCase()] && (
-                      <button
-                        type="button"
-                        onClick={() => setVarietyImageInput(CULTIVAR_IMAGE_PRESETS[varietyInput.trim().toLowerCase()])}
-                        className="text-[10px] text-[#10B981] hover:text-[#059669] font-bold underline cursor-pointer"
-                      >
-                        Use Suggested Photo
-                      </button>
-                    )}
-                  </div>
                   <input
                     ref={varietyImageRef}
                     type="url"
@@ -1038,10 +1024,10 @@ export default function CommoditiesManager({ onNavigate }) {
                                 });
                                 setActionSuccess(`Applied photo preset to ${vName}`);
                               }}
-                              className="px-2 py-1 rounded-md bg-[#EBF5F0] hover:bg-[#10B981] text-[#0B3326] hover:text-white text-[10px] font-bold transition-all cursor-pointer"
+                              className="p-1.5 rounded-lg bg-[#EBF5F0] hover:bg-[#10B981] text-emerald-600 hover:text-white transition-all cursor-pointer"
                               title="Auto-apply high quality photo preset"
                             >
-                              Auto Photo
+                              <Sparkles className="w-3.5 h-3.5" />
                             </button>
                           )}
                           <button
