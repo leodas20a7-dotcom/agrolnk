@@ -29,6 +29,7 @@ import { getResolvedUserKycStatus } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
+import { getVarietyImageUrl } from '../../data/commodityTaxonomy';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -572,7 +573,17 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 <VarietySelect
                   commodity={formData.commodity}
                   value={formData.variety}
-                  onChange={(val) => setFormData((prev) => ({ ...prev, variety: val }))}
+                  onChange={(val) => {
+                    const varietyImg = getVarietyImageUrl(formData.commodity, val);
+                    setFormData((prev) => {
+                      const updated = { ...prev, variety: val };
+                      if (varietyImg && (prev.isDefaultImage || !prev.images || prev.images.length === 0 || prev.images[0] === COMMODITY_IMAGES[prev.commodity])) {
+                        updated.images = [varietyImg];
+                        updated.isDefaultImage = true;
+                      }
+                      return updated;
+                    });
+                  }}
                   placeholder="Select or enter variety..."
                 />
               </div>

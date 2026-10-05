@@ -10,6 +10,28 @@ import { COMMODITY_IMAGES } from './listings';
 const COMMODITIES_CUSTOM_STORAGE_KEY = 'agrolnk_commodities_custom_store_v1';
 
 /**
+ * Normalizes varieties to a uniform array of objects: { name: string, imageUrl: string }
+ */
+export function normalizeVarietyList(varieties) {
+  if (!Array.isArray(varieties)) return [];
+  return varieties
+    .map((v) => {
+      if (!v) return null;
+      if (typeof v === 'string') {
+        const name = v.trim();
+        return name ? { name, imageUrl: '' } : null;
+      }
+      if (typeof v === 'object') {
+        const name = (v.name || '').trim();
+        const imageUrl = (v.imageUrl || v.image_url || '').trim();
+        return name ? { name, imageUrl } : null;
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+/**
  * Retrieve local overrides/custom commodities
  */
 function getStoredCustomStore() {
@@ -68,7 +90,7 @@ export async function getAdminCommoditiesList() {
       id,
       name: item.name,
       group,
-      varieties: Array.isArray(item.varieties) ? [...item.varieties] : [],
+      varieties: normalizeVarietyList(item.varieties),
       imageUrl: fallbackImage,
       isCustom: false,
       source: 'taxonomy',
@@ -84,16 +106,16 @@ export async function getAdminCommoditiesList() {
     const group = row.group_name || (row.category && COMMODITY_GROUPS.includes(row.category) ? row.category : null) || existing?.group || 'Agriculture';
     const fallbackImage = row.image_url || existing?.imageUrl || COMMODITY_IMAGES[row.name] || CATEGORY_FALLBACK_IMAGES[group] || CATEGORY_FALLBACK_IMAGES.Other;
 
-    let varieties = existing?.varieties || [];
+    let rawVarieties = existing?.varieties || [];
     if (row.varieties && Array.isArray(row.varieties) && row.varieties.length > 0) {
-      varieties = row.varieties;
+      rawVarieties = row.varieties;
     }
 
     resultMap.set(key, {
       id: row.id || existing?.id || 'cmd_' + row.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
       name: row.name,
       group,
-      varieties,
+      varieties: normalizeVarietyList(rawVarieties),
       imageUrl: fallbackImage,
       isCustom: !existing,
       createdAt: row.created_at,
@@ -108,6 +130,7 @@ export async function getAdminCommoditiesList() {
       const key = item.name.trim().toLowerCase();
       resultMap.set(key, {
         ...item,
+        varieties: normalizeVarietyList(item.varieties),
         isCustom: true,
       });
     });
@@ -143,7 +166,7 @@ export async function createCommodity({ name, group, imageUrl, varieties = [] })
   if (!name || typeof name !== 'string') throw new Error('Commodity name is required.');
   const cleanName = name.trim().charAt(0).toUpperCase() + name.trim().slice(1);
   const cleanGroup = group || 'Vegetables';
-  const cleanVarieties = Array.isArray(varieties) ? varieties.filter(Boolean).map((v) => v.trim()) : [];
+  const cleanVarieties = normalizeVarietyList(varieties);
   const cleanImage = imageUrl || CATEGORY_FALLBACK_IMAGES[cleanGroup] || CATEGORY_FALLBACK_IMAGES.Other;
   const id = 'cmd_' + cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
@@ -204,7 +227,7 @@ export async function updateCommodity(id, { name, group, imageUrl, varieties }) 
   if (!name || typeof name !== 'string') throw new Error('Commodity name is required.');
   const cleanName = name.trim();
   const cleanGroup = group || 'Vegetables';
-  const cleanVarieties = Array.isArray(varieties) ? varieties.filter(Boolean).map((v) => v.trim()) : [];
+  const cleanVarieties = normalizeVarietyList(varieties);
   const cleanImage = imageUrl || CATEGORY_FALLBACK_IMAGES[cleanGroup] || CATEGORY_FALLBACK_IMAGES.Other;
   const safeId = id || 'cmd_' + cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
 

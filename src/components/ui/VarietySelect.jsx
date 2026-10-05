@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './SearchableSelect';
-import { getVarietiesForCommodity } from '../../data/commodityTaxonomy';
+import { getVarietiesWithDetails, getVarietiesForCommodity } from '../../data/commodityTaxonomy';
 import { X, Sparkles } from 'lucide-react';
 
 /**
@@ -21,18 +21,23 @@ export default function VarietySelect({
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customValue, setCustomValue] = useState('');
 
-  // Fetch varieties for the selected commodity
-  const rawVarieties = useMemo(() => {
+  // Fetch detailed varieties for the selected commodity
+  const detailedVarieties = useMemo(() => {
     if (!commodity) return [];
-    return getVarietiesForCommodity(commodity);
+    return getVarietiesWithDetails(commodity);
   }, [commodity]);
 
-  // Build select options
+  const rawVarieties = useMemo(() => {
+    return detailedVarieties.map((v) => v.name);
+  }, [detailedVarieties]);
+
+  // Build select options with direct images
   const options = useMemo(() => {
-    const list = rawVarieties.map((v) => ({
-      value: v,
-      label: v,
-      subtext: v === 'Standard / FAQ Lot' ? 'Standard Fair Average Quality' : 'Commercial Variety',
+    const list = detailedVarieties.map((v) => ({
+      value: v.name,
+      label: v.name,
+      image: v.imageUrl || null,
+      subtext: v.name === 'Standard / FAQ Lot' ? 'Standard Fair Average Quality' : 'Commercial Variety',
     }));
 
     // Add option to enter custom variety
@@ -43,7 +48,7 @@ export default function VarietySelect({
     });
 
     return list;
-  }, [rawVarieties]);
+  }, [detailedVarieties]);
 
   // Synchronize custom mode when commodity or external value changes
   useEffect(() => {

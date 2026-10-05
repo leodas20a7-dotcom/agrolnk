@@ -65,6 +65,7 @@ export default function CommoditiesManager({ onNavigate }) {
     varieties: [],
   });
   const [varietyInput, setVarietyInput] = useState('');
+  const [varietyImageInput, setVarietyImageInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Delete modal
@@ -103,7 +104,11 @@ export default function CommoditiesManager({ onNavigate }) {
         !q ||
         c.name.toLowerCase().includes(q) ||
         (c.group && c.group.toLowerCase().includes(q)) ||
-        (Array.isArray(c.varieties) && c.varieties.some((v) => v.toLowerCase().includes(q)));
+        (Array.isArray(c.varieties) &&
+          c.varieties.some((v) => {
+            const name = typeof v === 'string' ? v : v?.name || '';
+            return name.toLowerCase().includes(q);
+          }));
 
       const matchesGroup =
         selectedGroup === 'All Groups' ||
@@ -146,6 +151,7 @@ export default function CommoditiesManager({ onNavigate }) {
       varieties: [],
     });
     setVarietyInput('');
+    setVarietyImageInput('');
     setActionError('');
     setIsAddEditModalOpen(true);
   };
@@ -156,25 +162,41 @@ export default function CommoditiesManager({ onNavigate }) {
       name: item.name || '',
       group: item.group || 'Vegetables',
       imageUrl: item.imageUrl || '',
-      varieties: Array.isArray(item.varieties) ? [...item.varieties] : [],
+      varieties: Array.isArray(item.varieties)
+        ? item.varieties.map((v) =>
+            typeof v === 'string'
+              ? { name: v, imageUrl: '' }
+              : { name: v.name || '', imageUrl: v.imageUrl || '' }
+          )
+        : [],
     });
     setVarietyInput('');
+    setVarietyImageInput('');
     setActionError('');
     setIsAddEditModalOpen(true);
   };
 
   const handleAddVarietyChip = () => {
-    const clean = varietyInput.trim();
-    if (!clean) return;
-    if (formData.varieties.some((v) => v.toLowerCase() === clean.toLowerCase())) {
-      setActionError(`Variety "${clean}" is already added.`);
+    const cleanName = varietyInput.trim();
+    const cleanImage = varietyImageInput.trim();
+    if (!cleanName) return;
+
+    const exists = formData.varieties.some((v) => {
+      const name = typeof v === 'string' ? v : v.name;
+      return name.toLowerCase() === cleanName.toLowerCase();
+    });
+
+    if (exists) {
+      setActionError(`Variety "${cleanName}" is already added.`);
       return;
     }
+
     setFormData((prev) => ({
       ...prev,
-      varieties: [...prev.varieties, clean],
+      varieties: [...prev.varieties, { name: cleanName, imageUrl: cleanImage }],
     }));
     setVarietyInput('');
+    setVarietyImageInput('');
     setActionError('');
   };
 
@@ -250,11 +272,11 @@ export default function CommoditiesManager({ onNavigate }) {
 
     try {
       const current = Array.isArray(commodity.varieties) ? commodity.varieties : [];
-      if (current.some((v) => v.toLowerCase() === clean.toLowerCase())) {
+      if (current.some((v) => (typeof v === 'string' ? v : v.name).toLowerCase() === clean.toLowerCase())) {
         setActionError(`Variety "${clean}" already exists for ${commodity.name}.`);
         return;
       }
-      const updated = [...current, clean];
+      const updated = [...current, { name: clean, imageUrl: '' }];
       await updateCommodity(commodity.id, {
         name: commodity.name,
         group: commodity.group,
@@ -504,14 +526,29 @@ export default function CommoditiesManager({ onNavigate }) {
                       <td className="py-3 px-4">
                         <div className="flex flex-wrap items-center gap-1.5 max-w-md">
                           {varietiesList.length > 0 ? (
-                            varietiesList.map((v) => (
-                              <span
-                                key={v}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F2FBF6] border border-[#10B981]/20 text-[#0B3326] text-[11px] font-medium"
-                              >
-                                {v}
-                              </span>
-                            ))
+                            varietiesList.map((v, vIdx) => {
+                              const vName = typeof v === 'string' ? v : (v?.name || '');
+                              const vImg = typeof v === 'object' ? (v?.imageUrl || v?.image_url) : '';
+                              return (
+                                <span
+                                  key={vName + '_' + vIdx}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#F2FBF6] border border-[#10B981]/20 text-[#0B3326] text-[11px] font-medium"
+                                  title={vImg ? `${vName} (Direct image linked)` : vName}
+                                >
+                                  {vImg ? (
+                                    <img
+                                      src={vImg}
+                                      alt={vName}
+                                      className="w-4 h-4 rounded-full object-cover border border-[#10B981]/30 shrink-0"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <span>{vName}</span>
+                                </span>
+                              );
+                            })
                           ) : (
                             <span className="text-[11px] text-gray-400 italic">
                               Standard / FAQ Lot
@@ -719,67 +756,132 @@ export default function CommoditiesManager({ onNavigate }) {
           </div>
 
           {/* Commercial Varieties Manager */}
-          <div className="space-y-2 pt-2 border-t border-[#E5EDE8]">
+          <div className="space-y-2.5 pt-2 border-t border-[#E5EDE8]">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-[#10B981]" />
                 <span>Commercial Varieties / Cultivars ({formData.varieties.length})</span>
               </label>
-              <span className="text-[10px] text-[#566861]">Type and press Enter or click Add</span>
+              <span className="text-[10px] text-[#566861]">Include direct image URL for cultivars</span>
             </div>
 
-            {/* Variety Input Row */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={varietyInput}
-                onChange={(e) => setVarietyInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddVarietyChip();
-                  }
-                }}
-                placeholder="e.g. Shivam, PKM 1, Arka Rakshak..."
-                className="flex-1 px-3.5 py-2 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs text-[#0B3326] font-medium focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:bg-white"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleAddVarietyChip}
-                icon={Plus}
-                iconPosition="left"
-                className="text-xs font-bold shrink-0 cursor-pointer"
-              >
-                Add Variety
-              </Button>
+            {/* Variety Input Card */}
+            <div className="p-3 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block mb-1">
+                    Variety Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={varietyInput}
+                    onChange={(e) => setVarietyInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddVarietyChip();
+                      }
+                    }}
+                    placeholder="e.g. Basmati 1121, Alphonso, AA1..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs text-[#0B3326] font-medium focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block mb-1">
+                    Direct Image URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={varietyImageInput}
+                    onChange={(e) => setVarietyImageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddVarietyChip();
+                      }
+                    }}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs text-[#0B3326] font-mono focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[10px] text-[#566861] truncate">
+                  {varietyImageInput ? '✓ Image link attached to variety' : 'No image? Will inherit commodity photo'}
+                </p>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={handleAddVarietyChip}
+                  icon={Plus}
+                  iconPosition="left"
+                  className="text-xs font-bold shrink-0 cursor-pointer"
+                >
+                  Add Variety
+                </Button>
+              </div>
             </div>
 
-            {/* Varieties Tag Cloud in Form */}
-            <div className="p-3 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] min-h-[70px] max-h-48 overflow-y-auto">
+            {/* Varieties List in Form */}
+            <div className="p-3 rounded-2xl bg-white border border-[#E5EDE8] min-h-[70px] max-h-56 overflow-y-auto">
               {formData.varieties.length === 0 ? (
                 <div className="text-center py-3 text-xs text-gray-400 italic">
                   No specific commercial varieties added yet. (Farmers can choose "Standard / FAQ Lot")
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {formData.varieties.map((v, idx) => (
-                    <span
-                      key={v + idx}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#10B981]/30 text-[#0B3326] text-xs font-semibold shadow-2xs group"
-                    >
-                      <span>{v}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVarietyChip(idx)}
-                        className="text-gray-400 hover:text-rose-600 transition-colors cursor-pointer"
-                        title={`Remove ${v}`}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {formData.varieties.map((v, idx) => {
+                    const vName = typeof v === 'string' ? v : (v?.name || '');
+                    const vImg = typeof v === 'object' ? (v?.imageUrl || v?.image_url) : '';
+
+                    return (
+                      <div
+                        key={vName + '_' + idx}
+                        className="flex items-center justify-between gap-2 p-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] hover:border-[#10B981]/40 transition-colors"
                       >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  ))}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-gray-100 overflow-hidden border border-[#E5EDE8] shrink-0">
+                            {vImg ? (
+                              <img
+                                src={vImg}
+                                alt={vName}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src =
+                                    formData.imageUrl ||
+                                    CATEGORY_FALLBACK_IMAGES[formData.group] ||
+                                    CATEGORY_FALLBACK_IMAGES.Other;
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50">
+                                <Tag className="w-3.5 h-3.5" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-[#0B3326] block truncate">
+                              {vName}
+                            </span>
+                            <span className="text-[10px] text-[#566861] block truncate font-mono">
+                              {vImg ? 'Direct Image' : 'Default Photo'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVarietyChip(idx)}
+                          className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                          title={`Remove ${vName}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

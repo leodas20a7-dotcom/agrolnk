@@ -52,6 +52,7 @@ export default function SearchableSelect({
         subtext: opt.subtext || opt.description || null,
         icon: opt.icon || null,
         badge: opt.badge || null,
+        image: opt.image || opt.imageUrl || opt.image_url || null,
         ...opt,
       };
     });
@@ -172,11 +173,20 @@ export default function SearchableSelect({
         } ${isOpen ? 'ring-2 ring-[#10B981] border-transparent' : ''} ${buttonClassName}`}
       >
         <div className="flex items-center gap-2 truncate">
-          {selectedOption?.icon && (
+          {selectedOption?.image ? (
+            <img
+              src={selectedOption.image}
+              alt={selectedOption.label}
+              className="w-4 h-4 rounded object-cover border border-[#E5EDE8] shrink-0"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : selectedOption?.icon ? (
             <span className="text-[#10B981] shrink-0">
               {React.createElement(selectedOption.icon, { className: 'w-4 h-4' })}
             </span>
-          )}
+          ) : null}
           {selectedOption ? (
             <span className="truncate text-[#14211D] font-bold">
               {selectedOption.label}
@@ -283,11 +293,20 @@ export default function SearchableSelect({
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
-                      {opt.icon && (
+                      {opt.image ? (
+                        <img
+                          src={opt.image}
+                          alt={opt.label}
+                          className="w-5 h-5 rounded-md object-cover border border-[#E5EDE8] shrink-0"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : opt.icon ? (
                         <span className="text-[#10B981] shrink-0">
                           {React.createElement(opt.icon, { className: 'w-3.5 h-3.5' })}
                         </span>
-                      )}
+                      ) : null}
                       <div className="truncate">
                         <span className="block truncate">{opt.label}</span>
                         {opt.subtext && (

@@ -1582,13 +1582,50 @@ export function getCommoditiesByGroup(group) {
     .map((c) => c.name);
 }
 
-export function getVarietiesForCommodity(commodityName) {
+export function getVarietiesWithDetails(commodityName) {
   if (!commodityName) return [];
-  const found = taxonomyMap.get(commodityName.trim().toLowerCase());
+  const clean = commodityName.trim().toLowerCase();
+
+  // 1. Check local dynamic store first
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('agrolnk_commodities_custom_store_v1');
+      if (raw) {
+        const store = JSON.parse(raw);
+        const match = store.overrides?.[clean] || (store.additions || []).find((c) => c.name.toLowerCase() === clean);
+        if (match && Array.isArray(match.varieties) && match.varieties.length > 0) {
+          return match.varieties.map((v) => {
+            if (typeof v === 'string') return { name: v.trim(), imageUrl: '' };
+            return { name: (v?.name || '').trim(), imageUrl: (v?.imageUrl || v?.image_url || '').trim() };
+          }).filter((v) => v.name);
+        }
+      }
+    }
+  } catch (err) {}
+
+  // 2. Check base taxonomy map
+  const found = taxonomyMap.get(clean);
   if (found && Array.isArray(found.varieties) && found.varieties.length > 0) {
-    return found.varieties;
+    return found.varieties.map((v) => {
+      if (typeof v === 'string') return { name: v.trim(), imageUrl: '' };
+      return { name: (v?.name || '').trim(), imageUrl: (v?.imageUrl || v?.image_url || '').trim() };
+    }).filter((v) => v.name);
   }
-  return ['Standard / FAQ Lot'];
+
+  return [{ name: 'Standard / FAQ Lot', imageUrl: '' }];
+}
+
+export function getVarietiesForCommodity(commodityName) {
+  const details = getVarietiesWithDetails(commodityName);
+  return details.map((d) => d.name);
+}
+
+export function getVarietyImageUrl(commodityName, varietyName) {
+  if (!commodityName || !varietyName) return '';
+  const cleanV = varietyName.trim().toLowerCase();
+  const list = getVarietiesWithDetails(commodityName);
+  const matched = list.find((v) => v.name.toLowerCase() === cleanV);
+  return matched?.imageUrl || '';
 }
 
 export function hasVarieties(commodityName) {
