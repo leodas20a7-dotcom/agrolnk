@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Sprout,
   Search,
@@ -15,6 +15,8 @@ import {
   Sparkles,
   Image as ImageIcon,
   FolderTree,
+  Check,
+  Camera,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -43,6 +45,19 @@ const GROUP_BADGE_VARIANTS = {
   'Agriculture': 'slate',
 };
 
+const CULTIVAR_IMAGE_PRESETS = {
+  'royal delicious': 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&auto=format&fit=crop&q=80',
+  'red delicious': 'https://images.unsplash.com/photo-1579613832125-5d34a13ffe0a?w=600&auto=format&fit=crop&q=80',
+  'golden delicious': 'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=600&auto=format&fit=crop&q=80',
+  'fuji': 'https://images.unsplash.com/photo-1590005354167-6da97870c757?w=600&auto=format&fit=crop&q=80',
+  'shimla': 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?w=600&auto=format&fit=crop&q=80',
+  'basmati': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80',
+  'basmati 1121': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80',
+  'alphonso': 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&auto=format&fit=crop&q=80',
+  'kesar': 'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=600&auto=format&fit=crop&q=80',
+  'shankar-6': 'https://images.unsplash.com/photo-1606041008023-472dfb5e530f?w=600&auto=format&fit=crop&q=80',
+};
+
 export default function CommoditiesManager({ onNavigate }) {
   const [commodities, setCommodities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +81,9 @@ export default function CommoditiesManager({ onNavigate }) {
   });
   const [varietyInput, setVarietyInput] = useState('');
   const [varietyImageInput, setVarietyImageInput] = useState('');
+  const [editingVarietyIndex, setEditingVarietyIndex] = useState(null);
+  const varietyInputRef = useRef(null);
+  const varietyImageRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Delete modal
@@ -152,6 +170,7 @@ export default function CommoditiesManager({ onNavigate }) {
     });
     setVarietyInput('');
     setVarietyImageInput('');
+    setEditingVarietyIndex(null);
     setActionError('');
     setIsAddEditModalOpen(true);
   };
@@ -172,8 +191,66 @@ export default function CommoditiesManager({ onNavigate }) {
     });
     setVarietyInput('');
     setVarietyImageInput('');
+    setEditingVarietyIndex(null);
     setActionError('');
     setIsAddEditModalOpen(true);
+  };
+
+  const handleStartEditVariety = (idx) => {
+    const target = formData.varieties[idx];
+    if (!target) return;
+    const vName = typeof target === 'string' ? target : (target?.name || '');
+    const vImg = typeof target === 'object' ? (target?.imageUrl || target?.image_url || '') : '';
+    setEditingVarietyIndex(idx);
+    setVarietyInput(vName);
+    setVarietyImageInput(vImg);
+    setActionError('');
+    setTimeout(() => {
+      varietyImageRef.current?.focus();
+      varietyImageRef.current?.select();
+    }, 60);
+  };
+
+  const handleCancelEditVariety = () => {
+    setEditingVarietyIndex(null);
+    setVarietyInput('');
+    setVarietyImageInput('');
+    setActionError('');
+  };
+
+  const handleSaveVariety = () => {
+    const cleanName = varietyInput.trim();
+    const cleanImage = varietyImageInput.trim();
+    if (!cleanName) {
+      setActionError('Variety name is required.');
+      return;
+    }
+
+    if (editingVarietyIndex !== null) {
+      // Check duplicate name on other indices
+      const duplicate = formData.varieties.some((v, idx) => {
+        if (idx === editingVarietyIndex) return false;
+        const name = typeof v === 'string' ? v : v.name;
+        return name.toLowerCase() === cleanName.toLowerCase();
+      });
+
+      if (duplicate) {
+        setActionError(`Variety "${cleanName}" already exists.`);
+        return;
+      }
+
+      setFormData((prev) => {
+        const next = [...prev.varieties];
+        next[editingVarietyIndex] = { name: cleanName, imageUrl: cleanImage };
+        return { ...prev, varieties: next };
+      });
+      setEditingVarietyIndex(null);
+      setVarietyInput('');
+      setVarietyImageInput('');
+      setActionError('');
+    } else {
+      handleAddVarietyChip();
+    }
   };
 
   const handleAddVarietyChip = () => {
@@ -201,6 +278,11 @@ export default function CommoditiesManager({ onNavigate }) {
   };
 
   const handleRemoveVarietyChip = (indexToRemove) => {
+    if (editingVarietyIndex === indexToRemove) {
+      handleCancelEditVariety();
+    } else if (editingVarietyIndex !== null && editingVarietyIndex > indexToRemove) {
+      setEditingVarietyIndex((prev) => prev - 1);
+    }
     setFormData((prev) => ({
       ...prev,
       varieties: prev.varieties.filter((_, idx) => idx !== indexToRemove),
@@ -762,24 +844,48 @@ export default function CommoditiesManager({ onNavigate }) {
                 <Tag className="w-3.5 h-3.5 text-[#10B981]" />
                 <span>Commercial Varieties / Cultivars ({formData.varieties.length})</span>
               </label>
-              <span className="text-[10px] text-[#566861]">Include direct image URL for cultivars</span>
+              <span className="text-[10px] text-[#566861]">Click any cultivar below to edit name or image</span>
             </div>
 
             {/* Variety Input Card */}
-            <div className="p-3 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+            <div className={`p-3 rounded-2xl border space-y-2 transition-all ${
+              editingVarietyIndex !== null
+                ? 'bg-[#F2FBF6] border-[#10B981] ring-2 ring-[#10B981]/20 shadow-xs'
+                : 'bg-[#F8FAF8] border-[#E5EDE8]'
+            }`}>
+              {editingVarietyIndex !== null && (
+                <div className="flex items-center justify-between pb-1 border-b border-[#10B981]/20 text-xs">
+                  <span className="font-bold text-[#0B3326] flex items-center gap-1.5">
+                    <Edit2 className="w-3.5 h-3.5 text-[#10B981]" />
+                    Editing Variety: <span className="underline">{formData.varieties[editingVarietyIndex]?.name}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditVariety}
+                    className="text-[11px] font-bold text-gray-500 hover:text-gray-800 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block mb-1">
                     Variety Name *
                   </label>
                   <input
+                    ref={varietyInputRef}
                     type="text"
                     value={varietyInput}
                     onChange={(e) => setVarietyInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        handleAddVarietyChip();
+                        handleSaveVariety();
+                      }
+                      if (e.key === 'Escape') {
+                        handleCancelEditVariety();
                       }
                     }}
                     placeholder="e.g. Basmati 1121, Alphonso, AA1..."
@@ -787,17 +893,32 @@ export default function CommoditiesManager({ onNavigate }) {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block mb-1">
-                    Direct Image URL (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-[#566861] uppercase tracking-wider">
+                      Direct Image URL (Optional)
+                    </label>
+                    {varietyInput && CULTIVAR_IMAGE_PRESETS[varietyInput.trim().toLowerCase()] && (
+                      <button
+                        type="button"
+                        onClick={() => setVarietyImageInput(CULTIVAR_IMAGE_PRESETS[varietyInput.trim().toLowerCase()])}
+                        className="text-[10px] text-[#10B981] hover:text-[#059669] font-bold underline cursor-pointer"
+                      >
+                        Use Suggested Photo
+                      </button>
+                    )}
+                  </div>
                   <input
+                    ref={varietyImageRef}
                     type="url"
                     value={varietyImageInput}
                     onChange={(e) => setVarietyImageInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        handleAddVarietyChip();
+                        handleSaveVariety();
+                      }
+                      if (e.key === 'Escape') {
+                        handleCancelEditVariety();
                       }
                     }}
                     placeholder="https://images.unsplash.com/..."
@@ -808,19 +929,34 @@ export default function CommoditiesManager({ onNavigate }) {
 
               <div className="flex items-center justify-between pt-1">
                 <p className="text-[10px] text-[#566861] truncate">
-                  {varietyImageInput ? '✓ Image link attached to variety' : 'No image? Will inherit commodity photo'}
+                  {varietyImageInput
+                    ? '✓ Direct image link attached to cultivar'
+                    : 'Paste a direct image link or click any cultivar below to edit'}
                 </p>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={handleAddVarietyChip}
-                  icon={Plus}
-                  iconPosition="left"
-                  className="text-xs font-bold shrink-0 cursor-pointer"
-                >
-                  Add Variety
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {editingVarietyIndex !== null && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleCancelEditVariety}
+                      className="text-xs cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant={editingVarietyIndex !== null ? 'accent' : 'primary'}
+                    size="sm"
+                    onClick={handleSaveVariety}
+                    icon={editingVarietyIndex !== null ? Check : Plus}
+                    iconPosition="left"
+                    className="text-xs font-bold shrink-0 cursor-pointer"
+                  >
+                    {editingVarietyIndex !== null ? 'Save Variety Image' : 'Add Variety'}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -835,14 +971,22 @@ export default function CommoditiesManager({ onNavigate }) {
                   {formData.varieties.map((v, idx) => {
                     const vName = typeof v === 'string' ? v : (v?.name || '');
                     const vImg = typeof v === 'object' ? (v?.imageUrl || v?.image_url) : '';
+                    const isSelected = editingVarietyIndex === idx;
+                    const presetImg = CULTIVAR_IMAGE_PRESETS[vName.toLowerCase()];
 
                     return (
                       <div
                         key={vName + '_' + idx}
-                        className="flex items-center justify-between gap-2 p-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] hover:border-[#10B981]/40 transition-colors"
+                        onClick={() => handleStartEditVariety(idx)}
+                        className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all cursor-pointer group ${
+                          isSelected
+                            ? 'bg-[#F2FBF6] border-[#10B981] ring-2 ring-[#10B981]/30 shadow-xs'
+                            : 'bg-[#F8FAF8] border-[#E5EDE8] hover:border-[#10B981]/50 hover:bg-white'
+                        }`}
+                        title="Click to edit name or attach direct image URL"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-gray-100 overflow-hidden border border-[#E5EDE8] shrink-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden border border-[#E5EDE8] shrink-0 relative">
                             {vImg ? (
                               <img
                                 src={vImg}
@@ -856,8 +1000,8 @@ export default function CommoditiesManager({ onNavigate }) {
                                 }}
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50">
-                                <Tag className="w-3.5 h-3.5" />
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50 group-hover:text-[#10B981] group-hover:bg-[#EBF5F0] transition-colors">
+                                <Camera className="w-4 h-4" />
                               </div>
                             )}
                           </div>
@@ -865,20 +1009,64 @@ export default function CommoditiesManager({ onNavigate }) {
                             <span className="text-xs font-bold text-[#0B3326] block truncate">
                               {vName}
                             </span>
-                            <span className="text-[10px] text-[#566861] block truncate font-mono">
-                              {vImg ? 'Direct Image' : 'Default Photo'}
+                            <span className={`text-[10px] block truncate font-medium flex items-center gap-1 ${
+                              vImg ? 'text-[#10B981]' : 'text-[#566861] group-hover:text-[#10B981]'
+                            }`}>
+                              {vImg ? (
+                                <>
+                                  <Check className="w-2.5 h-2.5 stroke-[3]" /> Photo Linked
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-2.5 h-2.5 stroke-[3]" /> Click to add image
+                                </>
+                              )}
                             </span>
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveVarietyChip(idx)}
-                          className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
-                          title={`Remove ${vName}`}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!vImg && presetImg && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormData((prev) => {
+                                  const next = [...prev.varieties];
+                                  next[idx] = { name: vName, imageUrl: presetImg };
+                                  return { ...prev, varieties: next };
+                                });
+                                setActionSuccess(`Applied photo preset to ${vName}`);
+                              }}
+                              className="px-2 py-1 rounded-md bg-[#EBF5F0] hover:bg-[#10B981] text-[#0B3326] hover:text-white text-[10px] font-bold transition-all cursor-pointer"
+                              title="Auto-apply high quality photo preset"
+                            >
+                              Auto Photo
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEditVariety(idx);
+                            }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#10B981] hover:bg-[#EBF5F0] transition-colors cursor-pointer"
+                            title={`Edit ${vName}`}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveVarietyChip(idx);
+                            }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title={`Remove ${vName}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
