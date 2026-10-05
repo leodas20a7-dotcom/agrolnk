@@ -12,8 +12,6 @@ import {
   ExternalLink,
   RefreshCw,
   Layers,
-  Sparkles,
-  Image as ImageIcon,
   FolderTree,
   Check,
   Camera,
@@ -43,19 +41,6 @@ const GROUP_BADGE_VARIANTS = {
   'Medicinal Plants': 'emerald',
   'Misc / Plantation Crops': 'purple',
   'Agriculture': 'slate',
-};
-
-const CULTIVAR_IMAGE_PRESETS = {
-  'royal delicious': 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&auto=format&fit=crop&q=80',
-  'red delicious': 'https://images.unsplash.com/photo-1579613832125-5d34a13ffe0a?w=600&auto=format&fit=crop&q=80',
-  'golden delicious': 'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=600&auto=format&fit=crop&q=80',
-  'fuji': 'https://images.unsplash.com/photo-1590005354167-6da97870c757?w=600&auto=format&fit=crop&q=80',
-  'shimla': 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?w=600&auto=format&fit=crop&q=80',
-  'basmati': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80',
-  'basmati 1121': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80',
-  'alphonso': 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&auto=format&fit=crop&q=80',
-  'kesar': 'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=600&auto=format&fit=crop&q=80',
-  'shankar-6': 'https://images.unsplash.com/photo-1606041008023-472dfb5e530f?w=600&auto=format&fit=crop&q=80',
 };
 
 export default function CommoditiesManager({ onNavigate }) {
@@ -446,7 +431,7 @@ export default function CommoditiesManager({ onNavigate }) {
         <Card className="p-4 bg-white border border-[#E5EDE8] space-y-1 text-left">
           <div className="flex items-center justify-between text-[#566861] text-xs font-semibold">
             <span>Custom Additions</span>
-            <Sparkles className="w-4 h-4 text-purple-600" />
+            <Tag className="w-4 h-4 text-purple-600" />
           </div>
           <div className="text-2xl font-extrabold text-purple-700 font-heading">
             {stats.customCount}
@@ -958,7 +943,6 @@ export default function CommoditiesManager({ onNavigate }) {
                     const vName = typeof v === 'string' ? v : (v?.name || '');
                     const vImg = typeof v === 'object' ? (v?.imageUrl || v?.image_url) : '';
                     const isSelected = editingVarietyIndex === idx;
-                    const presetImg = CULTIVAR_IMAGE_PRESETS[vName.toLowerCase()];
 
                     return (
                       <div
@@ -1012,24 +996,6 @@ export default function CommoditiesManager({ onNavigate }) {
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
-                          {!vImg && presetImg && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFormData((prev) => {
-                                  const next = [...prev.varieties];
-                                  next[idx] = { name: vName, imageUrl: presetImg };
-                                  return { ...prev, varieties: next };
-                                });
-                                setActionSuccess(`Applied photo preset to ${vName}`);
-                              }}
-                              className="p-1.5 rounded-lg bg-[#EBF5F0] hover:bg-[#10B981] text-emerald-600 hover:text-white transition-all cursor-pointer"
-                              title="Auto-apply high quality photo preset"
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                            </button>
-                          )}
                           <button
                             type="button"
                             onClick={(e) => {
