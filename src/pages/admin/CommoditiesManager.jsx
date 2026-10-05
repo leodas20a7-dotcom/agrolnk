@@ -979,19 +979,11 @@ export default function CommoditiesManager({ onNavigate }) {
                             <span className="text-xs font-bold text-[#0B3326] block truncate">
                               {vName}
                             </span>
-                            <span className={`text-[10px] block truncate font-medium flex items-center gap-1 ${
-                              vImg ? 'text-[#10B981]' : 'text-[#566861] group-hover:text-[#10B981]'
-                            }`}>
-                              {vImg ? (
-                                <>
-                                  <Check className="w-2.5 h-2.5 stroke-[3]" /> Photo Linked
-                                </>
-                              ) : (
-                                <>
-                                  <Plus className="w-2.5 h-2.5 stroke-[3]" /> Click to add image
-                                </>
-                              )}
-                            </span>
+                            {vImg && (
+                              <span className="text-[10px] block truncate font-medium flex items-center gap-1 text-[#10B981]">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" /> Photo Linked
+                              </span>
+                            )}
                           </div>
                         </div>
 
