@@ -355,7 +355,6 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex items-center gap-2">
-              <Badge variant="rose" size="sm">System Administration</Badge>
               <span className="text-xs text-[#34D399] font-semibold flex items-center gap-1">
                 <ShieldCheck className="w-4 h-4" /> Root Operations Desk
               </span>

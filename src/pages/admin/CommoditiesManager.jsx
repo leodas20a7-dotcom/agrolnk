@@ -21,7 +21,6 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import Pagination from '../../components/ui/Pagination';
-import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import {
   getAdminCommoditiesList,
   createCommodity,
@@ -49,7 +48,6 @@ export default function CommoditiesManager({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('All Groups');
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
 
@@ -393,9 +391,6 @@ export default function CommoditiesManager({ onNavigate }) {
               </select>
             </div>
 
-            {/* View Mode Toggle */}
-            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
-
             {/* Add New Commodity Button */}
             <Button
               variant="primary"
@@ -408,40 +403,6 @@ export default function CommoditiesManager({ onNavigate }) {
               Add Commodity
             </Button>
           </div>
-        </div>
-
-        {/* Category Pills Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 border-t border-[#E5EDE8]/60 text-xs">
-          <button
-            onClick={() => setSelectedGroup('All Groups')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-              selectedGroup === 'All Groups'
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#E5EDE8] hover:text-[#0B3326]'
-            }`}
-          >
-            All Categories ({commodities.length})
-          </button>
-          {COMMODITY_GROUPS.map((g) => {
-            const count = commodities.filter((c) => c.group === g).length;
-            const isSelected = selectedGroup === g;
-            return (
-              <button
-                key={g}
-                onClick={() => setSelectedGroup(g)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-[#10B981] text-white shadow-xs'
-                    : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#E5EDE8] hover:text-[#0B3326]'
-                }`}
-              >
-                <span>{g}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-white text-[#566861] border border-[#E5EDE8]'}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
         </div>
       </Card>
 
@@ -475,7 +436,7 @@ export default function CommoditiesManager({ onNavigate }) {
             Clear Filters
           </Button>
         </Card>
-      ) : viewMode === 'table' ? (
+      ) : (
         /* TABLE VIEW */
         <Card className="bg-white border border-[#E5EDE8] overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
@@ -640,122 +601,6 @@ export default function CommoditiesManager({ onNavigate }) {
             />
           </div>
         </Card>
-      ) : (
-        /* GRID VIEW */
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {paginatedCommodities.map((item) => {
-              const badgeVariant = GROUP_BADGE_VARIANTS[item.group] || 'slate';
-              const varietiesList = Array.isArray(item.varieties) ? item.varieties : [];
-
-              return (
-                <Card
-                  key={item.id || item.name}
-                  className="bg-white border border-[#E5EDE8] overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow group"
-                >
-                  <div>
-                    {/* Image Header with Badge Overlay */}
-                    <div className="relative h-40 w-full overflow-hidden bg-gray-100">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                        onError={(e) => {
-                          e.currentTarget.src =
-                            CATEGORY_FALLBACK_IMAGES[item.group] || CATEGORY_FALLBACK_IMAGES.Other;
-                        }}
-                      />
-                      <div className="absolute top-2.5 left-2.5">
-                        <Badge variant={badgeVariant} size="xs">
-                          {item.group}
-                        </Badge>
-                      </div>
-                      {item.isCustom && (
-                        <div className="absolute top-2.5 right-2.5">
-                          <Badge variant="purple" size="xs">
-                            Custom
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content Details */}
-                    <div className="p-4 space-y-2.5 text-left">
-                      <div>
-                        <h4 className="font-extrabold text-[#0B3326] text-base group-hover:text-[#10B981] transition-colors">
-                          {item.name}
-                        </h4>
-                        <p className="text-[10px] text-[#566861] font-mono">ID: {item.id}</p>
-                      </div>
-
-                      {/* Varieties preview */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px] text-[#566861] font-bold">
-                          <span>Varieties ({varietiesList.length})</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
-                          {varietiesList.length > 0 ? (
-                            varietiesList.slice(0, 4).map((v) => (
-                              <span
-                                key={v}
-                                className="px-1.5 py-0.5 rounded bg-[#F8FAF8] border border-[#E5EDE8] text-[#0B3326] text-[10px] font-medium"
-                              >
-                                {v}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[10px] text-gray-400 italic">
-                              Standard / FAQ Lot
-                            </span>
-                          )}
-                          {varietiesList.length > 4 && (
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[10px] font-bold">
-                              +{varietiesList.length - 4} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Footer Actions */}
-                  <div className="p-3 border-t border-[#E5EDE8] bg-[#F8FAF8] flex items-center justify-between">
-                    <span className="text-[11px] text-[#566861] font-medium">
-                      {varietiesList.length} Cultivar{varietiesList.length !== 1 ? 's' : ''}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleOpenEdit(item)}
-                        className="p-1.5 rounded-lg border border-[#E5EDE8] bg-white text-[#566861] hover:text-[#0B3326] hover:border-[#10B981] transition-all cursor-pointer"
-                        title="Edit Commodity"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setItemToDelete(item)}
-                        className="p-1.5 rounded-lg border border-[#E5EDE8] bg-white text-rose-500 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-200 transition-all cursor-pointer"
-                        title="Delete Commodity"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Grid Pagination */}
-          <Card className="p-4 bg-white border border-[#E5EDE8]">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredCommodities.length}
-              itemsPerPage={pageSize}
-              onPageChange={setCurrentPage}
-            />
-          </Card>
-        </div>
       )}
 
       {/* ADD / EDIT COMMODITY MODAL */}
