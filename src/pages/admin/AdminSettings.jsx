@@ -46,11 +46,13 @@ import {
 } from '../../utils/chat';
 import { resetAllTestingData } from '../../utils/resetData';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { Sprout } from 'lucide-react';
+import CommoditiesManager from './CommoditiesManager';
 
-export default function AdminSettings({ currentUser, onNavigate }) {
+export default function AdminSettings({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Platform Admin', role: 'admin' };
 
-  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'chat_reset' | 'platform'
+  const [activeTab, setActiveTab] = useState(() => navState?.initialTab || 'users'); // 'users' | 'chat_reset' | 'platform' | 'commodities'
   const [usersList, setUsersList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -438,6 +440,19 @@ export default function AdminSettings({ currentUser, onNavigate }) {
           >
             <Database className="w-4 h-4" />
             <span>System Data & Testing Reset</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('commodities')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+              activeTab === 'commodities'
+                ? 'bg-[#0B3326] text-white shadow-xs'
+                : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
+            }`}
+          >
+            <Sprout className="w-4 h-4 text-emerald-400" />
+            <span>Commodities (CRUD)</span>
           </button>
         </div>
 
@@ -873,6 +888,13 @@ export default function AdminSettings({ currentUser, onNavigate }) {
               </div>
             </Card>
 
+          </div>
+        )}
+
+        {/* TAB 4: Commodities & Varieties (CRUD) */}
+        {activeTab === 'commodities' && (
+          <div className="pt-2 animate-in fade-in duration-200">
+            <CommoditiesManager onNavigate={onNavigate} />
           </div>
         )}
 

@@ -71,6 +71,7 @@ const VALID_ROUTES = new Set([
   'admin-escrow',
   'admin-disputes',
   'admin-settings',
+  'admin-commodities',
   // Farmer
   'farmer-dashboard',
   'farmer-create-listing',
@@ -615,11 +616,12 @@ export default function App() {
         </ProtectedRoute>
       )}
 
-      {currentPage === 'admin-settings' && (
+      {(currentPage === 'admin-settings' || currentPage === 'admin-commodities') && (
         <ProtectedRoute requiredRole="admin" onNavigate={handleNavigate}>
           <AdminSettings
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
+            navState={currentPage === 'admin-commodities' ? { ...(navState || {}), initialTab: 'commodities' } : navState}
           />
         </ProtectedRoute>
       )}
