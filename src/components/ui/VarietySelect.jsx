@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './SearchableSelect';
 import { X } from 'lucide-react';
+import { getVarietiesWithDetails } from '../../data/commodityTaxonomy';
 
 /**
  * VarietySelect Component
