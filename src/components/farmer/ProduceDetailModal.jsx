@@ -22,6 +22,7 @@ import Button from '../ui/Button';
 
 import { COMMODITY_IMAGES } from '../../utils/listings';
 import { copyToClipboard } from '../../context/ToastContext';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 export default function ProduceDetailModal({
   listing,
@@ -165,9 +166,11 @@ export default function ProduceDetailModal({
               <h4 className="text-xl font-black font-heading text-white">
                 {listing.commodity}
               </h4>
-              <p className="text-xs text-white/90 font-medium">
-                {listing.variety ? `Variety: ${listing.variety}` : 'Commercial Standard Grade'}
-              </p>
+              {hasSpecificVariety(listing.variety) && (
+                <p className="text-xs text-white/90 font-medium">
+                  Variety: {listing.variety}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <span className="text-[10px] text-white/80 block uppercase tracking-wider font-semibold">

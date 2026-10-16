@@ -4,6 +4,7 @@ import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import { COMMODITY_IMAGES } from '../../utils/listings';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 export default function ListingCard({ listing, onView, onEdit, onDelete }) {
   const isAuction = listing.saleType === 'auction';
@@ -66,9 +67,11 @@ export default function ListingCard({ listing, onView, onEdit, onDelete }) {
             <h4 className="text-lg font-bold text-[#0B3326] font-heading">
               {listing.commodity}
             </h4>
-            <span className="text-xs text-[#566861] font-semibold">
-              {listing.variety || 'Standard'}
-            </span>
+            {hasSpecificVariety(listing.variety) && (
+              <span className="text-xs text-[#566861] font-semibold">
+                {listing.variety}
+              </span>
+            )}
           </div>
 
           <p className="text-xs text-[#566861] flex items-center gap-1">

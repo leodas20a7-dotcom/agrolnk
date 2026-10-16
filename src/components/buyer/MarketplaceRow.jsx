@@ -2,6 +2,7 @@ import React from 'react';
 import { MapPin, Eye, ShoppingCart, ShieldCheck, Tag, Gavel, ArrowRight } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 export default function MarketplaceRow({ listing, onSelect }) {
   const isAuction = listing.saleType === 'auction';
@@ -39,7 +40,7 @@ export default function MarketplaceRow({ listing, onSelect }) {
             </Badge>
           </div>
           <p className="text-xs text-[#566861] font-medium truncate">
-            {listing.variety || 'Standard Variety'} • Grade {listing.grade || 'A'}
+            {hasSpecificVariety(listing.variety) ? `${listing.variety} • Grade ${listing.grade || 'A'}` : `Grade ${listing.grade || 'A'}`}
           </p>
           <div 
             className="flex items-center gap-1 text-[11px] text-[#566861] min-w-0"

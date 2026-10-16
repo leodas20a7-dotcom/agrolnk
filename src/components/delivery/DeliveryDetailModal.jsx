@@ -19,6 +19,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import DeliveryStatusBadge from './DeliveryStatusBadge';
 import DeliveryTimeline from './DeliveryTimeline';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import {
   acceptDeliveryJob,
   updateDeliveryStatus,
@@ -200,9 +201,11 @@ export default function DeliveryDetailModal({
                   Grade {currentDelivery.grade || 'A'}
                 </Badge>
               </div>
-              <span className="text-xs text-[#566861]">
-                Variety: {currentDelivery.variety || 'Standard Lot'}
-              </span>
+              {hasSpecificVariety(currentDelivery.variety) && (
+                <span className="text-xs text-[#566861]">
+                  Variety: {currentDelivery.variety}
+                </span>
+              )}
             </div>
 
             <div className="text-right">

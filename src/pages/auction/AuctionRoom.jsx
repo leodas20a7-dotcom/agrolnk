@@ -36,6 +36,7 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 import { supabase } from '../../lib/supabase';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 const STORAGE_ACTIVE_AUCTION_KEY = 'agrolnk_active_auction_id';
 
@@ -512,9 +513,11 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
                   <h2 className="text-2xl font-extrabold text-[#0B3326] font-heading">
                     {auction.commodity}
                   </h2>
-                  <span className="text-xs font-bold text-[#10B981]">
-                    Variety: {auction.variety || 'Standard Producer Grade'}
-                  </span>
+                  {hasSpecificVariety(auction.variety) && (
+                    <span className="text-xs font-bold text-[#10B981]">
+                      Variety: {auction.variety}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-[#566861] flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />

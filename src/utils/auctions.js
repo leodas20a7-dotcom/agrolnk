@@ -391,7 +391,7 @@ export async function createAuction(auctionData) {
       farmer_id: auctionData.farmerId || null,
       farmer_name: auctionData.farmerName || 'Farmer',
       commodity: auctionData.commodity || 'Tomato',
-      variety: auctionData.variety || 'Standard Lot',
+      variety: auctionData.variety || 'None',
       grade: auctionData.grade || 'A',
       quantity: Number(auctionData.quantity) || 500,
       unit: auctionData.unit || 'kg',

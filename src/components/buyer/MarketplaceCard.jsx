@@ -3,6 +3,7 @@ import { MapPin, Eye, ShoppingCart, ShieldCheck, Tag, Gavel } from 'lucide-react
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 export default function MarketplaceCard({ listing, onSelect }) {
   const isAuction = listing.saleType === 'auction';
@@ -52,9 +53,11 @@ export default function MarketplaceCard({ listing, onSelect }) {
             <h3 className="text-lg font-bold text-[#0B3326] font-heading group-hover:text-[#10B981] transition-colors">
               {listing.commodity}
             </h3>
-            <span className="text-xs text-[#566861] font-semibold">
-              {listing.variety || 'Standard'}
-            </span>
+            {hasSpecificVariety(listing.variety) && (
+              <span className="text-xs text-[#566861] font-semibold">
+                {listing.variety}
+              </span>
+            )}
           </div>
 
           <p className="text-xs text-[#566861] flex items-center gap-1">

@@ -23,6 +23,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import {
   getFarmerListings,
   getListingDraft,
@@ -455,7 +456,8 @@ export default function MyListings({ currentUser, onNavigate }) {
                 </div>
                 <div className="text-xs text-[#566861] flex items-center justify-between">
                   <span>
-                    {listingToDelete.quantity} {listingToDelete.unit || 'kg'} • {listingToDelete.variety || 'Standard'}
+                    {listingToDelete.quantity} {listingToDelete.unit || 'kg'}
+                    {hasSpecificVariety(listingToDelete.variety) ? ` • ${listingToDelete.variety}` : ''}
                   </span>
                   <span className="font-bold text-[#0B3326]">
                     ₹{listingToDelete.price}/{listingToDelete.unit || 'kg'}

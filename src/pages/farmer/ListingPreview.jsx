@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { createListing, COMMODITY_IMAGES } from '../../utils/listings';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 const STORAGE_ACTIVE_PREVIEW_KEY = 'agrolnk_active_listing_preview';
 
@@ -165,9 +166,11 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
                   Fresh {listingData.commodity}
                 </h2>
-                <span className="text-xs font-semibold text-[#10B981]">
-                  Variety: {listingData.variety || 'Standard Producer Grade'}
-                </span>
+                {hasSpecificVariety(listingData.variety) && (
+                  <span className="text-xs font-semibold text-[#10B981]">
+                    Variety: {listingData.variety}
+                  </span>
+                )}
               </div>
 
               <div className="text-left sm:text-right">

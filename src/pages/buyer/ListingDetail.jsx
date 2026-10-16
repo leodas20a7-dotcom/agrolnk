@@ -26,6 +26,7 @@ import { deductListingQuantity, getListingById, COMMODITY_IMAGES } from '../../u
 import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
 import { getResolvedUserKycStatus } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 const STORAGE_ACTIVE_LISTING_KEY = 'agrolnk_active_listing_detail';
 
@@ -300,9 +301,11 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
                   {listing.commodity}
                 </h1>
-                <p className="text-xs font-semibold text-[#10B981]">
-                  Variety: {listing.variety || 'Standard Farm Lot'}
-                </p>
+                {hasSpecificVariety(listing.variety) && (
+                  <p className="text-xs font-semibold text-[#10B981]">
+                    Variety: {listing.variety}
+                  </p>
+                )}
                 <p className="text-xs text-[#566861] flex items-center gap-1 pt-1">
                   <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                   <span>

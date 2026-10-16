@@ -20,6 +20,7 @@ import AuctionTimer from './auction/AuctionTimer';
 import { getLiveAuctions } from '../utils/auctions';
 import { getActiveMarketplaceListings, COMMODITY_IMAGES } from '../utils/listings';
 import { supabase } from '../lib/supabase';
+import { hasSpecificVariety } from '../data/commodityTaxonomy';
 
 // Realistic fallback samples to ensure the homepage always has vibrant real-time data
 const FALLBACK_AUCTIONS = [
@@ -353,9 +354,11 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
                         <h3 className="text-base font-bold text-[#0B3326] font-heading group-hover:text-[#10B981] transition-colors truncate">
                           {lot.commodity}
                         </h3>
-                        <span className="text-xs text-[#566861] font-semibold truncate ml-2">
-                          {lot.variety || 'Standard Lot'}
-                        </span>
+                        {hasSpecificVariety(lot.variety) && (
+                          <span className="text-xs text-[#566861] font-semibold truncate ml-2">
+                            {lot.variety}
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-xs text-[#566861] flex items-center gap-1">
@@ -467,9 +470,11 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
                         <h3 className="text-base font-bold text-[#0B3326] font-heading group-hover:text-[#10B981] transition-colors truncate">
                           {lot.commodity}
                         </h3>
-                        <span className="text-xs text-[#566861] font-semibold truncate ml-2">
-                          {lot.variety || 'Standard Lot'}
-                        </span>
+                        {hasSpecificVariety(lot.variety) && (
+                          <span className="text-xs text-[#566861] font-semibold truncate ml-2">
+                            {lot.variety}
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-xs text-[#566861] flex items-center gap-1">
@@ -657,8 +662,12 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
                 <span>
                   {quickViewItem.district ? `${quickViewItem.district}, ` : ''}{quickViewItem.state || 'India'}
                 </span>
-                <span className="mx-1">•</span>
-                <span>{quickViewItem.variety || 'Standard Lot'}</span>
+                {hasSpecificVariety(quickViewItem.variety) && (
+                  <>
+                    <span className="mx-1">•</span>
+                    <span>{quickViewItem.variety}</span>
+                  </>
+                )}
               </p>
             </div>
 

@@ -3,6 +3,7 @@ import { MapPin, Tag, Gavel, Clock, ShieldCheck, Eye, Edit3, Trash2 } from 'luci
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import { COMMODITY_IMAGES } from '../../utils/listings';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 export default function ListingRow({ listing, onView, onEdit, onDelete }) {
   const isAuction = listing.saleType === 'auction';
@@ -48,10 +49,14 @@ export default function ListingRow({ listing, onView, onEdit, onDelete }) {
           </div>
 
           <div className="flex items-center gap-2 text-xs text-[#566861] flex-wrap">
-            <span className="font-semibold text-[#14211D]">
-              {listing.variety || 'Standard Variety'}
-            </span>
-            <span>&bull;</span>
+            {hasSpecificVariety(listing.variety) && (
+              <>
+                <span className="font-semibold text-[#14211D]">
+                  {listing.variety}
+                </span>
+                <span>&bull;</span>
+              </>
+            )}
             <span className="flex items-center gap-1">
               <MapPin className="w-3 h-3 text-[#10B981]" />
               {listing.district ? `${listing.district}, ` : ''}{listing.state}

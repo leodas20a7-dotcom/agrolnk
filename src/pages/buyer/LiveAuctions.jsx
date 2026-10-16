@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Lock
 } from 'lucide-react';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import { getAuctions } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
@@ -321,9 +322,11 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                             <h3 className="text-lg font-bold text-[#0B3326] font-heading group-hover:text-[#10B981] transition-colors">
                               {lot.commodity}
                             </h3>
-                            <span className="text-xs text-[#566861] font-semibold">
-                              {lot.variety || 'Standard'}
-                            </span>
+                            {hasSpecificVariety(lot.variety) && (
+                              <span className="text-xs text-[#566861] font-semibold">
+                                {lot.variety}
+                              </span>
+                            )}
                           </div>
 
                           <p className="text-xs text-[#566861] flex items-center gap-1">

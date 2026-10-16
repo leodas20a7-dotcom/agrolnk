@@ -317,7 +317,7 @@ export async function createListing(listingData) {
       farmer_id: listingData.farmerId || null,
       farmer_name: listingData.farmerName || 'Farmer',
       commodity: listingData.commodity || 'Tomato',
-      variety: listingData.variety || 'Standard Lot',
+      variety: listingData.variety || 'None',
       grade: listingData.grade || 'A',
       quantity: Number(listingData.quantity) || 500,
       unit: listingData.unit || 'kg',

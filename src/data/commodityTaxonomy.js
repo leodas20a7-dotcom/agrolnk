@@ -1643,3 +1643,26 @@ export function getCommodityGroup(commodityName) {
   const details = getCommodityDetails(commodityName);
   return details?.group || 'Agriculture';
 }
+
+/**
+ * Checks if a variety string represents a real, specific variety.
+ * Returns false if variety is None, empty, or a generic placeholder.
+ */
+export function hasSpecificVariety(variety) {
+  if (!variety) return false;
+  const clean = String(variety).trim().toLowerCase();
+  return (
+    clean !== '' &&
+    clean !== 'none' &&
+    clean !== 'null' &&
+    clean !== 'undefined' &&
+    clean !== 'standard' &&
+    clean !== 'standard lot' &&
+    clean !== 'standard variety' &&
+    clean !== 'standard farm lot' &&
+    clean !== 'standard producer grade' &&
+    clean !== 'standard / faq lot'
+  );
+}
+
+export const hasVariety = hasSpecificVariety;

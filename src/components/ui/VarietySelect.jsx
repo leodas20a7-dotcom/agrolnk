@@ -28,17 +28,26 @@ export default function VarietySelect({
   }, [commodity]);
 
   const rawVarieties = useMemo(() => {
-    return detailedVarieties.map((v) => v.name);
+    return ['None', ...detailedVarieties.map((v) => v.name)];
   }, [detailedVarieties]);
 
-  // Build select options with direct images
+  // Build select options with default "None" option at the top
   const options = useMemo(() => {
-    const list = detailedVarieties.map((v) => ({
-      value: v.name,
-      label: v.name,
-      image: v.imageUrl || null,
-      subtext: v.name === 'Standard / FAQ Lot' ? 'Standard Fair Average Quality' : 'Commercial Variety',
-    }));
+    const list = [
+      {
+        value: 'None',
+        label: 'None',
+        subtext: 'No specific variety / cultivar (hide variety)',
+      },
+      ...detailedVarieties
+        .filter((v) => v.name && v.name !== 'Standard / FAQ Lot')
+        .map((v) => ({
+          value: v.name,
+          label: v.name,
+          image: v.imageUrl || null,
+          subtext: 'Commercial Variety',
+        })),
+    ];
 
     // Add option to enter custom variety
     list.push({
@@ -58,7 +67,7 @@ export default function VarietySelect({
       return;
     }
 
-    if (!value) {
+    if (!value || value === 'None') {
       setIsCustomMode(false);
       setCustomValue('');
     } else if (rawVarieties.includes(value)) {
@@ -68,7 +77,7 @@ export default function VarietySelect({
       setIsCustomMode(true);
       setCustomValue(value);
     }
-  }, [commodity]);
+  }, [commodity, value, rawVarieties]);
 
   if (!commodity) {
     return (
@@ -106,8 +115,7 @@ export default function VarietySelect({
           onClick={() => {
             setIsCustomMode(false);
             setCustomValue('');
-            const fallback = rawVarieties[0] || 'Standard / FAQ Lot';
-            onChange?.(fallback);
+            onChange?.('None');
           }}
           title="Back to standard varieties"
           className="p-2.5 rounded-xl text-gray-500 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
@@ -123,7 +131,7 @@ export default function VarietySelect({
       <SearchableSelect
         id={id}
         options={options}
-        value={value}
+        value={value || 'None'}
         onChange={(val) => {
           if (val === '__custom__') {
             setIsCustomMode(true);

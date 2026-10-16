@@ -29,7 +29,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
 
   const [formData, setFormData] = useState({
     commodity: '',
-    variety: '',
+    variety: 'None',
     grade: 'A',
     quantity: '',
     unit: 'kg',
@@ -163,6 +163,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     try {
       await createAuction({
         ...formData,
+        variety: formData.variety || 'None',
         farmerId: user.id,
         farmerName: user.name || 'Farmer Account',
       });
@@ -258,7 +259,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                     setFormData((prev) => ({
                       ...prev,
                       commodity: val,
-                      variety: '',
+                      variety: 'None',
                       images: prev.images.length > 0 ? prev.images : [defaultImg],
                     }));
                   }}

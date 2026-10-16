@@ -29,7 +29,7 @@ import { getResolvedUserKycStatus } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
-import { getVarietyImageUrl } from '../../data/commodityTaxonomy';
+import { getVarietyImageUrl, hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -46,7 +46,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
   const [formData, setFormData] = useState({
     commodity: initialSource?.commodity || '',
-    variety: initialSource?.variety || '',
+    variety: initialSource?.variety || 'None',
     grade: initialSource?.grade || 'A',
     quantity: initialSource?.quantity ? String(initialSource.quantity) : '',
     unit: initialSource?.unit || 'kg',
@@ -241,7 +241,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           farmerId: user.id || '',
           farmerName: user.name || 'Farmer',
           commodity: formData.commodity,
-          variety: formData.variety || 'Standard Lot',
+          variety: formData.variety || 'None',
           grade: formData.grade,
           quantity: Number(formData.quantity),
           unit: formData.unit,
@@ -259,7 +259,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           farmerId: user.id || '',
           farmerName: user.name || 'Farmer',
           commodity: formData.commodity,
-          variety: formData.variety || 'Standard Lot',
+          variety: formData.variety || 'None',
           grade: formData.grade,
           quantity: Number(formData.quantity),
           unit: formData.unit,
@@ -550,7 +550,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     setFormData((prev) => ({
                       ...prev,
                       commodity: val,
-                      variety: '',
+                      variety: 'None',
                       images: prev.isDefaultImage ? [defaultImg] : (prev.images.length ? prev.images : [defaultImg]),
                     }));
                   }}
@@ -867,7 +867,12 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   <Badge variant="dark" size="sm">Grade {formData.grade}</Badge>
                 </div>
                 <p className="text-xs text-[#566861]">
-                  Variety: <strong>{formData.variety || 'Standard Lot'}</strong> • Location: <strong>{formData.district || 'Unspecified'}, {formData.state || 'India'}</strong>
+                  {hasSpecificVariety(formData.variety) && (
+                    <>
+                      Variety: <strong>{formData.variety}</strong> •{' '}
+                    </>
+                  )}
+                  Location: <strong>{formData.district || 'Unspecified'}, {formData.state || 'India'}</strong>
                 </p>
               </div>
 

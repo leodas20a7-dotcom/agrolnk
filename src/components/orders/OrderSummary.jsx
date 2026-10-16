@@ -23,6 +23,7 @@ import OrderReceiptModal from './OrderReceiptModal';
 import { getFinancingRequestForOrder } from '../../utils/financing';
 import { getDeliveryForOrder } from '../../utils/deliveries';
 import { getInspectionForOrder } from '../../utils/inspection';
+import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 export default function OrderSummary({
   order,
@@ -154,7 +155,12 @@ export default function OrderSummary({
               />
             </div>
             <span className="text-xs text-[#566861] mt-0.5 block">
-              Variety: <strong>{order.variety || 'Standard'}</strong> • {order.createdAt && !isNaN(new Date(order.createdAt).getTime()) ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'Recent'}
+              {hasSpecificVariety(order.variety) && (
+                <>
+                  Variety: <strong>{order.variety}</strong> •{' '}
+                </>
+              )}
+              {order.createdAt && !isNaN(new Date(order.createdAt).getTime()) ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'Recent'}
             </span>
           </div>
 
