@@ -60,13 +60,13 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
 
           <div 
             className="text-xs text-[#566861] flex items-center gap-1.5 min-w-0 truncate"
-            title={`${order.commodity || 'Produce'} • ${viewerRole === 'farmer' ? (order.buyerName || 'Buyer') : (order.farmerName || 'Farmer')}`}
+            title={`${order.commodity || 'Produce'} • ${(viewerRole === 'farmer' || viewerRole === 'fpo') ? (order.buyerName || 'Buyer') : (order.farmerName || 'Farmer')}`}
           >
             <span className="font-bold text-[#14211D] shrink-0">{order.commodity || 'Produce'}</span>
             <span>&bull;</span>
             <span className="flex items-center gap-1 shrink-0">
               <User className="w-3 h-3 text-[#10B981]" />
-              <span className="truncate">{viewerRole === 'farmer' ? (order.buyerName || 'Buyer') : (order.farmerName || 'Farmer')}</span>
+              <span className="truncate">{(viewerRole === 'farmer' || viewerRole === 'fpo') ? (order.buyerName || 'Buyer') : (order.farmerName || 'Farmer')}</span>
             </span>
             <span>&bull;</span>
             <span className="text-[11px] text-[#566861] shrink-0">
@@ -96,7 +96,7 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
 
         <div className="min-w-0">
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">
-            {viewerRole === 'farmer' ? 'Payout' : 'Order Total'}
+            {(viewerRole === 'farmer' || viewerRole === 'fpo') ? 'Payout' : 'Order Total'}
           </span>
           <span className="font-extrabold text-base text-[#10B981] font-heading block truncate">
             ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}

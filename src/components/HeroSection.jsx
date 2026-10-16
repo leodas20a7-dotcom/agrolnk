@@ -39,7 +39,7 @@ export default function HeroSection({ onExplore, onJoin }) {
                 iconPosition="right"
                 className="shadow-xs font-bold text-sm sm:text-base py-3 sm:py-3.5 px-6 sm:px-7 cursor-pointer"
               >
-                Join Agrolnk
+                Join AgroLnk
               </Button>
               <Button
                 variant="secondary"

@@ -19,7 +19,7 @@ import { loginUser, registerUser } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 
 export default function Login({ onNavigate, navState }) {
-  // Flip state: false = Sign In (Front), true = Join Agrolnk (Back)
+  // Flip state: false = Sign In (Front), true = Join AgroLnk (Back)
   const [isFlipped, setIsFlipped] = useState(Boolean(navState?.initialRegister));
 
   // --- Sign In State ---
@@ -40,13 +40,16 @@ export default function Login({ onNavigate, navState }) {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [registerError, setRegisterError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [hoveredRole, setHoveredRole] = useState(null);
+  const [activeTooltipRole, setActiveTooltipRole] = useState(navState?.role || 'farmer');
 
   const roles = [
-    { id: 'farmer', label: 'Farmer', icon: '🌾' },
-    { id: 'buyer', label: 'Buyer', icon: '🛒' },
-    { id: 'financier', label: 'Financier', icon: '💰' },
-    { id: 'transporter', label: 'Transporter', icon: '🚚' },
-    { id: 'warehouse', label: 'Warehouse', icon: '🏭' },
+    { id: 'farmer', label: 'Farmer', tooltip: 'Farmer / Producer', icon: '🌾' },
+    { id: 'fpo', label: 'FPO / Org', tooltip: 'Farmer Producer Organisation (FPO)', icon: '🏢' },
+    { id: 'buyer', label: 'Buyer', tooltip: 'Wholesale Buyer & Trader', icon: '🛒' },
+    { id: 'financier', label: 'Financial Inst.', tooltip: 'Financial Institution', icon: '💰' },
+    { id: 'transporter', label: 'Transporter', tooltip: 'Logistics Transporter', icon: '🚚' },
+    { id: 'warehouse', label: 'Warehouse', tooltip: 'Warehouse & Cold Storage Operator', icon: '🏭' },
   ];
 
   // Handle Sign In Submit
@@ -149,12 +152,12 @@ export default function Login({ onNavigate, navState }) {
                 <div className="flex items-center gap-3">
                   <img
                     src={logoImg}
-                    alt="Agrolnk Logo"
+                    alt="AgroLnk Logo"
                     className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
                     <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-heading block">
-                      Agrolnk
+                      AgroLnk
                     </span>
                     <span className="text-[10px] sm:text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Digital Agri Exchange
@@ -293,7 +296,7 @@ export default function Login({ onNavigate, navState }) {
                   onClick={() => setIsFlipped(true)}
                   className="font-bold text-[#0B3326] hover:text-[#10B981] hover:underline cursor-pointer inline-flex items-center gap-1"
                 >
-                  <span>Join Agrolnk</span>
+                  <span>Join AgroLnk</span>
                   <span className="text-[10px] text-[#10B981]">🔄</span>
                 </button>
               </div>
@@ -323,12 +326,12 @@ export default function Login({ onNavigate, navState }) {
                 <div className="flex items-center gap-3">
                   <img
                     src={logoImg}
-                    alt="Agrolnk Logo"
+                    alt="AgroLnk Logo"
                     className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
                     <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-heading block">
-                      Agrolnk
+                      AgroLnk
                     </span>
                     <span className="text-[10px] sm:text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Direct Agricultural Exchange
@@ -368,7 +371,7 @@ export default function Login({ onNavigate, navState }) {
               </div>
             </div>
 
-            {/* Right Join Agrolnk Form */}
+            {/* Right Join AgroLnk Form */}
             <div className="lg:col-span-7 p-7 sm:p-9 xl:p-11 flex flex-col justify-between bg-white space-y-5">
               <div className="space-y-4">
                 <div>
@@ -382,27 +385,70 @@ export default function Login({ onNavigate, navState }) {
 
                 {/* Role Pill Selector */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#14211D] uppercase tracking-wider block">
-                    Choose Your Role
-                  </label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#14211D] uppercase tracking-wider block">
+                      Choose Your Role
+                    </label>
+                    <span className="text-[11px] font-semibold text-[#10B981] transition-all duration-200 truncate ml-2">
+                      {roles.find(r => r.id === (hoveredRole || activeTooltipRole || selectedRole))?.tooltip}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1 relative">
                     {roles.map((r) => {
                       const isSelected = selectedRole === r.id;
+                      const isTooltipVisible = hoveredRole === r.id || (activeTooltipRole === r.id && selectedRole === r.id);
+                      
+                      // Alignment for edge pills to avoid clipping
+                      const tooltipAlign = r.id === 'farmer' 
+                        ? 'left-0 translate-x-0' 
+                        : r.id === 'warehouse' 
+                        ? 'right-0 translate-x-0' 
+                        : 'left-1/2 -translate-x-1/2';
+                        
+                      const arrowAlign = r.id === 'farmer' 
+                        ? 'left-4' 
+                        : r.id === 'warehouse' 
+                        ? 'right-4' 
+                        : 'left-1/2 -translate-x-1/2';
+
                       return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setSelectedRole(r.id)}
-                          className={`flex-1 min-w-[65px] sm:min-w-0 py-2.5 px-1.5 rounded-xl text-center transition-all cursor-pointer border flex flex-col items-center justify-center gap-1 ${isSelected
-                            ? 'bg-[#0B3326] text-white border-[#0B3326] shadow-xs'
-                            : 'bg-[#F8FAF8] text-[#566861] border-[#E5EDE8] hover:border-[#10B981]/50 hover:bg-white'
-                            }`}
-                        >
-                          <span className="text-base">{r.icon}</span>
-                          <span className="text-[11px] sm:text-xs font-bold leading-tight truncate max-w-full">
-                            {r.label}
-                          </span>
-                        </button>
+                        <div key={r.id} className="relative flex-1 min-w-[65px] sm:min-w-0">
+                          {/* Floating Tooltip Bubble on Hover or Click */}
+                          {isTooltipVisible && (
+                            <div
+                              role="tooltip"
+                              className={`absolute bottom-full ${tooltipAlign} mb-2.5 z-40 pointer-events-none whitespace-nowrap bg-[#0B3326] text-white text-[10px] sm:text-[11px] font-semibold py-1.5 px-2.5 rounded-lg shadow-xl border border-[#14624A] animate-in fade-in zoom-in-95 duration-150 flex items-center gap-1.5`}
+                            >
+                              <span>{r.icon}</span>
+                              <span>{r.tooltip}</span>
+                              <div className={`absolute top-full ${arrowAlign} -mt-1 w-2 h-2 bg-[#0B3326] rotate-45 border-b border-r border-[#14624A]`} />
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            title={r.tooltip}
+                            onClick={() => {
+                              setSelectedRole(r.id);
+                              setActiveTooltipRole(r.id);
+                            }}
+                            onMouseEnter={() => setHoveredRole(r.id)}
+                            onMouseLeave={() => setHoveredRole(null)}
+                            onFocus={() => setActiveTooltipRole(r.id)}
+                            onBlur={() => {
+                              if (hoveredRole === r.id) setHoveredRole(null);
+                            }}
+                            className={`w-full py-2.5 px-1.5 rounded-xl text-center transition-all cursor-pointer border flex flex-col items-center justify-center gap-1 ${isSelected
+                              ? 'bg-[#0B3326] text-white border-[#0B3326] shadow-xs ring-2 ring-[#10B981]/40'
+                              : 'bg-[#F8FAF8] text-[#566861] border-[#E5EDE8] hover:border-[#10B981]/50 hover:bg-white'
+                              }`}
+                          >
+                            <span className="text-base">{r.icon}</span>
+                            <span className="text-[11px] sm:text-xs font-bold leading-tight truncate max-w-full">
+                              {r.label}
+                            </span>
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -420,7 +466,11 @@ export default function Login({ onNavigate, navState }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div className="space-y-1">
                       <label className="text-[11px] font-bold text-[#14211D] block">
-                        Full Name
+                        {selectedRole === 'fpo' 
+                          ? 'Organisation Name' 
+                          : selectedRole === 'financier'
+                          ? 'Institution Name'
+                          : 'Full Name'}
                       </label>
                       <div className="relative">
                         <User className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -431,7 +481,13 @@ export default function Login({ onNavigate, navState }) {
                             const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.]/g, '');
                             setRegisterData({ ...registerData, name: lettersOnly });
                           }}
-                          placeholder="e.g. Ramesh Kumar"
+                          placeholder={
+                            selectedRole === 'fpo' 
+                              ? 'e.g. Cauvery Delta Collective' 
+                              : selectedRole === 'financier'
+                              ? 'e.g. Kisan Capital NBFC'
+                              : 'e.g. Ramesh Kumar'
+                          }
                           className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                           required
                         />

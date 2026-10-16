@@ -110,7 +110,7 @@ export default function DocumentViewerModal({
                 </span>
               </div>
               <p className="text-[10px] sm:text-xs text-[#DCFCE7]/80 truncate">
-                Holder: <strong>{user?.name || 'Registered User'}</strong> &bull; {user?.orgName || user?.role || 'Agrolnk Participant'}
+                Holder: <strong>{user?.name || 'Registered User'}</strong> &bull; {user?.orgName || user?.role || 'AgroLnk Participant'}
               </p>
             </div>
           </div>
@@ -347,7 +347,7 @@ export default function DocumentViewerModal({
                   ) : (
                     <>
                       <div className="inline-block px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-extrabold uppercase tracking-wider mb-1">
-                        Agrolnk Verified Participant Credential
+                        AgroLnk Verified Participant Credential
                       </div>
                       <h2 className="text-lg sm:text-xl font-black text-[#0B3326] font-heading tracking-tight">
                         {docType.toUpperCase()}
@@ -421,7 +421,7 @@ export default function DocumentViewerModal({
                         <span>VERIFIED DIGITAL SIGNATURE</span>
                       </div>
                       <p className="text-[11px] text-[#065F46] leading-relaxed">
-                        Issued under the Digital Personal Data Protection (DPDP) Act & IT Act 2000. Verified on Agrolnk Trust Protocol.
+                        Issued under the Digital Personal Data Protection (DPDP) Act & IT Act 2000. Verified on AgroLnk Trust Protocol.
                       </p>
                       <span className="text-[10px] font-mono text-[#566861] block">
                         SHA-256: 7f8a92b...{docNumber.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6)}...e89a

@@ -1,4 +1,4 @@
-// Agrolnk Strict Role-Based & Conflict-Free Notification Engine (100% Free)
+// AgroLnk Strict Role-Based & Conflict-Free Notification Engine (100% Free)
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange, subscribeToCrossTabSync } from './syncChannel';
 
@@ -109,7 +109,7 @@ function getRoleStarterNotifications(user) {
   const role = user.role.toLowerCase();
   const userId = user.id || '';
 
-  if (role === 'farmer') {
+  if (role === 'farmer' || role === 'fpo') {
     return [
       {
         id: `seed_notif_f1_${userId}`,

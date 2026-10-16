@@ -2,7 +2,7 @@ import React from 'react';
 import logoImg from '../../assets/Logo.jpeg';
 
 export default function FlashLoadingScreen({ 
-  message = 'Loading Agrolnk...', 
+  message = 'Loading AgroLnk...', 
   subMessage = 'Synchronizing verified exchange data...' 
 }) {
   return (
@@ -25,7 +25,7 @@ export default function FlashLoadingScreen({
           <div className="relative w-20 h-20 rounded-2xl bg-white p-2.5 shadow-2xl flex items-center justify-center border border-[#10B981]/30">
             <img
               src={logoImg}
-              alt="Agrolnk Logo"
+              alt="AgroLnk Logo"
               className="w-full h-full object-contain rounded-xl"
             />
           </div>
@@ -35,7 +35,7 @@ export default function FlashLoadingScreen({
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0F4A37]/80 border border-[#14624A] text-[#34D399] text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span>Agrolnk Decentralized Exchange</span>
+            <span>AgroLnk Decentralized Exchange</span>
           </div>
 
           <h3 className="text-base sm:text-lg font-extrabold text-white font-heading tracking-tight pt-1">

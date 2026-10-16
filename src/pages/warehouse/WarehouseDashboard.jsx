@@ -359,7 +359,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         recipientId: farmerId,
         recipientRole: 'farmer',
         title: 'Storage Rent Due Alert',
-        message: `Dear ${farmerName}, your monthly warehouse storage fee of ₹${dueAmt} for Lot #${cleanReceiptNum} is due. Please log in to your Agrolnk Inventory and settle online via Razorpay.`,
+        message: `Dear ${farmerName}, your monthly warehouse storage fee of ₹${dueAmt} for Lot #${cleanReceiptNum} is due. Please log in to your AgroLnk Inventory and settle online via Razorpay.`,
         type: 'warning',
         link: '/farmer/inventory',
         actionPayload: {
@@ -399,7 +399,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-[#78350F] leading-relaxed max-w-3xl">
-                  Without entering your company name, total storage capacity in tonnes, chamber types, and KYC compliance documents, your warehouse is <strong>hidden from all farmers and buyers</strong> across Agrolnk and cannot receive produce deposits or issue storage receipts.
+                  Without entering your company name, total storage capacity in tonnes, chamber types, and KYC compliance documents, your warehouse is <strong>hidden from all farmers and buyers</strong> across AgroLnk and cannot receive produce deposits or issue storage receipts.
                 </p>
               </div>
             </div>
@@ -426,7 +426,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
               <div className="space-y-0.5 text-left">
                 <div className="flex items-center gap-2">
                   <h4 className="font-bold text-sm text-[#1E3A8A]">
-                    Facility Revision Under Review by Agrolnk Compliance
+                    Facility Revision Under Review by AgroLnk Compliance
                   </h4>
                   <span className="px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#1E40AF] text-[10px] font-extrabold uppercase border border-[#BFDBFE]">
                     Pending Approval
@@ -1464,7 +1464,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                     <span className="font-bold text-xs">Pending Online Settlement</span>
                   </div>
                   <p className="text-[11px] text-amber-800 leading-relaxed">
-                    Farmer <strong>{selectedLotForRentNotice.farmerName}</strong> has an outstanding storage rent of <strong>₹{Number(rentDueAmount || 0).toLocaleString('en-IN')}</strong>. Farmers pay directly through their Agrolnk dashboard via Razorpay.
+                    Farmer <strong>{selectedLotForRentNotice.farmerName}</strong> has an outstanding storage rent of <strong>₹{Number(rentDueAmount || 0).toLocaleString('en-IN')}</strong>. Farmers pay directly through their AgroLnk dashboard via Razorpay.
                   </p>
                 </div>
               ) : (

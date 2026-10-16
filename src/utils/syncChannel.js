@@ -1,4 +1,4 @@
-// Agrolnk Cross-Tab & In-App Real-Time Sync Channel (100% Free)
+// AgroLnk Cross-Tab & In-App Real-Time Sync Channel (100% Free)
 // Uses native browser BroadcastChannel and CustomEvents for zero-latency, zero-cost cross-tab synchronization.
 
 const CHANNEL_NAME = 'agrolnk_realtime_sync';

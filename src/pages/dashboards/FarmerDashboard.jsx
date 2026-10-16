@@ -29,14 +29,16 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           <div className="space-y-1 sm:space-y-1.5">
             <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
               <Sprout className="w-3.5 h-3.5" />
-              <span className="sm:hidden">Farmer Desk</span>
-              <span className="hidden sm:inline">Producer & FPO Portal</span>
+              <span className="sm:hidden">{user.role === 'fpo' ? 'FPO Desk' : 'Farmer Desk'}</span>
+              <span className="hidden sm:inline">{user.role === 'fpo' ? 'Organisation & FPO Portal' : 'Producer & FPO Portal'}</span>
             </div>
             <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
               Welcome back, {user.name} 👋
             </h1>
             <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/80">
-              Manage your crop listings, monitor live bids, and track guaranteed escrow payouts.
+              {user.role === 'fpo'
+                ? 'Manage your organisation crop listings, monitor live bids, and track guaranteed escrow payouts.'
+                : 'Manage your crop listings, monitor live bids, and track guaranteed escrow payouts.'}
             </p>
           </div>
 
@@ -208,7 +210,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                     <span className="text-[10px] text-[#566861]">Just now</span>
                   </div>
                   <p className="text-xs text-[#566861] mt-0.5">
-                    Your Agrolnk Farmer profile is active. You can now prepare your first produce batch for market listing.
+                    Your AgroLnk {user.role === 'fpo' ? 'Organisation' : 'Farmer'} profile is active. You can now prepare your first produce batch for market listing.
                   </p>
                 </div>
               </div>

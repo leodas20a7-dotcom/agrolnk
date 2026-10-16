@@ -46,7 +46,7 @@ export default function DeliveryDetailModal({
   if (!currentDelivery) return null;
 
   const isTransporter = viewerRole === 'transporter';
-  const isFarmer = viewerRole === 'farmer';
+  const isFarmer = viewerRole === 'farmer' || viewerRole === 'fpo';
   const isBuyer = viewerRole === 'buyer';
   const isAssignedTransporter =
     isTransporter &&

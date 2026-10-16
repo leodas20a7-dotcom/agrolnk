@@ -466,9 +466,9 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
                 <span className="text-2xl font-extrabold text-[#0B3326] block font-heading">{usersList.length}</span>
               </Card>
               <Card className="p-4 bg-white border border-[#E5EDE8] space-y-1 text-left">
-                <span className="text-xs text-[#566861]">Verified Producers (Farmers)</span>
+                <span className="text-xs text-[#566861]">Verified Producers (Farmers & FPOs)</span>
                 <span className="text-2xl font-extrabold text-[#10B981] block font-heading">
-                  {usersList.filter((u) => u.role === 'farmer').length}
+                  {usersList.filter((u) => u.role === 'farmer' || u.role === 'fpo').length}
                 </span>
               </Card>
               <Card className="p-4 bg-white border border-[#E5EDE8] space-y-1 text-left">

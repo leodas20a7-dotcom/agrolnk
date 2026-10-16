@@ -33,7 +33,7 @@ export default function DeliveryCard({
   const isPriceOffered = delivery.status === 'price_offered';
   const isDelivered = delivery.status === 'delivered';
   const isTransporter = viewerRole === 'transporter';
-  const isFarmer = viewerRole === 'farmer';
+  const isFarmer = viewerRole === 'farmer' || viewerRole === 'fpo';
   const isBuyer = viewerRole === 'buyer';
 
   const pickupStr = typeof delivery.pickupLocation === 'object'

@@ -148,7 +148,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Landmark className="w-3.5 h-3.5" /> Agrolnk Trade Liquidity Desk
+              <Landmark className="w-3.5 h-3.5" /> AgroLnk Trade Liquidity Desk
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
               Producer Financing
@@ -307,7 +307,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
                   Eligible Transactions for Liquidity ({eligibleOrders.length})
                 </h2>
                 <p className="text-xs text-[#566861]">
-                  Request advances up to 85% of order value backed by verified Agrolnk trade agreements
+                  Request advances up to 85% of order value backed by verified AgroLnk trade agreements
                 </p>
               </div>
             </div>

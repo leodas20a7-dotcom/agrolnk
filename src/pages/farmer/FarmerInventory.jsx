@@ -269,7 +269,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                 </div>
                 <h4 className="text-sm font-bold text-[#0B3326]">Auto-Deduct Rent on Sale (Zero Cash)</h4>
                 <p className="text-xs text-[#566861] leading-relaxed">
-                  You do not need upfront cash! When you sell produce to a buyer on Agrolnk, the warehouse storage rent is automatically deducted from the buyer's payment.
+                  You do not need upfront cash! When you sell produce to a buyer on AgroLnk, the warehouse storage rent is automatically deducted from the buyer's payment.
                 </p>
               </div>
 
@@ -647,7 +647,7 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
                   No Certified Storage Facilities Yet
                 </h3>
                 <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                  When accredited warehouse operators register on Agrolnk and are verified by Admin, their WDRA facilities will appear here for crop deposits.
+                  When accredited warehouse operators register on AgroLnk and are verified by Admin, their WDRA facilities will appear here for crop deposits.
                 </p>
               </Card>
             )}

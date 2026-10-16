@@ -1,4 +1,4 @@
-// Agrolnk Supabase Listings Management Engine
+// AgroLnk Supabase Listings Management Engine
 import { supabase } from '../lib/supabase';
 import {
   getAllCommodityNames,

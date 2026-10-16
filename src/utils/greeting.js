@@ -1,4 +1,4 @@
-// Agrolnk Time-Aware Greeting Utility
+// AgroLnk Time-Aware Greeting Utility
 
 /**
  * Returns dynamic, time-of-day greeting (morning, afternoon, evening, night)

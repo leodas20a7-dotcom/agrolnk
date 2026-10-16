@@ -13,6 +13,7 @@ export default function RoleSelection({ onNavigate, navState }) {
     {
       id: 'farmer',
       title: 'Farmer',
+      tooltip: 'Farmer / Producer',
       headline: 'Sell produce directly',
       description: 'List harvest lots, run digital auctions, and receive guaranteed escrow payouts.',
       iconEmoji: '🌾',
@@ -21,8 +22,20 @@ export default function RoleSelection({ onNavigate, navState }) {
       highlights: ['Direct fixed pricing', 'Live clock auctions'],
     },
     {
+      id: 'fpo',
+      title: 'FPO / Organisation',
+      tooltip: 'Farmer Producer Organisation (FPO)',
+      headline: 'Producer collective',
+      description: 'Aggregate member harvest lots, run institutional auctions, and access working capital.',
+      iconEmoji: '🏢',
+      badge: 'Organisation',
+      bgLight: '#EBF5F0',
+      highlights: ['Bulk crop aggregation', 'Guaranteed escrow payout'],
+    },
+    {
       id: 'buyer',
       title: 'Buyer',
+      tooltip: 'Wholesale Buyer & Processor',
       headline: 'Source verified crops',
       description: 'Discover quality produce, place direct orders, and participate in live auctions.',
       iconEmoji: '🛒',
@@ -32,7 +45,8 @@ export default function RoleSelection({ onNavigate, navState }) {
     },
     {
       id: 'financier',
-      title: 'Financier',
+      title: 'Financial Institution',
+      tooltip: 'Financial Institution',
       headline: 'Trade credit & advances',
       description: 'Deploy working capital into verified, escrow-backed trade invoices.',
       iconEmoji: '💰',
@@ -43,6 +57,7 @@ export default function RoleSelection({ onNavigate, navState }) {
     {
       id: 'transporter',
       title: 'Transporter',
+      tooltip: 'Logistics Transporter',
       headline: 'Move freight & earn',
       description: 'Accept farmgate freight jobs, manage routes, and receive guaranteed freight pay.',
       iconEmoji: '🚚',
@@ -53,6 +68,7 @@ export default function RoleSelection({ onNavigate, navState }) {
     {
       id: 'warehouse',
       title: 'Warehouse',
+      tooltip: 'Warehouse Operator',
       headline: 'Certified storage hub',
       description: 'Operate certified storage chambers, issue digital receipts, and manage lots.',
       iconEmoji: '🏭',
@@ -120,8 +136,8 @@ export default function RoleSelection({ onNavigate, navState }) {
           </p>
         </div>
 
-        {/* 5 Selectable Cards with Staggered Entrance Animation */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5 text-left">
+        {/* 6 Selectable Cards with Staggered Entrance Animation */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-3.5 text-left">
           {roles.map((r, idx) => {
             const isSelected = selectedRole === r.id;
 
@@ -129,6 +145,7 @@ export default function RoleSelection({ onNavigate, navState }) {
               <div
                 key={r.id}
                 onClick={() => handleSelectRole(r.id)}
+                title={r.tooltip || r.title}
                 style={{ animationDelay: `${idx * 60}ms` }}
                 className={`animate-slide-up-fade relative p-3.5 sm:p-4 rounded-2xl cursor-pointer transition-all duration-300 border-2 bg-white flex flex-col justify-between group ${
                   isSelected
@@ -236,7 +253,7 @@ export default function RoleSelection({ onNavigate, navState }) {
 
       {/* 3. Bottom Footer */}
       <footer className="max-w-6xl w-full mx-auto text-center text-[10px] text-[#566861]/70 shrink-0">
-        <span>Agrolnk Secure Agricultural Digital Exchange • Next Step: Account Verification</span>
+        <span>AgroLnk Secure Agricultural Digital Exchange • Next Step: Account Verification</span>
       </footer>
 
     </div>

@@ -1,4 +1,4 @@
-// Agrolnk Supabase Deliveries & Logistics Engine
+// AgroLnk Supabase Deliveries & Logistics Engine
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange } from './syncChannel';
 

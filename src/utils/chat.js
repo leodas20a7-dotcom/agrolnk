@@ -617,9 +617,9 @@ export function getPlatformContacts(user) {
               threadKey: directKey,
               name: u.name || 'Verified Partner',
               role: (u.role || 'Partner').charAt(0).toUpperCase() + (u.role || 'Partner').slice(1),
-              category: u.role === 'farmer' || u.role === 'buyer' ? 'orders' : u.role === 'warehouse' ? 'warehouse' : 'logistics',
-              status: `${u.district || 'Tamil Nadu'} • Verified Agrolnk Partner`,
-              avatarColor: u.role === 'farmer' ? 'bg-emerald-600 text-white' : u.role === 'buyer' ? 'bg-indigo-600 text-white' : 'bg-amber-600 text-white',
+              category: u.role === 'farmer' || u.role === 'fpo' || u.role === 'buyer' ? 'orders' : u.role === 'warehouse' ? 'warehouse' : 'logistics',
+              status: `${u.district || 'Tamil Nadu'} • Verified AgroLnk Partner`,
+              avatarColor: u.role === 'farmer' || u.role === 'fpo' ? 'bg-emerald-600 text-white' : u.role === 'buyer' ? 'bg-indigo-600 text-white' : 'bg-amber-600 text-white',
               phoneMask: '+91 ***** *****',
               initials: (u.name || 'AP').slice(0, 2).toUpperCase(),
             });

@@ -227,7 +227,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
               <p className="text-xs sm:text-sm text-[#566861] leading-relaxed">
                 {currentKycStatus === 'pending'
                   ? 'We have received your institutional registration documents (RBI / NBFC registration). Once verified by the platform compliance team, borrower loan applications, credit requests, and escrow disbursals will unlock automatically.'
-                  : 'Agrolnk enforces statutory RBI digital lending norms. Financial institutions must complete regulatory authentication before reviewing borrower applications, evaluating collateral, or quoting trade financing.'}
+                  : 'AgroLnk enforces statutory RBI digital lending norms. Financial institutions must complete regulatory authentication before reviewing borrower applications, evaluating collateral, or quoting trade financing.'}
               </p>
             </div>
 

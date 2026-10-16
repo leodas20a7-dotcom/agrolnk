@@ -1,4 +1,4 @@
-// Agrolnk Supabase Authentication & Profile Management Layer
+// AgroLnk Supabase Authentication & Profile Management Layer
 import { supabase } from '../lib/supabase';
 
 const AGROLNK_USER_KEY = 'agrolnkUser';

@@ -167,7 +167,7 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
           <Button
             variant="primary"
             onClick={() =>
-              onNavigate(user.role === 'farmer' ? 'farmer-my-auctions' : 'buyer-live-auctions')
+              onNavigate((user.role === 'farmer' || user.role === 'fpo') ? 'farmer-my-auctions' : 'buyer-live-auctions')
             }
           >
             Back to Auctions
@@ -177,7 +177,7 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
     );
   }
 
-  const isFarmer = user.role === 'farmer' || user.id === auction.farmerId;
+  const isFarmer = user.role === 'farmer' || user.role === 'fpo' || user.id === auction.farmerId;
   const isAuctionEnded =
     auction.status !== 'live' || new Date(auction.endsAt).getTime() <= Date.now();
   const isCurrentUserWinner =

@@ -37,7 +37,7 @@ export default function LoanDeadlinesRepaymentModal({
   if (!isOpen) return null;
 
   const user = currentUser || { name: 'User', role: 'farmer' };
-  const isFarmer = user.role === 'farmer';
+  const isFarmer = user.role === 'farmer' || user.role === 'fpo';
 
   // Filter approved or active loans (and also keep track of repaid ones)
   const activeLoans = requests.filter(

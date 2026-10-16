@@ -258,7 +258,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               <p className="text-xs sm:text-sm text-[#566861] leading-relaxed">
                 {currentKycStatus === 'pending'
                   ? 'We have received your verification documents. Once approved by the administrator, direct produce lots, wholesale pricing, and escrow purchasing will unlock automatically.'
-                  : 'Agrolnk enforces mandatory KYC for all buyers to safeguard farmers against unauthorized orders, secure digital escrow payments, and ensure verified GST/Tax compliance.'}
+                  : 'AgroLnk enforces mandatory KYC for all buyers to safeguard farmers against unauthorized orders, secure digital escrow payments, and ensure verified GST/Tax compliance.'}
               </p>
             </div>
 

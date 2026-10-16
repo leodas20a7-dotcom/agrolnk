@@ -157,7 +157,7 @@ export default function PrivacyChatDrawer({
 
     try {
       let userOrders = [];
-      if (user.role === 'farmer') {
+      if (user.role === 'farmer' || user.role === 'fpo') {
         userOrders = await getFarmerOrders(user.id, user);
       } else if (user.role === 'buyer') {
         userOrders = await getBuyerOrders(user.id, user);
@@ -170,7 +170,7 @@ export default function PrivacyChatDrawer({
             defaultChannels.push({
               key: cnt.threadKey,
               title: `${cnt.name} (${cnt.role})`,
-              subtitle: cnt.status || 'Verified Agrolnk User • Direct Inquiries',
+              subtitle: cnt.status || 'Verified AgroLnk User • Direct Inquiries',
               role: cnt.role,
               category: cnt.category || 'orders',
               icon: Package,

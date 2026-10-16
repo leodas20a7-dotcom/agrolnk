@@ -13,7 +13,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Agrolnk Render Error caught by boundary:', error, errorInfo);
+    console.error('AgroLnk Render Error caught by boundary:', error, errorInfo);
   }
 
   handleReset = () => {

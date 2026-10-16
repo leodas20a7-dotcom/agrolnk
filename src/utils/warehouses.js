@@ -862,13 +862,13 @@ export function getWarehouseNotifications(userId, role = 'farmer', receiptsList 
 
   list.forEach((r) => {
     if (!r) return;
-    if (role === 'farmer' && r.farmerId && r.farmerId !== userId) return;
+    if ((role === 'farmer' || role === 'fpo') && r.farmerId && r.farmerId !== userId) return;
     if (role === 'warehouse' && r.warehouseId && r.warehouseId !== userId) return;
 
     const dues = calculateStorageRentalDues(r);
     if (!dues) return;
 
-    if (role === 'farmer') {
+    if (role === 'farmer' || role === 'fpo') {
       if (dues.isExpiringSoon) {
         notifications.push({
           id: `notif_exp_${r.id || Math.random()}`,

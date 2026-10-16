@@ -212,6 +212,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const getRoleIcon = (role) => {
     switch (role) {
       case 'farmer': return User;
+      case 'fpo': return Building2;
       case 'buyer': return Building2;
       case 'transporter': return Truck;
       case 'warehouse': return Building2;
@@ -735,7 +736,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     )}
                   </div>
                   <p className="text-[11px] text-[#1E40AF] leading-relaxed">
-                    💡 Approving will update the live capacity and accreditation documents visible across the Agrolnk marketplace.
+                    💡 Approving will update the live capacity and accreditation documents visible across the AgroLnk marketplace.
                   </p>
                 </div>
               )}

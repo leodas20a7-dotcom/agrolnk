@@ -1,4 +1,4 @@
-// Agrolnk Supabase Trade Financing Engine
+// AgroLnk Supabase Trade Financing Engine
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange } from './syncChannel';
 import { getCurrentUser } from './auth';
@@ -351,7 +351,7 @@ export async function getFarmerFinancingRequests(farmerId, currentUser) {
     if (!uid && !userEmail && !userName) return [];
 
     return all.filter((r) => {
-      if (r.applicantRole !== 'farmer') return false;
+      if (r.applicantRole !== 'farmer' && r.applicantRole !== 'fpo') return false;
       const appId = String(r.applicantId || '').trim();
       const appName = (r.applicantName || '').toLowerCase().trim();
       const appEmail = (r.applicantEmail || '').toLowerCase().trim();

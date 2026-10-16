@@ -72,8 +72,9 @@ const VALID_ROUTES = new Set([
   'admin-disputes',
   'admin-settings',
   'admin-commodities',
-  // Farmer
+  // Farmer & FPO
   'farmer-dashboard',
+  'fpo-dashboard',
   'farmer-create-listing',
   'farmer-preview-listing',
   'farmer-my-listings',
@@ -134,13 +135,13 @@ export function resolveRoute(rawRoute, user) {
     return user ? `${currentRole}-dashboard` : 'login';
   }
   if (clean === 'orders') {
-    return user ? `${currentRole}-orders` : 'login';
+    return user ? (currentRole === 'fpo' ? 'farmer-orders' : `${currentRole}-orders`) : 'login';
   }
   if (clean === 'financing') {
-    return user ? `${currentRole}-financing` : 'login';
+    return user ? (currentRole === 'fpo' ? 'farmer-financing' : `${currentRole}-financing`) : 'login';
   }
   if (clean === 'deliveries') {
-    return user ? `${currentRole}-deliveries` : 'login';
+    return user ? (currentRole === 'fpo' ? 'farmer-deliveries' : `${currentRole}-deliveries`) : 'login';
   }
   if (clean === 'inventory') {
     return 'farmer-inventory';
@@ -149,7 +150,7 @@ export function resolveRoute(rawRoute, user) {
     return 'buyer-marketplace';
   }
   if (clean === 'auctions') {
-    return user?.role === 'farmer' ? 'farmer-my-auctions' : 'buyer-live-auctions';
+    return (user?.role === 'farmer' || user?.role === 'fpo') ? 'farmer-my-auctions' : 'buyer-live-auctions';
   }
 
   if (VALID_ROUTES.has(clean)) {
@@ -182,6 +183,7 @@ const PAGE_MESSAGES = {
   'farmer-orders': 'Retrieving Escrow Contracts & Orders...',
   'buyer-orders': 'Retrieving Procurement Orders...',
   'farmer-dashboard': 'Syncing Farmer Desk...',
+  'fpo-dashboard': 'Syncing FPO Organisation Desk...',
   'buyer-dashboard': 'Syncing Buyer Terminal...',
   'financier-dashboard': 'Loading Capital & Liquidity Vault...',
   'warehouse-dashboard': 'Accessing Warehouse Storage Network...',
@@ -204,7 +206,7 @@ export default function App() {
 
   // Initial app load flash curtain to hide blank flashes
   useEffect(() => {
-    showGlobalLoader('Synchronizing Agrolnk...', 'Connecting to decentralized commodity network...');
+    showGlobalLoader('Synchronizing AgroLnk...', 'Connecting to decentralized commodity network...');
     const timer = setTimeout(() => {
       hideGlobalLoader();
     }, 350);
@@ -215,7 +217,7 @@ export default function App() {
   }, []);
 
   const triggerFlashTransition = (targetPage) => {
-    const msg = PAGE_MESSAGES[targetPage] || 'Loading Agrolnk...';
+    const msg = PAGE_MESSAGES[targetPage] || 'Loading AgroLnk...';
     showGlobalLoader(msg, 'Fetching verified records from network...');
     setTimeout(() => {
       hideGlobalLoader();
@@ -280,7 +282,7 @@ export default function App() {
       <LoadingProvider>
         <ToastProvider>
           <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
-            <Suspense fallback={<FlashLoadingScreen message="Loading Agrolnk Portal..." />}>
+            <Suspense fallback={<FlashLoadingScreen message="Loading AgroLnk Portal..." />}>
       {/* 1. Public Landing Page */}
       {currentPage === 'landing' && (
         <Landing
@@ -309,8 +311,8 @@ export default function App() {
         <Login onNavigate={handleNavigate} navState={navState} />
       )}
 
-      {/* 5. Farmer Experience Module Routes */}
-      {currentPage === 'farmer-dashboard' && (
+      {/* 5. Farmer & FPO Experience Module Routes */}
+      {(currentPage === 'farmer-dashboard' || currentPage === 'fpo-dashboard') && (
         <ProtectedRoute requiredRole="farmer" onNavigate={handleNavigate}>
           <FarmerDashboard
             currentUser={currentUser || navState.user}

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     name TEXT NOT NULL,
     email TEXT UNIQUE,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('farmer', 'buyer', 'transporter', 'warehouse', 'financier', 'admin')),
+    role TEXT NOT NULL CHECK (role IN ('farmer', 'buyer', 'transporter', 'warehouse', 'financier', 'admin', 'fpo')),
     company_name TEXT,
     state TEXT,
     district TEXT,
@@ -32,9 +32,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Ensure admin role is permitted in existing deployments
+-- Ensure admin and fpo roles are permitted in existing deployments
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
-ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('farmer', 'buyer', 'transporter', 'warehouse', 'financier', 'admin'));
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('farmer', 'buyer', 'transporter', 'warehouse', 'financier', 'admin', 'fpo'));
 
 -- ============================================================================
 -- 2. DIRECT SPOT MARKET LISTINGS
@@ -319,6 +319,11 @@ ALTER TABLE public.financing_requests ADD COLUMN IF NOT EXISTS repayment_notes T
 ALTER TABLE public.financing_requests DROP CONSTRAINT IF EXISTS financing_requests_status_check;
 ALTER TABLE public.financing_requests ADD CONSTRAINT financing_requests_status_check 
   CHECK (status IN ('pending', 'under_review', 'offer_received', 'borrower_accepted', 'approved', 'disbursed', 'escrow_secured', 'repaid', 'settled', 'rejected', 'cancelled'));
+
+-- Ensure fpo is permitted as an applicant_role
+ALTER TABLE public.financing_requests DROP CONSTRAINT IF EXISTS financing_requests_applicant_role_check;
+ALTER TABLE public.financing_requests ADD CONSTRAINT financing_requests_applicant_role_check 
+  CHECK (applicant_role IN ('farmer', 'buyer', 'fpo'));
 
 -- ============================================================================
 -- 8. QUALITY INSPECTION & ASSAY REPORTS

@@ -448,7 +448,7 @@ export default function OrderSummary({
       )}
 
       {/* 4. Farmer Simple Working Capital Option (Only before completion) */}
-      {viewerRole === 'farmer' && !isFarmerFinancing && order.status !== 'cancelled' && order.status !== 'completed' && onRequestFinancing && (
+      {(viewerRole === 'farmer' || viewerRole === 'fpo') && !isFarmerFinancing && order.status !== 'cancelled' && order.status !== 'completed' && onRequestFinancing && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] gap-2.5 text-left text-xs">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-[#0B3326] text-[#34D399]">

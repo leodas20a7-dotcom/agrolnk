@@ -3,7 +3,7 @@ import FlashLoadingScreen from '../components/ui/FlashLoadingScreen';
 
 const LoadingContext = createContext({
   isLoading: false,
-  message: 'Loading Agrolnk...',
+  message: 'Loading AgroLnk...',
   subMessage: 'Synchronizing verified exchange data...',
   showLoader: (msg, subMsg) => {},
   hideLoader: () => {},
@@ -13,7 +13,7 @@ const LoadingContext = createContext({
 /**
  * Global triggers accessible anywhere in the application
  */
-export function showGlobalLoader(message = 'Loading Agrolnk...', subMessage = 'Synchronizing verified exchange data...') {
+export function showGlobalLoader(message = 'Loading AgroLnk...', subMessage = 'Synchronizing verified exchange data...') {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('agrolnk_show_loading', {
@@ -43,7 +43,7 @@ export function withGlobalLoader(asyncFn, message = 'Loading Data...', subMessag
 export function LoadingProvider({ children }) {
   const [loadingState, setLoadingState] = useState({
     isOpen: false,
-    message: 'Loading Agrolnk...',
+    message: 'Loading AgroLnk...',
     subMessage: 'Synchronizing verified exchange data...',
   });
 
@@ -51,7 +51,7 @@ export function LoadingProvider({ children }) {
   const timeoutRef = useRef(null);
   const showTimeRef = useRef(0);
 
-  const showLoader = useCallback((message = 'Loading Agrolnk...', subMessage = 'Synchronizing verified exchange data...') => {
+  const showLoader = useCallback((message = 'Loading AgroLnk...', subMessage = 'Synchronizing verified exchange data...') => {
     activeCountRef.current += 1;
     showTimeRef.current = Date.now();
 

@@ -32,6 +32,7 @@ export default function Register({ onNavigate, navState }) {
 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRoleTooltip, setShowRoleTooltip] = useState(false);
 
   useEffect(() => {
     if (navState?.role) {
@@ -42,6 +43,7 @@ export default function Register({ onNavigate, navState }) {
   const roleMeta = {
     farmer: {
       title: 'Farmer',
+      tooltip: 'Farmer / Producer',
       emoji: '🌾',
       badge: 'Zero Commission',
       tagline: 'Sell produce directly & earn more',
@@ -51,8 +53,23 @@ export default function Register({ onNavigate, navState }) {
         '100% Escrow deposit protection',
       ],
       quote:
-        '“Agrolnk helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
+        '“AgroLnk helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
       author: 'Ramesh Patel, Producer (Madhya Pradesh)',
+    },
+    fpo: {
+      title: 'FPO / Organisation',
+      tooltip: 'Farmer Producer Organisation (FPO)',
+      emoji: '🏢',
+      badge: 'Organisation',
+      tagline: 'Aggregate member produce & trade in volume',
+      bullets: [
+        'Direct connection to national buyers & millers',
+        'Zero middleman deduction on settlements',
+        '100% Escrow deposit protection',
+      ],
+      quote:
+        '“AgroLnk helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
+      author: 'Ramesh Patel, FPO Lead (Madhya Pradesh)',
     },
     buyer: {
       title: 'Buyer',
@@ -69,7 +86,8 @@ export default function Register({ onNavigate, navState }) {
       author: 'Ananya Agro Foods, Commercial Miller',
     },
     financier: {
-      title: 'Financier',
+      title: 'Financial Institution',
+      tooltip: 'Financial Institution',
       emoji: '💰',
       badge: 'Escrow Backed',
       tagline: 'Finance verified agricultural trades',
@@ -93,7 +111,7 @@ export default function Register({ onNavigate, navState }) {
         'Verified GPS and consignment handover protocol',
       ],
       quote:
-        '“No more empty return trips. Agrolnk connects our fleet directly to harvesting farmgates across states.”',
+        '“No more empty return trips. AgroLnk connects our fleet directly to harvesting farmgates across states.”',
       author: 'Vetri Logistics & Transport, Fleet Operator',
     },
     warehouse: {
@@ -107,7 +125,7 @@ export default function Register({ onNavigate, navState }) {
         'Seamless marketplace release order verification',
       ],
       quote:
-        '“Agrolnk digitizes our warehouse receipts and connects our storage chambers directly to national trade flows.”',
+        '“AgroLnk digitizes our warehouse receipts and connects our storage chambers directly to national trade flows.”',
       author: 'Salem Agri Cold Storage Hub, WDRA Accredited Operator',
     },
   };
@@ -209,12 +227,12 @@ export default function Register({ onNavigate, navState }) {
             <div className="flex items-center gap-3">
               <img
                 src={logoImg}
-                alt="Agrolnk Logo"
+                alt="AgroLnk Logo"
                 className="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-xs"
               />
               <div>
                 <span className="text-xl font-bold tracking-tight text-white font-heading">
-                  Agrolnk
+                  AgroLnk
                 </span>
                 <span className="block text-[10px] text-[#10B981] font-semibold uppercase tracking-widest">
                   Agricultural Digital Exchange
@@ -281,16 +299,34 @@ export default function Register({ onNavigate, navState }) {
 
           <div className="space-y-6">
 
-            {/* Top Account Type Banner with "Change" Link */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
-              <div className="flex items-center gap-2">
+            {/* Top Account Type Banner with "Change" Link & Interactive Tooltip */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] relative">
+              <div
+                className="flex items-center gap-2 relative cursor-pointer group"
+                onClick={() => setShowRoleTooltip(prev => !prev)}
+                onMouseEnter={() => setShowRoleTooltip(true)}
+                onMouseLeave={() => setShowRoleTooltip(false)}
+                title={currentRole.tooltip || currentRole.title}
+              >
                 <span className="text-lg">{currentRole.emoji}</span>
                 <span className="text-xs text-[#566861]">
                   Account type:{' '}
-                  <strong className="text-[#0B3326] font-bold text-sm">
+                  <strong className="text-[#0B3326] font-bold text-sm hover:text-[#10B981] transition-colors underline decoration-dotted underline-offset-4 decoration-[#10B981]">
                     {currentRole.title}
                   </strong>
                 </span>
+
+                {/* Floating tooltip */}
+                {showRoleTooltip && currentRole.tooltip && (
+                  <div
+                    role="tooltip"
+                    className="absolute bottom-full left-0 mb-2 z-40 whitespace-nowrap bg-[#0B3326] text-white text-[11px] font-semibold py-1.5 px-3 rounded-lg shadow-xl border border-[#14624A] animate-in fade-in zoom-in-95 duration-150 flex items-center gap-1.5"
+                  >
+                    <span>{currentRole.emoji}</span>
+                    <span>{currentRole.tooltip}</span>
+                    <div className="absolute top-full left-6 -mt-1 w-2 h-2 bg-[#0B3326] rotate-45 border-b border-r border-[#14624A]" />
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -304,7 +340,7 @@ export default function Register({ onNavigate, navState }) {
             {/* Form Headline */}
             <div className="space-y-1 text-left">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
-                Create your Agrolnk account
+                Create your AgroLnk account
               </h1>
               <p className="text-xs sm:text-sm text-[#566861]">
                 Join a marketplace built for better agricultural opportunities.
@@ -325,7 +361,11 @@ export default function Register({ onNavigate, navState }) {
               {/* Full Name */}
               <div>
                 <label className="block text-xs font-bold text-[#14211D] mb-1.5">
-                  Full name
+                  {selectedRole === 'fpo'
+                    ? 'Organisation / FPO name'
+                    : selectedRole === 'financier'
+                    ? 'Financial Institution name'
+                    : 'Full name'}
                 </label>
                 <input
                   type="text"
@@ -333,7 +373,13 @@ export default function Register({ onNavigate, navState }) {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g. Ramesh Kumar"
+                  placeholder={
+                    selectedRole === 'fpo'
+                      ? 'e.g. Cauvery Delta Farmers Collective'
+                      : selectedRole === 'financier'
+                      ? 'e.g. Kisan Capital NBFC / Ankit Sharma'
+                      : 'e.g. Ramesh Kumar'
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
                 />
               </div>

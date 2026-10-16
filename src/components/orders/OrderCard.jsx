@@ -78,7 +78,7 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
           <p className="text-xs text-[#566861] mt-1 flex items-center gap-1">
             <User className="w-3.5 h-3.5 text-[#10B981]" />
             <span>
-              {viewerRole === 'farmer'
+              {(viewerRole === 'farmer' || viewerRole === 'fpo')
                 ? `Buyer: ${order.buyerName || 'Wholesale Buyer'}`
                 : `Farmer: ${order.farmerName || 'Verified Producer'}`}
             </span>
@@ -87,7 +87,7 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
 
         <div className="text-right">
           <span className="text-xs text-[#566861] block font-medium">
-            {viewerRole === 'farmer' ? 'Receivable Payout' : 'Order Total'}
+            {(viewerRole === 'farmer' || viewerRole === 'fpo') ? 'Receivable Payout' : 'Order Total'}
           </span>
           <span className="text-xl font-extrabold text-[#0B3326] font-heading">
             ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}

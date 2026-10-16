@@ -17,15 +17,15 @@ export default function AuthLayout({ children, onBack, title, subtitle }) {
           </div>
         )}
 
-        {/* Agrolnk Logo */}
+        {/* AgroLnk Logo */}
         <div className="flex items-center justify-center gap-2.5">
           <img
             src={logoImg}
-            alt="Agrolnk Logo"
+            alt="AgroLnk Logo"
             className="w-10 h-10 object-contain rounded-xl bg-white border border-[#E5EDE8] p-0.5 shadow-xs"
           />
           <span className="text-2xl font-extrabold tracking-tight text-[#0B3326] font-heading">
-            Agrolnk
+            AgroLnk
           </span>
         </div>
 
@@ -47,7 +47,7 @@ export default function AuthLayout({ children, onBack, title, subtitle }) {
 
       <div className="mt-8 text-center flex items-center justify-center gap-1.5 text-xs text-[#566861]">
         <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-        <span>Protected by Agrolnk Trust & Escrow Architecture</span>
+        <span>Protected by AgroLnk Trust & Escrow Architecture</span>
       </div>
     </div>
   );

@@ -1,10 +1,23 @@
 import React, { useEffect } from 'react';
 import { getCurrentUser, isAuthenticated, getUserRole } from '../utils/auth';
 
-export default function ProtectedRoute({ children, requiredRole, onNavigate }) {
+export default function ProtectedRoute({ children, requiredRole, allowedRoles, onNavigate }) {
   const authenticated = isAuthenticated();
   const user = getCurrentUser();
   const currentRole = getUserRole();
+
+  const isRoleAllowed = () => {
+    if (allowedRoles && Array.isArray(allowedRoles)) {
+      return allowedRoles.includes(currentRole);
+    }
+    if (requiredRole) {
+      if (requiredRole === 'farmer') {
+        return currentRole === 'farmer' || currentRole === 'fpo';
+      }
+      return currentRole === requiredRole;
+    }
+    return true;
+  };
 
   useEffect(() => {
     if (!authenticated || !user) {
@@ -12,11 +25,11 @@ export default function ProtectedRoute({ children, requiredRole, onNavigate }) {
       return;
     }
 
-    if (requiredRole && currentRole && currentRole !== requiredRole) {
+    if (!isRoleAllowed()) {
       // Redirect to the user's appropriate role dashboard
       onNavigate(`${currentRole}-dashboard`, { user }, true);
     }
-  }, [authenticated, user, currentRole, requiredRole, onNavigate]);
+  }, [authenticated, user, currentRole, requiredRole, allowedRoles, onNavigate]);
 
   if (!authenticated || !user) {
     return (
@@ -29,7 +42,7 @@ export default function ProtectedRoute({ children, requiredRole, onNavigate }) {
     );
   }
 
-  if (requiredRole && currentRole !== requiredRole) {
+  if (!isRoleAllowed()) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAF8]">
         <div className="text-center space-y-3">
