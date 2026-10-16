@@ -7,6 +7,7 @@ import SearchableSelect from '../ui/SearchableSelect';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 import { uploadProduceImage } from '../../utils/imageUpload';
 import { toast } from '../../context/ToastContext';
+import MultiMediaUploader from '../ui/MultiMediaUploader';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
   const grades = ['Grade A', 'Grade B', 'Grade C'];
@@ -266,59 +267,25 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
         </div>
       </div>
 
-      {/* 4. Produce Photo Upload */}
+      {/* 4. Produce Media Gallery */}
       <div className="p-6 sm:p-7 rounded-3xl bg-white border border-[#E5EDE8] shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-[#E5EDE8]">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center text-xs font-bold font-heading">
-              4
-            </span>
-            <h3 className="text-base font-bold text-[#0B3326] font-heading">
-              Produce Photo
-            </h3>
-          </div>
-          <span className="text-xs text-[#566861]">1–5 images</span>
+        <div className="flex items-center gap-2 pb-2 border-b border-[#E5EDE8]">
+          <span className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center text-xs font-bold font-heading">
+            4
+          </span>
+          <h3 className="text-base font-bold text-[#0B3326] font-heading">
+            Produce Photos &amp; Video
+          </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-          {/* Upload Area */}
-          <label className="p-6 rounded-2xl border-2 border-dashed border-[#E5EDE8] hover:border-[#10B981] bg-[#F8FAF8] hover:bg-[#F2FBF6] flex flex-col items-center justify-center text-center cursor-pointer transition-all">
-            <Camera className="w-8 h-8 text-[#10B981] mb-2" />
-            <span className="text-xs font-bold text-[#0B3326]">
-              Upload produce photo
-            </span>
-            <span className="text-[10px] text-[#566861] mt-0.5">
-              JPG, PNG up to 10MB
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleCustomImage}
-              className="hidden"
-            />
-          </label>
-
-          {/* Current Selected Thumbnail Preview */}
-          <div className="relative rounded-2xl overflow-hidden border border-[#E5EDE8] bg-[#F8FAF8] h-32 flex items-center justify-center">
-            {formData.images?.[0] ? (
-              <img
-                src={formData.images[0]}
-                alt={formData.commodity}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="text-center text-xs text-[#566861]">
-                <ImageIcon className="w-6 h-6 mx-auto mb-1 text-[#566861]/50" />
-                <span>Auto-matches {formData.commodity}</span>
-              </div>
-            )}
-            <div className="absolute bottom-2 right-2">
-              <Badge variant="dark" size="sm">
-                Active Preview
-              </Badge>
-            </div>
-          </div>
-        </div>
+        <MultiMediaUploader
+          media={formData.images || []}
+          onChange={(newMedia) => {
+            onImageChange?.(newMedia, false);
+          }}
+          maxFiles={8}
+          maxVideos={1}
+        />
       </div>
 
     </div>

@@ -23,6 +23,7 @@ import Button from '../ui/Button';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 import { copyToClipboard } from '../../context/ToastContext';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
+import ProductMediaSlider from '../ui/ProductMediaSlider';
 
 export default function ProduceDetailModal({
   listing,
@@ -122,66 +123,57 @@ export default function ProduceDetailModal({
       }
     >
       <div className="space-y-6">
-        {/* Hero Section with Image & Badges */}
-        <div className="relative h-48 sm:h-56 rounded-2xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8]">
-          <img
-            src={listing.images?.[0] || fallbackImg}
-            alt={listing.commodity}
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = fallbackImg;
-            }}
-            className={`w-full h-full object-cover ${isSoldOut ? 'grayscale-25' : ''}`}
-          />
-
-          {/* Floating Badges */}
-          <div className="absolute top-3 left-3 flex items-center gap-2">
-            <Badge variant="dark" size="sm">
-              Grade {listing.grade}
-            </Badge>
-            <Badge
-              variant={isAuction ? 'amber' : 'accent'}
-              size="sm"
-              dot={isAuction}
-            >
-              {isAuction ? 'Live Auction' : 'Direct Sale'}
-            </Badge>
-          </div>
-
-          <div className="absolute top-3 right-3">
-            {isSoldOut ? (
-              <Badge variant="dark" size="sm" dot={false}>
-                Sold Out
+        {/* Hero Section with ProductMediaSlider & Badges */}
+        <ProductMediaSlider
+          media={listing.images || []}
+          commodity={listing.commodity}
+          aspectClassName="h-56 sm:h-64"
+          overlayBadges={
+            <>
+              <Badge variant="dark" size="sm">
+                Grade {listing.grade}
               </Badge>
-            ) : (
-              <Badge variant="emerald" size="sm" dot={true}>
-                Active & Visible
+              <Badge
+                variant={isAuction ? 'amber' : 'accent'}
+                size="sm"
+                dot={isAuction}
+              >
+                {isAuction ? 'Live Auction' : 'Direct Sale'}
               </Badge>
-            )}
-          </div>
-
-          {/* Bottom Banner */}
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex items-end justify-between text-white">
-            <div>
-              <h4 className="text-xl font-black font-heading text-white">
-                {listing.commodity}
-              </h4>
-              {hasSpecificVariety(listing.variety) && (
-                <p className="text-xs text-white/90 font-medium">
-                  Variety: {listing.variety}
-                </p>
+              {isSoldOut ? (
+                <Badge variant="dark" size="sm" dot={false}>
+                  Sold Out
+                </Badge>
+              ) : (
+                <Badge variant="emerald" size="sm" dot={true}>
+                  Active &amp; Visible
+                </Badge>
               )}
+            </>
+          }
+          bottomOverlay={
+            <div className="rounded-2xl bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3.5 flex items-end justify-between text-white backdrop-blur-2xs">
+              <div>
+                <h4 className="text-xl font-black font-heading text-white">
+                  {listing.commodity}
+                </h4>
+                {hasSpecificVariety(listing.variety) && (
+                  <p className="text-xs text-white/90 font-medium">
+                    Variety: {listing.variety}
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-white/80 block uppercase tracking-wider font-semibold">
+                  Est. Lot Value
+                </span>
+                <span className="text-lg font-black text-[#34D399]">
+                  ₹{totalValue.toLocaleString('en-IN')}
+                </span>
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] text-white/80 block uppercase tracking-wider font-semibold">
-                Est. Lot Value
-              </span>
-              <span className="text-lg font-black text-[#34D399]">
-                ₹{totalValue.toLocaleString('en-IN')}
-              </span>
-            </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* Highlight Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

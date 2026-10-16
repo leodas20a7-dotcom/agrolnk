@@ -1,10 +1,11 @@
 import React from 'react';
-import { MapPin, Tag, Gavel, Clock, ShieldCheck, Eye, Edit3, Trash2 } from 'lucide-react';
+import { MapPin, Tag, Gavel, Clock, ShieldCheck, Eye, Edit3, Trash2, Camera, Film } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
+import { isVideoUrl } from '../../utils/imageUpload';
 
 export default function ListingCard({ listing, onView, onEdit, onDelete }) {
   const isAuction = listing.saleType === 'auction';
@@ -51,6 +52,17 @@ export default function ListingCard({ listing, onView, onEdit, onDelete }) {
               </Badge>
             )}
           </div>
+
+          {/* Media Count Badge */}
+          {listing.images && listing.images.length > 1 && !isAuction && (
+            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs flex items-center gap-1 z-10 shadow-xs border border-white/20">
+              <Camera className="w-3 h-3 text-white/90" />
+              <span>{listing.images.length}</span>
+              {listing.images.some(isVideoUrl) && (
+                <Film className="w-3 h-3 text-[#10B981] ml-0.5" />
+              )}
+            </div>
+          )}
 
           {/* Auction Countdown pill if auction */}
           {isAuction && listing.auctionEndsIn && !isSoldOut && (

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { createListing, COMMODITY_IMAGES } from '../../utils/listings';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
+import ProductMediaSlider from '../../components/ui/ProductMediaSlider';
 
 const STORAGE_ACTIVE_PREVIEW_KEY = 'agrolnk_active_listing_preview';
 
@@ -131,33 +132,30 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
         {/* Main Buyer Perspective Card */}
         <Card className="p-6 sm:p-8 bg-white border border-[#E5EDE8] shadow-md space-y-6">
           
-          {/* Image & Header Overlay */}
-          <div className="relative h-64 sm:h-72 rounded-3xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8]">
-            <img
-              src={
-                listingData.images?.[0] ||
-                'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80'
-              }
-              alt={listingData.commodity}
-              className="w-full h-full object-cover"
-            />
-            
-            <div className="absolute top-4 left-4 flex items-center gap-2">
-              <Badge variant="dark" size="md" className="font-bold">
-                Grade {listingData.grade}
-              </Badge>
-              <Badge variant="accent" size="md">
-                {listingData.saleType === 'direct' ? 'DIRECT SALE' : 'LIVE AUCTION'}
-              </Badge>
-            </div>
-
-            <div className="absolute bottom-4 left-4 right-4 p-3 rounded-2xl bg-[#0B3326]/90 text-white flex items-center justify-between text-xs backdrop-blur-xs">
-              <span className="flex items-center gap-1.5 text-[#34D399] font-medium">
-                <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Escrow Secured Trading
-              </span>
-              <span className="font-bold">Ready for Instant Lock</span>
-            </div>
-          </div>
+          {/* Produce Media Slider & Header Overlay */}
+          <ProductMediaSlider
+            media={listingData.images || []}
+            commodity={listingData.commodity}
+            aspectClassName="h-64 sm:h-80"
+            overlayBadges={
+              <>
+                <Badge variant="dark" size="md" className="font-bold">
+                  Grade {listingData.grade}
+                </Badge>
+                <Badge variant="accent" size="md">
+                  {listingData.saleType === 'direct' ? 'DIRECT SALE' : 'LIVE AUCTION'}
+                </Badge>
+              </>
+            }
+            bottomOverlay={
+              <div className="p-3 rounded-2xl bg-[#0B3326]/90 text-white flex items-center justify-between text-xs backdrop-blur-xs">
+                <span className="flex items-center gap-1.5 text-[#34D399] font-medium">
+                  <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Escrow Secured Trading
+                </span>
+                <span className="font-bold">Ready for Instant Lock</span>
+              </div>
+            }
+          />
 
           {/* Title & Origin Details */}
           <div className="space-y-3">

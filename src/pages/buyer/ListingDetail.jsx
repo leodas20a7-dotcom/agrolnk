@@ -26,6 +26,7 @@ import { deductListingQuantity, getListingById, COMMODITY_IMAGES } from '../../u
 import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
 import { getResolvedUserKycStatus } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import ProductMediaSlider from '../../components/ui/ProductMediaSlider';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 
 const STORAGE_ACTIVE_LISTING_KEY = 'agrolnk_active_listing_detail';
@@ -218,35 +219,31 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         {/* Main Produce Showcase Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Column: Produce Photo & Visual Badges */}
+          {/* Left Column: Produce Photo/Video Slider & Visual Badges */}
           <div className="lg:col-span-7 space-y-4">
-            <div className="relative h-72 sm:h-96 rounded-3xl overflow-hidden bg-[#F8FAF8] border border-[#E5EDE8] shadow-xs">
-              <img
-                src={listing.images?.[0] || fallbackImg}
-                alt={listing.commodity}
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = fallbackImg;
-                }}
-                className="w-full h-full object-cover"
-              />
-
-              <div className="absolute top-4 left-4 flex items-center gap-2">
-                <Badge variant="dark" size="md" className="font-bold">
-                  Grade {listing.grade}
-                </Badge>
-                <Badge variant="accent" size="md">
-                  {listing.saleType === 'direct' ? 'DIRECT SALE' : 'LIVE AUCTION'}
-                </Badge>
-              </div>
-
-              <div className="absolute bottom-4 left-4 right-4 p-3 rounded-2xl bg-[#0B3326]/90 text-white flex items-center justify-between text-xs backdrop-blur-xs">
-                <span className="flex items-center gap-1.5 text-[#34D399] font-medium">
-                  <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Escrow Secured Agreement
-                </span>
-                <span className="font-bold">Ready for Dispatch</span>
-              </div>
-            </div>
+            <ProductMediaSlider
+              media={listing.images || []}
+              commodity={listing.commodity}
+              aspectClassName="h-72 sm:h-96"
+              overlayBadges={
+                <>
+                  <Badge variant="dark" size="md" className="font-bold">
+                    Grade {listing.grade}
+                  </Badge>
+                  <Badge variant="accent" size="md">
+                    {listing.saleType === 'direct' ? 'DIRECT SALE' : 'LIVE AUCTION'}
+                  </Badge>
+                </>
+              }
+              bottomOverlay={
+                <div className="p-3 rounded-2xl bg-[#0B3326]/90 text-white flex items-center justify-between text-xs backdrop-blur-xs">
+                  <span className="flex items-center gap-1.5 text-[#34D399] font-medium">
+                    <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Escrow Secured Agreement
+                  </span>
+                  <span className="font-bold">Ready for Dispatch</span>
+                </div>
+              }
+            />
 
             {/* Quality & Assay Specifications */}
             <Card className="p-6 bg-white border border-[#E5EDE8] space-y-4 shadow-xs">

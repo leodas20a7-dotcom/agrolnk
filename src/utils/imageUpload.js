@@ -243,3 +243,187 @@ export async function uploadProduceImage(file, folder = 'listings', options = {}
     }
   }
 }
+
+/**
+ * Checks whether a File/Blob is a video
+ */
+export function isVideoFile(file) {
+  if (!file) return false;
+  return Boolean(
+    file.type?.startsWith('video/') ||
+    /\.(mp4|webm|mov|m4v|ogg)$/i.test(file.name || '')
+  );
+}
+
+/**
+ * Checks whether a URL points to a video
+ */
+export function isVideoUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.split('?')[0].toLowerCase();
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.m4v') ||
+    url.startsWith('data:video/') ||
+    url.includes('/video/') ||
+    (url.startsWith('blob:') && (url.includes('video') || clean.endsWith('.mp4')))
+  );
+}
+
+/**
+ * Asynchronously inspects the duration of a video file using HTML5 Video metadata
+ * @param {File|Blob} file
+ * @returns {Promise<number>} Duration in seconds
+ */
+export function getVideoDuration(file) {
+  return new Promise((resolve, reject) => {
+    try {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      const objectUrl = URL.createObjectURL(file);
+
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(video.duration || 0);
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Unable to read video file metadata. Please check the format.'));
+      };
+
+      video.src = objectUrl;
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
+ * Validates video duration (≤ 10-12s) and file size (≤ 20MB)
+ * @param {File} file
+ * @param {number} [maxSeconds=12]
+ * @param {number} [maxBytes=20971520]
+ */
+export async function validateVideoFile(file, maxSeconds = 12, maxBytes = 20 * 1024 * 1024) {
+  if (!isVideoFile(file)) {
+    throw new Error('Selected file is not a supported video format (MP4, WebM, MOV).');
+  }
+
+  if (file.size > maxBytes) {
+    throw new Error(`Video size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 20MB limit.`);
+  }
+
+  const duration = await getVideoDuration(file);
+  if (duration > maxSeconds) {
+    throw new Error(`Video is ${Math.round(duration)} seconds long. Short lot videos must be 10 seconds or less.`);
+  }
+
+  return { isValid: true, duration };
+}
+
+/**
+ * Uploads a short video clip (5s-10s) to Supabase Storage 'listings' bucket
+ * @param {File} file
+ * @param {string} [folder='listings']
+ * @returns {Promise<string>} Public URL of the uploaded video
+ */
+export async function uploadProduceVideo(file, folder = 'listings') {
+  if (!file) return null;
+
+  await validateVideoFile(file);
+
+  const rawExt = (file.name || '').split('.').pop() || 'mp4';
+  const ext = ['mp4', 'webm', 'mov'].includes(rawExt.toLowerCase()) ? rawExt.toLowerCase() : 'mp4';
+  const fileName = `vid_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+  const filePath = fileName;
+
+  const { data, error } = await supabase.storage
+    .from(folder)
+    .upload(filePath, file, {
+      contentType: file.type || 'video/mp4',
+      cacheControl: '31536000',
+      upsert: true,
+    });
+
+  if (error) {
+    throw new Error(`Video upload to Supabase failed: ${error.message}`);
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from(folder)
+    .getPublicUrl(filePath);
+
+  return publicUrlData?.publicUrl || null;
+}
+
+/**
+ * Batch processes and uploads an array of photos and/or short video clips
+ * Photos are auto-compressed via HTML5 Canvas (WebP/JPEG max 1200px);
+ * Video clips are validated (≤10s) and uploaded directly.
+ * 
+ * @param {File[]} files - Array of files to process
+ * @param {Function} [onProgress] - Callback ({ current, total, percent, fileName, type, status })
+ * @returns {Promise<{ urls: string[], errors: Array<{ fileName: string, message: string }> }>}
+ */
+export async function uploadMultipleProduceMedia(files, onProgress) {
+  if (!Array.isArray(files) || files.length === 0) {
+    return { urls: [], errors: [] };
+  }
+
+  const urls = [];
+  const errors = [];
+  const total = files.length;
+
+  for (let i = 0; i < total; i++) {
+    const file = files[i];
+    const isVid = isVideoFile(file);
+
+    try {
+      if (isVid) {
+        onProgress?.({
+          current: i + 1,
+          total,
+          percent: Math.round(((i + 0.3) / total) * 100),
+          fileName: file.name,
+          type: 'video',
+          status: `Uploading short video clip "${file.name}"...`,
+        });
+
+        const videoUrl = await uploadProduceVideo(file, 'listings');
+        if (videoUrl) {
+          urls.push(videoUrl);
+        }
+      } else {
+        onProgress?.({
+          current: i + 1,
+          total,
+          percent: Math.round(((i + 0.3) / total) * 100),
+          fileName: file.name,
+          type: 'image',
+          status: `Compressing & uploading photo "${file.name}"...`,
+        });
+
+        const imgUrl = await uploadProduceImage(file, 'listings');
+        if (imgUrl) {
+          urls.push(imgUrl);
+        }
+      }
+    } catch (err) {
+      console.error(`Media upload error for ${file.name}:`, err);
+      errors.push({ fileName: file.name, message: err.message });
+    }
+  }
+
+  onProgress?.({
+    current: total,
+    total,
+    percent: 100,
+    status: 'All media uploads complete!',
+  });
+
+  return { urls, errors };
+}
+

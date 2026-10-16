@@ -23,6 +23,7 @@ import { getResolvedUserKycStatus } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
+import MultiMediaUploader from '../../components/ui/MultiMediaUploader';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -337,6 +338,21 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                     searchPlaceholder="Search unit..."
                   />
                 </div>
+              </div>
+
+              {/* Photos & Video Multi-Media Upload */}
+              <div className="sm:col-span-2 pt-3 border-t border-[#E5EDE8]">
+                <MultiMediaUploader
+                  media={formData.images || []}
+                  onChange={(newMedia) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      images: newMedia,
+                    }));
+                  }}
+                  maxFiles={8}
+                  maxVideos={1}
+                />
               </div>
             </div>
           </div>
