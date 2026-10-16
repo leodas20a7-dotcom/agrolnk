@@ -41,7 +41,6 @@ export default function Login({ onNavigate, navState }) {
   const [registerError, setRegisterError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [hoveredRole, setHoveredRole] = useState(null);
-  const [activeTooltipRole, setActiveTooltipRole] = useState(navState?.role || 'farmer');
 
   const roles = [
     { id: 'farmer', label: 'Farmer', tooltip: 'Farmer / Producer', icon: '🌾' },
@@ -390,13 +389,13 @@ export default function Login({ onNavigate, navState }) {
                       Choose Your Role
                     </label>
                     <span className="text-[11px] font-semibold text-[#10B981] transition-all duration-200 truncate ml-2">
-                      {roles.find(r => r.id === (hoveredRole || activeTooltipRole || selectedRole))?.tooltip}
+                      {roles.find(r => r.id === (hoveredRole || selectedRole))?.tooltip}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1 relative">
                     {roles.map((r) => {
                       const isSelected = selectedRole === r.id;
-                      const isTooltipVisible = hoveredRole === r.id || (activeTooltipRole === r.id && selectedRole === r.id);
+                      const isTooltipVisible = hoveredRole === r.id;
                       
                       // Alignment for edge pills to avoid clipping
                       const tooltipAlign = r.id === 'farmer' 
@@ -413,7 +412,7 @@ export default function Login({ onNavigate, navState }) {
 
                       return (
                         <div key={r.id} className="relative flex-1 min-w-[65px] sm:min-w-0">
-                          {/* Floating Tooltip Bubble on Hover or Click */}
+                          {/* Floating Tooltip Bubble ONLY on Hover */}
                           {isTooltipVisible && (
                             <div
                               role="tooltip"
@@ -428,16 +427,11 @@ export default function Login({ onNavigate, navState }) {
                           <button
                             type="button"
                             title={r.tooltip}
-                            onClick={() => {
-                              setSelectedRole(r.id);
-                              setActiveTooltipRole(r.id);
-                            }}
+                            onClick={() => setSelectedRole(r.id)}
                             onMouseEnter={() => setHoveredRole(r.id)}
                             onMouseLeave={() => setHoveredRole(null)}
-                            onFocus={() => setActiveTooltipRole(r.id)}
-                            onBlur={() => {
-                              if (hoveredRole === r.id) setHoveredRole(null);
-                            }}
+                            onFocus={() => setHoveredRole(r.id)}
+                            onBlur={() => setHoveredRole(null)}
                             className={`w-full py-2.5 px-1.5 rounded-xl text-center transition-all cursor-pointer border flex flex-col items-center justify-center gap-1 ${isSelected
                               ? 'bg-[#0B3326] text-white border-[#0B3326] shadow-xs ring-2 ring-[#10B981]/40'
                               : 'bg-[#F8FAF8] text-[#566861] border-[#E5EDE8] hover:border-[#10B981]/50 hover:bg-white'
