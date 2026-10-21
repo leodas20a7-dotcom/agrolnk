@@ -6,9 +6,11 @@ import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 import { createFinancingRequest, getFinancingRequests } from '../../utils/financing';
 import { getResolvedUserKycStatus } from '../../utils/auth';
+import { convertVolume, getRateInUnit } from '../../utils/pricingUnits';
 
 export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
-  const [purchaseQty, setPurchaseQty] = useState(listing ? Math.min(100, listing.quantity) : 100);
+  const [purchaseUnit, setPurchaseUnit] = useState(listing?.unit === 'MT' ? 'Quintal' : (listing?.unit || 'Quintal'));
+  const [purchaseQty, setPurchaseQty] = useState(1);
   const [paymentMode, setPaymentMode] = useState('direct'); // 'direct' | 'trade_credit'
   const [financePct, setFinancePct] = useState(0.8); // 80% financing by default
   const [deliveryState, setDeliveryState] = useState(currentUser?.state || 'Tamil Nadu');
@@ -23,7 +25,11 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
   useEffect(() => {
     if (listing?.quantity) {
-      setPurchaseQty(Math.min(100, listing.quantity));
+      const defaultUnit = listing.unit === 'MT' ? 'Quintal' : (listing.unit || 'kg');
+      setPurchaseUnit(defaultUnit);
+      const maxInUnit = convertVolume(listing.quantity, listing.unit, defaultUnit);
+      const initialQty = defaultUnit === 'MT' ? Math.min(1, maxInUnit) : (defaultUnit === 'Quintal' ? Math.min(10, maxInUnit) : Math.min(100, maxInUnit));
+      setPurchaseQty(initialQty > 0 ? initialQty : maxInUnit);
     }
     setPaymentMode('direct');
     setCreditSuccessMsg(null);
@@ -66,13 +72,29 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
   if (!isOpen || !listing) return null;
 
-  const qty = Number(purchaseQty || 0);
-  const unitPrice = Number(listing.price || 0);
-  const subtotal = qty * unitPrice;
+  const qty = Math.max(0, Number(purchaseQty || 0));
+  const activeRate = getRateInUnit(listing.price, listing.unit, purchaseUnit);
+  const subtotal = Math.round(qty * activeRate);
   const financials = calculateOrderFinancials(subtotal);
+
+  // Canonical cross-unit conversions
+  const maxInSelectedUnit = convertVolume(listing.quantity, listing.unit, purchaseUnit);
+  const quantityInListingUnit = convertVolume(qty, purchaseUnit, listing.unit);
+  const totalKg = convertVolume(qty, purchaseUnit, 'kg');
+  const totalQuintals = convertVolume(qty, purchaseUnit, 'Quintal');
+  const totalMT = convertVolume(qty, purchaseUnit, 'MT');
 
   const financedLoanAmount = Math.round(financials.totalBuyerPayable * financePct);
   const buyerMarginDeposit = financials.totalBuyerPayable - financedLoanAmount;
+
+  const handleUnitSwitch = (newUnit) => {
+    if (newUnit === purchaseUnit) return;
+    const currentQtyNum = Number(purchaseQty) || 0;
+    const converted = convertVolume(currentQtyNum, purchaseUnit, newUnit);
+    const rounded = Number.isInteger(converted) ? converted : Math.round(converted * 100) / 100;
+    setPurchaseUnit(newUnit);
+    setPurchaseQty(rounded > 0 ? rounded : 1);
+  };
 
   const deliveryLocationPayload = {
     state: deliveryState.trim() || currentUser?.state || 'Tamil Nadu',
@@ -95,8 +117,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       setError('Please enter a valid purchase quantity.');
       return;
     }
-    if (qty > listing.quantity) {
-      setError(`Cannot purchase more than available quantity (${listing.quantity} ${listing.unit}).`);
+    if (qty > maxInSelectedUnit) {
+      setError(`Cannot purchase more than available quantity (${maxInSelectedUnit.toLocaleString('en-IN')} ${purchaseUnit}).`);
       return;
     }
     if (!deliveryDistrict.trim() || !deliveryAddress.trim()) {
@@ -119,6 +141,9 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     initiateRazorpayRouteCheckout({
       listing,
       quantity: qty,
+      pricePerUnit: activeRate,
+      customTradeValue: subtotal,
+      purchaseUnit: purchaseUnit,
       buyerUser: currentUser,
       onSuccess: (paymentData) => {
         setIsSubmitting(false);
@@ -138,9 +163,14 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
           variety: listing.variety,
           grade: listing.grade,
           quantity: qty,
-          unit: listing.unit,
-          pricePerUnit: listing.price,
+          unit: purchaseUnit,
+          pricePerUnit: activeRate,
           totalAmount: subtotal,
+          quantityInListingUnit: quantityInListingUnit,
+          listingUnit: listing.unit,
+          totalKg: totalKg,
+          totalMT: totalMT,
+          totalQuintals: totalQuintals,
           buyerFee: financials.buyerFee,
           sellerFee: financials.sellerFee,
           platformRevenue: financials.totalPlatformCommission,
@@ -179,14 +209,14 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
         variety: listing.variety || 'Standard Lot',
         grade: listing.grade || 'A',
         quantity: qty,
-        unit: listing.unit || 'kg',
+        unit: purchaseUnit,
         transactionValue: financials.totalBuyerPayable,
         requestedAmount: financedLoanAmount,
         purpose: 'trade_credit',
         purposeLabel: 'Procurement Trade Credit & Purchase Settlement (NBFC Supported)',
         repaymentOption: '30_day_settlement',
         repaymentLabel: '30-Day Net Settlement',
-        notes: `Direct purchase trade credit application for ${qty} ${listing.unit} of ${listing.commodity}. Destination: ${deliveryLocationPayload.district}, ${deliveryLocationPayload.state}. Margin money deposit: ${formatINR(buyerMarginDeposit)}.`,
+        notes: `Direct purchase trade credit application for ${qty} ${purchaseUnit} (${totalMT} MT / ${totalQuintals} Qtl) of ${listing.commodity}. Destination: ${deliveryLocationPayload.district}, ${deliveryLocationPayload.state}. Margin money deposit: ${formatINR(buyerMarginDeposit)}.`,
       });
 
       // Dispatch event for other tabs/underwriter desk
@@ -204,9 +234,14 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
         variety: listing.variety,
         grade: listing.grade,
         quantity: qty,
-        unit: listing.unit,
-        pricePerUnit: listing.price,
+        unit: purchaseUnit,
+        pricePerUnit: activeRate,
         totalAmount: subtotal,
+        quantityInListingUnit: quantityInListingUnit,
+        listingUnit: listing.unit,
+        totalKg: totalKg,
+        totalMT: totalMT,
+        totalQuintals: totalQuintals,
         buyerFee: financials.buyerFee,
         sellerFee: financials.sellerFee,
         platformRevenue: financials.totalPlatformCommission,
@@ -353,7 +388,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
               )}
 
           {/* Produce Overview Snapshot */}
-          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-base font-bold text-[#0B3326] font-heading">
@@ -365,42 +400,120 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
               </div>
               <p className="text-xs text-[#566861] mt-0.5">
                 Available lot: <strong className="text-[#14211D]">{listing.quantity} {listing.unit}</strong>
+                {listing.unit === 'MT' && (
+                  <span className="text-[#10B981] ml-1 font-semibold">
+                    ({(listing.quantity * 10).toLocaleString('en-IN')} Quintals)
+                  </span>
+                )}
               </p>
             </div>
 
-            <div className="text-right">
-              <span className="text-xs text-[#566861] block">Price</span>
-              <span className="text-base font-bold text-[#0B3326]">
-                ₹{listing.price} / {listing.unit}
-              </span>
+            <div className="text-left sm:text-right">
+              <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Fixed Unit Rate</span>
+              <div className="space-y-0.5">
+                <span className="text-base font-bold text-[#0B3326] block">
+                  ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}
+                </span>
+                {listing.unit === 'MT' && (
+                  <span className="text-[11px] font-semibold text-[#10B981] block">
+                    (₹{Math.round(listing.price / 10).toLocaleString('en-IN')} / Quintal)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Quantity Selection */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#14211D]">
-              Quantity to Purchase ({listing.unit})
-            </label>
+          {/* Quantity & Unit Selection Bay */}
+          <div className="space-y-3 p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label className="text-xs font-bold text-[#14211D] block">
+                Select Purchase Unit &amp; Volume
+              </label>
+
+              {/* Unit Toggle Pill Buttons */}
+              <div className="flex items-center gap-1.5 p-1 bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl text-xs font-semibold">
+                {['Quintal', 'MT', 'kg'].map((u) => {
+                  const isSelected = purchaseUnit === u;
+                  const label = u === 'Quintal' ? 'Quintal (Qtl)' : u === 'MT' ? 'Metric Tonne (MT)' : 'kg';
+                  return (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => handleUnitSwitch(u)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#10B981] text-white shadow-xs'
+                          : 'text-[#566861] hover:text-[#0B3326] hover:bg-white'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Input & Entire Lot CTA */}
             <div className="flex items-center gap-3">
-              <input
-                type="number"
-                min="1"
-                max={listing.quantity}
-                value={purchaseQty}
-                onChange={(e) => setPurchaseQty(e.target.value)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  step={purchaseUnit === 'MT' ? '0.01' : '1'}
+                  min={purchaseUnit === 'MT' ? '0.01' : '1'}
+                  max={maxInSelectedUnit}
+                  value={purchaseQty}
+                  onChange={(e) => setPurchaseQty(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
+                  placeholder="Enter quantity"
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861] pointer-events-none">
+                  {purchaseUnit}
+                </span>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setPurchaseQty(listing.quantity)}
-                className="px-3 py-2.5 rounded-xl text-xs font-bold bg-[#EBF5F0] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors cursor-pointer"
+                onClick={() => setPurchaseQty(maxInSelectedUnit)}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-[#EBF5F0] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors cursor-pointer shrink-0"
               >
                 Buy Entire Lot
               </button>
             </div>
-            <span className="text-[11px] text-[#566861] block">
-              Max available: {listing.quantity} {listing.unit}
-            </span>
+
+            <div className="flex items-center justify-between text-[11px] text-[#566861] flex-wrap gap-1">
+              <span>
+                Max available: <strong className="text-[#0B3326]">{maxInSelectedUnit.toLocaleString('en-IN')} {purchaseUnit}</strong>
+                {purchaseUnit !== listing.unit && (
+                  <span className="text-[#10B981] ml-1">
+                    ({listing.quantity} {listing.unit})
+                  </span>
+                )}
+              </span>
+              <span>
+                Rate in {purchaseUnit}: <strong className="text-[#0B3326]">₹{activeRate.toLocaleString('en-IN')}/{purchaseUnit}</strong>
+              </span>
+            </div>
+
+            {/* Real-time Multi-Unit Conversion Breakdown Pill */}
+            {qty > 0 && (
+              <div className="p-3 rounded-xl bg-gradient-to-r from-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] font-bold text-[#0B3326] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
+                    Order Lot Conversion:
+                  </span>
+                  <p className="text-[11px] text-[#2D5A47]">
+                    <strong className="text-[#0B3326]">{qty} {purchaseUnit}</strong> = {totalQuintals.toLocaleString('en-IN')} Quintals ({totalMT.toLocaleString('en-IN')} MT • {totalKg.toLocaleString('en-IN')} kg)
+                  </p>
+                </div>
+                <div className="text-left sm:text-right shrink-0">
+                  <span className="text-[10px] text-[#566861] block">Batch Subtotal:</span>
+                  <span className="font-extrabold text-[#0B3326] text-sm">
+                    ₹{subtotal.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Delivery Destination Confirmation */}

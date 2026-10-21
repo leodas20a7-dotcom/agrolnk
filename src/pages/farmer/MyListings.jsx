@@ -149,6 +149,23 @@ export default function MyListings({ currentUser, onNavigate }) {
 
   const safeListings = Array.isArray(listings) ? listings : [];
 
+  // Auto-clean stale draft if an identical live listing is already active in exchange
+  useEffect(() => {
+    if (savedDraft?.formData?.commodity && Array.isArray(listings) && listings.length > 0) {
+      const draftCmd = (savedDraft.formData.commodity || '').trim().toLowerCase();
+      const draftQty = Number(savedDraft.formData.quantity || 0);
+      const isAlreadyPublished = listings.some((l) => 
+        (l.commodity || '').trim().toLowerCase() === draftCmd &&
+        Math.abs(Number(l.quantity || 0) - draftQty) < 0.01 &&
+        (l.status === 'active' || !l.status)
+      );
+      if (isAlreadyPublished) {
+        clearListingDraft(user?.id);
+        setSavedDraft(null);
+      }
+    }
+  }, [listings, savedDraft, user?.id]);
+
   // Convert local draft into displayable listing if exists
   const localDraftItem = savedDraft?.formData?.commodity ? {
     id: 'draft_local',
@@ -167,22 +184,18 @@ export default function MyListings({ currentUser, onNavigate }) {
     rawDraft: savedDraft,
   } : null;
 
-  const allDisplayableListings = localDraftItem 
-    ? [localDraftItem, ...safeListings.filter(l => l.id !== 'draft_local')] 
-    : safeListings;
-
   const isListingActive = (l) => (l.status === 'active' || !l.status) && Number(l.quantity) > 0;
   const isListingSold = (l) => l.status === 'sold' || Number(l.quantity) <= 0;
 
   const tabs = [
-    { id: 'all', label: 'All Listings', count: allDisplayableListings.length },
+    { id: 'all', label: 'All Listings', count: safeListings.length },
     {
       id: 'active',
       label: 'Active',
-      count: allDisplayableListings.filter(isListingActive).length,
+      count: safeListings.filter(isListingActive).length,
     },
-    { id: 'sold', label: 'Sold Out', count: allDisplayableListings.filter(isListingSold).length },
-    { id: 'drafts', label: 'Drafts', count: allDisplayableListings.filter((l) => l.status === 'draft').length },
+    { id: 'sold', label: 'Sold Out', count: safeListings.filter(isListingSold).length },
+    { id: 'drafts', label: 'Drafts', count: localDraftItem ? 1 : 0 },
   ];
 
   const handleTabChange = (tabId) => {
@@ -190,13 +203,14 @@ export default function MyListings({ currentUser, onNavigate }) {
     setCurrentPage(1);
   };
 
-  const filteredListings = allDisplayableListings.filter((item) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'active') return isListingActive(item);
-    if (activeTab === 'sold') return isListingSold(item);
-    if (activeTab === 'drafts') return item.status === 'draft';
-    return true;
-  });
+  const filteredListings = activeTab === 'drafts'
+    ? (localDraftItem ? [localDraftItem] : [])
+    : safeListings.filter((item) => {
+        if (activeTab === 'all') return true;
+        if (activeTab === 'active') return isListingActive(item);
+        if (activeTab === 'sold') return isListingSold(item);
+        return true;
+      });
 
   const totalPages = Math.ceil(filteredListings.length / ITEMS_PER_PAGE) || 1;
   const paginatedListings = filteredListings.slice(
@@ -338,11 +352,29 @@ export default function MyListings({ currentUser, onNavigate }) {
                   <ListingCard
                     key={item.id}
                     listing={item}
-                    onView={(lot) => setSelectedListing(lot)}
-                    onEdit={(lot) =>
-                      onNavigate('farmer-create-listing', { editListing: lot })
-                    }
-                    onDelete={(lot) => handleDeleteClick(lot)}
+                    onView={(lot) => {
+                      if (lot.isLocalDraft) {
+                        onNavigate('farmer-create-listing', { initialData: lot.rawDraft?.formData || lot });
+                      } else {
+                        setSelectedListing(lot);
+                      }
+                    }}
+                    onEdit={(lot) => {
+                      if (lot.isLocalDraft) {
+                        onNavigate('farmer-create-listing', { initialData: lot.rawDraft?.formData || lot });
+                      } else {
+                        onNavigate('farmer-create-listing', { editListing: lot });
+                      }
+                    }}
+                    onDelete={(lot) => {
+                      if (lot.isLocalDraft) {
+                        clearListingDraft(user?.id);
+                        setSavedDraft(null);
+                        toast.success('Draft removed successfully');
+                      } else {
+                        handleDeleteClick(lot);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -352,11 +384,29 @@ export default function MyListings({ currentUser, onNavigate }) {
                   <ListingRow
                     key={item.id}
                     listing={item}
-                    onView={(lot) => setSelectedListing(lot)}
-                    onEdit={(lot) =>
-                      onNavigate('farmer-create-listing', { editListing: lot })
-                    }
-                    onDelete={(lot) => handleDeleteClick(lot)}
+                    onView={(lot) => {
+                      if (lot.isLocalDraft) {
+                        onNavigate('farmer-create-listing', { initialData: lot.rawDraft?.formData || lot });
+                      } else {
+                        setSelectedListing(lot);
+                      }
+                    }}
+                    onEdit={(lot) => {
+                      if (lot.isLocalDraft) {
+                        onNavigate('farmer-create-listing', { initialData: lot.rawDraft?.formData || lot });
+                      } else {
+                        onNavigate('farmer-create-listing', { editListing: lot });
+                      }
+                    }}
+                    onDelete={(lot) => {
+                      if (lot.isLocalDraft) {
+                        clearListingDraft(user?.id);
+                        setSavedDraft(null);
+                        toast.success('Draft removed successfully');
+                      } else {
+                        handleDeleteClick(lot);
+                      }
+                    }}
                   />
                 ))}
               </div>

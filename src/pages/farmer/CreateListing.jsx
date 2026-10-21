@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -19,7 +19,7 @@ import {
   Calendar,
   Building2
 } from 'lucide-react';
-import { createListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities, saveListingDraft, getListingDraft, clearListingDraft } from '../../utils/listings';
+import { createListing, updateListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities, saveListingDraft, getListingDraft, clearListingDraft } from '../../utils/listings';
 import { uploadProduceImage } from '../../utils/imageUpload';
 import { toast } from '../../context/ToastContext';
 import { createAuction } from '../../utils/auctions';
@@ -31,11 +31,15 @@ import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
 import MultiMediaUploader from '../../components/ui/MultiMediaUploader';
 import { getVarietyImageUrl, hasSpecificVariety } from '../../data/commodityTaxonomy';
+import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate, getRateInUnit } from '../../utils/pricingUnits';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
 
   const initialSource = navState?.editListing || navState?.initialData;
+  const isEditing = Boolean(initialSource?.id && initialSource.id !== 'draft_local');
+  const editingListingId = isEditing ? initialSource.id : null;
+
   const [existingDraft, setExistingDraft] = useState(() => {
     if (initialSource) return null;
     return getListingDraft(user.id);
@@ -45,20 +49,69 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [saleType, setSaleType] = useState(initialSource?.saleType || 'direct'); // 'direct' | 'auction'
 
+  // Accurately convert canonical DB price to the selected price unit when editing
+  const initialPricing = useMemo(() => {
+    if (!initialSource) {
+      return {
+        unit: 'kg',
+        price: '',
+        priceUnit: 'Quintal',
+        startingBid: '',
+        reservePrice: '',
+      };
+    }
+
+    const volUnit = initialSource.unit || 'kg';
+    const rateUnit = initialSource.priceUnit || (volUnit === 'MT' ? 'Quintal' : volUnit);
+
+    let displayPrice = '';
+    const rawPrice = initialSource.price !== undefined && initialSource.price !== null && initialSource.price !== ''
+      ? Number(initialSource.price)
+      : (initialSource.pricePerUnit !== undefined && initialSource.pricePerUnit !== null ? Number(initialSource.pricePerUnit) : null);
+
+    if (rawPrice !== null && !isNaN(rawPrice)) {
+      // In DB, rawPrice is canonical (per volUnit). Convert to rateUnit (e.g., from MT to Quintal)
+      const converted = getRateInUnit(rawPrice, volUnit, rateUnit);
+      displayPrice = String(converted);
+    }
+
+    let displayStartingBid = '';
+    if (initialSource.startingBid && !isNaN(Number(initialSource.startingBid))) {
+      const converted = getRateInUnit(Number(initialSource.startingBid), volUnit, rateUnit);
+      displayStartingBid = String(converted);
+    }
+
+    let displayReservePrice = '';
+    if (initialSource.reservePrice && !isNaN(Number(initialSource.reservePrice))) {
+      const converted = getRateInUnit(Number(initialSource.reservePrice), volUnit, rateUnit);
+      displayReservePrice = String(converted);
+    }
+
+    return {
+      unit: volUnit,
+      price: displayPrice,
+      priceUnit: rateUnit,
+      startingBid: displayStartingBid,
+      reservePrice: displayReservePrice,
+    };
+  }, [initialSource]);
+
   const [formData, setFormData] = useState({
     commodity: initialSource?.commodity || '',
     variety: initialSource?.variety || 'None',
     grade: initialSource?.grade || 'A',
     quantity: initialSource?.quantity ? String(initialSource.quantity) : '',
-    unit: initialSource?.unit || 'kg',
-    price: initialSource?.price ? String(initialSource.price) : (initialSource?.pricePerUnit ? String(initialSource.pricePerUnit) : ''),
-    startingBid: initialSource?.startingBid ? String(initialSource.startingBid) : '',
-    reservePrice: initialSource?.reservePrice ? String(initialSource.reservePrice) : '',
+    unit: initialPricing.unit,
+    price: initialPricing.price,
+    priceUnit: initialPricing.priceUnit,
+    startingBid: initialPricing.startingBid,
+    reservePrice: initialPricing.reservePrice,
     durationMinutes: initialSource?.durationMinutes ? String(initialSource.durationMinutes) : '1440',
     state: initialSource?.state || '',
     district: initialSource?.district || '',
     village: initialSource?.village || '',
-    harvestDate: initialSource?.harvestDate || new Date().toISOString().split('T')[0],
+    harvestDate: initialSource?.harvestDate || '',
+    description: initialSource?.description || '',
     images: initialSource?.images || [],
     isDefaultImage: !initialSource?.images,
   });
@@ -69,6 +122,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
   // Auto-save draft when fields are filled
   React.useEffect(() => {
+    if (isSubmitting) return;
     if (user?.id && (formData.commodity || formData.quantity || formData.price || formData.startingBid)) {
       saveListingDraft(user.id, {
         formData,
@@ -76,7 +130,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
         currentStep,
       });
     }
-  }, [formData, saleType, currentStep, user?.id]);
+  }, [formData, saleType, currentStep, user?.id, isSubmitting]);
 
   // Dynamic platform commodities state
   const [commodities, setCommodities] = useState(() => getPlatformCommodities());
@@ -99,7 +153,42 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const grades = ['A', 'B', 'C', 'Export'];
   const units = ['kg', 'Quintal', 'MT'];
 
-  const estimatedValue = Number(formData.quantity || 0) * Number(formData.price || 0);
+  // Agricultural Pricing & Multi-Unit Breakdown
+  const pricingBreakdown = useMemo(() => {
+    return computePricingBreakdown({
+      quantity: formData.quantity,
+      unit: formData.unit,
+      price: saleType === 'direct' ? formData.price : (formData.startingBid || formData.reservePrice),
+      priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
+    });
+  }, [formData.quantity, formData.unit, formData.price, formData.startingBid, formData.reservePrice, formData.priceUnit, saleType]);
+
+  const estimatedValue = pricingBreakdown.totalEscrowValue;
+
+  // Dynamically re-calculate and convert quoted price when user changes the price basis unit
+  const handlePriceUnitChange = (newPriceUnit) => {
+    const currentPriceUnit = formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit);
+    if (!newPriceUnit || newPriceUnit === currentPriceUnit) return;
+
+    setFormData((prev) => {
+      const updated = { ...prev, priceUnit: newPriceUnit };
+
+      if (prev.price && Number(prev.price) > 0) {
+        const converted = getRateInUnit(Number(prev.price), currentPriceUnit, newPriceUnit);
+        updated.price = String(converted);
+      }
+      if (prev.startingBid && Number(prev.startingBid) > 0) {
+        const converted = getRateInUnit(Number(prev.startingBid), currentPriceUnit, newPriceUnit);
+        updated.startingBid = String(converted);
+      }
+      if (prev.reservePrice && Number(prev.reservePrice) > 0) {
+        const converted = getRateInUnit(Number(prev.reservePrice), currentPriceUnit, newPriceUnit);
+        updated.reservePrice = String(converted);
+      }
+
+      return updated;
+    });
+  };
 
   const handleCommoditySelect = (e) => {
     const val = e.target.value;
@@ -238,6 +327,19 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
     try {
       if (saleType === 'auction') {
+        const startBidBreakdown = computePricingBreakdown({
+          quantity: formData.quantity,
+          unit: formData.unit,
+          price: formData.startingBid || formData.price,
+          priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
+        });
+        const reserveBreakdown = computePricingBreakdown({
+          quantity: formData.quantity,
+          unit: formData.unit,
+          price: formData.reservePrice || (Number(formData.startingBid || formData.price) * 1.1),
+          priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
+        });
+
         await createAuction({
           farmerId: user.id || '',
           farmerName: user.name || 'Farmer',
@@ -246,33 +348,61 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           grade: formData.grade,
           quantity: Number(formData.quantity),
           unit: formData.unit,
-          startingBid: Number(formData.startingBid || formData.price),
-          reservePrice: Number(formData.reservePrice || Number(formData.startingBid || formData.price) * 1.1),
+          startingBid: startBidBreakdown.canonicalPricePerListingUnit,
+          reservePrice: reserveBreakdown.canonicalPricePerListingUnit,
           durationMinutes: Number(formData.durationMinutes || 1440),
           state: formData.state,
           district: formData.district,
+          village: formData.village,
+          description: formData.description || '',
           images: formData.images,
         });
         clearListingDraft(user.id);
         onNavigate('farmer-my-auctions');
       } else {
-        await createListing({
-          farmerId: user.id || '',
-          farmerName: user.name || 'Farmer',
-          commodity: formData.commodity,
-          variety: formData.variety || 'None',
-          grade: formData.grade,
-          quantity: Number(formData.quantity),
-          unit: formData.unit,
-          price: Number(formData.price),
-          pricePerUnit: Number(formData.price),
-          totalAmount: Number(formData.quantity) * Number(formData.price),
-          state: formData.state,
-          district: formData.district,
-          village: formData.village,
-          images: formData.images,
-          saleType: 'direct',
-        });
+        if (isEditing && editingListingId) {
+          await updateListing(editingListingId, {
+            commodity: formData.commodity,
+            variety: formData.variety || 'None',
+            grade: formData.grade,
+            quantity: Number(formData.quantity),
+            unit: formData.unit,
+            price: pricingBreakdown.canonicalPricePerListingUnit,
+            pricePerUnit: pricingBreakdown.canonicalPricePerListingUnit,
+            priceUnit: formData.priceUnit,
+            totalAmount: pricingBreakdown.totalEscrowValue,
+            state: formData.state,
+            district: formData.district,
+            village: formData.village,
+            harvestDate: formData.harvestDate || null,
+            description: formData.description || '',
+            images: formData.images,
+            saleType: 'direct',
+          });
+          toast.success('Listing updated successfully!');
+        } else {
+          await createListing({
+            farmerId: user.id || '',
+            farmerName: user.name || 'Farmer',
+            commodity: formData.commodity,
+            variety: formData.variety || 'None',
+            grade: formData.grade,
+            quantity: Number(formData.quantity),
+            unit: formData.unit,
+            price: pricingBreakdown.canonicalPricePerListingUnit,
+            pricePerUnit: pricingBreakdown.canonicalPricePerListingUnit,
+            priceUnit: formData.priceUnit,
+            totalAmount: pricingBreakdown.totalEscrowValue,
+            state: formData.state,
+            district: formData.district,
+            village: formData.village,
+            harvestDate: formData.harvestDate || null,
+            description: formData.description || '',
+            images: formData.images,
+            saleType: 'direct',
+          });
+          toast.success('Listing published successfully!');
+        }
         clearListingDraft(user.id);
         onNavigate('farmer-my-listings');
       }
@@ -607,6 +737,31 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 />
               </div>
 
+              {/* Produce Detailing / Description (Optional) */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                    <span>Produce Detailing & Specifications</span>
+                    <span className="text-[10px] font-semibold text-[#566861] bg-[#F1F4F2] px-2 py-0.5 rounded-full">Optional</span>
+                  </label>
+                  <span className="text-[11px] text-[#71847D]">
+                    {(formData.description || '').length}/1000 characters
+                  </span>
+                </div>
+                <textarea
+                  name="description"
+                  rows={3}
+                  maxLength={1000}
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Share details about produce freshness, packaging type (gunny bags, crates), moisture content, organic certification, harvest timing, or loading instructions..."
+                  className="w-full text-xs text-[#0B3326] bg-[#F8FAF8] border border-[#CBD7D0] focus:border-[#008236] focus:ring-1 focus:ring-[#008236] rounded-xl p-3 outline-hidden transition-all duration-150 resize-y placeholder:text-[#8E9F97] leading-relaxed"
+                />
+                <p className="text-[11px] text-[#566861]">
+                  Help verified buyers understand your lot specifics, packaging condition, or transportation readiness.
+                </p>
+              </div>
+
               {/* Photo & Video Multi-Media Upload */}
               <div className="sm:col-span-2 pt-3 border-t border-[#E5EDE8]">
                 <MultiMediaUploader
@@ -672,49 +827,102 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
               {/* Price / Starting Bid */}
               {saleType === 'direct' ? (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#0B3326] block">
-                    Price per {formData.unit} (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="e.g. 42"
-                    min="1"
-                    step="0.5"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-extrabold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#0B3326] block">
+                      Target Price (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-[#10B981] font-semibold">
+                      Quoted per {formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#0B3326]">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                        placeholder={formData.priceUnit === 'MT' ? '18500' : (formData.priceUnit === 'kg' ? '18.5' : '1850')}
+                        min="0.1"
+                        step="any"
+                        className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-extrabold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                    </div>
+                    <div className="w-40 shrink-0">
+                      <SearchableSelect
+                        options={PRICING_UNIT_OPTIONS}
+                        value={formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                        onChange={(val) => handlePriceUnitChange(val)}
+                        placeholder="Per unit"
+                        searchPlaceholder="Price basis..."
+                        buttonClassName="bg-[#F8FAF8]"
+                      />
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-[#0B3326] block">
-                      Starting Bid (₹/{formData.unit})
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.startingBid}
-                      onChange={(e) => setFormData({ ...formData, startingBid: e.target.value })}
-                      placeholder="e.g. 38"
-                      min="1"
-                      step="0.5"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                    />
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#0B3326] block">
+                        Starting Bid (₹) <span className="text-red-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-[#566861]">
+                        per {formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#0B3326]">
+                          ₹
+                        </span>
+                        <input
+                          type="number"
+                          value={formData.startingBid}
+                          onChange={(e) => setFormData({ ...formData, startingBid: e.target.value })}
+                          placeholder="e.g. 1800"
+                          min="0.1"
+                          step="any"
+                          className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                        />
+                      </div>
+                      <div className="w-36 shrink-0">
+                        <SearchableSelect
+                          options={PRICING_UNIT_OPTIONS}
+                          value={formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                          onChange={(val) => handlePriceUnitChange(val)}
+                          placeholder="Per unit"
+                          buttonClassName="bg-[#F8FAF8]"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-[#0B3326] block">
-                      Reserve Floor Price (₹/{formData.unit})
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.reservePrice}
-                      onChange={(e) => setFormData({ ...formData, reservePrice: e.target.value })}
-                      placeholder="e.g. 45"
-                      min="1"
-                      step="0.5"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                    />
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#0B3326] block">
+                        Reserve Floor Price (₹) <span className="text-red-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-[#566861]">
+                        per {formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#0B3326]">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        value={formData.reservePrice}
+                        onChange={(e) => setFormData({ ...formData, reservePrice: e.target.value })}
+                        placeholder="e.g. 1850"
+                        min="0.1"
+                        step="any"
+                        className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-1 sm:col-span-2">
@@ -746,16 +954,47 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 </>
               )}
 
+              {/* Live Mandi Rate Breakdown Pill */}
+              {pricingBreakdown.totalEscrowValue > 0 && (
+                <div className="sm:col-span-2 p-3.5 rounded-2xl bg-gradient-to-r from-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs animate-in fade-in">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-bold text-[#0B3326] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
+                      Auto-Calculated Mandi Equivalent Rates:
+                    </span>
+                    <p className="text-[11px] text-[#2D5A47]">
+                      <strong className="text-[#0B3326]">₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')}/Qtl</strong> (Mandi) • <strong className="text-[#0B3326]">₹{pricingBreakdown.pricePerMT.toLocaleString('en-IN')}/MT</strong> (Bulk) • <strong className="text-[#0B3326]">₹{pricingBreakdown.pricePerKg.toFixed(2)}/kg</strong>
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right shrink-0">
+                    <span className="text-[10px] text-[#566861] block">Total Lot Conversion:</span>
+                    <span className="font-bold text-[#0B3326] text-xs">
+                      {pricingBreakdown.quantity} {pricingBreakdown.unit} = {pricingBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals ({pricingBreakdown.totalKg.toLocaleString('en-IN')} kg)
+                    </span>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* Calculated Escrow Box */}
-            <div className="p-3.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 flex items-center justify-between text-xs">
-              <span className="text-[#0B3326] font-semibold">
-                Total Transaction Escrow Value:
-              </span>
-              <span className="text-base font-extrabold text-[#0B3326] font-heading">
-                ₹{estimatedValue.toLocaleString('en-IN')}
-              </span>
+            <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] shadow-xs flex items-center justify-between text-xs">
+              <div className="space-y-0.5">
+                <span className="text-xs text-[#DCFCE7]/80 font-semibold block">
+                  Total Transaction Escrow Value:
+                </span>
+                <span className="text-[11px] text-[#34D399]">
+                  {pricingBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals ({pricingBreakdown.quantity} {pricingBreakdown.unit}) × ₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')} / Qtl
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-extrabold text-white font-heading">
+                  ₹{estimatedValue.toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] text-[#DCFCE7]/70 block font-normal">
+                  100% Escrow Protected
+                </span>
+              </div>
             </div>
           </Card>
         )}
@@ -876,10 +1115,18 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   ₹{estimatedValue.toLocaleString('en-IN')}
                 </span>
                 <span className="text-[11px] text-[#10B981] font-semibold block">
-                  {formData.quantity || 0} {formData.unit} @ ₹{saleType === 'direct' ? (formData.price || 0) : (formData.startingBid || 0)}/{formData.unit}
+                  {pricingBreakdown.quantity || 0} {pricingBreakdown.unit} @ ₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')}/Qtl {pricingBreakdown.unit === 'MT' && `(₹${pricingBreakdown.pricePerMT.toLocaleString('en-IN')}/MT)`}
                 </span>
               </div>
             </div>
+
+            {/* Produce Detailing Preview if provided */}
+            {formData.description && (
+              <div className="p-3.5 bg-[#F8FAF8] rounded-xl border border-[#E5EDE8] text-xs text-[#2D5A47] leading-relaxed">
+                <span className="font-bold text-[#0B3326] block text-[11px] mb-1">Produce Detailing & Special Notes:</span>
+                <p className="whitespace-pre-line text-[#14211D]">{formData.description}</p>
+              </div>
+            )}
 
             {/* Big Action Button */}
             <div className="pt-2">
@@ -892,7 +1139,9 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 iconPosition="left"
                 className="w-full font-bold py-3 px-6 shadow-md shadow-[#10B981]/20 text-sm cursor-pointer"
               >
-                {isSubmitting ? 'Publishing to Live Exchange...' : 'Confirm & Publish Listing'}
+                {isSubmitting 
+                  ? (isEditing ? 'Updating Produce Listing...' : 'Publishing to Live Exchange...') 
+                  : (isEditing ? 'Save Changes & Update Listing' : 'Confirm & Publish Listing')}
               </Button>
             </div>
           </Card>

@@ -192,8 +192,69 @@ function sanitizeImages(images, commodity) {
   });
 }
 
+const LISTING_VILLAGES_STORAGE_KEY = 'agrolnk_listing_villages';
+
+export function getCachedListingVillage(listingId) {
+  if (!listingId) return '';
+  try {
+    const raw = localStorage.getItem(LISTING_VILLAGES_STORAGE_KEY);
+    if (raw) {
+      const map = JSON.parse(raw);
+      return map[listingId] || '';
+    }
+  } catch {}
+  return '';
+}
+
+export function setCachedListingVillage(listingId, village) {
+  if (!listingId) return;
+  try {
+    const raw = localStorage.getItem(LISTING_VILLAGES_STORAGE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    if (village && typeof village === 'string' && village.trim()) {
+      map[listingId] = village.trim();
+    } else {
+      delete map[listingId];
+    }
+    localStorage.setItem(LISTING_VILLAGES_STORAGE_KEY, JSON.stringify(map));
+  } catch {}
+}
+
 function mapListingFromDb(row) {
   if (!row) return null;
+
+  let extractedVillage = row.village || '';
+  let cleanDescription = row.description || '';
+
+  if (!extractedVillage && cleanDescription) {
+    const match = cleanDescription.match(/<!--agrolnk:village:(.*?)-->/);
+    if (match) {
+      try {
+        extractedVillage = decodeURIComponent(match[1]);
+      } catch {
+        extractedVillage = match[1];
+      }
+      cleanDescription = cleanDescription.replace(/<!--agrolnk:village:(.*?)-->\s*/, '').trim();
+    }
+  }
+
+  if (!extractedVillage && row.id) {
+    extractedVillage = getCachedListingVillage(row.id);
+  }
+
+  if (row.id && extractedVillage) {
+    setCachedListingVillage(row.id, extractedVillage);
+  }
+
+  let extractedPriceUnit = row.price_unit || '';
+  if (!extractedPriceUnit && cleanDescription) {
+    const matchPriceUnit = cleanDescription.match(/<!--agrolnk:priceUnit:(.*?)-->/);
+    if (matchPriceUnit) {
+      extractedPriceUnit = matchPriceUnit[1];
+      cleanDescription = cleanDescription.replace(/<!--agrolnk:priceUnit:(.*?)-->\s*/, '').trim();
+    }
+  }
+
   return {
     id: row.id,
     farmerId: row.farmer_id,
@@ -204,10 +265,13 @@ function mapListingFromDb(row) {
     quantity: Number(row.quantity),
     unit: row.unit,
     price: Number(row.price),
+    priceUnit: extractedPriceUnit || (row.unit === 'MT' ? 'Quintal' : row.unit),
     saleType: row.sale_type,
     state: row.state,
     district: row.district,
+    village: extractedVillage,
     harvestDate: row.harvest_date,
+    description: cleanDescription,
     images: sanitizeImages(row.images, row.commodity),
     status: row.status,
     originWarehouseId: row.origin_warehouse_id,
@@ -271,7 +335,7 @@ export async function getActiveMarketplaceListings(limit = null) {
   try {
     let query = supabase
       .from('listings')
-      .select('id, farmer_id, farmer_name, commodity, variety, grade, quantity, unit, price, sale_type, state, district, harvest_date, images, status, origin_warehouse_id, origin_receipt_number, created_at, updated_at')
+      .select('*')
       .eq('status', 'active')
       .gt('quantity', 0)
       .order('created_at', { ascending: false });
@@ -312,8 +376,15 @@ export async function createListing(listingData) {
       ? listingData.images
       : [defaultImg];
 
+    const listingId = generateId();
+    const village = (listingData.village || '').trim();
+
+    if (village) {
+      setCachedListingVillage(listingId, village);
+    }
+
     const dbRow = {
-      id: generateId(),
+      id: listingId,
       farmer_id: listingData.farmerId || null,
       farmer_name: listingData.farmerName || 'Farmer',
       commodity: listingData.commodity || 'Tomato',
@@ -325,27 +396,66 @@ export async function createListing(listingData) {
       sale_type: listingData.saleType || 'direct',
       state: listingData.state || '',
       district: listingData.district || '',
-      harvest_date: listingData.harvestDate || new Date().toISOString().split('T')[0],
+      village: village || null,
+      harvest_date: listingData.harvestDate || null,
+      description: listingData.description || null,
       images: imagesArray,
       status: 'active',
       origin_warehouse_id: listingData.originWarehouseId || null,
-      origin_receipt_number: listingData.originReceiptNumber || null,
+      origin_receipt_number: listingData.origin_receipt_number || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
+    let data;
+    let error;
+
+    const res = await supabase
       .from('listings')
       .insert([dbRow])
       .select()
       .single();
+
+    data = res.data;
+    error = res.error;
+
+    // Fallback 1: If village column does not exist in PostgreSQL schema yet (PGRST204 or 42703)
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.village;
+      if (village) {
+        const existingDesc = fallbackRow.description || '';
+        fallbackRow.description = `<!--agrolnk:village:${encodeURIComponent(village)}-->\n${existingDesc}`.trim();
+      }
+      const retryRes = await supabase
+        .from('listings')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    // Fallback 2: If description column does not exist in PostgreSQL schema yet
+    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('description'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.village;
+      delete fallbackRow.description;
+      const retryRes = await supabase
+        .from('listings')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
 
     if (error) {
       console.error('Supabase listing insertion error:', error);
       throw error;
     }
 
-    const mapped = mapListingFromDb(data);
+    const mapped = mapListingFromDb({ ...data, village: data?.village || village });
 
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: mapped }));
@@ -355,6 +465,99 @@ export async function createListing(listingData) {
     return mapped;
   } catch (err) {
     console.error('Error creating listing:', err);
+    throw err;
+  }
+}
+
+/**
+ * Update an existing produce listing in Supabase
+ */
+export async function updateListing(listingId, listingData) {
+  try {
+    if (!listingId) throw new Error('Listing ID is required for update.');
+
+    const defaultImg = COMMODITY_IMAGES[listingData.commodity] || COMMODITY_IMAGES.Other;
+    const imagesArray = Array.isArray(listingData.images) && listingData.images.length > 0
+      ? listingData.images
+      : [defaultImg];
+
+    const village = (listingData.village || '').trim();
+    if (village) {
+      setCachedListingVillage(listingId, village);
+    }
+
+    const dbRow = {
+      commodity: listingData.commodity || 'Tomato',
+      variety: listingData.variety || 'None',
+      grade: listingData.grade || 'A',
+      quantity: Number(listingData.quantity) || 500,
+      unit: listingData.unit || 'kg',
+      price: Number(listingData.price) || 40,
+      sale_type: listingData.saleType || 'direct',
+      state: listingData.state || '',
+      district: listingData.district || '',
+      village: village || null,
+      harvest_date: listingData.harvestDate || null,
+      description: listingData.description || null,
+      images: imagesArray,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { data, error } = await supabase
+      .from('listings')
+      .update(dbRow)
+      .eq('id', listingId)
+      .select()
+      .single();
+
+    // Fallback 1: If village column does not exist in schema yet
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.village;
+      if (village) {
+        const existingDesc = fallbackRow.description || '';
+        const cleanDesc = existingDesc.replace(/<!--agrolnk:village:(.*?)-->\s*/, '').trim();
+        fallbackRow.description = `<!--agrolnk:village:${encodeURIComponent(village)}-->\n${cleanDesc}`.trim();
+      }
+      const retryRes = await supabase
+        .from('listings')
+        .update(fallbackRow)
+        .eq('id', listingId)
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    // Fallback 2: If description column does not exist
+    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('description'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.village;
+      delete fallbackRow.description;
+      const retryRes = await supabase
+        .from('listings')
+        .update(fallbackRow)
+        .eq('id', listingId)
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    if (error) {
+      console.error('Supabase listing update error:', error);
+      throw error;
+    }
+
+    const mapped = mapListingFromDb({ ...data, village: data?.village || village });
+
+    try {
+      window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: mapped }));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+
+  } catch (err) {
+    console.error('Error updating listing:', err);
     throw err;
   }
 }
@@ -452,10 +655,24 @@ export function getListingDraft(userId) {
  * Clear saved produce listing draft
  */
 export function clearListingDraft(userId) {
-  if (!userId) return;
   try {
-    const key = `${LISTING_DRAFT_PREFIX}${userId}`;
-    localStorage.removeItem(key);
+    if (userId) {
+      localStorage.removeItem(`${LISTING_DRAFT_PREFIX}${userId}`);
+    }
+    localStorage.removeItem(LISTING_DRAFT_PREFIX);
+    localStorage.removeItem(`${LISTING_DRAFT_PREFIX}undefined`);
+    localStorage.removeItem(`${LISTING_DRAFT_PREFIX}null`);
+    localStorage.removeItem(`${LISTING_DRAFT_PREFIX}`);
+
+    if (typeof localStorage !== 'undefined') {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(LISTING_DRAFT_PREFIX)) {
+          localStorage.removeItem(k);
+        }
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrolnk_listing_draft_updated', { detail: null }));
     }

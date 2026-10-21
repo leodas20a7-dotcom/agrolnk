@@ -6,6 +6,7 @@ import CopyButton from '../ui/CopyButton';
 import OrderStatus from './OrderStatus';
 import FinancingStatusBadge from '../financing/FinancingStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
+import { formatDualVolume } from '../../utils/pricingUnits';
 
 export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
   const [financingReq, setFinancingReq] = React.useState(null);
@@ -80,11 +81,21 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
 
       {/* Middle: Lot Breakdown & Amount (Evenly locked 3-column bay) */}
       <div className="w-full md:w-[270px] lg:w-[310px] shrink-0 grid grid-cols-3 gap-2 sm:gap-4 py-2.5 md:py-0 border-y md:border-y-0 md:border-x border-[#E5EDE8] md:px-4 lg:px-5 text-xs">
-        <div className="min-w-0">
+        <div className="min-w-0" title={formatDualVolume(order.quantity, order.unit)}>
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Volume</span>
           <span className="font-extrabold text-sm text-[#0B3326] block truncate">
             {Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'}
           </span>
+          {order.unit && (order.unit.toLowerCase() === 'quintal' || order.unit.toLowerCase() === 'qtl') && (
+            <span className="text-[10px] text-[#10B981] font-bold block truncate">
+              ({(Number(order.quantity || 0) / 10).toLocaleString('en-IN')} MT)
+            </span>
+          )}
+          {order.unit && (order.unit.toLowerCase() === 'mt' || order.unit.toLowerCase() === 'ton' || order.unit.toLowerCase() === 'tonne') && (
+            <span className="text-[10px] text-[#10B981] font-bold block truncate">
+              ({(Number(order.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+            </span>
+          )}
         </div>
 
         <div className="min-w-0">

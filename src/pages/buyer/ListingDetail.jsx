@@ -19,7 +19,8 @@ import {
   Clock,
   Lock,
   Scale,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { createOrder } from '../../utils/orders';
 import { deductListingQuantity, getListingById, COMMODITY_IMAGES } from '../../utils/listings';
@@ -161,8 +162,9 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         },
       });
 
-      // Deduct quantity from live listing
-      await deductListingQuantity(listing.id, orderPayload.quantity);
+      // Deduct quantity from live listing in listing's native unit (e.g. converting Quintals back to MT)
+      const deductQty = orderPayload.quantityInListingUnit ?? orderPayload.quantity;
+      await deductListingQuantity(listing.id, deductQty);
 
       setIsModalOpen(false);
       onNavigate('buyer-orders', { newOrder: order });
@@ -236,7 +238,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </>
               }
               bottomOverlay={
-                <div className="p-3 rounded-2xl bg-[#0B3326]/90 text-white flex items-center justify-between text-xs backdrop-blur-xs">
+                <div className="p-3 rounded-2xl bg-[#0B3326] border border-[#14624A] text-white flex items-center justify-between text-xs shadow-md">
                   <span className="flex items-center gap-1.5 text-[#34D399] font-medium">
                     <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Escrow Secured Agreement
                   </span>
@@ -267,16 +269,16 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </div>
 
                 <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                  <span className="text-[#566861] block text-[11px]">Lab / Assayer Status</span>
-                  <span className="font-bold text-[#10B981] text-sm">
-                    {existingInspection?.inspectorName ? 'Assayer Certified ✓' : 'NABL Assayed ✓'}
+                  <span className="text-[#566861] block text-[11px]">Quality Status</span>
+                  <span className={`font-bold text-sm ${existingInspection?.inspectorName ? 'text-[#10B981]' : 'text-[#0B3326]'}`}>
+                    {existingInspection?.inspectorName ? 'Assayer Certified ✓' : 'Farmer Self-Declared'}
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                  <span className="text-[#566861] block text-[11px]">Moisture Content</span>
-                  <span className="font-bold text-[#14211D] text-sm">
-                    {existingInspection?.moisture ? `${existingInspection.moisture}% (Lab Tested)` : '< 12% (Standard)'}
+                  <span className="text-[#566861] block text-[11px]">Pre-Dispatch Assay</span>
+                  <span className="font-bold text-[#10B981] text-sm">
+                    {existingInspection?.inspectorName ? 'Report Available ✓' : 'Available on Request'}
                   </span>
                 </div>
 
@@ -286,6 +288,21 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </div>
               </div>
             </Card>
+
+            {/* Produce Detailing & Farmer Notes */}
+            {listing.description && (
+              <Card className="p-5 sm:p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-[#E5EDE8]">
+                  <FileText className="w-4 h-4 text-[#10B981]" />
+                  <h3 className="text-sm font-bold text-[#0B3326] font-heading">
+                    Produce Detailing & Special Notes
+                  </h3>
+                </div>
+                <p className="text-xs text-[#2D5A47] leading-relaxed whitespace-pre-line bg-[#F8FAF8] p-3.5 rounded-xl border border-[#E5EDE8]/60">
+                  {listing.description}
+                </p>
+              </Card>
+            )}
           </div>
 
           {/* Right Column: Pricing, Seller Info & Buy Now Card */}
@@ -319,12 +336,17 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   <span>Unit Price</span>
                   <span className="text-[#34D399] font-bold">Fixed Direct Price</span>
                 </div>
-                <div className="flex items-baseline justify-between">
-                  <div>
+                <div className="flex items-baseline justify-between flex-wrap gap-2">
+                  <div className="flex items-baseline flex-wrap gap-2">
                     <span className="text-3xl font-extrabold font-heading text-white">
-                      ₹{listing.price}
+                      ₹{Number(listing.price || 0).toLocaleString('en-IN')}
                     </span>
-                    <span className="text-xs text-white/70 ml-1">/ {listing.unit}</span>
+                    <span className="text-xs text-white/70">/ {listing.unit}</span>
+                    {listing.unit === 'MT' && (
+                      <span className="text-xs text-[#34D399] font-bold">
+                        (₹{Math.round(Number(listing.price || 0) / 10).toLocaleString('en-IN')} / Quintal)
+                      </span>
+                    )}
                   </div>
                   <Badge variant="accent" size="sm">
                     In Stock

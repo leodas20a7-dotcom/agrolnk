@@ -24,6 +24,7 @@ import { getFinancingRequestForOrder } from '../../utils/financing';
 import { getDeliveryForOrder } from '../../utils/deliveries';
 import { getInspectionForOrder } from '../../utils/inspection';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
+import { formatDualVolume } from '../../utils/pricingUnits';
 
 export default function OrderSummary({
   order,
@@ -177,12 +178,12 @@ export default function OrderSummary({
         {/* Essential 3-Column Trade Details */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           {/* Quantity & Unit Price */}
-          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-0.5">
+          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-0.5" title={formatDualVolume(order.quantity, order.unit)}>
             <span className="text-[10px] text-[#566861] font-bold uppercase tracking-wider block">
               Quantity & Rate
             </span>
             <span className="font-extrabold text-[#14211D] text-sm block">
-              {Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'}
+              {formatDualVolume(order.quantity, order.unit)}
             </span>
             <span className="text-[11px] text-[#566861]">
               ₹{Number(order.pricePerUnit || (order.totalAmount / (order.quantity || 1)) || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}

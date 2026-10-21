@@ -3,6 +3,7 @@ import { Package, Clock, CheckCircle2, ShieldCheck, MapPin, ArrowRight } from 'l
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import { formatDualVolume } from '../../utils/pricingUnits';
 
 export default function OrderCard({ order, onView }) {
   const isPending = order.status === 'pending';
@@ -53,7 +54,7 @@ export default function OrderCard({ order, onView }) {
             ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
           </span>
           <span className="text-[11px] text-[#566861] block">
-            {Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'} @ ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}
+            {formatDualVolume(order.quantity, order.unit)} @ ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}
           </span>
         </div>
       </div>

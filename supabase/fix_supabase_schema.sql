@@ -212,6 +212,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_unique_auction ON public.orders(auc
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 CREATE INDEX IF NOT EXISTS idx_profiles_kyc_status ON public.profiles(kyc_status);
 
+-- Marketplace Listings & Auctions Columns
+ALTER TABLE IF EXISTS public.listings ADD COLUMN IF NOT EXISTS village TEXT;
+ALTER TABLE IF EXISTS public.auctions ADD COLUMN IF NOT EXISTS village TEXT;
+
 -- Marketplace Listings
 CREATE INDEX IF NOT EXISTS idx_listings_farmer_id ON public.listings(farmer_id);
 CREATE INDEX IF NOT EXISTS idx_listings_status ON public.listings(status);

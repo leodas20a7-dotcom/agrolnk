@@ -25,6 +25,8 @@ function mapAuctionFromDb(row) {
     status: row.status,
     state: row.state,
     district: row.district,
+    village: row.village || '',
+    description: row.description || '',
     images: Array.isArray(row.images) && row.images.length > 0
       ? row.images
       : [COMMODITY_IMAGES[row.commodity] || COMMODITY_IMAGES.Other],
@@ -70,7 +72,7 @@ export async function getAuctions(limit = null) {
 
     let query = supabase
       .from('auctions')
-      .select('id, farmer_id, farmer_name, commodity, variety, grade, quantity, unit, base_price, reserve_price, current_bid, highest_bidder_id, highest_bidder_name, total_bids, start_time, end_time, status, state, district, images, created_at, updated_at')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (limit) {
@@ -109,7 +111,7 @@ export async function getLiveAuctions(limit = null) {
     const nowIso = new Date().toISOString();
     let query = supabase
       .from('auctions')
-      .select('id, farmer_id, farmer_name, commodity, variety, grade, quantity, unit, base_price, reserve_price, current_bid, highest_bidder_id, highest_bidder_name, total_bids, start_time, end_time, status, state, district, images, created_at, updated_at')
+      .select('*')
       .eq('status', 'live')
       .gt('end_time', nowIso)
       .order('created_at', { ascending: false });
@@ -406,16 +408,55 @@ export async function createAuction(auctionData) {
       status: 'live',
       state: auctionData.state || '',
       district: auctionData.district || '',
+      village: auctionData.village || null,
+      description: auctionData.description || null,
       images: imagesArray,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
+    let data;
+    let error;
+
+    const res = await supabase
       .from('auctions')
       .insert([dbRow])
       .select()
       .single();
+
+    data = res.data;
+    error = res.error;
+
+    // Fallback if village column does not exist in schema yet
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.village;
+      if (auctionData.village) {
+        const existingDesc = fallbackRow.description || '';
+        fallbackRow.description = `<!--agrolnk:village:${encodeURIComponent(auctionData.village)}-->\n${existingDesc}`.trim();
+      }
+      const retryRes = await supabase
+        .from('auctions')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    // Graceful fallback if description column does not exist in PostgreSQL schema yet
+    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('description'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.village;
+      delete fallbackRow.description;
+      const retryRes = await supabase
+        .from('auctions')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
 
     if (error) {
       console.error('Supabase auction creation error:', error);

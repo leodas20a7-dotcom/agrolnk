@@ -8,13 +8,20 @@ import { COMMODITY_IMAGES } from '../../utils/listings';
 import { uploadProduceImage } from '../../utils/imageUpload';
 import { toast } from '../../context/ToastContext';
 import MultiMediaUploader from '../ui/MultiMediaUploader';
+import { computePricingBreakdown, PRICING_UNIT_OPTIONS } from '../../utils/pricingUnits';
 
 export default function ProduceForm({ formData, onChange, onImageChange }) {
   const grades = ['Grade A', 'Grade B', 'Grade C'];
   const units = ['kg', 'Quintal', 'MT'];
 
-  const estimatedValue =
-    Number(formData.quantity || 0) * Number(formData.price || 0);
+  const pricingBreakdown = computePricingBreakdown({
+    quantity: formData.quantity,
+    unit: formData.unit,
+    price: formData.price,
+    priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
+  });
+
+  const estimatedValue = pricingBreakdown.totalEscrowValue;
 
   const handleCustomImage = async (e) => {
     const file = e.target.files?.[0];
@@ -147,6 +154,31 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
             />
           </div>
         </div>
+
+        {/* Produce Detailing / Description (Optional) */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+              <span>Produce Detailing & Specifications</span>
+              <span className="text-[10px] font-semibold text-[#566861] bg-[#F1F4F2] px-2 py-0.5 rounded-full">Optional</span>
+            </label>
+            <span className="text-[11px] text-[#71847D]">
+              {(formData.description || '').length}/1000 characters
+            </span>
+          </div>
+          <textarea
+            name="description"
+            rows={3}
+            maxLength={1000}
+            value={formData.description || ''}
+            onChange={onChange}
+            placeholder="Share details about produce freshness, packaging type (gunny bags, crates), moisture content, organic certification, harvest timing, or loading instructions..."
+            className="w-full text-xs text-[#0B3326] bg-[#F8FAF8] border border-[#CBD7D0] focus:border-[#008236] focus:ring-1 focus:ring-[#008236] rounded-xl p-3 outline-hidden transition-all duration-150 resize-y placeholder:text-[#8E9F97] leading-relaxed"
+          />
+          <p className="text-[11px] text-[#566861]">
+            Help verified buyers understand your lot specifics, packaging condition, or transportation readiness.
+          </p>
+        </div>
       </div>
 
       {/* 2. Origin & Location */}
@@ -226,9 +258,20 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
           <div>
-            <label className="block text-xs font-bold text-[#14211D] mb-1.5">
-              Target Price (₹ per {formData.unit}) <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-[#14211D]">
+                Target Price (₹) <span className="text-red-500">*</span>
+              </label>
+              <div className="w-36">
+                <SearchableSelect
+                  options={PRICING_UNIT_OPTIONS}
+                  value={formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                  onChange={(val) => onChange({ target: { name: 'priceUnit', value: val } })}
+                  placeholder="Price basis"
+                  buttonClassName="bg-[#F8FAF8] py-1 text-xs"
+                />
+              </div>
+            </div>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
                 ₹
@@ -236,16 +279,17 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
               <input
                 type="number"
                 name="price"
-                min="1"
+                min="0.1"
+                step="any"
                 required
                 value={formData.price}
                 onChange={onChange}
-                placeholder="42"
+                placeholder={formData.priceUnit === 'MT' ? '18500' : (formData.priceUnit === 'kg' ? '18.5' : '1850')}
                 className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] font-bold placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
               />
             </div>
-            <span className="text-[11px] text-[#566861] mt-1 block">
-              100% direct realization with zero commission deductions
+            <span className="text-[11px] text-[#2D5A47] mt-1 block">
+              Mandi Equivalent: <strong>₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')}/Qtl</strong> • <strong>₹{pricingBreakdown.pricePerMT.toLocaleString('en-IN')}/MT</strong>
             </span>
           </div>
 
@@ -261,7 +305,7 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
               ₹{estimatedValue.toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-[#34D399] mt-1">
-              {formData.quantity || 0} {formData.unit} × ₹{formData.price || 0}
+              {pricingBreakdown.totalQuintals} Quintals ({formData.quantity || 0} {formData.unit}) × ₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')}/Qtl
             </div>
           </div>
         </div>

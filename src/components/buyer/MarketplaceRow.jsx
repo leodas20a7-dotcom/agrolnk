@@ -63,6 +63,11 @@ export default function MarketplaceRow({ listing, onSelect }) {
           <span className="text-xs font-extrabold text-[#14211D] block truncate">
             {Number(listing.quantity || 0).toLocaleString()} {listing.unit || 'kg'}
           </span>
+          {listing.unit === 'MT' && (
+            <span className="text-[10px] text-[#566861] font-medium block truncate">
+              ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+            </span>
+          )}
         </div>
 
         <div className="min-w-0">
@@ -70,9 +75,14 @@ export default function MarketplaceRow({ listing, onSelect }) {
             {isAuction ? 'Starting Bid' : 'Price / Unit'}
           </span>
           <span className="text-xs font-extrabold text-[#0B3326] block truncate">
-            ₹{listing.price || listing.pricePerUnit || listing.startingBid || 0}
+            ₹{Number(listing.price || listing.pricePerUnit || listing.startingBid || 0).toLocaleString('en-IN')}
             <span className="text-[10px] font-normal text-[#566861]">/{listing.unit || 'kg'}</span>
           </span>
+          {listing.unit === 'MT' && (
+            <span className="text-[10px] text-[#10B981] font-semibold block truncate">
+              ₹{Math.round(Number(listing.price || listing.pricePerUnit || 0) / 10).toLocaleString('en-IN')}/Qtl
+            </span>
+          )}
         </div>
 
         <div className="min-w-0">

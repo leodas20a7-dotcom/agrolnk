@@ -148,7 +148,7 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
               </>
             }
             bottomOverlay={
-              <div className="p-3 rounded-2xl bg-[#0B3326]/90 text-white flex items-center justify-between text-xs backdrop-blur-xs">
+              <div className="p-3 rounded-2xl bg-[#0B3326] border border-[#14624A] text-white flex items-center justify-between text-xs shadow-md">
                 <span className="flex items-center gap-1.5 text-[#34D399] font-medium">
                   <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Escrow Secured Trading
                 </span>
@@ -210,6 +210,18 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
               </span>
             </div>
           </div>
+
+          {/* Produce Detailing & Specifications */}
+          {listingData.description && (
+            <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1.5 text-xs text-[#2D5A47]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0B3326] block">
+                Produce Detailing & Special Notes
+              </span>
+              <p className="leading-relaxed whitespace-pre-line text-[#14211D]">
+                {listingData.description}
+              </p>
+            </div>
+          )}
 
           {/* Trust Guarantee Checklist */}
           <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/20 space-y-2">

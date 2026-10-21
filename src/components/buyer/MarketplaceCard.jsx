@@ -84,17 +84,27 @@ export default function MarketplaceCard({ listing, onSelect }) {
         <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">Available</span>
-            <span className="font-bold text-[#14211D]">
+            <span className="font-bold text-[#14211D] block">
               {listing.quantity} {listing.unit}
             </span>
+            {listing.unit === 'MT' && (
+              <span className="text-[10px] text-[#566861] font-medium block">
+                ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+              </span>
+            )}
           </div>
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">
               {isAuction ? 'Current Bid' : 'Price'}
             </span>
-            <span className="font-bold text-[#0B3326]">
-              ₹{listing.price} / {listing.unit}
+            <span className="font-bold text-[#0B3326] block">
+              ₹{Number(listing.price || 0).toLocaleString('en-IN')}/{listing.unit}
             </span>
+            {listing.unit === 'MT' && (
+              <span className="text-[10px] text-[#10B981] font-semibold block">
+                ₹{Math.round(Number(listing.price || 0) / 10).toLocaleString('en-IN')}/Qtl
+              </span>
+            )}
           </div>
         </div>
       </div>

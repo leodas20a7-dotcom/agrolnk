@@ -401,6 +401,22 @@ export default function DashboardLayout({
     return [];
   };
 
+  // If the organization or user name is very big, show only the single first word
+  const getHeaderDisplayName = (name) => {
+    if (!name) return 'User';
+    const trimmed = name.trim();
+    if (!trimmed) return 'User';
+    const words = trimmed.split(/\s+/);
+    // If the name is very big (multiple words and > 12 characters, or single word > 15 characters)
+    if (words.length > 1 && trimmed.length > 12) {
+      return words[0];
+    }
+    if (trimmed.length > 15) {
+      return words[0];
+    }
+    return trimmed;
+  };
+
   const navGroups = getNavGroups();
 
   return (
@@ -544,17 +560,23 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsProfileModalOpen(true)}
-                title="Click to edit Profile, Address, District & Auto-Fill Defaults"
+                title={user.name || 'User'}
                 className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-[#E5EDE8] hover:bg-[#F2FBF6] p-1 sm:p-1.5 rounded-2xl transition-all cursor-pointer group"
               >
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0B3326] text-white flex items-center justify-center text-xs font-bold shadow-xs group-hover:ring-2 group-hover:ring-[#10B981] group-hover:scale-105 transition-all">
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </div>
-                <div className="text-left leading-tight hidden xl:block">
-                  <span className="block text-xs font-bold text-[#14211D] group-hover:text-[#0B3326] transition-colors">
-                    {user.name || 'User'}
+                <div className="text-left leading-tight hidden lg:block">
+                  <span
+                    className="block text-xs font-bold text-[#14211D] group-hover:text-[#0B3326] transition-colors truncate max-w-[130px]"
+                    title={user.name || 'User'}
+                  >
+                    {getHeaderDisplayName(user.name)}
                   </span>
-                  <span className="block text-[10px] text-[#566861]">
+                  <span
+                    className="block text-[10px] text-[#566861] truncate max-w-[130px]"
+                    title={user.email}
+                  >
                     {user.email}
                   </span>
                 </div>

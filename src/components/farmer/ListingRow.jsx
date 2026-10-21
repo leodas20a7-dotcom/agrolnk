@@ -65,25 +65,36 @@ export default function ListingRow({ listing, onView, onEdit, onDelete }) {
         </div>
       </div>
 
-      {/* Middle: Lot Quantity, Price & Total Value */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4 py-2 md:py-0 border-y md:border-y-0 md:border-x md:px-6 border-[#E5EDE8] text-xs w-full md:w-[280px] shrink-0">
-        <div>
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Lot Qty</span>
-          <span className={`font-extrabold text-sm ${isSoldOut ? 'text-amber-700' : 'text-[#0B3326]'}`}>
-            {isSoldOut ? '0 (Sold)' : `${listing.quantity} ${listing.unit || 'kg'}`}
+      {/* Middle: Lot Quantity, Price & Total Value (Spacious 3-column bay with clean formatting) */}
+      <div className="w-full md:w-[350px] lg:w-[380px] shrink-0 grid grid-cols-3 gap-2 sm:gap-3 py-2.5 md:py-0 border-y md:border-y-0 md:border-x border-[#E5EDE8] md:px-4 lg:px-5 text-xs">
+        <div className="min-w-0">
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Lot Qty</span>
+          <span className={`font-extrabold text-sm block truncate ${isSoldOut ? 'text-amber-700' : 'text-[#0B3326]'}`}>
+            {isSoldOut ? '0 (Sold)' : `${Number(listing.quantity || 0).toLocaleString('en-IN')} ${listing.unit || 'kg'}`}
           </span>
+          {listing.unit === 'MT' && !isSoldOut && (
+            <span className="text-[10px] text-[#566861] font-medium block truncate">
+              ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+            </span>
+          )}
         </div>
 
-        <div>
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Unit Price</span>
-          <span className="font-extrabold text-sm text-[#0B3326]">
-            ₹{listing.price}/{listing.unit || 'kg'}
+        <div className="min-w-0">
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Unit Price</span>
+          <span className="font-extrabold text-sm text-[#0B3326] block truncate">
+            ₹{Number(listing.price || 0).toLocaleString('en-IN')}
+            <span className="text-[10px] font-normal text-[#566861]">/{listing.unit || 'kg'}</span>
           </span>
+          {listing.unit === 'MT' && (
+            <span className="text-[10px] text-[#10B981] font-semibold block truncate">
+              ₹{Math.round(Number(listing.price || 0) / 10).toLocaleString('en-IN')}/Qtl
+            </span>
+          )}
         </div>
 
-        <div>
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Total Est.</span>
-          <span className="font-extrabold text-sm text-[#10B981]">
+        <div className="min-w-0 text-left">
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Total Est.</span>
+          <span className="font-extrabold text-sm text-[#10B981] block truncate" title={`₹${totalVal.toLocaleString('en-IN')}`}>
             ₹{totalVal.toLocaleString('en-IN')}
           </span>
         </div>
@@ -92,7 +103,11 @@ export default function ListingRow({ listing, onView, onEdit, onDelete }) {
       {/* Right: Status Badge & Actions */}
       <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
         <div>
-          {isSoldOut ? (
+          {listing.status === 'draft' || listing.isLocalDraft ? (
+            <Badge variant="amber" size="sm" dot={false}>
+              Draft
+            </Badge>
+          ) : isSoldOut ? (
             <Badge variant="dark" size="sm" dot={false}>
               Sold Out
             </Badge>

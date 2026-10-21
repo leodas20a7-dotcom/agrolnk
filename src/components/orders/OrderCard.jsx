@@ -7,6 +7,7 @@ import CopyButton from '../ui/CopyButton';
 import OrderStatus from './OrderStatus';
 import FinancingStatusBadge from '../financing/FinancingStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
+import { formatDualVolume } from '../../utils/pricingUnits';
 
 export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
   const [financingReq, setFinancingReq] = React.useState(null);
@@ -93,7 +94,7 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
             ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
           </span>
           <span className="text-[11px] text-[#566861] block mt-0.5">
-            {Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'} @ ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}
+            {formatDualVolume(order.quantity, order.unit)} @ ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}
           </span>
         </div>
       </div>

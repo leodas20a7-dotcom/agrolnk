@@ -42,7 +42,11 @@ export default function ListingCard({ listing, onView, onEdit, onDelete }) {
           </div>
 
           <div className="absolute top-3 right-3">
-            {isSoldOut ? (
+            {listing.status === 'draft' || listing.isLocalDraft ? (
+              <Badge variant="amber" size="sm" dot={false}>
+                Draft
+              </Badge>
+            ) : isSoldOut ? (
               <Badge variant="dark" size="sm" dot={false}>
                 Sold Out
               </Badge>
@@ -99,17 +103,28 @@ export default function ListingCard({ listing, onView, onEdit, onDelete }) {
         <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-center text-xs">
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">Quantity</span>
-            <span className={`font-bold ${isSoldOut ? 'text-amber-700' : 'text-[#14211D]'}`}>
-              {isSoldOut ? `0 ${listing.unit || 'kg'} (Sold)` : `${listing.quantity} ${listing.unit || 'kg'}`}
+            <span className={`font-bold block ${isSoldOut ? 'text-amber-700' : 'text-[#14211D]'}`}>
+              {isSoldOut ? `0 ${listing.unit || 'kg'} (Sold)` : `${Number(listing.quantity || 0).toLocaleString('en-IN')} ${listing.unit || 'kg'}`}
             </span>
+            {listing.unit === 'MT' && !isSoldOut && (
+              <span className="text-[10px] text-[#566861] font-medium block">
+                ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+              </span>
+            )}
           </div>
           <div>
             <span className="text-[10px] text-[#566861] block font-medium">
               {isAuction ? 'Current Bid' : 'Direct Price'}
             </span>
-            <span className="font-bold text-[#0B3326]">
-              ₹{listing.price} / {listing.unit || 'kg'}
+            <span className="font-bold text-[#0B3326] block">
+              ₹{Number(listing.price || 0).toLocaleString('en-IN')}
+              <span className="text-[10px] font-normal text-[#566861]">/{listing.unit || 'kg'}</span>
             </span>
+            {listing.unit === 'MT' && (
+              <span className="text-[10px] text-[#10B981] font-semibold block">
+                ₹{Math.round(Number(listing.price || 0) / 10).toLocaleString('en-IN')}/Qtl
+              </span>
+            )}
           </div>
         </div>
       </div>

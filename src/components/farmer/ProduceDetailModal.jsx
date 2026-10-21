@@ -152,22 +152,22 @@ export default function ProduceDetailModal({
             </>
           }
           bottomOverlay={
-            <div className="rounded-2xl bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3.5 flex items-end justify-between text-white backdrop-blur-2xs">
+            <div className="rounded-2xl bg-[#0B3326] border border-[#14624A] shadow-xl p-3.5 sm:p-4 flex items-center justify-between text-white">
               <div>
-                <h4 className="text-xl font-black font-heading text-white">
+                <h4 className="text-lg sm:text-xl font-extrabold font-heading text-white tracking-tight">
                   {listing.commodity}
                 </h4>
                 {hasSpecificVariety(listing.variety) && (
-                  <p className="text-xs text-white/90 font-medium">
+                  <p className="text-xs text-[#DCFCE7]/90 font-medium mt-0.5">
                     Variety: {listing.variety}
                   </p>
                 )}
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-white/80 block uppercase tracking-wider font-semibold">
+                <span className="text-[10px] text-[#DCFCE7]/70 block uppercase tracking-wider font-bold">
                   Est. Lot Value
                 </span>
-                <span className="text-lg font-black text-[#34D399]">
+                <span className="text-lg sm:text-xl font-extrabold text-[#34D399]">
                   ₹{totalValue.toLocaleString('en-IN')}
                 </span>
               </div>
@@ -224,6 +224,18 @@ export default function ProduceDetailModal({
           </div>
         </div>
 
+        {/* Produce Detailing & Farmer Notes */}
+        {listing.description && (
+          <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1.5 text-xs text-[#2D5A47]">
+            <h5 className="text-[11px] font-bold uppercase tracking-wider text-[#0B3326] flex items-center gap-1.5">
+              Produce Detailing & Special Notes
+            </h5>
+            <p className="leading-relaxed whitespace-pre-line text-[#14211D]">
+              {listing.description}
+            </p>
+          </div>
+        )}
+
         {/* Detailed Information Rows */}
         <div className="p-4 rounded-2xl bg-white border border-[#E5EDE8] space-y-3">
           <h5 className="text-xs font-bold uppercase tracking-wider text-[#566861]">
@@ -236,27 +248,27 @@ export default function ProduceDetailModal({
               <div>
                 <span className="text-[#566861] block text-[11px]">Origin Location</span>
                 <span className="font-semibold">
-                  {listing.district ? `${listing.district}, ` : ''}{listing.state}
+                  {listing.district ? `${listing.district}, ` : ''}{listing.state || 'India'}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 text-[#14211D]">
-              <Calendar className="w-4 h-4 text-[#10B981] shrink-0" />
-              <div>
-                <span className="text-[#566861] block text-[11px]">Harvest Date</span>
-                <span className="font-semibold">
-                  {listing.harvestDate || 'Recently Harvested'}
-                </span>
+            {listing.village && (
+              <div className="flex items-center gap-2.5 text-[#14211D]">
+                <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
+                <div>
+                  <span className="text-[#566861] block text-[11px]">Pickup Address / Depot</span>
+                  <span className="font-semibold">{listing.village}</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center gap-2.5 text-[#14211D]">
-              <Layers className="w-4 h-4 text-[#10B981] shrink-0" />
+              <Tag className="w-4 h-4 text-[#10B981] shrink-0" />
               <div>
-                <span className="text-[#566861] block text-[11px]">Packaging Type</span>
+                <span className="text-[#566861] block text-[11px]">Trading Method</span>
                 <span className="font-semibold">
-                  {listing.packaging || 'Crates / Standard Ag Packaging'}
+                  {isAuction ? 'Live Digital Auction' : 'Direct Fixed-Price'}
                 </span>
               </div>
             </div>
@@ -264,9 +276,9 @@ export default function ProduceDetailModal({
             <div className="flex items-center gap-2.5 text-[#14211D]">
               <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
               <div>
-                <span className="text-[#566861] block text-[11px]">Assay Verification</span>
+                <span className="text-[#566861] block text-[11px]">Producer Identity</span>
                 <span className="font-semibold text-[#10B981]">
-                  NABL Quality Assayed
+                  KYC Verified Farmer ✓
                 </span>
               </div>
             </div>

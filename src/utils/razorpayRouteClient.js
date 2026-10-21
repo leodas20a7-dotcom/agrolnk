@@ -36,6 +36,9 @@ export function loadRazorpaySDK() {
 export async function initiateRazorpayRouteCheckout({
   listing,
   quantity = 100,
+  pricePerUnit,
+  customTradeValue,
+  purchaseUnit,
   buyerUser,
   onSuccess,
   onFailure,
@@ -50,8 +53,8 @@ export async function initiateRazorpayRouteCheckout({
 
   // 1. Calculate order financials server-side or via standard formula
   const qty = Number(quantity) || Number(listing?.quantity) || 100;
-  const unitPrice = Number(listing?.price) || Number(listing?.pricePerUnit) || 42;
-  const tradeValue = qty * unitPrice;
+  const unitPrice = pricePerUnit !== undefined ? Number(pricePerUnit) : (Number(listing?.price) || Number(listing?.pricePerUnit) || 42);
+  const tradeValue = customTradeValue !== undefined ? Number(customTradeValue) : qty * unitPrice;
   const fin = calculateOrderFinancials(tradeValue);
 
   // Total payable in paise (e.g. ₹4,210.50 -> 421050 paise)
@@ -81,12 +84,13 @@ export async function initiateRazorpayRouteCheckout({
   const testOrderId = serverOrderId || `order_test_${Date.now()}`;
 
   // 3. Configure Razorpay Standard Checkout Options
+  const activeUnit = purchaseUnit || listing?.unit || 'kg';
   const options = {
     key: razorpayKeyId,
     amount: totalAmountInPaise,
     currency: 'INR',
     name: 'AgroLnk Agri-Exchange',
-    description: `Procurement: ${listing?.commodity || 'Produce'} (${qty} ${listing?.unit || 'kg'})`,
+    description: `Procurement: ${listing?.commodity || 'Produce'} (${qty} ${activeUnit})`,
     image: '/assets/Logo.jpeg',
     order_id: serverOrderId || undefined,
     prefill: {

@@ -179,10 +179,16 @@ export default function OrderReceiptModal({
                     {order.grade || 'A'}
                   </td>
                   <td className="py-3 px-3 text-right font-semibold">
-                    {Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'}
+                    <div>{Number(order.quantity || 0).toLocaleString('en-IN')} {order.unit || 'kg'}</div>
+                    {order.unit && (order.unit.toLowerCase() === 'quintal' || order.unit.toLowerCase() === 'qtl') && (
+                      <div className="text-[10px] text-[#566861] font-normal">({(Number(order.quantity || 0) / 10).toLocaleString('en-IN')} MT)</div>
+                    )}
+                    {order.unit && (order.unit.toLowerCase() === 'mt' || order.unit.toLowerCase() === 'ton' || order.unit.toLowerCase() === 'tonne') && (
+                      <div className="text-[10px] text-[#566861] font-normal">({(Number(order.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)</div>
+                    )}
                   </td>
                   <td className="py-3 px-3 text-right font-mono">
-                    ₹{Number(order.unitPrice || (order.totalAmount / (order.quantity || 1)) || 0).toLocaleString('en-IN')}
+                    ₹{Number(order.pricePerUnit || order.unitPrice || (order.totalAmount / (order.quantity || 1)) || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}
                   </td>
                   <td className="py-3 px-3 text-right font-bold text-[#0B3326]">
                     {formatINR(fin.tradeValue)}

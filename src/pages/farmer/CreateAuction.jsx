@@ -24,6 +24,7 @@ import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
 import MultiMediaUploader from '../../components/ui/MultiMediaUploader';
+import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate } from '../../utils/pricingUnits';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -34,11 +35,13 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     grade: 'A',
     quantity: '',
     unit: 'kg',
+    priceUnit: 'Quintal',
     startingBid: '',
     reservePrice: '',
     durationMinutes: '1440',
     state: '',
     district: '',
+    description: '',
     images: [],
   });
 
@@ -124,8 +127,21 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     }
   };
 
-  const startingLotValue =
-    Number(formData.quantity || 0) * Number(formData.startingBid || 0);
+  const startBidBreakdown = computePricingBreakdown({
+    quantity: formData.quantity,
+    unit: formData.unit,
+    price: formData.startingBid,
+    priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
+  });
+
+  const reserveBreakdown = computePricingBreakdown({
+    quantity: formData.quantity,
+    unit: formData.unit,
+    price: formData.reservePrice,
+    priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
+  });
+
+  const startingLotValue = startBidBreakdown.totalEscrowValue;
 
   const handlePublishAuction = async (e) => {
     e.preventDefault();
@@ -165,6 +181,8 @@ export default function CreateAuction({ currentUser, onNavigate }) {
       await createAuction({
         ...formData,
         variety: formData.variety || 'None',
+        startingBid: startBidBreakdown.canonicalPricePerListingUnit,
+        reservePrice: reserveBreakdown.canonicalPricePerListingUnit,
         farmerId: user.id,
         farmerName: user.name || 'Farmer Account',
       });
@@ -340,6 +358,31 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                 </div>
               </div>
 
+              {/* Produce Detailing / Description (Optional) */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                    <span>Produce Detailing & Specifications</span>
+                    <span className="text-[10px] font-semibold text-[#566861] bg-[#F1F4F2] px-2 py-0.5 rounded-full">Optional</span>
+                  </label>
+                  <span className="text-[11px] text-[#71847D]">
+                    {(formData.description || '').length}/1000 characters
+                  </span>
+                </div>
+                <textarea
+                  name="description"
+                  rows={3}
+                  maxLength={1000}
+                  value={formData.description || ''}
+                  onChange={handleChange}
+                  placeholder="Share details about produce freshness, packaging type (gunny bags, crates), moisture content, organic certification, harvest timing, or loading instructions..."
+                  className="w-full text-xs text-[#0B3326] bg-[#F8FAF8] border border-[#CBD7D0] focus:border-[#008236] focus:ring-1 focus:ring-[#008236] rounded-xl p-3 outline-hidden transition-all duration-150 resize-y placeholder:text-[#8E9F97] leading-relaxed"
+                />
+                <p className="text-[11px] text-[#566861]">
+                  Help verified buyers understand your lot specifics, packaging condition, or transportation readiness.
+                </p>
+              </div>
+
               {/* Photos & Video Multi-Media Upload */}
               <div className="sm:col-span-2 pt-3 border-t border-[#E5EDE8]">
                 <MultiMediaUploader
@@ -371,9 +414,14 @@ export default function CreateAuction({ currentUser, onNavigate }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Reserve Price */}
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#14211D]">
-                  Reserve Price (₹ / {formData.unit}) <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#14211D]">
+                    Reserve Price (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-[#566861]">
+                    per {formData.priceUnit}
+                  </span>
+                </div>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
                     ₹
@@ -385,20 +433,31 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                     required
                     value={formData.reservePrice}
                     onChange={handleChange}
-                    placeholder="40"
+                    placeholder="1850"
                     className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
                   />
                 </div>
                 <span className="text-[11px] text-[#566861] block pt-0.5">
-                  🛡️ <strong>Farmer Protection:</strong> You will not be required to sell if the highest bid is below this amount.
+                  🛡️ <strong>Farmer Protection:</strong> Auction will not close below this amount.
                 </span>
               </div>
 
               {/* Starting Bid */}
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#14211D]">
-                  Starting Bid (₹ / {formData.unit}) <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#14211D]">
+                    Starting Bid (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="w-36">
+                    <SearchableSelect
+                      options={PRICING_UNIT_OPTIONS}
+                      value={formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                      onChange={(val) => setFormData((p) => ({ ...p, priceUnit: val }))}
+                      placeholder="Pricing unit"
+                      buttonClassName="bg-[#F8FAF8] py-1 text-xs"
+                    />
+                  </div>
+                </div>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
                     ₹
@@ -410,7 +469,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                     required
                     value={formData.startingBid}
                     onChange={handleChange}
-                    placeholder="40"
+                    placeholder="1800"
                     className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
                   />
                 </div>
@@ -418,6 +477,27 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                   Opening price at which buyers begin placing competitive bids.
                 </span>
               </div>
+
+              {/* Live Mandi Rate Breakdown Pill */}
+              {startingLotValue > 0 && (
+                <div className="sm:col-span-2 p-3.5 rounded-2xl bg-gradient-to-r from-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs animate-in fade-in">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-bold text-[#0B3326] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
+                      Live Converted Mandi Rates:
+                    </span>
+                    <p className="text-[11px] text-[#2D5A47]">
+                      <strong>₹{startBidBreakdown.pricePerQuintal.toLocaleString('en-IN')}/Qtl</strong> (Mandi) • <strong>₹{startBidBreakdown.pricePerMT.toLocaleString('en-IN')}/MT</strong> (Bulk) • <strong>₹{startBidBreakdown.pricePerKg.toFixed(2)}/kg</strong>
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right shrink-0">
+                    <span className="text-[10px] text-[#566861] block">Total Lot Conversion:</span>
+                    <span className="font-bold text-[#0B3326] text-xs">
+                      {formData.quantity} {formData.unit} = {startBidBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals ({startBidBreakdown.totalKg.toLocaleString('en-IN')} kg)
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Starting Valuation Banner */}

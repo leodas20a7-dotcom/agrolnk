@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS public.listings (
     state TEXT NOT NULL,
     district TEXT,
     harvest_date DATE,
+    description TEXT,
     images TEXT[] DEFAULT ARRAY[]::TEXT[],
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending', 'sold', 'cancelled')),
     origin_warehouse_id TEXT,
@@ -60,6 +61,11 @@ CREATE TABLE IF NOT EXISTS public.listings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Idempotent column additions for listings & auctions
+ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS village TEXT;
+ALTER TABLE public.auctions ADD COLUMN IF NOT EXISTS village TEXT;
 
 -- ============================================================================
 -- 3. LIVE AUCTIONS & AUCTION BIDS
@@ -84,10 +90,14 @@ CREATE TABLE IF NOT EXISTS public.auctions (
     status TEXT NOT NULL DEFAULT 'live' CHECK (status IN ('upcoming', 'live', 'completed', 'reserve_not_met', 'cancelled')),
     state TEXT,
     district TEXT,
+    description TEXT,
     images TEXT[] DEFAULT ARRAY[]::TEXT[],
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Idempotent column additions for auctions
+ALTER TABLE public.auctions ADD COLUMN IF NOT EXISTS description TEXT;
 
 CREATE TABLE IF NOT EXISTS public.auction_bids (
     id TEXT PRIMARY KEY,

@@ -45,6 +45,11 @@ function mapOrderFromDb(row) {
     grade: row.grade,
     quantity: Number(row.quantity),
     unit: row.unit,
+    quantityInListingUnit: row.quantity_in_listing_unit || row.quantityInListingUnit || row.meta?.quantity_in_listing_unit || null,
+    listingUnit: row.listing_unit || row.listingUnit || row.meta?.listing_unit || null,
+    totalKg: row.total_kg || row.totalKg || row.meta?.total_kg || null,
+    totalMT: row.total_mt || row.totalMT || row.meta?.total_mt || null,
+    totalQuintals: row.total_quintals || row.totalQuintals || row.meta?.total_quintals || null,
     pricePerUnit: Number(row.price_per_unit),
     totalAmount: Number(row.total_amount),
     state: row.state,
@@ -361,6 +366,11 @@ export async function createOrder(orderData) {
       grade: orderData.grade || 'A',
       quantity: Number(orderData.quantity),
       unit: orderData.unit || 'kg',
+      quantityInListingUnit: orderData.quantityInListingUnit !== undefined ? Number(orderData.quantityInListingUnit) : undefined,
+      listingUnit: orderData.listingUnit || undefined,
+      totalKg: orderData.totalKg !== undefined ? Number(orderData.totalKg) : undefined,
+      totalMT: orderData.totalMT !== undefined ? Number(orderData.totalMT) : undefined,
+      totalQuintals: orderData.totalQuintals !== undefined ? Number(orderData.totalQuintals) : undefined,
       pricePerUnit: Number(orderData.pricePerUnit),
       totalAmount: Number(orderData.totalAmount),
       state: orderData.state || '',
@@ -379,13 +389,15 @@ export async function createOrder(orderData) {
     saveLocalOrder(localItem);
 
     // 1. Try atomic PostgreSQL purchase RPC (Eliminates inventory race condition & oversell)
+    // Note: Deduct in the listing's native inventory unit (e.g. 50 Quintals => 5 MT deducted from 30 MT lot)
     if (orderData.listingId) {
       try {
+        const deductQty = Number(orderData.quantityInListingUnit ?? orderData.quantity);
         const { data: rpcData, error: rpcErr } = await supabase.rpc('create_direct_order_atomic', {
           p_listing_id: orderData.listingId,
           p_buyer_id: orderData.buyerId || '',
           p_buyer_name: orderData.buyerName || 'Wholesale Buyer',
-          p_quantity: Number(orderData.quantity),
+          p_quantity: deductQty,
           p_delivery_location: deliveryLocation,
           p_is_trade_credit: Boolean(isTradeCredit),
         });
