@@ -20,16 +20,21 @@ import {
   AlertTriangle,
   Lock,
   ShieldAlert,
-  AlertCircle
+  AlertCircle,
+  Search,
+  X,
+  FileSpreadsheet
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
+import BulkUploadExcelModal from '../../components/farmer/BulkUploadExcelModal';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import {
   getFarmerListings,
   getListingDraft,
   clearListingDraft,
   checkListingBookings,
-  deleteListing
+  deleteListing,
+  deleteAllFarmerListings
 } from '../../utils/listings';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { toast } from '../../context/ToastContext';
@@ -38,11 +43,16 @@ export default function MyListings({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedListing, setSelectedListing] = useState(null);
   const [listingToDelete, setListingToDelete] = useState(null);
   const [blockedDeleteInfo, setBlockedDeleteInfo] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+  const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState('');
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [deleteSuccessMsg, setDeleteSuccessMsg] = useState(null);
   const [savedDraft, setSavedDraft] = useState(() => getListingDraft(user.id));
   const [viewMode, setViewMode] = useState(() => {
@@ -147,6 +157,49 @@ export default function MyListings({ currentUser, onNavigate }) {
     }
   };
 
+  const handleConfirmDeleteAll = async () => {
+    const inputUpper = deleteAllConfirmInput.trim().toUpperCase();
+    if (inputUpper !== 'DELETE' && inputUpper !== 'DELETE ALL') {
+      return;
+    }
+    setIsDeletingAll(true);
+    try {
+      showGlobalLoader(
+        'Permanently Deleting Produce Lots...',
+        'Auditing active escrow bookings and deleting produce listings from database...'
+      );
+      const result = await deleteAllFarmerListings(user.id, safeListings);
+      hideGlobalLoader();
+
+      setIsDeleteAllModalOpen(false);
+      setDeleteAllConfirmInput('');
+
+      if (result.deletedCount > 0) {
+        const msg = `Successfully deleted ${result.deletedCount} produce ${result.deletedCount === 1 ? 'lot' : 'lots'} permanently.`;
+        setDeleteSuccessMsg(msg);
+        toast.success(msg);
+        setTimeout(() => setDeleteSuccessMsg(null), 5000);
+      }
+
+      if (result.skippedCount > 0) {
+        toast.info(
+          `${result.skippedCount} booked lot(s) were protected and preserved due to active buyer purchase agreements.`
+        );
+      } else if (result.deletedCount === 0 && safeListings.length === 0) {
+        toast.info('No produce listings to delete.');
+      }
+
+      setSelectedListing(null);
+      await fetchListings(false);
+    } catch (err) {
+      hideGlobalLoader();
+      console.error('Error deleting all listings:', err);
+      toast.error(err.message || 'Failed to delete all produce listings.');
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   const safeListings = Array.isArray(listings) ? listings : [];
 
   // Auto-clean stale draft if an identical live listing is already active in exchange
@@ -203,14 +256,30 @@ export default function MyListings({ currentUser, onNavigate }) {
     setCurrentPage(1);
   };
 
-  const filteredListings = activeTab === 'drafts'
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const filteredListings = (activeTab === 'drafts'
     ? (localDraftItem ? [localDraftItem] : [])
     : safeListings.filter((item) => {
         if (activeTab === 'all') return true;
         if (activeTab === 'active') return isListingActive(item);
         if (activeTab === 'sold') return isListingSold(item);
         return true;
-      });
+      })
+  ).filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      (item.commodity || '').toLowerCase().includes(q) ||
+      (item.variety || '').toLowerCase().includes(q) ||
+      (item.grade || '').toLowerCase().includes(q) ||
+      (item.state || '').toLowerCase().includes(q) ||
+      (item.district || '').toLowerCase().includes(q) ||
+      (item.id || '').toLowerCase().includes(q)
+    );
+  });
 
   const totalPages = Math.ceil(filteredListings.length / ITEMS_PER_PAGE) || 1;
   const paginatedListings = filteredListings.slice(
@@ -239,16 +308,45 @@ export default function MyListings({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <Button
-            variant="accent"
-            size="md"
-            icon={Plus}
-            iconPosition="left"
-            onClick={() => onNavigate('farmer-create-listing')}
-            className="font-bold py-2.5 px-5 shadow-xs shrink-0 cursor-pointer"
-          >
-            List New Produce
-          </Button>
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+            {safeListings.length > 0 && (
+              <Button
+                variant="danger-outline"
+                size="md"
+                icon={Trash2}
+                iconPosition="left"
+                onClick={() => {
+                  setDeleteAllConfirmInput('');
+                  setIsDeleteAllModalOpen(true);
+                }}
+                className="font-bold py-2.5 px-4 shadow-xs shrink-0 cursor-pointer text-xs sm:text-sm text-rose-700 border-rose-300 hover:bg-rose-50 hover:border-rose-400"
+              >
+                Delete All Produce
+              </Button>
+            )}
+
+            <Button
+              variant="secondary"
+              size="md"
+              icon={FileSpreadsheet}
+              iconPosition="left"
+              onClick={() => setIsBulkUploadModalOpen(true)}
+              className="font-bold py-2.5 px-4 shadow-xs shrink-0 cursor-pointer text-xs sm:text-sm text-[#0B3326] border-[#E5EDE8] hover:bg-[#F2FBF6]"
+            >
+              Bulk Upload Excel
+            </Button>
+
+            <Button
+              variant="accent"
+              size="md"
+              icon={Plus}
+              iconPosition="left"
+              onClick={() => onNavigate('farmer-create-listing')}
+              className="font-bold py-2.5 px-5 shadow-xs shrink-0 cursor-pointer"
+            >
+              List New Produce
+            </Button>
+          </div>
         </div>
 
         {/* Top Notification if Unpublished Draft Exists */}
@@ -307,9 +405,9 @@ export default function MyListings({ currentUser, onNavigate }) {
           </div>
         )}
 
-        {/* Filter Tabs & View Toggle */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-[#E5EDE8]">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        {/* Filter Tabs, Search Bar & View Mode Toggle */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-2 border-b border-[#E5EDE8]">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 shrink-0">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -337,10 +435,33 @@ export default function MyListings({ currentUser, onNavigate }) {
             })}
           </div>
 
-          <ViewModeToggle
-            viewMode={viewMode}
-            onViewModeChange={handleSetViewMode}
-          />
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-72">
+              <Search className="w-4 h-4 text-[#566861] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search produce, variety, location..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] placeholder:text-[#566861]/60 focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#566861] hover:text-[#0B3326] p-0.5 transition-colors cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewModeChange={handleSetViewMode}
+            />
+          </div>
         </div>
 
         {/* Listings Content: Row View vs Card Grid */}
@@ -424,25 +545,41 @@ export default function MyListings({ currentUser, onNavigate }) {
         ) : (
           <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center mx-auto">
-              <Package className="w-6 h-6 text-[#10B981]" />
+              {searchQuery ? (
+                <Search className="w-6 h-6 text-[#10B981]" />
+              ) : (
+                <Package className="w-6 h-6 text-[#10B981]" />
+              )}
             </div>
             <h3 className="text-base font-bold text-[#0B3326] font-heading">
-              No {activeTab} listings found
+              {searchQuery ? `No listings matching "${searchQuery}"` : `No ${activeTab} listings found`}
             </h3>
             <p className="text-xs text-[#566861] max-w-sm mx-auto">
-              {activeTab === 'all'
+              {searchQuery
+                ? 'Try checking for typos or searching with different keywords like crop name or state.'
+                : activeTab === 'all'
                 ? 'You have not created any produce listings yet.'
                 : `There are currently no listings under "${activeTab}".`}
             </p>
             <div className="pt-2">
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => onNavigate('farmer-create-listing')}
-                icon={Plus}
-              >
-                List New Produce
-              </Button>
+              {searchQuery ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                >
+                  Clear Search
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => onNavigate('farmer-create-listing')}
+                  icon={Plus}
+                >
+                  List New Produce
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -573,6 +710,105 @@ export default function MyListings({ currentUser, onNavigate }) {
             </div>
           </Modal>
         )}
+
+        {/* Delete All Produce Listings Permanent Confirmation Modal */}
+        {isDeleteAllModalOpen && (
+          <Modal
+            isOpen={isDeleteAllModalOpen}
+            onClose={() => {
+              if (!isDeletingAll) {
+                setIsDeleteAllModalOpen(false);
+                setDeleteAllConfirmInput('');
+              }
+            }}
+            title="Permanently Delete All Produce"
+            subtitle="Irreversible database wipe of your exchange inventory"
+            icon={Trash2}
+            iconColor="text-rose-600"
+            iconBg="bg-rose-100"
+            maxWidth="max-w-lg"
+            footer={
+              <div className="flex items-center justify-end w-full gap-2.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isDeletingAll}
+                  onClick={() => {
+                    setIsDeleteAllModalOpen(false);
+                    setDeleteAllConfirmInput('');
+                  }}
+                  className="px-4 py-2 font-semibold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={
+                    isDeletingAll ||
+                    (deleteAllConfirmInput.trim().toUpperCase() !== 'DELETE' &&
+                     deleteAllConfirmInput.trim().toUpperCase() !== 'DELETE ALL')
+                  }
+                  onClick={handleConfirmDeleteAll}
+                  icon={Trash2}
+                  iconPosition="left"
+                  className="px-5 py-2.5 font-bold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all shadow-sm"
+                >
+                  {isDeletingAll
+                    ? 'Deleting All Listings...'
+                    : `Permanently Delete All (${safeListings.length})`}
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4 text-left">
+              {/* Critical Alert Warning */}
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-950 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-sm text-rose-900">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span>Extreme Caution: Irreversible Action</span>
+                </div>
+                <p className="text-xs text-rose-800 leading-relaxed">
+                  You are about to permanently delete all <strong className="font-extrabold text-rose-950">{safeListings.length} produce lots</strong> associated with your account from the live agricultural exchange.
+                </p>
+              </div>
+
+              {/* What will happen card */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5 text-xs text-[#566861]">
+                <p className="font-bold text-[#0B3326] text-xs">What will happen:</p>
+                <ul className="space-y-1.5 list-disc list-inside text-[11px] text-[#2D5A47]">
+                  <li>All your harvest listings, spot prices, and assay parameters will be permanently wiped from the database.</li>
+                  <li>Buyers on the national exchange will immediately lose access to these produce lots.</li>
+                  <li>Any lots tied to active buyer escrow commitments or confirmed dispatches will be preserved for trade integrity.</li>
+                </ul>
+              </div>
+
+              {/* Safety Confirmation Input */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-bold text-[#0B3326]">
+                  To confirm permanent deletion, type <span className="text-rose-700 font-extrabold">DELETE ALL</span> below:
+                </label>
+                <input
+                  type="text"
+                  value={deleteAllConfirmInput}
+                  onChange={(e) => setDeleteAllConfirmInput(e.target.value)}
+                  placeholder="Type DELETE ALL to confirm"
+                  disabled={isDeletingAll}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-rose-300 text-xs font-bold text-rose-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all bg-white"
+                  autoFocus
+                />
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* Bulk Upload Excel Modal */}
+        <BulkUploadExcelModal
+          isOpen={isBulkUploadModalOpen}
+          onClose={() => setIsBulkUploadModalOpen(false)}
+          currentUser={user}
+          onSuccess={() => fetchListings(false)}
+        />
 
       </div>
     </DashboardLayout>

@@ -731,28 +731,7 @@ export async function checkListingBookings(listingId) {
       } catch {}
     }
 
-    // 3. Check financing requests / trade credit on this listing
-    try {
-      const { data: finData, error: finErr } = await supabase
-        .from('financing_requests')
-        .select('id, request_number, status, applicant_name')
-        .eq('listing_id', listingId);
-
-      if (!finErr && Array.isArray(finData) && finData.length > 0) {
-        const activeFin = finData.filter((r) => r.status !== 'rejected' && r.status !== 'cancelled');
-        if (activeFin.length > 0) {
-          return {
-            canDelete: false,
-            activeOrdersCount: activeFin.length,
-            orderNumber: activeFin[0].request_number || activeFin[0].id,
-            buyerName: activeFin[0].applicant_name,
-            reason: `An active trade credit application (${activeFin[0].request_number}) is currently locked to this produce lot.`,
-          };
-        }
-      }
-    } catch {}
-
-    // 4. Check if listing status itself is sold
+    // 3. Check if listing status itself is sold
     const { data: listingData } = await supabase
       .from('listings')
       .select('status, quantity')
@@ -844,4 +823,332 @@ export async function deleteListing(listingId, userId) {
 
   return { success: true };
 }
+
+/**
+ * Permanently delete all unbooked produce listings for a farmer
+ */
+export async function deleteAllFarmerListings(farmerId, currentListings = []) {
+  if (!farmerId) throw new Error('Farmer ID is required.');
+
+  // 1. Fetch current listings if not provided
+  let lots = currentListings;
+  if (!lots || lots.length === 0) {
+    lots = await getFarmerListings(farmerId);
+  }
+
+  // Clear any local drafts first
+  clearListingDraft(farmerId);
+
+  if (!lots || lots.length === 0) {
+    return { deletedCount: 0, skippedCount: 0, skippedReasons: [] };
+  }
+
+  // 2. Efficiently check for active/confirmed orders on this farmer's lots in ONE single query
+  const activeBookedListingIds = new Set();
+  try {
+    const { data: remoteOrders, error: orderErr } = await supabase
+      .from('orders')
+      .select('listing_id, order_number, status')
+      .neq('status', 'cancelled');
+
+    if (!orderErr && Array.isArray(remoteOrders)) {
+      remoteOrders.forEach((o) => {
+        if (o && o.listing_id) {
+          activeBookedListingIds.add(o.listing_id);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Orders booking audit notice:', err);
+  }
+
+  // Also check local orders cache if any exist
+  try {
+    const rawLocalOrders = localStorage.getItem('agrolnk_orders_local');
+    if (rawLocalOrders) {
+      const localOrders = JSON.parse(rawLocalOrders);
+      if (Array.isArray(localOrders)) {
+        localOrders.forEach((o) => {
+          if (o && o.status !== 'cancelled' && (o.listingId || o.listing_id)) {
+            activeBookedListingIds.add(o.listingId || o.listing_id);
+          }
+        });
+      }
+    }
+  } catch {}
+
+  // 3. Separate deletable lots vs booked lots
+  const unbookedLots = lots.filter(
+    (lot) => lot && lot.id && lot.id !== 'draft_local' && !activeBookedListingIds.has(lot.id) && lot.status !== 'sold'
+  );
+  const skippedLots = lots.filter((lot) => !unbookedLots.includes(lot));
+  const unbookedIds = unbookedLots.map((l) => l.id);
+
+  // 4. Delete from Supabase in batch
+  if (unbookedIds.length > 0) {
+    const CHUNK_SIZE = 50;
+    for (let i = 0; i < unbookedIds.length; i += CHUNK_SIZE) {
+      const chunk = unbookedIds.slice(i, i + CHUNK_SIZE);
+      const { error } = await supabase
+        .from('listings')
+        .delete()
+        .in('id', chunk);
+
+      if (error) {
+        console.error('Error during batch listings deletion:', error);
+        // Fallback: try deleting by farmer_id if all were to be deleted
+        if (unbookedLots.length === lots.length) {
+          const { error: farmerDeleteErr } = await supabase
+            .from('listings')
+            .delete()
+            .eq('farmer_id', farmerId);
+          if (farmerDeleteErr) {
+            throw new Error(farmerDeleteErr.message || 'Failed to delete produce listings from database.');
+          }
+        } else {
+          throw new Error(error.message || 'Failed to delete produce listings from database.');
+        }
+      }
+    }
+  }
+
+  // 5. Clean local storage listing caches
+  try {
+    const deletedSet = new Set(unbookedIds);
+    const rawLocal = localStorage.getItem('agrolnk_listings_local');
+    if (rawLocal) {
+      const localListings = JSON.parse(rawLocal);
+      if (Array.isArray(localListings)) {
+        const updated = localListings.filter((l) => l && !deletedSet.has(l.id));
+        localStorage.setItem('agrolnk_listings_local', JSON.stringify(updated));
+      }
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('agrolnk_farmer_listings_')) {
+        try {
+          const uData = JSON.parse(localStorage.getItem(k));
+          if (Array.isArray(uData)) {
+            const filtered = uData.filter((l) => l && !deletedSet.has(l.id));
+            localStorage.setItem(k, JSON.stringify(filtered));
+          }
+        } catch {}
+      }
+    }
+  } catch (cacheErr) {
+    console.warn('Local listing cache cleanup notice:', cacheErr);
+  }
+
+  // 6. Notify all components and cross-tab listeners
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('agrolnk_listings_updated', {
+        detail: { deletedAll: true, deletedIds: unbookedIds },
+      })
+    );
+    window.dispatchEvent(new Event('storage'));
+  }
+
+  return {
+    deletedCount: unbookedIds.length,
+    skippedCount: skippedLots.length,
+    skippedReasons: skippedLots.map((s) => `Lot #${s.id} is booked or sold`),
+  };
+}
+
+/**
+ * Bulk create produce listings from parsed spreadsheet rows
+ * - Accepts ANY commodity name directly (no restriction/validation)
+ * - Any unrecognized/extra columns are automatically appended to the description
+ * - Automatically falls back to high-quality produce images if Image URL is not provided
+ */
+export async function bulkCreateListings(farmerId, farmerName, rawRows = [], onProgress = null) {
+  if (!farmerId) throw new Error('Farmer ID is required for bulk listing creation.');
+  if (!Array.isArray(rawRows) || rawRows.length === 0) {
+    throw new Error('No listing records provided for bulk insertion.');
+  }
+
+  const knownKeys = new Set([
+    'commodity', 'crop', 'product', 'produce', 'grain', 'item', 'commodity name',
+    'variety', 'type',
+    'grade', 'quality',
+    'quantity', 'qty', 'weight', 'volume', 'amount', 'lot quantity',
+    'unit', 'uom',
+    'price', 'rate', 'unit price', 'spot price', 'price per unit',
+    'state', 'region', 'province',
+    'district', 'city', 'location', 'mandi', 'market',
+    'village', 'farmgate',
+    'image', 'images', 'image url', 'photo', 'picture', 'url',
+    'description', 'notes', 'remarks', 'details', 'specs', 'specifications'
+  ]);
+
+  const dbRows = rawRows.map((rawRow, idx) => {
+    // Normalizing keys
+    const rowNormalized = {};
+    Object.keys(rawRow).forEach((k) => {
+      rowNormalized[k.trim().toLowerCase()] = rawRow[k];
+    });
+
+    const commodity = (
+      rowNormalized['commodity'] ||
+      rowNormalized['crop'] ||
+      rowNormalized['commodity name'] ||
+      rowNormalized['item'] ||
+      rowNormalized['product'] ||
+      'Agricultural Produce'
+    ).toString().trim();
+
+    const variety = (
+      rowNormalized['variety'] ||
+      rowNormalized['type'] ||
+      'FAQ'
+    ).toString().trim();
+
+    const grade = (
+      rowNormalized['grade'] ||
+      rowNormalized['quality'] ||
+      'FAQ'
+    ).toString().trim();
+
+    const rawQty = rowNormalized['quantity'] || rowNormalized['qty'] || rowNormalized['weight'] || rowNormalized['volume'] || rowNormalized['amount'] || 0;
+    const cleanQty = parseFloat(String(rawQty).replace(/[^0-9.]/g, '')) || 0;
+
+    const unit = (
+      rowNormalized['unit'] ||
+      rowNormalized['uom'] ||
+      'MT'
+    ).toString().trim();
+
+    const rawPrice = rowNormalized['price'] || rowNormalized['rate'] || rowNormalized['unit price'] || rowNormalized['spot price'] || 0;
+    const cleanPrice = parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+
+    const state = (rowNormalized['state'] || rowNormalized['region'] || '').toString().trim();
+    const district = (
+      rowNormalized['district'] ||
+      rowNormalized['city'] ||
+      rowNormalized['location'] ||
+      rowNormalized['mandi'] ||
+      ''
+    ).toString().trim();
+    const village = (rowNormalized['village'] || rowNormalized['farmgate'] || '').toString().trim();
+
+    // Collect any extra columns and format them for the description
+    const extraDetails = [];
+    Object.keys(rawRow).forEach((origKey) => {
+      const lowerKey = origKey.trim().toLowerCase();
+      if (!knownKeys.has(lowerKey)) {
+        const val = rawRow[origKey];
+        if (val !== undefined && val !== null && String(val).trim() !== '') {
+          extraDetails.push(`${origKey.trim()}: ${String(val).trim()}`);
+        }
+      }
+    });
+
+    const baseDesc = (
+      rowNormalized['description'] ||
+      rowNormalized['details'] ||
+      rowNormalized['specs'] ||
+      rowNormalized['specifications'] ||
+      rowNormalized['notes'] ||
+      rowNormalized['remarks'] ||
+      ''
+    ).toString().trim();
+
+    let fullDescription = baseDesc;
+    if (extraDetails.length > 0) {
+      const extraBlock = extraDetails.join('\n');
+      fullDescription = fullDescription ? `${fullDescription}\n\n${extraBlock}` : extraBlock;
+    }
+
+    const customImage = (
+      rowNormalized['image url'] ||
+      rowNormalized['image'] ||
+      rowNormalized['images'] ||
+      rowNormalized['photo'] ||
+      rowNormalized['picture'] ||
+      rowNormalized['url'] ||
+      ''
+    ).toString().trim();
+
+    const finalImage = customImage && customImage.startsWith('http')
+      ? customImage
+      : getCommodityFallbackImage(commodity);
+
+    let listingId;
+    try {
+      listingId = crypto.randomUUID();
+    } catch {
+      listingId = `lot_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 7)}`;
+    }
+
+    return {
+      id: listingId,
+      farmer_id: farmerId,
+      farmer_name: farmerName || 'Farmer Partner',
+      commodity,
+      variety,
+      grade,
+      quantity: cleanQty,
+      unit,
+      price: cleanPrice,
+      sale_type: 'direct',
+      state,
+      district,
+      village: village || null,
+      harvest_date: new Date().toISOString().split('T')[0],
+      description: fullDescription || null,
+      images: [finalImage],
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  });
+
+  // Batch insert into Supabase in chunks of 50
+  const CHUNK_SIZE = 50;
+  for (let i = 0; i < dbRows.length; i += CHUNK_SIZE) {
+    const chunk = dbRows.slice(i, i + CHUNK_SIZE);
+    let { error } = await supabase.from('listings').insert(chunk);
+
+    // Fallback if village column does not exist
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
+      const fallbackChunk = chunk.map((r) => {
+        const copy = { ...r };
+        if (copy.village) {
+          copy.description = `<!--agrolnk:village:${encodeURIComponent(copy.village)}-->\n${copy.description || ''}`.trim();
+        }
+        delete copy.village;
+        return copy;
+      });
+      const retryRes = await supabase.from('listings').insert(fallbackChunk);
+      error = retryRes.error;
+    }
+
+    if (error) {
+      console.error('Supabase bulk listings insert error:', error);
+      throw new Error(error.message || 'Failed to insert listings into Supabase database.');
+    }
+
+    if (onProgress) {
+      onProgress(Math.min(i + CHUNK_SIZE, dbRows.length), dbRows.length);
+    }
+  }
+
+  // Update local storage cache
+  try {
+    const rawLocal = localStorage.getItem('agrolnk_listings_local');
+    const existing = rawLocal ? JSON.parse(rawLocal) : [];
+    const combined = [...dbRows.map(mapListingFromDb), ...(Array.isArray(existing) ? existing : [])];
+    localStorage.setItem('agrolnk_listings_local', JSON.stringify(combined));
+  } catch {}
+
+  // Broadcast update events across components and tabs
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: { bulkCreated: dbRows.length } }));
+    window.dispatchEvent(new Event('storage'));
+  }
+
+  return { success: true, count: dbRows.length, listings: dbRows };
+}
+
 
