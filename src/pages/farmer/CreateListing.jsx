@@ -17,7 +17,9 @@ import {
   AlertCircle,
   Check,
   Calendar,
-  Building2
+  Building2,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 import { createListing, updateListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities, saveListingDraft, getListingDraft, clearListingDraft } from '../../utils/listings';
 import { uploadProduceImage } from '../../utils/imageUpload';
@@ -106,6 +108,8 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     priceUnit: initialPricing.priceUnit,
     startingBid: initialPricing.startingBid,
     reservePrice: initialPricing.reservePrice,
+    auctionType: initialSource?.auctionType || 'forward',
+    bidStep: initialSource?.bidStep ? String(initialSource.bidStep) : '25',
     durationMinutes: initialSource?.durationMinutes ? String(initialSource.durationMinutes) : '1440',
     state: initialSource?.state || '',
     district: initialSource?.district || '',
@@ -267,9 +271,24 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
         setError('Please enter a valid selling price.');
         return;
       }
-      if (saleType === 'auction' && (!formData.startingBid || Number(formData.startingBid) <= 0)) {
-        setError('Please enter a starting bid.');
-        return;
+      if (saleType === 'auction') {
+        if (!formData.startingBid || Number(formData.startingBid) <= 0) {
+          setError('Please enter a starting bid.');
+          return;
+        }
+        if (formData.reservePrice && Number(formData.reservePrice) > 0) {
+          if (formData.auctionType === 'reverse') {
+            if (Number(formData.startingBid) < Number(formData.reservePrice)) {
+              setError('In a reverse auction, the starting ceiling price must be equal to or higher than your reserve floor price.');
+              return;
+            }
+          } else {
+            if (Number(formData.startingBid) > Number(formData.reservePrice)) {
+              setError('In a forward auction, starting base bid should generally be equal to or lower than the reserve price.');
+              return;
+            }
+          }
+        }
       }
     }
 
@@ -351,6 +370,8 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           startingBid: startBidBreakdown.canonicalPricePerListingUnit,
           reservePrice: reserveBreakdown.canonicalPricePerListingUnit,
           durationMinutes: Number(formData.durationMinutes || 1440),
+          auctionType: formData.auctionType || 'forward',
+          bidStep: Math.max(1, Number(formData.bidStep) || 25),
           state: formData.state,
           district: formData.district,
           village: formData.village,
@@ -824,7 +845,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 </div>
               </div>
 
-              {/* Price / Starting Bid */}
+              {/* Price (Direct) or Auction Type (Auction) */}
               {saleType === 'direct' ? (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
@@ -863,7 +884,89 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   </div>
                 </div>
               ) : (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#0B3326] block">
+                    Auction Type <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Forward Auction Button */}
+                    <button
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, auctionType: 'forward' }))}
+                      className={`h-[38px] px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        formData.auctionType === 'forward'
+                          ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] shadow-xs'
+                          : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#10B981]/50'
+                      }`}
+                    >
+                      <TrendingUp className="w-3.5 h-3.5 text-[#10B981]" />
+                      <span>Forward Auction</span>
+                      {formData.auctionType === 'forward' && (
+                        <Check className="w-3 h-3 text-[#10B981] stroke-[3]" />
+                      )}
+                    </button>
+
+                    {/* Reverse Auction Button */}
+                    <button
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, auctionType: 'reverse' }))}
+                      className={`h-[38px] px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        formData.auctionType === 'reverse'
+                          ? 'border-[#D97706] bg-[#FEF3C7]/50 text-[#92400E] shadow-xs'
+                          : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#D97706]/50'
+                      }`}
+                    >
+                      <TrendingDown className="w-3.5 h-3.5 text-[#D97706]" />
+                      <span>Reverse Auction</span>
+                      {formData.auctionType === 'reverse' && (
+                        <Check className="w-3 h-3 text-[#D97706] stroke-[3]" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Auction Controls */}
+              {saleType === 'auction' && (
                 <>
+                  {/* Clean Bid Step Selector */}
+                  <div className="sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+                    <span className="text-xs font-bold text-[#0B3326]">
+                      Bid Step ({formData.auctionType === 'reverse' ? '-' : '+'}₹ / {formData.unit}):
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {[10, 25, 50, 100].map((step) => {
+                        const isSelected = Number(formData.bidStep) === step;
+                        return (
+                          <button
+                            key={step}
+                            type="button"
+                            onClick={() => setFormData((p) => ({ ...p, bidStep: String(step) }))}
+                            className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                              isSelected
+                                ? 'border-[#0B3326] bg-[#0B3326] text-white shadow-xs'
+                                : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#0B3326]/40'
+                            }`}
+                          >
+                            {formData.auctionType === 'reverse' ? '-' : '+'}₹{step}
+                          </button>
+                        );
+                      })}
+                      <div className="relative w-20">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">₹</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={formData.bidStep}
+                          onChange={(e) => setFormData({ ...formData, bidStep: e.target.value })}
+                          placeholder="25"
+                          className="w-full pl-5 pr-1 py-1 rounded-lg border border-[#E5EDE8] bg-white text-xs font-bold text-[#0B3326] focus:ring-1 focus:ring-[#10B981]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Starting Bid Input */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-[#0B3326] block">
@@ -882,7 +985,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                           type="number"
                           value={formData.startingBid}
                           onChange={(e) => setFormData({ ...formData, startingBid: e.target.value })}
-                          placeholder="e.g. 1800"
+                          placeholder={formData.auctionType === 'reverse' ? 'e.g. 2400' : 'e.g. 1800'}
                           min="0.1"
                           step="any"
                           className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
@@ -900,6 +1003,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     </div>
                   </div>
 
+                  {/* Reserve Floor Price Input */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-[#0B3326] block">
@@ -947,9 +1051,6 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                       searchPlaceholder="Search duration..."
                       buttonClassName="bg-[#F8FAF8]"
                     />
-                    <span className="text-[10px] text-[#566861] block pt-0.5">
-                      💡 You can accept any fair offer and close the auction early at any time during the bidding window.
-                    </span>
                   </div>
                 </>
               )}
@@ -1072,9 +1173,16 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   Summary Preview
                 </span>
               </div>
-              <Badge variant={saleType === 'direct' ? 'emerald' : 'amber'} size="sm">
-                {saleType === 'direct' ? 'Fixed-Price Direct Lot' : 'Live Auction Lot'}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {saleType === 'auction' && (
+                  <Badge variant={formData.auctionType === 'reverse' ? 'amber' : 'emerald'} size="sm">
+                    {formData.auctionType === 'reverse' ? `Reverse (-₹${formData.bidStep})` : `Forward (+₹${formData.bidStep})`}
+                  </Badge>
+                )}
+                <Badge variant={saleType === 'direct' ? 'emerald' : 'dark'} size="sm">
+                  {saleType === 'direct' ? 'Fixed-Price Direct Lot' : 'Live Auction Lot'}
+                </Badge>
+              </div>
             </div>
 
             {/* Compact Spec Grid */}

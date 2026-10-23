@@ -16,6 +16,7 @@ const FarmerFinancing = lazy(() => import('./pages/farmer/FarmerFinancing'));
 const FarmerLoanRepayments = lazy(() => import('./pages/farmer/FarmerLoanRepayments'));
 const FarmerDeliveries = lazy(() => import('./pages/farmer/FarmerDeliveries'));
 const FarmerInventory = lazy(() => import('./pages/farmer/FarmerInventory'));
+const FarmerDemands = lazy(() => import('./pages/farmer/FarmerDemands'));
 
 // Buyer Marketplace Module Pages (Code-Split)
 const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
@@ -27,6 +28,7 @@ const MyBids = lazy(() => import('./pages/buyer/MyBids'));
 const BuyerFinancing = lazy(() => import('./pages/buyer/BuyerFinancing'));
 const BuyerLoanRepayments = lazy(() => import('./pages/buyer/BuyerLoanRepayments'));
 const BuyerDeliveries = lazy(() => import('./pages/buyer/BuyerDeliveries'));
+const BuyerDemands = lazy(() => import('./pages/buyer/BuyerDemands'));
 
 // Shared Auction Room Page (Code-Split)
 const AuctionRoom = lazy(() => import('./pages/auction/AuctionRoom'));
@@ -85,10 +87,12 @@ const VALID_ROUTES = new Set([
   'farmer-loan-repayments',
   'farmer-deliveries',
   'farmer-inventory',
+  'farmer-demands',
   // Buyer
   'buyer-dashboard',
   'buyer-marketplace',
   'buyer-listing-detail',
+  'buyer-demands',
   'buyer-orders',
   'buyer-live-auctions',
   'buyer-my-bids',
@@ -416,6 +420,15 @@ export default function App() {
         </ProtectedRoute>
       )}
 
+      {currentPage === 'farmer-demands' && (
+        <ProtectedRoute requiredRole="farmer" onNavigate={handleNavigate}>
+          <FarmerDemands
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
       {/* 6. Buyer Marketplace & Auction Module Routes */}
       {currentPage === 'buyer-dashboard' && (
         <ProtectedRoute requiredRole="buyer" onNavigate={handleNavigate}>
@@ -443,6 +456,15 @@ export default function App() {
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
             navState={navState}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'buyer-demands' && (
+        <ProtectedRoute requiredRole="buyer" onNavigate={handleNavigate}>
+          <BuyerDemands
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
           />
         </ProtectedRoute>
       )}

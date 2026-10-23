@@ -201,6 +201,16 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto shrink-0">
               <Button
+                variant="white"
+                size="md"
+                onClick={() => onNavigate('buyer-demands')}
+                icon={Sparkles}
+                iconPosition="left"
+                className="py-2.5 px-3.5 font-bold shadow-sm text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer justify-center shrink-0 border border-white"
+              >
+                Procurement Demands
+              </Button>
+              <Button
                 variant="secondary"
                 size="md"
                 onClick={() => onNavigate('buyer-deliveries')}

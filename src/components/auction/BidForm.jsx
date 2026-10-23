@@ -1,23 +1,56 @@
-import React, { useState } from 'react';
-import { Gavel, AlertCircle, ArrowUpRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Gavel, AlertCircle, ArrowUpRight, ArrowDownRight, TrendingDown, TrendingUp, ShieldCheck } from 'lucide-react';
 import Button from '../ui/Button';
+import Badge from '../ui/Badge';
 
 export default function BidForm({
   currentBid = 40,
   unit = 'kg',
+  auctionType = 'forward',
+  bidStep = 25,
+  reservePrice = 0,
   isFarmer = false,
   isAuctionEnded = false,
   onInitiateBid,
 }) {
-  const minValidBid = Number(currentBid) + 1;
-  const [bidAmount, setBidAmount] = useState(minValidBid);
+  const isReverse = auctionType === 'reverse';
+  const step = Math.max(1, Number(bidStep) || 25);
+  const numericCurrentBid = Number(currentBid) || 0;
+  const numericReservePrice = Number(reservePrice) || 0;
+
+  const defaultSuggestedAmount = isReverse
+    ? Math.max(numericReservePrice, numericCurrentBid - step)
+    : numericCurrentBid + step;
+
+  const [bidAmount, setBidAmount] = useState(defaultSuggestedAmount);
   const [error, setError] = useState('');
 
-  const suggestedIncrements = [1, 2, 5, 10];
+  // Keep suggested bid updated when currentBid shifts in real-time
+  useEffect(() => {
+    if (isReverse) {
+      setBidAmount(Math.max(numericReservePrice, numericCurrentBid - step));
+    } else {
+      setBidAmount(numericCurrentBid + step);
+    }
+    setError('');
+  }, [numericCurrentBid, step, isReverse, numericReservePrice]);
 
-  const handleQuickSelect = (increment) => {
-    const val = Number(currentBid) + increment;
-    setBidAmount(val);
+  // Suggested multipliers: 1x, 2x, 3x, 4x of farmer-defined step
+  const suggestedMultipliers = [1, 2, 3, 4];
+
+  const handleQuickSelect = (multiplier) => {
+    const delta = multiplier * step;
+    const target = isReverse
+      ? numericCurrentBid - delta
+      : numericCurrentBid + delta;
+
+    if (isReverse && numericReservePrice > 0 && target < numericReservePrice) {
+      setError(`Cannot bid below the farmer's reserve floor of ₹${numericReservePrice}/${unit}.`);
+      setBidAmount(numericReservePrice);
+      return;
+    }
+
+    setBidAmount(target);
     setError('');
   };
 
@@ -35,9 +68,47 @@ export default function BidForm({
     }
 
     const amount = Number(bidAmount);
-    if (!amount || amount <= currentBid) {
-      setError(`Your bid must be higher than the current bid of ₹${currentBid}/${unit}.`);
+    if (!amount || isNaN(amount)) {
+      setError('Please enter a valid bid amount.');
       return;
+    }
+
+    if (isReverse) {
+      // Reverse auction validation
+      if (amount >= numericCurrentBid) {
+        setError(`In a reverse auction, your bid must be lower than the current leading offer of ₹${numericCurrentBid}/${unit}.`);
+        return;
+      }
+      const dec = numericCurrentBid - amount;
+      if (dec < step) {
+        setError(`Your bid must be lower by at least the required step of ₹${step}/${unit}.`);
+        return;
+      }
+      const remainder = Math.round((dec % step) * 100) / 100;
+      if (remainder > 0.01 && remainder < (step - 0.01)) {
+        setError(`Bids must be in exact step decrements of ₹${step}/${unit} (e.g. ₹${numericCurrentBid - step}, ₹${numericCurrentBid - (step * 2)}).`);
+        return;
+      }
+      if (numericReservePrice > 0 && amount < numericReservePrice) {
+        setError(`Bid cannot be lower than the farmer's reserve floor price of ₹${numericReservePrice}/${unit}.`);
+        return;
+      }
+    } else {
+      // Forward auction validation
+      if (amount <= numericCurrentBid) {
+        setError(`Your bid must be higher than the current bid of ₹${numericCurrentBid}/${unit}.`);
+        return;
+      }
+      const inc = amount - numericCurrentBid;
+      if (inc < step) {
+        setError(`Your bid must increase by at least the required step of ₹${step}/${unit}.`);
+        return;
+      }
+      const remainder = Math.round((inc % step) * 100) / 100;
+      if (remainder > 0.01 && remainder < (step - 0.01)) {
+        setError(`Bids must be in exact step increments of ₹${step}/${unit} (e.g. ₹${numericCurrentBid + step}, ₹${numericCurrentBid + (step * 2)}).`);
+        return;
+      }
     }
 
     onInitiateBid(amount);
@@ -45,14 +116,28 @@ export default function BidForm({
 
   return (
     <div className="p-6 rounded-3xl bg-white border border-[#E5EDE8] shadow-xs space-y-5 text-left">
+      {/* Header & Mode Badge */}
       <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
         <div className="flex items-center gap-2">
-          <Gavel className="w-4 h-4 text-[#10B981]" />
+          {isReverse ? (
+            <TrendingDown className="w-4 h-4 text-[#D97706]" />
+          ) : (
+            <TrendingUp className="w-4 h-4 text-[#10B981]" />
+          )}
           <h3 className="text-sm font-bold text-[#0B3326] font-heading uppercase tracking-wider">
-            Place Your Bid
+            {isReverse ? 'Place Reverse Bid' : 'Place Your Bid'}
           </h3>
         </div>
-        <span className="text-[11px] text-[#566861]">Min Bid: ₹{minValidBid}/{unit}</span>
+        <div className="flex items-center gap-2">
+          <Badge variant={isReverse ? 'amber' : 'emerald'} size="sm">
+            {isReverse ? `Step: -₹${step}` : `Step: +₹${step}`}
+          </Badge>
+          <span className="text-[11px] text-[#566861] font-semibold">
+            {isReverse
+              ? `Max: ₹${Math.max(numericReservePrice, numericCurrentBid - step)}/${unit}`
+              : `Min: ₹${numericCurrentBid + step}/${unit}`}
+          </span>
+        </div>
       </div>
 
       {isFarmer ? (
@@ -67,46 +152,71 @@ export default function BidForm({
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* Quick Suggested Increments */}
+          {/* Quick Suggested Increments / Decrements in exact step multiples */}
           <div>
-            <label className="block text-xs font-bold text-[#566861] mb-2">
-              Suggested Quick Bids
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-[#566861]">
+                {isReverse ? 'Quick Step Decrements' : 'Quick Step Increments'}
+              </label>
+              <span className="text-[10px] text-[#566861] italic">
+                Multiples of farmer's step (₹{step})
+              </span>
+            </div>
+
             <div className="grid grid-cols-4 gap-2">
-              {suggestedIncrements.map((inc) => {
-                const targetPrice = Number(currentBid) + inc;
+              {suggestedMultipliers.map((m) => {
+                const delta = m * step;
+                const targetPrice = isReverse
+                  ? numericCurrentBid - delta
+                  : numericCurrentBid + delta;
+
+                const isBelowFloor = isReverse && numericReservePrice > 0 && targetPrice < numericReservePrice;
                 const isSelected = Number(bidAmount) === targetPrice;
 
                 return (
                   <button
-                    key={inc}
+                    key={m}
                     type="button"
-                    onClick={() => handleQuickSelect(inc)}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-                      isSelected
-                        ? 'bg-[#0B3326] text-white shadow-xs'
+                    disabled={isBelowFloor}
+                    onClick={() => handleQuickSelect(m)}
+                    className={`py-2 px-2 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
+                      isBelowFloor
+                        ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200'
+                        : isSelected
+                        ? (isReverse ? 'bg-[#92400E] text-white shadow-xs' : 'bg-[#0B3326] text-white shadow-xs')
                         : 'bg-[#F8FAF8] text-[#0B3326] border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]'
                     }`}
                   >
-                    +₹{inc} <span className="text-[10px] block opacity-80">(₹{targetPrice})</span>
+                    <span>
+                      {isReverse ? '-' : '+'}₹{delta}
+                    </span>
+                    <span className="text-[10px] block opacity-80 font-normal">
+                      (₹{targetPrice})
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Numeric Bid Input */}
+          {/* Numeric Bid Input with unit */}
           <div>
-            <label className="block text-xs font-bold text-[#14211D] mb-1.5">
-              Custom Bid (₹ / {unit})
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-[#14211D]">
+                Custom Bid (₹ / {unit})
+              </label>
+              <span className="text-[11px] text-[#566861]">
+                Must be multiple of ₹{step}
+              </span>
+            </div>
+
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
                 ₹
               </span>
               <input
                 type="number"
-                min={minValidBid}
+                step={step}
                 value={bidAmount}
                 onChange={(e) => {
                   setBidAmount(e.target.value);
@@ -115,6 +225,11 @@ export default function BidForm({
                 className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
               />
             </div>
+            {isReverse && numericReservePrice > 0 && (
+              <span className="text-[11px] text-[#566861] block pt-1">
+                🛡️ Reserve floor protection: ₹{numericReservePrice}/{unit} minimum.
+              </span>
+            )}
           </div>
 
           {/* Error Notice */}
@@ -128,13 +243,15 @@ export default function BidForm({
           {/* Action Button */}
           <Button
             type="submit"
-            variant="accent"
+            variant={isReverse ? 'warning' : 'accent'}
             size="lg"
-            icon={ArrowUpRight}
+            icon={isReverse ? ArrowDownRight : ArrowUpRight}
             iconPosition="right"
             className="w-full justify-center py-3.5 font-bold text-sm shadow-xs cursor-pointer"
           >
-            Place Bid of ₹{bidAmount}/{unit}
+            {isReverse
+              ? `Submit Reverse Bid: ₹${bidAmount}/${unit}`
+              : `Place Bid: ₹${bidAmount}/${unit}`}
           </Button>
         </form>
       )}

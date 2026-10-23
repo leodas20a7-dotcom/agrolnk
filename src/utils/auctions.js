@@ -5,6 +5,28 @@ import { getCurrentUser, isUserKycVerified } from './auth';
 
 function mapAuctionFromDb(row) {
   if (!row) return null;
+
+  let auctionType = row.auction_type || 'forward';
+  let bidStep = Number(row.bid_step) || 25;
+
+  // Extract from description metadata fallback if column was absent
+  if (row.description) {
+    const typeMatch = row.description.match(/<!--agrolnk:auction_type:([a-z]+)-->/);
+    if (typeMatch && typeMatch[1]) {
+      auctionType = typeMatch[1];
+    }
+    const stepMatch = row.description.match(/<!--agrolnk:bid_step:([0-9.]+)-->/);
+    if (stepMatch && stepMatch[1]) {
+      bidStep = Number(stepMatch[1]) || bidStep;
+    }
+  }
+
+  const cleanDescription = (row.description || '')
+    .replace(/<!--agrolnk:village:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:auction_type:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:bid_step:.*?-->\n?/g, '')
+    .trim();
+
   return {
     id: row.id,
     farmerId: row.farmer_id,
@@ -23,10 +45,12 @@ function mapAuctionFromDb(row) {
     startsAt: row.start_time,
     endsAt: row.end_time,
     status: row.status,
+    auctionType,
+    bidStep,
     state: row.state,
     district: row.district,
     village: row.village || '',
-    description: row.description || '',
+    description: cleanDescription,
     images: Array.isArray(row.images) && row.images.length > 0
       ? row.images
       : [COMMODITY_IMAGES[row.commodity] || COMMODITY_IMAGES.Other],
@@ -318,8 +342,40 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
       throw new Error('Producers are not permitted to bid on their own auctions.');
     }
 
-    if (numAmount <= Number(currentAuction.current_bid)) {
-      throw new Error(`Your bid must be higher than the current bid of ₹${currentAuction.current_bid}`);
+    const mappedLot = mapAuctionFromDb(currentAuction);
+    const auctionType = mappedLot.auctionType || 'forward';
+    const bidStep = mappedLot.bidStep || 25;
+    const currentBidVal = Number(currentAuction.current_bid);
+
+    if (auctionType === 'reverse') {
+      if (numAmount >= currentBidVal) {
+        throw new Error(`In a reverse auction, your bid must be lower than the current leading offer of ₹${currentBidVal}/${currentAuction.unit}.`);
+      }
+      const dec = currentBidVal - numAmount;
+      if (dec < bidStep) {
+        throw new Error(`Your bid must be lower by at least the required step of ₹${bidStep}/${currentAuction.unit}.`);
+      }
+      // Strictly prevent arbitrary amounts (e.g., -1, -5) when step is ₹25
+      const remainder = Math.round((dec % bidStep) * 100) / 100;
+      if (remainder > 0.01 && remainder < (bidStep - 0.01)) {
+        throw new Error(`Bids must be in exact step decrements of ₹${bidStep}/${currentAuction.unit} (e.g. ₹${currentBidVal - bidStep}, ₹${currentBidVal - (bidStep * 2)}).`);
+      }
+      if (currentAuction.reserve_price && numAmount < Number(currentAuction.reserve_price)) {
+        throw new Error(`Bid cannot be lower than the farmer's reserve floor price of ₹${currentAuction.reserve_price}/${currentAuction.unit}.`);
+      }
+    } else {
+      if (numAmount <= currentBidVal) {
+        throw new Error(`Your bid must be higher than the current bid of ₹${currentBidVal}/${currentAuction.unit}.`);
+      }
+      const inc = numAmount - currentBidVal;
+      if (inc < bidStep) {
+        throw new Error(`Your bid must increase by at least the required step of ₹${bidStep}/${currentAuction.unit}.`);
+      }
+      // Strictly prevent arbitrary amounts (e.g., +1, +5) when step is ₹25
+      const remainder = Math.round((inc % bidStep) * 100) / 100;
+      if (remainder > 0.01 && remainder < (bidStep - 0.01)) {
+        throw new Error(`Bids must be in exact step increments of ₹${bidStep}/${currentAuction.unit} (e.g. ₹${currentBidVal + bidStep}, ₹${currentBidVal + (bidStep * 2)}).`);
+      }
     }
 
     // Insert bid
@@ -382,11 +438,16 @@ export async function createAuction(auctionData) {
 
     const startPrice = Number(auctionData.startingBid || auctionData.startingPrice || 40);
     const reservePrice = Number(auctionData.reservePrice || startPrice);
+    const auctionType = auctionData.auctionType || 'forward';
+    const bidStep = Math.max(1, Number(auctionData.bidStep) || 25);
 
     const defaultImg = COMMODITY_IMAGES[auctionData.commodity] || COMMODITY_IMAGES.Other;
     const imagesArray = Array.isArray(auctionData.images) && auctionData.images.length > 0
       ? auctionData.images
       : [defaultImg];
+
+    const metaTags = `<!--agrolnk:auction_type:${auctionType}-->\n<!--agrolnk:bid_step:${bidStep}-->`;
+    const fullDesc = auctionData.description ? `${metaTags}\n${auctionData.description}` : metaTags;
 
     const dbRow = {
       id: generateId(),
@@ -406,10 +467,12 @@ export async function createAuction(auctionData) {
       start_time: startTime,
       end_time: endTime,
       status: 'live',
+      auction_type: auctionType,
+      bid_step: bidStep,
       state: auctionData.state || '',
       district: auctionData.district || '',
       village: auctionData.village || null,
-      description: auctionData.description || null,
+      description: fullDesc,
       images: imagesArray,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -427,10 +490,26 @@ export async function createAuction(auctionData) {
     data = res.data;
     error = res.error;
 
-    // Fallback if village column does not exist in schema yet
+    // Fallback 1: If auction_type or bid_step columns do not exist in PostgreSQL schema yet
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('auction_type') || error.message?.includes('bid_step'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.auction_type;
+      delete fallbackRow.bid_step;
+      const retryRes = await supabase
+        .from('auctions')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    // Fallback 2: If village column does not exist in schema yet
     if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
+      delete fallbackRow.auction_type;
+      delete fallbackRow.bid_step;
       if (auctionData.village) {
         const existingDesc = fallbackRow.description || '';
         fallbackRow.description = `<!--agrolnk:village:${encodeURIComponent(auctionData.village)}-->\n${existingDesc}`.trim();

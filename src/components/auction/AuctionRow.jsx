@@ -53,6 +53,14 @@ export default function AuctionRow({
             <Badge variant="dark" size="sm">
               Grade {auction.grade}
             </Badge>
+            <Badge
+              variant={auction.auctionType === 'reverse' ? 'amber' : 'emerald'}
+              size="sm"
+            >
+              {auction.auctionType === 'reverse'
+                ? `Reverse (-₹${auction.bidStep || 25})`
+                : `Forward (+₹${auction.bidStep || 25})`}
+            </Badge>
             {isLive && (
               <Badge variant="amber" size="sm" dot={true}>
                 LIVE NOW
@@ -99,14 +107,18 @@ export default function AuctionRow({
       {/* Middle: Bidding Financials */}
       <div className="grid grid-cols-3 gap-3 sm:gap-6 py-2 lg:py-0 border-y lg:border-y-0 lg:border-x lg:px-6 border-[#E5EDE8] text-xs">
         <div>
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Start / Reserve</span>
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">
+            {auction.auctionType === 'reverse' ? 'Ceiling / Floor' : 'Start / Reserve'}
+          </span>
           <span className="font-bold text-sm text-[#566861]">
             ₹{auction.basePrice || auction.startingBid} / ₹{auction.reservePrice}
           </span>
         </div>
 
         <div>
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Current Bid</span>
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">
+            {auction.auctionType === 'reverse' ? 'Leading Offer' : 'Current Bid'}
+          </span>
           <span className="font-extrabold text-base text-[#10B981]">
             ₹{auction.winningBid || auction.currentBid || auction.basePrice}/{auction.unit}
           </span>

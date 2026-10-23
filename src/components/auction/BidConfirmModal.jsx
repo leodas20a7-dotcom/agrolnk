@@ -85,7 +85,9 @@ export default function BidConfirmModal({
         <div className="p-3.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326] flex items-start gap-2">
           <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
           <span>
-            If your bid is the highest valid bid when the auction ends, an escrow procurement order will be automatically generated.
+            {auction.auctionType === 'reverse'
+              ? 'If your offer is the lowest qualifying bid when the auction ends, an escrow procurement order will be automatically generated.'
+              : 'If your bid is the highest valid bid when the auction ends, an escrow procurement order will be automatically generated.'}
           </span>
         </div>
 

@@ -353,7 +353,9 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
           <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 text-[#0B3326] text-xs flex items-center justify-between shadow-2xs">
             <span className="flex items-center gap-2 font-bold">
               <Sparkles className="w-4 h-4 text-[#10B981]" />
-              🎉 You are currently leading with the highest bid of ₹{auction.currentBid}/{auction.unit}!
+              {auction.auctionType === 'reverse'
+                ? `🎉 You are currently leading with the lowest competitive offer of ₹${auction.currentBid}/${auction.unit}!`
+                : `🎉 You are currently leading with the highest bid of ₹${auction.currentBid}/${auction.unit}!`}
             </span>
             <span className="font-semibold text-[#10B981]">Top Bidder</span>
           </div>
@@ -363,10 +365,12 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
           <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between shadow-2xs">
             <span className="flex items-center gap-2 font-bold">
               <AlertTriangle className="w-4 h-4 text-red-600" />
-              ⚠️ You've been outbid! Current highest bid is ₹{auction.currentBid}/{auction.unit}.
+              {auction.auctionType === 'reverse'
+                ? `⚠️ Your offer has been undercut! Current lowest offer is ₹${auction.currentBid}/${auction.unit}.`
+                : `⚠️ You've been outbid! Current highest bid is ₹${auction.currentBid}/${auction.unit}.`}
             </span>
             <span className="text-[11px] font-bold text-red-700 underline">
-              Place higher bid below
+              {auction.auctionType === 'reverse' ? 'Place lower offer below' : 'Place higher bid below'}
             </span>
           </div>
         )}
@@ -479,9 +483,18 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
                 className="w-full h-full object-cover"
               />
 
-              <div className="absolute top-4 left-4 flex items-center gap-2">
+              <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap">
                 <Badge variant="dark" size="md" className="font-bold">
                   Grade {auction.grade}
+                </Badge>
+                <Badge
+                  variant={auction.auctionType === 'reverse' ? 'amber' : 'emerald'}
+                  size="md"
+                  className="font-bold uppercase tracking-wider"
+                >
+                  {auction.auctionType === 'reverse'
+                    ? `Reverse (-₹${auction.bidStep || 25})`
+                    : `Forward (+₹${auction.bidStep || 25})`}
                 </Badge>
                 {auction.status === 'live' ? (
                   <Badge variant="amber" size="md" dot={true}>
@@ -540,6 +553,9 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
             <BidForm
               currentBid={auction.currentBid}
               unit={auction.unit}
+              auctionType={auction.auctionType || 'forward'}
+              bidStep={auction.bidStep || 25}
+              reservePrice={auction.reservePrice}
               isFarmer={isFarmer}
               isAuctionEnded={isAuctionEnded}
               onInitiateBid={handleInitiateBid}

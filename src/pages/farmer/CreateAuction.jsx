@@ -13,7 +13,9 @@ import {
   AlertCircle,
   Sparkles,
   Camera,
-  Check
+  Check,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 import { createAuction } from '../../utils/auctions';
 import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
@@ -38,6 +40,8 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     priceUnit: 'Quintal',
     startingBid: '',
     reservePrice: '',
+    auctionType: 'forward',
+    bidStep: '25',
     durationMinutes: '1440',
     state: '',
     district: '',
@@ -171,8 +175,18 @@ export default function CreateAuction({ currentUser, onNavigate }) {
       setError('Please enter a valid reserve price.');
       return;
     }
-    if (Number(formData.startingBid) > Number(formData.reservePrice)) {
-      setError('Starting bid should generally be equal to or lower than the reserve price.');
+    const cleanBidStep = Math.max(1, Number(formData.bidStep) || 25);
+
+    if (formData.auctionType === 'reverse') {
+      if (Number(formData.startingBid) < Number(formData.reservePrice)) {
+        setError('In a reverse auction, the starting ceiling price must be equal to or higher than your reserve floor price.');
+        return;
+      }
+    } else {
+      if (Number(formData.startingBid) > Number(formData.reservePrice)) {
+        setError('In a forward auction, starting base bid should generally be equal to or lower than the reserve price.');
+        return;
+      }
     }
 
     setIsPublishing(true);
@@ -180,6 +194,8 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     try {
       await createAuction({
         ...formData,
+        auctionType: formData.auctionType || 'forward',
+        bidStep: cleanBidStep,
         variety: formData.variety || 'None',
         startingBid: startBidBreakdown.canonicalPricePerListingUnit,
         reservePrice: reserveBreakdown.canonicalPricePerListingUnit,
@@ -400,48 +416,99 @@ export default function CreateAuction({ currentUser, onNavigate }) {
             </div>
           </div>
 
-          {/* 2. Auction Pricing & Reserve Protection */}
+          {/* 2. Auction Type & Bid Rules */}
           <div className="p-6 sm:p-7 rounded-3xl bg-white border border-[#E5EDE8] shadow-xs space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-[#E5EDE8]">
               <span className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center text-xs font-bold font-heading">
                 2
               </span>
               <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                Reserve Price & Starting Bid
+                Auction Type & Pricing
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Reserve Price */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-[#14211D]">
-                    Reserve Price (₹) <span className="text-red-500">*</span>
-                  </label>
-                  <span className="text-[10px] text-[#566861]">
-                    per {formData.priceUnit}
-                  </span>
-                </div>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
-                    ₹
-                  </span>
+            {/* Clean Auction Type Toggle Buttons */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-[#14211D]">
+                Auction Type <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Forward Auction Button */}
+                <button
+                  type="button"
+                  onClick={() => setFormData((p) => ({ ...p, auctionType: 'forward' }))}
+                  className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    formData.auctionType === 'forward'
+                      ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] shadow-xs'
+                      : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#10B981]/50'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4 text-[#10B981]" />
+                  <span>Forward Auction</span>
+                  {formData.auctionType === 'forward' && (
+                    <Check className="w-3.5 h-3.5 text-[#10B981] stroke-[3]" />
+                  )}
+                </button>
+
+                {/* Reverse Auction Button */}
+                <button
+                  type="button"
+                  onClick={() => setFormData((p) => ({ ...p, auctionType: 'reverse' }))}
+                  className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    formData.auctionType === 'reverse'
+                      ? 'border-[#D97706] bg-[#FEF3C7]/50 text-[#92400E] shadow-xs'
+                      : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#D97706]/50'
+                  }`}
+                >
+                  <TrendingDown className="w-4 h-4 text-[#D97706]" />
+                  <span>Reverse Auction</span>
+                  {formData.auctionType === 'reverse' && (
+                    <Check className="w-3.5 h-3.5 text-[#D97706] stroke-[3]" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Clean Bid Step Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <span className="text-xs font-bold text-[#0B3326]">
+                Bid Step ({formData.auctionType === 'reverse' ? '-' : '+'}₹ / {formData.unit}):
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {[10, 25, 50, 100].map((step) => {
+                  const isSelected = Number(formData.bidStep) === step;
+                  return (
+                    <button
+                      key={step}
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, bidStep: String(step) }))}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-[#0B3326] bg-[#0B3326] text-white shadow-xs'
+                          : 'border-[#E5EDE8] bg-white text-[#566861] hover:border-[#0B3326]/40'
+                      }`}
+                    >
+                      {formData.auctionType === 'reverse' ? '-' : '+'}₹{step}
+                    </button>
+                  );
+                })}
+                <div className="relative w-24">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861]">₹</span>
                   <input
                     type="number"
-                    name="reservePrice"
                     min="1"
-                    required
-                    value={formData.reservePrice}
+                    name="bidStep"
+                    value={formData.bidStep}
                     onChange={handleChange}
-                    placeholder="1850"
-                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
+                    placeholder="25"
+                    className="w-full pl-6 pr-2 py-1 rounded-xl border border-[#E5EDE8] bg-white text-xs font-bold text-[#0B3326] focus:ring-1 focus:ring-[#10B981]"
                   />
                 </div>
-                <span className="text-[11px] text-[#566861] block pt-0.5">
-                  🛡️ <strong>Farmer Protection:</strong> Auction will not close below this amount.
-                </span>
               </div>
+            </div>
 
+            {/* Price Inputs Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-1">
               {/* Starting Bid */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
@@ -469,13 +536,37 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                     required
                     value={formData.startingBid}
                     onChange={handleChange}
-                    placeholder="1800"
+                    placeholder={formData.auctionType === 'reverse' ? '2400' : '1800'}
                     className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
                   />
                 </div>
-                <span className="text-[11px] text-[#566861] block pt-0.5">
-                  Opening price at which buyers begin placing competitive bids.
-                </span>
+              </div>
+
+              {/* Reserve Price */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#14211D]">
+                    Reserve Floor Price (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-[#566861]">
+                    per {formData.priceUnit}
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    name="reservePrice"
+                    min="1"
+                    required
+                    value={formData.reservePrice}
+                    onChange={handleChange}
+                    placeholder="1850"
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
+                  />
+                </div>
               </div>
 
               {/* Live Mandi Rate Breakdown Pill */}
@@ -580,30 +671,44 @@ export default function CreateAuction({ currentUser, onNavigate }) {
               <span className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[#10B981]" /> Live Auction Preview
               </span>
-              <Badge variant="amber" size="sm" dot={true}>
-                {formData.durationMinutes} min countdown
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={formData.auctionType === 'reverse' ? 'amber' : 'emerald'} size="sm">
+                  {formData.auctionType === 'reverse' ? `Reverse (-₹${formData.bidStep})` : `Forward (+₹${formData.bidStep})`}
+                </Badge>
+                <Badge variant="neutral" size="sm" dot={true}>
+                  {formData.durationMinutes} min countdown
+                </Badge>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-white border border-[#E5EDE8]">
                 <span className="text-[#566861] block text-[10px]">Lot Size</span>
-                <span className="font-bold text-[#0B3326] text-sm">
-                  {formData.commodity} ({formData.quantity} {formData.unit})
+                <span className="font-bold text-[#0B3326] text-sm truncate block">
+                  {formData.commodity || 'Produce'} ({formData.quantity || 0} {formData.unit})
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white border border-[#E5EDE8]">
+                <span className="text-[#566861] block text-[10px]">
+                  {formData.auctionType === 'reverse' ? 'Starting Ceiling' : 'Starting Base'}
+                </span>
+                <span className="font-bold text-[#D97706] text-sm">
+                  ₹{formData.startingBid || 0} / {formData.unit}
                 </span>
               </div>
 
               <div className="p-3 rounded-xl bg-white border border-[#E5EDE8]">
                 <span className="text-[#566861] block text-[10px]">Reserve Floor</span>
                 <span className="font-bold text-[#10B981] text-sm">
-                  ₹{formData.reservePrice} / {formData.unit}
+                  ₹{formData.reservePrice || 0} / {formData.unit}
                 </span>
               </div>
 
               <div className="p-3 rounded-xl bg-white border border-[#E5EDE8]">
-                <span className="text-[#566861] block text-[10px]">Starting Bid</span>
-                <span className="font-bold text-[#D97706] text-sm">
-                  ₹{formData.startingBid} / {formData.unit}
+                <span className="text-[#566861] block text-[10px]">Bid Step Rule</span>
+                <span className="font-bold text-[#0B3326] text-sm">
+                  {formData.auctionType === 'reverse' ? '-' : '+'}₹{formData.bidStep} / {formData.unit}
                 </span>
               </div>
             </div>

@@ -267,6 +267,12 @@ export default function DashboardLayout({
           icon: Gavel,
           desc: 'Live competitive clock lots',
         },
+        {
+          label: 'Buyer Requests',
+          page: 'farmer-demands',
+          icon: ShoppingBag,
+          desc: 'Wanted produce & procurement tenders',
+        },
       ],
     },
     {
@@ -329,6 +335,12 @@ export default function DashboardLayout({
           page: 'buyer-marketplace',
           icon: Compass,
           desc: 'Fixed-price produce lots',
+        },
+        {
+          label: 'Procurement Demands',
+          page: 'buyer-demands',
+          icon: FileText,
+          desc: 'Post buy requirements & tenders',
         },
         {
           label: 'Live Clock Auctions',

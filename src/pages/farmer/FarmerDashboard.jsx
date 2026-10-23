@@ -183,6 +183,16 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           {/* Primary Action Buttons */}
           <div className="shrink-0 flex flex-wrap gap-2.5 w-full sm:w-auto">
             <Button
+              variant="white"
+              size="md"
+              icon={ShoppingBag}
+              iconPosition="left"
+              onClick={() => onNavigate('farmer-demands')}
+              className="py-3 px-4 font-bold text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer shadow-sm border border-white"
+            >
+              Buyer Requests
+            </Button>
+            <Button
               variant="secondary"
               size="md"
               icon={Building2}

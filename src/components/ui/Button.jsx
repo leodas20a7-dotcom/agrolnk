@@ -56,7 +56,7 @@ export default function Button({
       {Icon && iconPosition === 'left' && (
         <Icon className={`w-4 h-4 ${size === 'lg' ? 'w-5 h-5' : ''}`} />
       )}
-      <span>{children}</span>
+      <span className="inline-flex items-center gap-2">{children}</span>
       {Icon && iconPosition === 'right' && (
         <Icon className={`w-4 h-4 ${size === 'lg' ? 'w-5 h-5' : ''}`} />
       )}

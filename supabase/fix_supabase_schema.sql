@@ -97,6 +97,15 @@ ALTER TABLE IF EXISTS public.inspections ADD COLUMN IF NOT EXISTS fee_payment_me
 ALTER TABLE IF EXISTS public.inspections ADD COLUMN IF NOT EXISTS dispute_reason TEXT;
 ALTER TABLE IF EXISTS public.inspections ADD COLUMN IF NOT EXISTS arbitration JSONB DEFAULT '{}'::jsonb;
 
+-- 4B. AUCTIONS & BIDS TABLE: Support Forward/Reverse Auction Engine & Custom Bid Steps
+ALTER TABLE IF EXISTS public.auctions ADD COLUMN IF NOT EXISTS auction_type TEXT DEFAULT 'forward';
+ALTER TABLE IF EXISTS public.auctions ADD COLUMN IF NOT EXISTS bid_step NUMERIC DEFAULT 25;
+ALTER TABLE IF EXISTS public.auctions ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE IF EXISTS public.auctions ADD COLUMN IF NOT EXISTS village TEXT;
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_status_check;
+ALTER TABLE IF EXISTS public.auctions ADD CONSTRAINT auctions_status_check
+  CHECK (status IN ('draft', 'live', 'completed', 'reserve_not_met', 'ended_unsold', 'cancelled'));
+
 -- 5. WAREHOUSE RECEIPTS TABLE: Create table if not exists & ensure all columns
 CREATE TABLE IF NOT EXISTS public.warehouse_receipts (
   id TEXT PRIMARY KEY,
@@ -274,7 +283,8 @@ DECLARE
   tables text[] := ARRAY[
     'orders', 'deliveries', 'auctions', 'auction_bids', 
     'listings', 'warehouse_receipts', 'financing_requests', 
-    'notifications', 'chat_messages', 'inspections'
+    'notifications', 'chat_messages', 'inspections',
+    'buyer_demands', 'demand_offers'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP
@@ -290,4 +300,72 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- 11. BUYER DEMANDS & HYBRID PROCUREMENT DESK (WANTED LIST)
+CREATE TABLE IF NOT EXISTS public.buyer_demands (
+  id TEXT PRIMARY KEY,
+  demand_number TEXT,
+  buyer_id TEXT,
+  buyer_name TEXT,
+  buyer_phone TEXT,
+  commodity TEXT NOT NULL,
+  variety TEXT DEFAULT 'None',
+  grade TEXT DEFAULT 'A',
+  quantity NUMERIC NOT NULL,
+  unit TEXT DEFAULT 'kg',
+  procurement_mode TEXT DEFAULT 'direct_offers', -- 'direct_offers' | 'reverse_auction'
+  target_price NUMERIC,
+  price_unit TEXT DEFAULT 'Quintal',
+  bid_step NUMERIC DEFAULT 25,
+  current_lowest_bid NUMERIC,
+  leading_bidder_id TEXT,
+  leading_bidder_name TEXT,
+  delivery_state TEXT,
+  delivery_district TEXT,
+  delivery_pincode TEXT,
+  delivery_address TEXT,
+  needed_by_date DATE,
+  duration_hours NUMERIC DEFAULT 24,
+  ends_at TIMESTAMP WITH TIME ZONE,
+  description TEXT,
+  total_offers INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'open', -- 'open' | 'awarded' | 'closed' | 'cancelled'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.demand_offers (
+  id TEXT PRIMARY KEY,
+  demand_id TEXT,
+  farmer_id TEXT,
+  farmer_name TEXT,
+  farmer_phone TEXT,
+  offer_price NUMERIC NOT NULL,
+  quantity_offered NUMERIC NOT NULL,
+  unit TEXT DEFAULT 'kg',
+  message TEXT,
+  status TEXT DEFAULT 'submitted', -- 'submitted' | 'accepted' | 'rejected' | 'countered'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_buyer_demands_status ON public.buyer_demands(status);
+CREATE INDEX IF NOT EXISTS idx_buyer_demands_commodity ON public.buyer_demands(commodity);
+CREATE INDEX IF NOT EXISTS idx_buyer_demands_buyer ON public.buyer_demands(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_buyer_demands_created ON public.buyer_demands(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_demand_offers_demand ON public.demand_offers(demand_id);
+CREATE INDEX IF NOT EXISTS idx_demand_offers_farmer ON public.demand_offers(farmer_id);
+
+ALTER TABLE IF EXISTS public.buyer_demands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.demand_offers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read buyer_demands" ON public.buyer_demands;
+CREATE POLICY "Allow public read buyer_demands" ON public.buyer_demands FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public write buyer_demands" ON public.buyer_demands;
+CREATE POLICY "Allow public write buyer_demands" ON public.buyer_demands FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read demand_offers" ON public.demand_offers;
+CREATE POLICY "Allow public read demand_offers" ON public.demand_offers FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public write demand_offers" ON public.demand_offers;
+CREATE POLICY "Allow public write demand_offers" ON public.demand_offers FOR ALL USING (true) WITH CHECK (true);
+
 
