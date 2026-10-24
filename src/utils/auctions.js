@@ -8,6 +8,7 @@ function mapAuctionFromDb(row) {
 
   let auctionType = row.auction_type || 'forward';
   let bidStep = Number(row.bid_step) || 25;
+  let reservePrice = Number(row.reserve_price);
 
   // Extract from description metadata fallback if column was absent
   if (row.description) {
@@ -19,12 +20,17 @@ function mapAuctionFromDb(row) {
     if (stepMatch && stepMatch[1]) {
       bidStep = Number(stepMatch[1]) || bidStep;
     }
+    const revReserveMatch = row.description.match(/<!--agrolnk:reverse_reserve_price:([0-9.]+)-->/);
+    if (revReserveMatch && revReserveMatch[1]) {
+      reservePrice = Number(revReserveMatch[1]);
+    }
   }
 
   const cleanDescription = (row.description || '')
     .replace(/<!--agrolnk:village:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:auction_type:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:bid_step:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:reverse_reserve_price:.*?-->\n?/g, '')
     .trim();
 
   return {
@@ -37,7 +43,7 @@ function mapAuctionFromDb(row) {
     quantity: Number(row.quantity),
     unit: row.unit,
     startingBid: Number(row.base_price),
-    reservePrice: Number(row.reserve_price),
+    reservePrice,
     currentBid: Number(row.current_bid),
     highestBidderId: row.highest_bidder_id,
     highestBidderName: row.highest_bidder_name,
@@ -301,7 +307,6 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
         if (
           msg.includes('Producers are not permitted') ||
           msg.includes('auction has ended') ||
-          msg.includes('must be higher than') ||
           msg.includes('no longer live') ||
           msg.includes('not found')
         ) {
@@ -314,7 +319,6 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
         rpcCatch.message &&
         (rpcCatch.message.includes('Producers are not permitted') ||
          rpcCatch.message.includes('auction has ended') ||
-         rpcCatch.message.includes('must be higher than') ||
          rpcCatch.message.includes('no longer live'))
       ) {
         throw rpcCatch;
@@ -342,6 +346,11 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
       throw new Error('Producers are not permitted to bid on their own auctions.');
     }
 
+    // Guard: Prevent leading bidder from bidding against themselves
+    if (currentAuction.highest_bidder_id && currentAuction.highest_bidder_id === bidderId) {
+      throw new Error('You already hold the leading offer on this lot! You cannot bid against yourself.');
+    }
+
     const mappedLot = mapAuctionFromDb(currentAuction);
     const auctionType = mappedLot.auctionType || 'forward';
     const bidStep = mappedLot.bidStep || 25;
@@ -351,17 +360,20 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
       if (numAmount >= currentBidVal) {
         throw new Error(`In a reverse auction, your bid must be lower than the current leading offer of ₹${currentBidVal}/${currentAuction.unit}.`);
       }
+      const effectiveReservePrice = mappedLot.reservePrice || Number(currentAuction.reserve_price);
+      const isAtReserveFloor = effectiveReservePrice && numAmount === Number(effectiveReservePrice);
+
       const dec = currentBidVal - numAmount;
-      if (dec < bidStep) {
+      if (dec < bidStep && !isAtReserveFloor) {
         throw new Error(`Your bid must be lower by at least the required step of ₹${bidStep}/${currentAuction.unit}.`);
       }
-      // Strictly prevent arbitrary amounts (e.g., -1, -5) when step is ₹25
+      // Strictly prevent arbitrary amounts (e.g., -1, -5) when step is ₹25, unless bidding exact reserve floor
       const remainder = Math.round((dec % bidStep) * 100) / 100;
-      if (remainder > 0.01 && remainder < (bidStep - 0.01)) {
+      if (!isAtReserveFloor && remainder > 0.01 && remainder < (bidStep - 0.01)) {
         throw new Error(`Bids must be in exact step decrements of ₹${bidStep}/${currentAuction.unit} (e.g. ₹${currentBidVal - bidStep}, ₹${currentBidVal - (bidStep * 2)}).`);
       }
-      if (currentAuction.reserve_price && numAmount < Number(currentAuction.reserve_price)) {
-        throw new Error(`Bid cannot be lower than the farmer's reserve floor price of ₹${currentAuction.reserve_price}/${currentAuction.unit}.`);
+      if (effectiveReservePrice && numAmount < Number(effectiveReservePrice)) {
+        throw new Error(`Bid cannot be lower than the farmer's reserve floor price of ₹${effectiveReservePrice}/${currentAuction.unit}.`);
       }
     } else {
       if (numAmount <= currentBidVal) {
@@ -446,12 +458,18 @@ export async function createAuction(auctionData) {
       ? auctionData.images
       : [defaultImg];
 
-    const metaTags = `<!--agrolnk:auction_type:${auctionType}-->\n<!--agrolnk:bid_step:${bidStep}-->`;
+    const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+    const validFarmerId = isUuid(auctionData.farmerId) ? auctionData.farmerId : null;
+
+    let metaTags = `<!--agrolnk:auction_type:${auctionType}-->\n<!--agrolnk:bid_step:${bidStep}-->`;
+    if (auctionType === 'reverse') {
+      metaTags += `\n<!--agrolnk:reverse_reserve_price:${reservePrice}-->`;
+    }
     const fullDesc = auctionData.description ? `${metaTags}\n${auctionData.description}` : metaTags;
 
     const dbRow = {
       id: generateId(),
-      farmer_id: auctionData.farmerId || null,
+      farmer_id: validFarmerId,
       farmer_name: auctionData.farmerName || 'Farmer',
       commodity: auctionData.commodity || 'Tomato',
       variety: auctionData.variety || 'None',
@@ -490,11 +508,10 @@ export async function createAuction(auctionData) {
     data = res.data;
     error = res.error;
 
-    // Fallback 1: If auction_type or bid_step columns do not exist in PostgreSQL schema yet
-    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('auction_type') || error.message?.includes('bid_step'))) {
+    // Fallback 1: If check constraint "auctions_check" is violated (e.g. forward-only CHECK (reserve_price >= base_price))
+    if (error && (error.code === '23514' || error.message?.includes('auctions_check') || error.message?.includes('check constraint'))) {
       const fallbackRow = { ...dbRow };
-      delete fallbackRow.auction_type;
-      delete fallbackRow.bid_step;
+      fallbackRow.reserve_price = Math.max(startPrice, reservePrice);
       const retryRes = await supabase
         .from('auctions')
         .insert([fallbackRow])
@@ -504,12 +521,47 @@ export async function createAuction(auctionData) {
       error = retryRes.error;
     }
 
-    // Fallback 2: If village column does not exist in schema yet
+    // Fallback 2: If foreign key "auctions_farmer_id_fkey" is violated or invalid UUID
+    if (error && (error.code === '23503' || error.code === '22P02' || error.message?.includes('farmer_id'))) {
+      const fallbackRow = { ...dbRow, farmer_id: null };
+      if (auctionType === 'reverse' && reservePrice < startPrice) {
+        fallbackRow.reserve_price = Math.max(startPrice, reservePrice);
+      }
+      const retryRes = await supabase
+        .from('auctions')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    // Fallback 3: If auction_type or bid_step columns do not exist in PostgreSQL schema yet
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('auction_type') || error.message?.includes('bid_step'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.auction_type;
+      delete fallbackRow.bid_step;
+      if (auctionType === 'reverse' && reservePrice < startPrice) {
+        fallbackRow.reserve_price = Math.max(startPrice, reservePrice);
+      }
+      const retryRes = await supabase
+        .from('auctions')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    // Fallback 4: If village column does not exist in schema yet
     if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
       delete fallbackRow.auction_type;
       delete fallbackRow.bid_step;
+      if (auctionType === 'reverse' && reservePrice < startPrice) {
+        fallbackRow.reserve_price = Math.max(startPrice, reservePrice);
+      }
       if (auctionData.village) {
         const existingDesc = fallbackRow.description || '';
         fallbackRow.description = `<!--agrolnk:village:${encodeURIComponent(auctionData.village)}-->\n${existingDesc}`.trim();
@@ -523,11 +575,14 @@ export async function createAuction(auctionData) {
       error = retryRes.error;
     }
 
-    // Graceful fallback if description column does not exist in PostgreSQL schema yet
+    // Fallback 5: If description column does not exist in PostgreSQL schema yet
     if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('description'))) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
       delete fallbackRow.description;
+      if (auctionType === 'reverse' && reservePrice < startPrice) {
+        fallbackRow.reserve_price = Math.max(startPrice, reservePrice);
+      }
       const retryRes = await supabase
         .from('auctions')
         .insert([fallbackRow])
@@ -860,5 +915,146 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
     console.error('Error in acceptAuctionBidEarly:', err);
     throw err;
   }
+}
+
+/**
+ * Update an existing auction in Supabase
+ */
+export async function updateAuction(auctionId, auctionData) {
+  if (!auctionId) throw new Error('Auction ID is required for update.');
+
+  const startPrice = Number(auctionData.startingBid || auctionData.basePrice || auctionData.startingPrice || 40);
+  const reservePrice = Number(auctionData.reservePrice || startPrice);
+  const auctionType = auctionData.auctionType || 'forward';
+  const bidStep = Math.max(1, Number(auctionData.bidStep) || 25);
+
+  const defaultImg = COMMODITY_IMAGES[auctionData.commodity] || COMMODITY_IMAGES.Other;
+  const imagesArray = Array.isArray(auctionData.images) && auctionData.images.length > 0
+    ? auctionData.images
+    : [defaultImg];
+
+  let metaTags = `<!--agrolnk:auction_type:${auctionType}-->\n<!--agrolnk:bid_step:${bidStep}-->`;
+  if (auctionType === 'reverse') {
+    metaTags += `\n<!--agrolnk:reverse_reserve_price:${reservePrice}-->`;
+  }
+  const cleanDesc = (auctionData.description || '')
+    .replace(/<!--agrolnk:village:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:auction_type:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:bid_step:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:reverse_reserve_price:.*?-->\n?/g, '')
+    .trim();
+  const fullDesc = cleanDesc ? `${metaTags}\n${cleanDesc}` : metaTags;
+
+  const dbRow = {
+    commodity: auctionData.commodity,
+    variety: auctionData.variety || 'None',
+    grade: auctionData.grade || 'A',
+    quantity: Number(auctionData.quantity),
+    unit: auctionData.unit || 'kg',
+    base_price: startPrice,
+    reserve_price: reservePrice,
+    bid_step: bidStep,
+    auction_type: auctionType,
+    state: auctionData.state || '',
+    district: auctionData.district || '',
+    village: auctionData.village || null,
+    description: fullDesc,
+    images: imagesArray,
+    updated_at: new Date().toISOString(),
+  };
+
+  let { data, error } = await supabase
+    .from('auctions')
+    .update(dbRow)
+    .eq('id', auctionId)
+    .select()
+    .single();
+
+  // Fallback 1: If check constraint "auctions_check" fails
+  if (error && (error.code === '23514' || error.message?.includes('auctions_check') || error.message?.includes('check constraint'))) {
+    const fallbackRow = { ...dbRow };
+    fallbackRow.reserve_price = Math.max(startPrice, reservePrice);
+    const retryRes = await supabase
+      .from('auctions')
+      .update(fallbackRow)
+      .eq('id', auctionId)
+      .select()
+      .single();
+    data = retryRes.data;
+    error = retryRes.error;
+  }
+
+  // Fallback 2: If auction_type or bid_step column does not exist
+  if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('auction_type') || error.message?.includes('bid_step'))) {
+    const fallbackRow = { ...dbRow };
+    delete fallbackRow.auction_type;
+    delete fallbackRow.bid_step;
+    const retryRes = await supabase
+      .from('auctions')
+      .update(fallbackRow)
+      .eq('id', auctionId)
+      .select()
+      .single();
+    data = retryRes.data;
+    error = retryRes.error;
+  }
+
+  // Fallback 3: If village column does not exist
+  if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
+    const fallbackRow = { ...dbRow };
+    delete fallbackRow.village;
+    const retryRes = await supabase
+      .from('auctions')
+      .update(fallbackRow)
+      .eq('id', auctionId)
+      .select()
+      .single();
+    data = retryRes.data;
+    error = retryRes.error;
+  }
+
+  if (error) {
+    console.error('Supabase auction update error:', error);
+    throw error;
+  }
+
+  const mapped = mapAuctionFromDb(data);
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated', { detail: mapped }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return mapped;
+}
+
+/**
+ * Delete an auction from Supabase
+ */
+export async function deleteAuction(auctionId) {
+  if (!auctionId) throw new Error('Auction ID is required.');
+
+  // Delete associated bids first
+  try {
+    await supabase.from('auction_bids').delete().eq('auction_id', auctionId);
+  } catch (bErr) {
+    console.warn('Notice removing auction bids:', bErr);
+  }
+
+  const { error } = await supabase
+    .from('auctions')
+    .delete()
+    .eq('id', auctionId);
+
+  if (error) {
+    console.error('Supabase auction deletion error:', error);
+    throw new Error(error.message || 'Failed to delete auction lot.');
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated', { detail: { id: auctionId, deleted: true } }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return { success: true };
 }
 

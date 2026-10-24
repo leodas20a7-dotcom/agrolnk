@@ -255,6 +255,42 @@ function mapListingFromDb(row) {
     }
   }
 
+  let extractedProductType = row.product_type || '';
+  let extractedBrandName = row.brand_name || '';
+  let extractedPackaging = row.packaging_type || '';
+
+  if (cleanDescription) {
+    if (!extractedProductType) {
+      const matchProductType = cleanDescription.match(/<!--agrolnk:productType:(.*?)-->/);
+      if (matchProductType) {
+        extractedProductType = matchProductType[1];
+        cleanDescription = cleanDescription.replace(/<!--agrolnk:productType:(.*?)-->\s*/, '').trim();
+      }
+    }
+    if (!extractedBrandName) {
+      const matchBrand = cleanDescription.match(/<!--agrolnk:brandName:(.*?)-->/);
+      if (matchBrand) {
+        try {
+          extractedBrandName = decodeURIComponent(matchBrand[1]);
+        } catch {
+          extractedBrandName = matchBrand[1];
+        }
+        cleanDescription = cleanDescription.replace(/<!--agrolnk:brandName:(.*?)-->\s*/, '').trim();
+      }
+    }
+    if (!extractedPackaging) {
+      const matchPkg = cleanDescription.match(/<!--agrolnk:packagingType:(.*?)-->/);
+      if (matchPkg) {
+        try {
+          extractedPackaging = decodeURIComponent(matchPkg[1]);
+        } catch {
+          extractedPackaging = matchPkg[1];
+        }
+        cleanDescription = cleanDescription.replace(/<!--agrolnk:packagingType:(.*?)-->\s*/, '').trim();
+      }
+    }
+  }
+
   return {
     id: row.id,
     farmerId: row.farmer_id,
@@ -266,6 +302,9 @@ function mapListingFromDb(row) {
     unit: row.unit,
     price: Number(row.price),
     priceUnit: extractedPriceUnit || (row.unit === 'MT' ? 'Quintal' : row.unit),
+    productType: extractedProductType || 'raw',
+    brandName: extractedBrandName || null,
+    packagingType: extractedPackaging || null,
     saleType: row.sale_type,
     state: row.state,
     district: row.district,
@@ -399,6 +438,7 @@ export async function createListing(listingData) {
       village: village || null,
       harvest_date: listingData.harvestDate || null,
       description: listingData.description || null,
+      product_type: listingData.productType || 'raw',
       images: imagesArray,
       status: 'active',
       origin_warehouse_id: listingData.originWarehouseId || null,
@@ -436,11 +476,15 @@ export async function createListing(listingData) {
       error = retryRes.error;
     }
 
-    // Fallback 2: If description column does not exist in PostgreSQL schema yet
-    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('description'))) {
+    // Fallback 2: If description or product_type column does not exist in PostgreSQL schema yet
+    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('product_type') || error.message?.includes('description'))) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
-      delete fallbackRow.description;
+      delete fallbackRow.product_type;
+      if (listingData.productType && listingData.productType !== 'raw') {
+        const curDesc = fallbackRow.description || '';
+        fallbackRow.description = `<!--agrolnk:productType:${listingData.productType}-->\n${curDesc}`.trim();
+      }
       const retryRes = await supabase
         .from('listings')
         .insert([fallbackRow])

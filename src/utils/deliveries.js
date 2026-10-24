@@ -653,6 +653,32 @@ export async function confirmPickup(deliveryId) {
 }
 
 /**
+ * Transporter verifies recipient PIN before drop-off is marked delivered
+ */
+export async function confirmTransporterDropoffWithOtp(deliveryId, inputOtp) {
+  try {
+    const { data: current, error: fetchErr } = await supabase
+      .from('deliveries')
+      .select('id, delivery_otp, order_id, order_number')
+      .or(`id.eq.${deliveryId},delivery_number.eq.${deliveryId}`)
+      .single();
+
+    if (fetchErr || !current) {
+      throw new Error('Delivery consignment not found.');
+    }
+
+    if (current.delivery_otp && String(current.delivery_otp).trim() !== String(inputOtp).trim()) {
+      throw new Error('Invalid Delivery PIN. Please confirm the 4-digit code provided by the recipient buyer.');
+    }
+
+    return await confirmBuyerReceipt(deliveryId);
+  } catch (err) {
+    console.error('Error in confirmTransporterDropoffWithOtp:', err);
+    throw err;
+  }
+}
+
+/**
  * Confirm physical buyer delivery receipt (Moves delivery to 'delivered' awaiting Admin Call Verification & Escrow Release)
  */
 export async function confirmBuyerReceipt(deliveryId) {

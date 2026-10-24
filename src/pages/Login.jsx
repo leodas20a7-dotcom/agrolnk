@@ -45,10 +45,11 @@ export default function Login({ onNavigate, navState }) {
   const roles = [
     { id: 'farmer', label: 'Farmer', tooltip: 'Farmer / Producer', icon: '🌾' },
     { id: 'fpo', label: 'FPO / Org', tooltip: 'Farmer Producer Organisation (FPO)', icon: '🏢' },
+    { id: 'food_processor', label: 'Food Processor', tooltip: 'Food Processor & Commercial Miller', icon: '🏭' },
     { id: 'buyer', label: 'Buyer', tooltip: 'Wholesale Buyer & Trader', icon: '🛒' },
     { id: 'financier', label: 'Financial Inst.', tooltip: 'Financial Institution', icon: '💰' },
     { id: 'transporter', label: 'Transporter', tooltip: 'Logistics Transporter', icon: '🚚' },
-    { id: 'warehouse', label: 'Warehouse', tooltip: 'Warehouse & Cold Storage Operator', icon: '🏭' },
+    { id: 'warehouse', label: 'Warehouse', tooltip: 'Warehouse & Cold Storage Operator', icon: '🏪' },
   ];
 
   // Handle Sign In Submit

@@ -46,6 +46,9 @@ const TransporterDashboard = lazy(() => import('./pages/transporter/TransporterD
 // Warehouse Dashboard (Code-Split)
 const WarehouseDashboard = lazy(() => import('./pages/warehouse/WarehouseDashboard'));
 
+// Food Processor Terminal (Code-Split)
+const FoodProcessorDashboard = lazy(() => import('./pages/processor/FoodProcessorDashboard'));
+
 // Admin Command Center Module Pages (Code-Split)
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const UserVerificationQueue = lazy(() => import('./pages/admin/UserVerificationQueue'));
@@ -111,6 +114,9 @@ const VALID_ROUTES = new Set([
   'transporter-dashboard',
   // Warehouse
   'warehouse-dashboard',
+  // Food Processor
+  'food-processor-dashboard',
+  'food_processor-dashboard',
 ]);
 
 /**
@@ -130,22 +136,30 @@ export function resolveRoute(rawRoute, user) {
   const clean = sanitizeRoute(rawRoute);
   const currentRole = user?.role || 'farmer';
 
+  const roleDashboard = currentRole === 'food_processor' ? 'food-processor-dashboard' : `${currentRole}-dashboard`;
+
   if (!clean) {
-    return user ? `${currentRole}-dashboard` : 'landing';
+    return user ? roleDashboard : 'landing';
   }
 
   // Handle common aliases and shortcuts
   if (clean === 'dashboard') {
-    return user ? `${currentRole}-dashboard` : 'login';
+    return user ? roleDashboard : 'login';
   }
   if (clean === 'orders') {
-    return user ? (currentRole === 'fpo' ? 'farmer-orders' : `${currentRole}-orders`) : 'login';
+    if (!user) return 'login';
+    if (currentRole === 'food_processor') return 'food-processor-dashboard';
+    return currentRole === 'fpo' ? 'farmer-orders' : `${currentRole}-orders`;
   }
   if (clean === 'financing') {
-    return user ? (currentRole === 'fpo' ? 'farmer-financing' : `${currentRole}-financing`) : 'login';
+    if (!user) return 'login';
+    if (currentRole === 'food_processor') return 'buyer-financing';
+    return currentRole === 'fpo' ? 'farmer-financing' : `${currentRole}-financing`;
   }
   if (clean === 'deliveries') {
-    return user ? (currentRole === 'fpo' ? 'farmer-deliveries' : `${currentRole}-deliveries`) : 'login';
+    if (!user) return 'login';
+    if (currentRole === 'food_processor') return 'food-processor-dashboard';
+    return currentRole === 'fpo' ? 'farmer-deliveries' : `${currentRole}-deliveries`;
   }
   if (clean === 'inventory') {
     return 'farmer-inventory';
@@ -160,7 +174,7 @@ export function resolveRoute(rawRoute, user) {
   if (VALID_ROUTES.has(clean)) {
     if (PUBLIC_PAGES.has(clean)) {
       if (user?.role && clean === 'landing') {
-        return `${user.role}-dashboard`;
+        return user.role === 'food_processor' ? 'food-processor-dashboard' : `${user.role}-dashboard`;
       }
       return clean;
     }
@@ -172,7 +186,7 @@ export function resolveRoute(rawRoute, user) {
   }
 
   // Fallback for unknown routes
-  return user ? `${currentRole}-dashboard` : 'landing';
+  return user ? roleDashboard : 'landing';
 }
 
 function getInitialPage() {
@@ -191,6 +205,8 @@ const PAGE_MESSAGES = {
   'buyer-dashboard': 'Syncing Buyer Terminal...',
   'financier-dashboard': 'Loading Capital & Liquidity Vault...',
   'warehouse-dashboard': 'Accessing Warehouse Storage Network...',
+  'food-processor-dashboard': 'Opening Food Processor Terminal...',
+  'food_processor-dashboard': 'Opening Food Processor Terminal...',
   'transporter-dashboard': 'Syncing Logistics & Corridor Dispatch...',
   'create-listing': 'Initializing Lot Assay Form...',
   'farmer-financing': 'Loading Working Capital Facilities...',
@@ -321,6 +337,17 @@ export default function App() {
           <FarmerDashboard
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {/* 5b. Food Processor Terminal Route */}
+      {(currentPage === 'food-processor-dashboard' || currentPage === 'food_processor-dashboard') && (
+        <ProtectedRoute requiredRole="food_processor" onNavigate={handleNavigate}>
+          <FoodProcessorDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+            navState={navState}
           />
         </ProtectedRoute>
       )}

@@ -8,6 +8,7 @@ import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import AuctionRow from '../../components/auction/AuctionRow';
 import AcceptBidEarlyModal from '../../components/auction/AcceptBidEarlyModal';
 import AuctionHistoryModal from '../../components/auction/AuctionHistoryModal';
+import Modal from '../../components/ui/Modal';
 import {
   Gavel,
   Plus,
@@ -24,10 +25,14 @@ import {
   ShoppingBag,
   RotateCcw,
   Zap,
-  Trophy
+  Trophy,
+  Edit2,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
-import { getFarmerAuctions } from '../../utils/auctions';
+import { getFarmerAuctions, deleteAuction } from '../../utils/auctions';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { toast } from '../../context/ToastContext';
 
 export default function MyAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
@@ -53,8 +58,38 @@ export default function MyAuctions({ currentUser, onNavigate }) {
   const [selectedAuctionForEarlyAccept, setSelectedAuctionForEarlyAccept] = useState(null);
   const [selectedHistoryAuction, setSelectedHistoryAuction] = useState(null);
   const [earlyAcceptSuccess, setEarlyAcceptSuccess] = useState(null);
+  const [auctionToDelete, setAuctionToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const ITEMS_PER_PAGE = 6;
+
+  const handleEditAuction = (auction) => {
+    onNavigate('farmer-create-listing', {
+      editAuction: auction,
+      editListing: auction,
+      saleType: 'auction',
+      initialData: auction,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!auctionToDelete) return;
+    setIsDeleting(true);
+    try {
+      showGlobalLoader('Deleting Auction Lot...', 'Removing live auction lot and clearing tick books...');
+      await deleteAuction(auctionToDelete.id);
+      hideGlobalLoader();
+      toast.success(`"${auctionToDelete.commodity}" auction lot was deleted.`);
+      setAuctions((prev) => prev.filter((a) => a.id !== auctionToDelete.id));
+      setAuctionToDelete(null);
+    } catch (err) {
+      hideGlobalLoader();
+      console.error('Error deleting auction:', err);
+      toast.error(err.message || 'Failed to delete auction lot.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const fetchAuctions = async () => {
     try {
@@ -334,30 +369,54 @@ export default function MyAuctions({ currentUser, onNavigate }) {
                       </div>
 
                       {/* Card Footer Actions */}
-                      <div className="pt-4 border-t border-[#E5EDE8] flex items-center justify-between gap-2">
-                        {isLive ? (
+                      <div className="pt-4 border-t border-[#E5EDE8] flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => onNavigate('auction-room', { auctionId: auction.id, auction })}
-                            icon={Eye}
+                            onClick={() => handleEditAuction(auction)}
+                            icon={Edit2}
                             iconPosition="left"
-                            className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
+                            className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:text-[#10B981] cursor-pointer"
                           >
-                            Live Room
+                            Edit
                           </Button>
-                        ) : (
+
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => onNavigate('auction-room', { auctionId: auction.id, auction })}
-                            icon={Eye}
+                            onClick={() => setAuctionToDelete(auction)}
+                            icon={Trash2}
                             iconPosition="left"
-                            className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
+                            className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50/50 cursor-pointer text-[#566861]"
                           >
-                            View Live Room
+                            Delete
                           </Button>
-                        )}
+
+                          {isLive ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => onNavigate('auction-room', { auctionId: auction.id, auction })}
+                              icon={Eye}
+                              iconPosition="left"
+                              className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
+                            >
+                              Live Room
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => onNavigate('auction-room', { auctionId: auction.id, auction })}
+                              icon={Eye}
+                              iconPosition="left"
+                              className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] cursor-pointer"
+                            >
+                              View Live Room
+                            </Button>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-2">
                           {isLive && (auction.highestBidderId || auction.totalBids > 0) && (
@@ -400,6 +459,8 @@ export default function MyAuctions({ currentUser, onNavigate }) {
                     timeNow={timeNow}
                     onNavigate={onNavigate}
                     onEarlyAccept={(a) => setSelectedAuctionForEarlyAccept(a)}
+                    onEdit={handleEditAuction}
+                    onDelete={(a) => setAuctionToDelete(a)}
                   />
                 ))}
               </div>
@@ -500,6 +561,77 @@ export default function MyAuctions({ currentUser, onNavigate }) {
           auction={selectedHistoryAuction}
           onNavigate={onNavigate}
         />
+
+        {/* Delete Auction Confirmation Modal */}
+        {auctionToDelete && (
+          <Modal
+            isOpen={Boolean(auctionToDelete)}
+            onClose={() => {
+              if (!isDeleting) setAuctionToDelete(null);
+            }}
+            title="Delete Auction Lot"
+            subtitle="Remove active or scheduled auction from the marketplace"
+            icon={Trash2}
+            iconColor="text-rose-600"
+            iconBg="bg-rose-100"
+            maxWidth="max-w-md"
+            footer={
+              <div className="flex items-center justify-end w-full gap-2.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={() => setAuctionToDelete(null)}
+                  className="px-4 py-2 font-semibold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDelete}
+                  icon={Trash2}
+                  iconPosition="left"
+                  className="px-5 py-2 font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer transition-all shadow-sm"
+                >
+                  {isDeleting ? 'Deleting Lot...' : 'Confirm Delete'}
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4 text-left">
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-[#0B3326] text-base">
+                    {auctionToDelete.commodity}
+                  </h4>
+                  <Badge variant="dark" size="sm">
+                    Grade {auctionToDelete.grade || 'A'}
+                  </Badge>
+                </div>
+                <div className="text-xs text-[#566861] flex items-center justify-between">
+                  <span>
+                    Lot: <strong>{auctionToDelete.quantity} {auctionToDelete.unit}</strong>
+                  </span>
+                  <span className="font-bold text-[#0B3326]">
+                    ₹{auctionToDelete.basePrice || auctionToDelete.startingBid}/{auctionToDelete.unit}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">Are you sure you want to delete this auction?</p>
+                  <p className="text-[#566861] text-[11px] leading-relaxed">
+                    This will permanently cancel this live auction lot and remove all associated bids. Bidders will be notified that the lot is no longer available.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Modal>
+        )}
 
       </div>
     </DashboardLayout>

@@ -24,6 +24,7 @@ import {
   acceptDeliveryJob,
   updateDeliveryStatus,
   confirmBuyerReceipt,
+  confirmTransporterDropoffWithOtp,
   acceptTransportPrice,
   declineTransportPrice
 } from '../../utils/deliveries';
@@ -39,6 +40,7 @@ export default function DeliveryDetailModal({
   const [currentDelivery, setCurrentDelivery] = useState(delivery);
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [enteredOtp, setEnteredOtp] = useState('');
 
   useEffect(() => {
     setCurrentDelivery(delivery);
@@ -146,6 +148,28 @@ export default function DeliveryDetailModal({
     } catch (err) {
       console.error('Failed to confirm receipt:', err);
       setErrorMessage('Failed to confirm delivery receipt.');
+      setIsUpdating(false);
+    }
+  };
+
+  const handleTransporterDropoffWithOtp = async () => {
+    if (!enteredOtp || enteredOtp.trim().length < 4) {
+      setErrorMessage('Please enter the 4-digit Delivery Handover PIN provided by the recipient buyer.');
+      return;
+    }
+    setIsUpdating(true);
+    setErrorMessage('');
+    try {
+      const updated = await confirmTransporterDropoffWithOtp(currentDelivery.id, enteredOtp.trim());
+      if (updated) {
+        setCurrentDelivery(updated);
+        if (onStatusUpdated) await onStatusUpdated(updated);
+      }
+      setIsUpdating(false);
+      onClose();
+    } catch (err) {
+      console.error('Failed to confirm delivery dropoff with OTP:', err);
+      setErrorMessage(err.message || 'Invalid Delivery Handover PIN. Please verify with buyer.');
       setIsUpdating(false);
     }
   };
@@ -405,17 +429,27 @@ export default function DeliveryDetailModal({
               )}
 
               {isAssignedTransporter && currentDelivery.status === 'in_transit' && (
-                <Button
-                  variant="accent"
-                  size="md"
-                  disabled={isUpdating}
-                  onClick={() => handleTransporterAction('delivered')}
-                  icon={CheckCircle2}
-                  iconPosition="left"
-                  className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
-                >
-                  {isUpdating ? 'Confirming Drop-off...' : 'Mark as Delivered'}
-                </Button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={enteredOtp}
+                    onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter Buyer PIN"
+                    className="w-full sm:w-36 px-3 py-2 text-center font-mono font-bold text-xs rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-[#34D399]"
+                  />
+                  <Button
+                    variant="accent"
+                    size="md"
+                    disabled={isUpdating || !enteredOtp || enteredOtp.length < 4}
+                    onClick={handleTransporterDropoffWithOtp}
+                    icon={CheckCircle2}
+                    iconPosition="left"
+                    className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer whitespace-nowrap"
+                  >
+                    {isUpdating ? 'Verifying...' : 'Verify PIN & Complete Drop-off'}
+                  </Button>
+                </div>
               )}
 
               {!isAssignedTransporter && currentDelivery.status !== 'transport_requested' && currentDelivery.status !== 'delivered' && currentDelivery.status !== 'completed' && (
@@ -435,6 +469,25 @@ export default function DeliveryDetailModal({
                   ✓ Trip Settled & Paid
                 </Badge>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Buyer Secure Delivery Handover PIN Display */}
+        {isBuyer && currentDelivery.status === 'in_transit' && (
+          <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-[#0B3326] block">
+                Destination Delivery Handover PIN
+              </span>
+              <span className="text-[11px] text-[#566861]">
+                Provide this 4-digit security PIN to the carrier driver only after physical arrival and lot inspection.
+              </span>
+            </div>
+            <div className="px-4 py-2 rounded-xl bg-white border border-[#10B981] shadow-xs shrink-0">
+              <span className="font-mono text-xl font-extrabold text-[#0B3326] tracking-widest block">
+                {currentDelivery.deliveryOtp || '4921'}
+              </span>
             </div>
           </div>
         )}

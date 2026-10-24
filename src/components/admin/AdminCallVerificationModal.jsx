@@ -173,6 +173,10 @@ export default function AdminCallVerificationModal({
   const allChecked = checks.spokeWithBuyer && checks.weightSlipVerified && checks.qualityAssayMatches && checks.packagingIntact;
 
   const handleApproveRelease = async () => {
+    if (adminUser?.role !== 'admin') {
+      setErrorMsg('Unauthorized: Only platform administrators can verify and release escrow funds.');
+      return;
+    }
     if (!callNotes.trim()) {
       setErrorMsg('Please log admin call verification notes before releasing.');
       return;
@@ -199,6 +203,10 @@ export default function AdminCallVerificationModal({
   };
 
   const handleHoldDispute = async () => {
+    if (adminUser?.role !== 'admin') {
+      setErrorMsg('Unauthorized: Only platform administrators can place escrow on dispute hold.');
+      return;
+    }
     if (!callNotes.trim()) {
       setErrorMsg('Please specify reason for dispute/hold in notes.');
       return;

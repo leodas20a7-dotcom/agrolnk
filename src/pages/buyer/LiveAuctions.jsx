@@ -98,8 +98,14 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
   }, [safeAuctions]);
 
   const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
+  const [timeNow, setTimeNow] = useState(Date.now());
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
+
+  useEffect(() => {
+    const timer = setInterval(() => setTimeNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Reset page when tab or search query changes
   useEffect(() => {
@@ -342,7 +348,7 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                         <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-center">
                           <div>
                             <span className="text-[10px] text-[#566861] block font-medium">
-                              {isEnded ? 'Final Winning Price' : 'Current Highest Bid'}
+                              {isEnded ? 'Final Winning Price' : 'Current Bid'}
                             </span>
                             <span className="text-base font-extrabold text-[#0B3326] font-heading">
                               ₹{lot.currentBid || lot.startingBid} / {lot.unit || 'kg'}
@@ -411,7 +417,7 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                   <AuctionRow
                     key={lot.id}
                     auction={lot}
-                    timeNow={now}
+                    timeNow={timeNow}
                     onNavigate={(page, state) => {
                       if (!isVerified && page === 'auction-room') {
                         setIsVerificationModalOpen(true);

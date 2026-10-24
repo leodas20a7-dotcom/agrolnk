@@ -112,8 +112,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   }, []);
 
   const handleApprove = async (userId, userName) => {
+    if (user?.role !== 'admin') {
+      setFeedbackMessage('Unauthorized: Only platform administrators can verify user credentials.');
+      return;
+    }
     try {
-      await updateKYCStatus(userId, 'verified', 'Approved by Admin. All credentials verified.', 'Admin');
+      await updateKYCStatus(userId, 'verified', 'Approved by Admin. All credentials verified.', user.name || 'Admin');
       setFeedbackMessage(`✓ Approved ${userName}. Verified badge awarded!`);
       setTimeout(() => setFeedbackMessage(''), 3500);
       setSelectedUserForDocs(null);
@@ -124,8 +128,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   };
 
   const handleReject = async (userId, userName) => {
+    if (user?.role !== 'admin') {
+      setFeedbackMessage('Unauthorized: Only platform administrators can reject verification.');
+      return;
+    }
     try {
-      await updateKYCStatus(userId, 'rejected', 'Documents incomplete or mismatched.', 'Admin');
+      await updateKYCStatus(userId, 'rejected', 'Documents incomplete or mismatched.', user.name || 'Admin');
       setFeedbackMessage(`Rejected ${userName}.`);
       setTimeout(() => setFeedbackMessage(''), 3500);
       setSelectedUserForDocs(null);

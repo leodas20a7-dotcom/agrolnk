@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Gavel, Clock, Trophy, Zap, ShoppingBag, MapPin } from 'lucide-react';
+import { Eye, Gavel, Clock, Trophy, Zap, ShoppingBag, MapPin, Edit2, Trash2 } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 
@@ -9,6 +9,8 @@ export default function AuctionRow({
   onNavigate,
   onEarlyAccept,
   onViewHistory,
+  onEdit,
+  onDelete,
 }) {
   const isLive = auction.status === 'live';
   const isCompleted = auction.status === 'completed';
@@ -53,19 +55,6 @@ export default function AuctionRow({
             <Badge variant="dark" size="sm">
               Grade {auction.grade}
             </Badge>
-            <Badge
-              variant={auction.auctionType === 'reverse' ? 'amber' : 'emerald'}
-              size="sm"
-            >
-              {auction.auctionType === 'reverse'
-                ? `Reverse (-₹${auction.bidStep || 25})`
-                : `Forward (+₹${auction.bidStep || 25})`}
-            </Badge>
-            {isLive && (
-              <Badge variant="amber" size="sm" dot={true}>
-                LIVE NOW
-              </Badge>
-            )}
             {isCompleted && (
               <Badge variant="emerald" size="sm">
                 ✓ WON
@@ -134,6 +123,32 @@ export default function AuctionRow({
 
       {/* Right: Actions */}
       <div className="flex items-center justify-between lg:justify-end gap-2.5 shrink-0 flex-wrap">
+        {onEdit && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onEdit(auction)}
+            icon={Edit2}
+            iconPosition="left"
+            className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:text-[#10B981] cursor-pointer"
+          >
+            Edit
+          </Button>
+        )}
+
+        {onDelete && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onDelete(auction)}
+            icon={Trash2}
+            iconPosition="left"
+            className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50/50 cursor-pointer text-[#566861]"
+          >
+            Delete
+          </Button>
+        )}
+
         <Button
           variant="secondary"
           size="sm"

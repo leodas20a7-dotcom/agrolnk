@@ -541,9 +541,24 @@ export function logoutUser() {
   try {
     localStorage.removeItem(AGROLNK_USER_KEY);
     localStorage.removeItem(IS_AUTH_KEY);
+    try {
+      supabase.auth.signOut().catch(() => {});
+    } catch {}
   } catch (err) {
     console.error('Failed to logout:', err);
   }
+}
+
+// Synchronize Supabase server-side session termination with client state
+if (typeof window !== 'undefined') {
+  try {
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem(AGROLNK_USER_KEY);
+        localStorage.removeItem(IS_AUTH_KEY);
+      }
+    });
+  } catch {}
 }
 
 /**

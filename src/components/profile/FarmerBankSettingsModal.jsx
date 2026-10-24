@@ -127,16 +127,19 @@ export default function FarmerBankSettingsModal({
     setErrorMsg('');
     setPennyResult(null);
 
-    if (!formData.accountNumber || formData.accountNumber.length < 8) {
-      setErrorMsg('Please enter a valid Account Number (minimum 8 digits).');
+    const cleanAcc = (formData.accountNumber || '').trim();
+    if (!/^\d{8,18}$/.test(cleanAcc)) {
+      setErrorMsg('Please enter a valid numeric Account Number (8 to 18 digits).');
       return;
     }
-    if (formData.accountNumber !== formData.confirmAccountNumber) {
+    if (cleanAcc !== (formData.confirmAccountNumber || '').trim()) {
       setErrorMsg('Account Numbers do not match.');
       return;
     }
-    if (!formData.ifscCode || formData.ifscCode.length !== 11) {
-      setErrorMsg('Please enter a valid 11-digit IFSC code (e.g. SBIN0004921).');
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    const cleanIfsc = (formData.ifscCode || '').trim().toUpperCase();
+    if (!ifscRegex.test(cleanIfsc)) {
+      setErrorMsg('Please enter a valid 11-character RBI IFSC code (e.g. SBIN0004921, 5th character must be 0).');
       return;
     }
 
@@ -144,8 +147,8 @@ export default function FarmerBankSettingsModal({
     try {
       const res = await simulatePennyDropVerification({
         accountHolderName: formData.accountHolderName,
-        accountNumber: formData.accountNumber,
-        ifscCode: formData.ifscCode,
+        accountNumber: cleanAcc,
+        ifscCode: cleanIfsc,
         bankName: formData.bankName,
       });
       setPennyResult(res);
@@ -165,16 +168,19 @@ export default function FarmerBankSettingsModal({
       setErrorMsg('Beneficiary / Account Holder Name is required.');
       return;
     }
-    if (!formData.accountNumber || formData.accountNumber.length < 8) {
-      setErrorMsg('Please provide a valid Account Number (min 8 digits).');
+    const cleanAcc = (formData.accountNumber || '').trim();
+    if (!/^\d{8,18}$/.test(cleanAcc)) {
+      setErrorMsg('Please provide a valid numeric Account Number (8 to 18 digits).');
       return;
     }
-    if (formData.accountNumber !== formData.confirmAccountNumber) {
+    if (cleanAcc !== (formData.confirmAccountNumber || '').trim()) {
       setErrorMsg('Account Number and Confirmation do not match.');
       return;
     }
-    if (!formData.ifscCode || formData.ifscCode.length !== 11) {
-      setErrorMsg('Please enter an 11-character RBI IFSC code.');
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    const cleanIfsc = (formData.ifscCode || '').trim().toUpperCase();
+    if (!ifscRegex.test(cleanIfsc)) {
+      setErrorMsg('Please enter a valid 11-character RBI IFSC code (e.g. SBIN0004921, 5th character must be 0).');
       return;
     }
 

@@ -106,6 +106,11 @@ ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_status_
 ALTER TABLE IF EXISTS public.auctions ADD CONSTRAINT auctions_status_check
   CHECK (status IN ('draft', 'live', 'completed', 'reserve_not_met', 'ended_unsold', 'cancelled'));
 
+-- Remove legacy forward-only check constraints to allow reverse auction bidding (reserve_price < base_price)
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_check;
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_reserve_price_check;
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_farmer_id_fkey;
+
 -- 5. WAREHOUSE RECEIPTS TABLE: Create table if not exists & ensure all columns
 CREATE TABLE IF NOT EXISTS public.warehouse_receipts (
   id TEXT PRIMARY KEY,
@@ -367,5 +372,119 @@ DROP POLICY IF EXISTS "Allow public read demand_offers" ON public.demand_offers;
 CREATE POLICY "Allow public read demand_offers" ON public.demand_offers FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Allow public write demand_offers" ON public.demand_offers;
 CREATE POLICY "Allow public write demand_offers" ON public.demand_offers FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================================
+-- 10. AUCTIONS TABLE: Harmonize Constraints For Reverse & Forward Auctions
+-- ============================================================================
+-- Drop restrictive forward-only check constraints (such as current_bid >= base_price)
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_check1;
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_check;
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_current_bid_check;
+ALTER TABLE IF EXISTS public.auctions DROP CONSTRAINT IF EXISTS auctions_reserve_price_check;
+
+-- Add updated flexible checks compatible with both forward & reverse auctions
+ALTER TABLE IF EXISTS public.auctions ADD CONSTRAINT auctions_current_bid_check CHECK (current_bid > 0);
+ALTER TABLE IF EXISTS public.auctions ADD CONSTRAINT auctions_reserve_price_check CHECK (reserve_price > 0);
+
+-- Updated atomic bidding procedure with full reverse auction downward bidding support
+CREATE OR REPLACE FUNCTION public.place_auction_bid_atomic(
+    p_auction_id TEXT,
+    p_bidder_id TEXT,
+    p_bidder_name TEXT,
+    p_bid_amount NUMERIC
+) RETURNS JSONB AS $$
+DECLARE
+    v_auction RECORD;
+    v_new_bid_id TEXT;
+    v_prev_bidder_id TEXT;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+    -- 1. Acquire exclusive row lock on the auction to eliminate race conditions
+    SELECT * INTO v_auction 
+    FROM public.auctions 
+    WHERE id = p_auction_id 
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Auction lot not found.';
+    END IF;
+
+    -- 2. Verify auction is strictly live
+    IF v_auction.status != 'live' THEN
+        RAISE EXCEPTION 'This auction is no longer live (Status: %).', v_auction.status;
+    END IF;
+
+    -- 3. Verify auction has not expired
+    IF v_now >= v_auction.end_time THEN
+        UPDATE public.auctions SET status = 'completed', updated_at = v_now WHERE id = p_auction_id;
+        RAISE EXCEPTION 'This auction has ended and is no longer accepting bids.';
+    END IF;
+
+    -- 4. Prevent Shill-Bidding (Producers cannot bid on their own lot)
+    IF v_auction.farmer_id IS NOT NULL AND v_auction.farmer_id = p_bidder_id THEN
+        RAISE EXCEPTION 'Producers are not permitted to bid on their own auctions.';
+    END IF;
+
+    -- 5. Verify bid amount based on auction type (Forward vs Reverse)
+    IF COALESCE(v_auction.auction_type, 'forward') = 'reverse' THEN
+        IF p_bid_amount >= v_auction.current_bid THEN
+            RAISE EXCEPTION 'In a reverse auction, your bid of ₹% must be lower than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+        END IF;
+        IF v_auction.reserve_price IS NOT NULL AND p_bid_amount < v_auction.reserve_price THEN
+            RAISE EXCEPTION 'Bid cannot be lower than the farmer''s reserve floor price of ₹%.', v_auction.reserve_price;
+        END IF;
+    ELSE
+        IF p_bid_amount <= v_auction.current_bid THEN
+            RAISE EXCEPTION 'Your bid of ₹% must be higher than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+        END IF;
+    END IF;
+
+    -- Save previous highest bidder for outbid notification
+    v_prev_bidder_id := v_auction.highest_bidder_id;
+
+    -- 6. Insert new bid record
+    v_new_bid_id := 'bid_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6);
+    INSERT INTO public.auction_bids (id, auction_id, bidder_id, bidder_name, bid_amount, created_at)
+    VALUES (v_new_bid_id, p_auction_id, p_bidder_id, COALESCE(p_bidder_name, 'Buyer Partner'), p_bid_amount, v_now);
+
+    -- 7. Update auction current bid atomically
+    UPDATE public.auctions SET
+        current_bid = p_bid_amount,
+        highest_bidder_id = p_bidder_id,
+        highest_bidder_name = COALESCE(p_bidder_name, 'Buyer Partner'),
+        total_bids = COALESCE(v_auction.total_bids, 0) + 1,
+        updated_at = v_now
+    WHERE id = p_auction_id;
+
+    -- 8. Disclose instant outbid notification to previous leader
+    IF v_prev_bidder_id IS NOT NULL AND v_prev_bidder_id != p_bidder_id THEN
+        INSERT INTO public.notifications (
+            id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+        ) VALUES (
+            'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
+            v_prev_bidder_id,
+            'buyer',
+            'Outbid on ' || v_auction.commodity,
+            'Another buyer placed a new leading bid of ₹' || p_bid_amount || '/' || v_auction.unit || '. Re-enter the arena to reclaim the lot.',
+            'order',
+            '/buyer-live-auctions',
+            false,
+            v_now
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'auction_id', p_auction_id,
+        'bid_id', v_new_bid_id,
+        'current_bid', p_bid_amount,
+        'highest_bidder_id', p_bidder_id,
+        'highest_bidder_name', COALESCE(p_bidder_name, 'Buyer Partner'),
+        'total_bids', COALESCE(v_auction.total_bids, 0) + 1,
+        'status', 'live'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 

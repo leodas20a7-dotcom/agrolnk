@@ -29,6 +29,7 @@ import { getResolvedUserKycStatus } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import ProductMediaSlider from '../../components/ui/ProductMediaSlider';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
+import { toast } from '../../context/ToastContext';
 
 const STORAGE_ACTIVE_LISTING_KEY = 'agrolnk_active_listing_detail';
 
@@ -138,8 +139,11 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
     };
   }, [listing?.id]);
 
+  const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+
   const handleOrderConfirmed = async (orderPayload) => {
-    if (!listing) return;
+    if (!listing || isProcessingOrder) return;
+    setIsProcessingOrder(true);
     try {
       const order = await createOrder({
         ...orderPayload,
@@ -166,10 +170,14 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
       const deductQty = orderPayload.quantityInListingUnit ?? orderPayload.quantity;
       await deductListingQuantity(listing.id, deductQty);
 
+      toast.success('Order placed successfully! Escrow deposit held in security.');
       setIsModalOpen(false);
       onNavigate('buyer-orders', { newOrder: order });
     } catch (err) {
       console.error('Order creation failed:', err);
+      toast.error(err.message || 'Unable to complete order. Please verify lot availability.');
+    } finally {
+      setIsProcessingOrder(false);
     }
   };
 

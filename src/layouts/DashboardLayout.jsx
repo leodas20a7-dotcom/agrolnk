@@ -204,6 +204,10 @@ export default function DashboardLayout({
       badge: 'rose',
       title: 'Admin Command Center',
     },
+    food_processor: {
+      badge: 'amber',
+      title: 'Food Processor Terminal',
+    },
   };
 
   const currentRoleConfig = roleColors[user.role] || roleColors.farmer;
@@ -405,10 +409,110 @@ export default function DashboardLayout({
     },
   ];
 
+  const foodProcessorNavGroups = [
+    {
+      type: 'single',
+      label: 'Terminal',
+      page: 'food-processor-dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+      type: 'dropdown',
+      id: 'procurement',
+      label: 'Procurement (Buy)',
+      icon: Compass,
+      items: [
+        {
+          label: 'Raw Produce Marketplace',
+          page: 'buyer-marketplace',
+          icon: Compass,
+          desc: 'Source raw agricultural commodities',
+        },
+        {
+          label: 'Procurement Demands',
+          page: 'buyer-demands',
+          icon: FileText,
+          desc: 'Post raw material requirements & tenders',
+        },
+        {
+          label: 'Live Clock Auctions',
+          page: 'buyer-live-auctions',
+          icon: Gavel,
+          desc: 'Bid on commodity clock lots',
+        },
+        {
+          label: 'My Inbound Purchases',
+          page: 'buyer-orders',
+          icon: ShoppingBag,
+          desc: 'Track raw material purchase contracts',
+        },
+        {
+          label: 'Inbound Deliveries',
+          page: 'buyer-deliveries',
+          icon: Truck,
+          desc: 'Monitor incoming freight & shipments',
+        },
+      ],
+    },
+    {
+      type: 'dropdown',
+      id: 'sales_milling',
+      label: 'Sales & Milling (Sell)',
+      icon: Package,
+      items: [
+        {
+          label: 'List Processed / Raw Product',
+          page: 'farmer-create-listing',
+          icon: Tag,
+          desc: 'List processed food or raw surplus',
+        },
+        {
+          label: 'My Product Catalog',
+          page: 'farmer-my-listings',
+          icon: Package,
+          desc: 'Manage raw and processed inventory listings',
+        },
+        {
+          label: 'Sales Orders Received',
+          page: 'farmer-orders',
+          icon: ShoppingBag,
+          desc: 'Contracts and orders from buyers',
+        },
+        {
+          label: 'Outbound Deliveries',
+          page: 'farmer-deliveries',
+          icon: Truck,
+          desc: 'Manage outbound dispatch & carrier tracking',
+        },
+      ],
+    },
+    {
+      type: 'dropdown',
+      id: 'working_capital',
+      label: 'Finance & Storage',
+      icon: Landmark,
+      items: [
+        {
+          label: 'Trade Credit / Financing',
+          page: 'buyer-financing',
+          icon: CreditCard,
+          desc: 'Working capital and trade credit facility',
+        },
+        {
+          label: 'Warehouse & Storage',
+          page: 'farmer-inventory',
+          icon: Building2,
+          desc: 'Safe storage & electronic warehouse receipts',
+        },
+      ],
+    },
+  ];
+
   const getNavGroups = () => {
     if (user.role === 'admin') return adminNavGroups;
     if (user.role === 'buyer') return buyerNavGroups;
     if (user.role === 'farmer' || user.role === 'fpo') return farmerNavGroups;
+    if (user.role === 'food_processor') return foodProcessorNavGroups;
     if (user.role === 'financier') return financierNavGroups;
     return [];
   };

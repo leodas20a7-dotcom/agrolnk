@@ -24,23 +24,25 @@ import {
 import { createListing, updateListing, COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities, saveListingDraft, getListingDraft, clearListingDraft } from '../../utils/listings';
 import { uploadProduceImage } from '../../utils/imageUpload';
 import { toast } from '../../context/ToastContext';
-import { createAuction } from '../../utils/auctions';
+import { createAuction, updateAuction } from '../../utils/auctions';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
-import { getResolvedUserKycStatus } from '../../utils/auth';
+import { getResolvedUserKycStatus, getCurrentUser } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
 import MultiMediaUploader from '../../components/ui/MultiMediaUploader';
 import { getVarietyImageUrl, hasSpecificVariety } from '../../data/commodityTaxonomy';
-import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate, getRateInUnit } from '../../utils/pricingUnits';
+import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate, getRateInUnit, UNIT_KG_FACTORS } from '../../utils/pricingUnits';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
+  const activeSessionUser = getCurrentUser();
+  const user = currentUser || activeSessionUser || { name: 'Farmer', id: '', role: 'farmer' };
 
-  const initialSource = navState?.editListing || navState?.initialData;
+  const initialSource = navState?.editListing || navState?.editAuction || navState?.initialData;
   const isEditing = Boolean(initialSource?.id && initialSource.id !== 'draft_local');
   const editingListingId = isEditing ? initialSource.id : null;
+  const isEditingAuction = Boolean(navState?.editAuction || (isEditing && (initialSource?.saleType === 'auction' || initialSource?.basePrice !== undefined)));
 
   const [existingDraft, setExistingDraft] = useState(() => {
     if (initialSource) return null;
@@ -49,7 +51,12 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
   // 5 Progressive Compact Steps
   const [currentStep, setCurrentStep] = useState(1);
-  const [saleType, setSaleType] = useState(initialSource?.saleType || 'direct'); // 'direct' | 'auction'
+  const [saleType, setSaleType] = useState(() => {
+    if (navState?.editAuction || isEditingAuction) return 'auction';
+    if (navState?.saleType) return navState.saleType;
+    if (initialSource?.saleType === 'auction' || initialSource?.startingBid || initialSource?.basePrice) return 'auction';
+    return initialSource?.saleType || 'direct';
+  });
 
   // Accurately convert canonical DB price to the selected price unit when editing
   const initialPricing = useMemo(() => {
@@ -57,14 +64,14 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
       return {
         unit: 'kg',
         price: '',
-        priceUnit: 'Quintal',
+        priceUnit: 'kg',
         startingBid: '',
         reservePrice: '',
       };
     }
 
     const volUnit = initialSource.unit || 'kg';
-    const rateUnit = initialSource.priceUnit || (volUnit === 'MT' ? 'Quintal' : volUnit);
+    const rateUnit = initialSource.priceUnit || volUnit;
 
     let displayPrice = '';
     const rawPrice = initialSource.price !== undefined && initialSource.price !== null && initialSource.price !== ''
@@ -78,20 +85,24 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     }
 
     let displayStartingBid = '';
-    if (initialSource.startingBid && !isNaN(Number(initialSource.startingBid))) {
-      const converted = getRateInUnit(Number(initialSource.startingBid), volUnit, rateUnit);
+    const rawStartingBid = initialSource.startingBid !== undefined && initialSource.startingBid !== null
+      ? initialSource.startingBid
+      : (initialSource.basePrice !== undefined && initialSource.basePrice !== null ? initialSource.basePrice : null);
+
+    if (rawStartingBid !== null && !isNaN(Number(rawStartingBid))) {
+      const converted = getRateInUnit(Number(rawStartingBid), volUnit, rateUnit);
       displayStartingBid = String(converted);
     }
 
     let displayReservePrice = '';
-    if (initialSource.reservePrice && !isNaN(Number(initialSource.reservePrice))) {
+    if (initialSource.reservePrice !== undefined && initialSource.reservePrice !== null && !isNaN(Number(initialSource.reservePrice))) {
       const converted = getRateInUnit(Number(initialSource.reservePrice), volUnit, rateUnit);
       displayReservePrice = String(converted);
     }
 
     return {
       unit: volUnit,
-      price: displayPrice,
+      price: displayPrice || displayStartingBid,
       priceUnit: rateUnit,
       startingBid: displayStartingBid,
       reservePrice: displayReservePrice,
@@ -116,6 +127,9 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     village: initialSource?.village || '',
     harvestDate: initialSource?.harvestDate || '',
     description: initialSource?.description || '',
+    productType: initialSource?.productType || (user.role === 'food_processor' ? 'processed' : 'raw'),
+    brandName: initialSource?.brandName || '',
+    packagingType: initialSource?.packagingType || '',
     images: initialSource?.images || [],
     isDefaultImage: !initialSource?.images,
   });
@@ -157,13 +171,65 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const grades = ['A', 'B', 'C', 'Export'];
   const units = ['kg', 'Quintal', 'MT'];
 
+  const [pricingMode, setPricingMode] = useState('rate'); // 'rate' | 'total'
+  const [totalDirectPriceInput, setTotalDirectPriceInput] = useState('');
+  const [totalStartBidInput, setTotalStartBidInput] = useState('');
+  const [totalReservePriceInput, setTotalReservePriceInput] = useState('');
+
+  const lotQty = Math.max(1, Number(formData.quantity) || 1);
+  const directPriceTotal = Math.round((Number(formData.price) || 0) * lotQty);
+  const startingBidTotal = Math.round((Number(formData.startingBid) || 0) * lotQty);
+  const reservePriceTotal = Math.round((Number(formData.reservePrice) || 0) * lotQty);
+
+  const handleTotalDirectPriceChange = (totalVal) => {
+    setTotalDirectPriceInput(totalVal);
+    const tot = Number(totalVal);
+    if (!tot || tot <= 0) {
+      setFormData((p) => ({ ...p, price: '' }));
+      return;
+    }
+    const rate = Math.round((tot / lotQty) * 100) / 100;
+    setFormData((p) => ({ ...p, price: String(rate) }));
+  };
+
+  const handleTotalStartBidChange = (totalVal) => {
+    setTotalStartBidInput(totalVal);
+    const tot = Number(totalVal);
+    if (!tot || tot <= 0) {
+      setFormData((p) => ({ ...p, startingBid: '' }));
+      return;
+    }
+    const rate = Math.round((tot / lotQty) * 100) / 100;
+    setFormData((p) => ({ ...p, startingBid: String(rate) }));
+  };
+
+  const handleTotalReservePriceChange = (totalVal) => {
+    setTotalReservePriceInput(totalVal);
+    const tot = Number(totalVal);
+    if (!tot || tot <= 0) {
+      setFormData((p) => ({ ...p, reservePrice: '' }));
+      return;
+    }
+    const rate = Math.round((tot / lotQty) * 100) / 100;
+    setFormData((p) => ({ ...p, reservePrice: String(rate) }));
+  };
+
+  const handleTogglePricingMode = (newMode) => {
+    setPricingMode(newMode);
+    if (newMode === 'total') {
+      if (directPriceTotal > 0) setTotalDirectPriceInput(String(directPriceTotal));
+      if (startingBidTotal > 0) setTotalStartBidInput(String(startingBidTotal));
+      if (reservePriceTotal > 0) setTotalReservePriceInput(String(reservePriceTotal));
+    }
+  };
+
   // Agricultural Pricing & Multi-Unit Breakdown
   const pricingBreakdown = useMemo(() => {
     return computePricingBreakdown({
       quantity: formData.quantity,
       unit: formData.unit,
       price: saleType === 'direct' ? formData.price : (formData.startingBid || formData.reservePrice),
-      priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
+      priceUnit: formData.priceUnit || formData.unit,
     });
   }, [formData.quantity, formData.unit, formData.price, formData.startingBid, formData.reservePrice, formData.priceUnit, saleType]);
 
@@ -171,7 +237,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
   // Dynamically re-calculate and convert quoted price when user changes the price basis unit
   const handlePriceUnitChange = (newPriceUnit) => {
-    const currentPriceUnit = formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit);
+    const currentPriceUnit = formData.priceUnit || formData.unit;
     if (!newPriceUnit || newPriceUnit === currentPriceUnit) return;
 
     setFormData((prev) => {
@@ -313,7 +379,15 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     if (currentStep > 1) {
       setCurrentStep((prev) => prev - 1);
     } else {
-      onNavigate('farmer-dashboard');
+      if (navState?.returnTo) {
+        onNavigate(navState.returnTo);
+      } else if (isEditingAuction || navState?.editAuction) {
+        onNavigate('farmer-my-auctions');
+      } else if (isEditing) {
+        onNavigate('farmer-my-listings');
+      } else {
+        onNavigate('farmer-dashboard');
+      }
     }
   };
 
@@ -359,9 +433,10 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           priceUnit: formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit),
         });
 
-        await createAuction({
-          farmerId: user.id || '',
-          farmerName: user.name || 'Farmer',
+        const effectiveFarmerId = user.id || activeSessionUser?.id || '';
+        const auctionPayload = {
+          farmerId: effectiveFarmerId,
+          farmerName: user.name || activeSessionUser?.name || 'Farmer',
           commodity: formData.commodity,
           variety: formData.variety || 'None',
           grade: formData.grade,
@@ -370,17 +445,31 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           startingBid: startBidBreakdown.canonicalPricePerListingUnit,
           reservePrice: reserveBreakdown.canonicalPricePerListingUnit,
           durationMinutes: Number(formData.durationMinutes || 1440),
-          auctionType: formData.auctionType || 'forward',
+          auctionType: formData.auctionType || 'english',
           bidStep: Math.max(1, Number(formData.bidStep) || 25),
           state: formData.state,
           district: formData.district,
           village: formData.village,
           description: formData.description || '',
           images: formData.images,
-        });
-        clearListingDraft(user.id);
+        };
+
+        if (isEditing && editingListingId) {
+          await updateAuction(editingListingId, auctionPayload);
+          clearListingDraft(user.id || activeSessionUser?.id);
+          toast.success('Auction lot updated successfully!');
+        } else {
+          await createAuction(auctionPayload);
+          clearListingDraft(user.id || activeSessionUser?.id);
+          toast.success(
+            formData.auctionType === 'reverse'
+              ? 'Reverse Auction lot published successfully!'
+              : 'Live Auction lot published successfully!'
+          );
+        }
         onNavigate('farmer-my-auctions');
       } else {
+        const effectiveFarmerId = user.id || activeSessionUser?.id || '';
         if (isEditing && editingListingId) {
           await updateListing(editingListingId, {
             commodity: formData.commodity,
@@ -397,14 +486,17 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
             village: formData.village,
             harvestDate: formData.harvestDate || null,
             description: formData.description || '',
+            productType: formData.productType || 'raw',
+            brandName: formData.brandName || null,
+            packagingType: formData.packagingType || null,
             images: formData.images,
             saleType: 'direct',
           });
           toast.success('Listing updated successfully!');
         } else {
           await createListing({
-            farmerId: user.id || '',
-            farmerName: user.name || 'Farmer',
+            farmerId: effectiveFarmerId,
+            farmerName: user.name || activeSessionUser?.name || 'Farmer',
             commodity: formData.commodity,
             variety: formData.variety || 'None',
             grade: formData.grade,
@@ -419,17 +511,22 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
             village: formData.village,
             harvestDate: formData.harvestDate || null,
             description: formData.description || '',
+            productType: formData.productType || 'raw',
+            brandName: formData.brandName || null,
+            packagingType: formData.packagingType || null,
             images: formData.images,
             saleType: 'direct',
           });
           toast.success('Listing published successfully!');
         }
-        clearListingDraft(user.id);
+        clearListingDraft(user.id || activeSessionUser?.id);
         onNavigate('farmer-my-listings');
       }
     } catch (err) {
       console.error('Failed to publish listing:', err);
-      setError('Failed to publish listing. Please try again.');
+      const friendlyMsg = err?.message || 'Failed to publish listing. Please try again.';
+      setError(friendlyMsg);
+      toast.error(friendlyMsg);
       setIsSubmitting(false);
     }
   };
@@ -512,7 +609,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   key={st.num}
                   type="button"
                   onClick={() => {
-                    if (st.num < currentStep) setCurrentStep(st.num);
+                    if (isEditing || st.num < currentStep) setCurrentStep(st.num);
                   }}
                   className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                     isCurrent
@@ -688,6 +785,66 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
               </p>
             </div>
 
+            {/* Product Classification (Raw vs Processed) */}
+            <div className="space-y-2 p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+              <label className="text-xs font-bold text-[#0B3326] block">
+                Product Classification
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, productType: 'raw' })}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
+                    formData.productType !== 'processed'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Raw Agricultural Commodity
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, productType: 'processed' })}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
+                    formData.productType === 'processed'
+                      ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Processed Food Product
+                </button>
+              </div>
+
+              {formData.productType === 'processed' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 mt-2 border-t border-gray-200">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-gray-700 block">
+                      Brand / Mill Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.brandName || ''}
+                      onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                      placeholder="e.g. Royal Golden Mills"
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-gray-700 block">
+                      Packaging Format (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.packagingType || ''}
+                      onChange={(e) => setFormData({ ...formData, packagingType: e.target.value })}
+                      placeholder="e.g. 50kg Bags, 15L Tins, 1kg Pouches"
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
               {/* Commodity */}
@@ -836,7 +993,33 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     <SearchableSelect
                       options={units.map((u) => ({ value: u, label: u }))}
                       value={formData.unit}
-                      onChange={(val) => setFormData({ ...formData, unit: val })}
+                      onChange={(val) => {
+                        setFormData((prev) => {
+                          const currentPriceUnit = prev.priceUnit || prev.unit;
+                          const defaultPriceUnit = val === 'MT' ? 'Quintal' : val;
+                          const updated = { ...prev, unit: val, priceUnit: val === 'MT' ? 'Quintal' : val };
+                          if (prev.startingBid && Number(prev.startingBid) > 0) {
+                            const converted = getRateInUnit(Number(prev.startingBid), currentPriceUnit, updated.priceUnit);
+                            updated.startingBid = String(converted);
+                          }
+                          if (prev.reservePrice && Number(prev.reservePrice) > 0) {
+                            const converted = getRateInUnit(Number(prev.reservePrice), currentPriceUnit, updated.priceUnit);
+                            updated.reservePrice = String(converted);
+                          }
+                          if (prev.price && Number(prev.price) > 0) {
+                            const converted = getRateInUnit(Number(prev.price), currentPriceUnit, updated.priceUnit);
+                            updated.price = String(converted);
+                          }
+                          if (val === 'MT' && (!prev.bidStep || prev.bidStep === '25')) {
+                            updated.bidStep = '250';
+                          } else if (val === 'Quintal' && prev.bidStep === '250') {
+                            updated.bidStep = '25';
+                          } else if (val === 'kg' && (prev.bidStep === '25' || prev.bidStep === '250')) {
+                            updated.bidStep = '2';
+                          }
+                          return updated;
+                        });
+                      }}
                       placeholder="Unit"
                       searchPlaceholder="Search unit..."
                       buttonClassName="bg-[#F8FAF8]"
@@ -845,7 +1028,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 </div>
               </div>
 
-              {/* Price (Direct) or Auction Type (Auction) */}
+              {/* Price (Direct) or Pricing Basis Tabs (Auction) */}
               {saleType === 'direct' ? (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
@@ -884,7 +1067,41 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   </div>
                 </div>
               ) : (
+                /* Pricing Basis Tabs (Only for Live Auction) */
                 <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#0B3326] block">
+                    Pricing Basis
+                  </label>
+                  <div className="grid grid-cols-2 p-1 rounded-xl bg-[#F1F4F2] border border-[#E5EDE8] h-[41px] items-stretch gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePricingMode('rate')}
+                      className={`h-full rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                        pricingMode === 'rate'
+                          ? 'bg-[#10B981] text-white shadow-xs'
+                          : 'text-[#566861] hover:text-[#0B3326]'
+                      }`}
+                    >
+                      Per {formData.unit}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePricingMode('total')}
+                      className={`h-full rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                        pricingMode === 'total'
+                          ? 'bg-[#10B981] text-white shadow-xs'
+                          : 'text-[#566861] hover:text-[#0B3326]'
+                      }`}
+                    >
+                      Full Lot (Total ₹)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Auction Controls */}
+              {saleType === 'auction' && (
+                <div className="space-y-1 sm:col-span-2">
                   <label className="text-xs font-bold text-[#0B3326] block">
                     Auction Type <span className="text-red-500">*</span>
                   </label>
@@ -935,7 +1152,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                       Bid Step ({formData.auctionType === 'reverse' ? '-' : '+'}₹ / {formData.unit}):
                     </span>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {[10, 25, 50, 100].map((step) => {
+                      {(formData.unit === 'MT' ? [100, 250, 500, 1000] : (formData.unit === 'kg' ? [1, 2, 5, 10] : [10, 25, 50, 100])).map((step) => {
                         const isSelected = Number(formData.bidStep) === step;
                         return (
                           <button
@@ -959,7 +1176,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                           min="1"
                           value={formData.bidStep}
                           onChange={(e) => setFormData({ ...formData, bidStep: e.target.value })}
-                          placeholder="25"
+                          placeholder={formData.unit === 'MT' ? '250' : '25'}
                           className="w-full pl-5 pr-1 py-1 rounded-lg border border-[#E5EDE8] bg-white text-xs font-bold text-[#0B3326] focus:ring-1 focus:ring-[#10B981]"
                         />
                       </div>
@@ -970,36 +1187,45 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-[#0B3326] block">
-                        Starting Bid (₹) <span className="text-red-500">*</span>
+                        {pricingMode === 'rate'
+                          ? (formData.auctionType === 'reverse' ? 'Starting Ceiling Bid (₹)' : 'Starting Bid (₹)')
+                          : (formData.auctionType === 'reverse' ? 'Starting Ceiling (Full Lot ₹)' : 'Starting Bid (Full Lot ₹)')}{' '}
+                        <span className="text-red-500">*</span>
                       </label>
-                      <span className="text-[10px] text-[#566861]">
-                        per {formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                      <span className="text-[11px] text-[#566861]">
+                        {pricingMode === 'rate'
+                          ? `Total: ₹${startingBidTotal.toLocaleString('en-IN')}`
+                          : `Rate: ₹${(Number(formData.startingBid) || 0).toLocaleString('en-IN')} / ${formData.unit}`}
                       </span>
                     </div>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#0B3326]">
-                          ₹
-                        </span>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#0B3326]">
+                        ₹
+                      </span>
+                      {pricingMode === 'rate' ? (
                         <input
                           type="number"
                           value={formData.startingBid}
                           onChange={(e) => setFormData({ ...formData, startingBid: e.target.value })}
-                          placeholder={formData.auctionType === 'reverse' ? 'e.g. 2400' : 'e.g. 1800'}
+                          placeholder={formData.auctionType === 'reverse' ? `e.g. ${formData.unit === 'MT' ? '24000' : '2400'}` : `e.g. ${formData.unit === 'MT' ? '18000' : '1800'}`}
                           min="0.1"
                           step="any"
-                          className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                          className="w-full pl-7 pr-16 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         />
-                      </div>
-                      <div className="w-36 shrink-0">
-                        <SearchableSelect
-                          options={PRICING_UNIT_OPTIONS}
-                          value={formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
-                          onChange={(val) => handlePriceUnitChange(val)}
-                          placeholder="Per unit"
-                          buttonClassName="bg-[#F8FAF8]"
+                      ) : (
+                        <input
+                          type="number"
+                          value={totalStartBidInput || (startingBidTotal > 0 ? String(startingBidTotal) : '')}
+                          onChange={(e) => handleTotalStartBidChange(e.target.value)}
+                          placeholder="e.g. 12000000"
+                          min="1"
+                          step="any"
+                          className="w-full pl-7 pr-16 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         />
-                      </div>
+                      )}
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#566861]">
+                        {pricingMode === 'rate' ? `/ ${formData.unit}` : 'Total'}
+                      </span>
                     </div>
                   </div>
 
@@ -1007,25 +1233,45 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-[#0B3326] block">
-                        Reserve Floor Price (₹) <span className="text-red-500">*</span>
+                        {pricingMode === 'rate'
+                          ? (formData.auctionType === 'reverse' ? 'Reserve Target Price (₹)' : 'Reserve Floor Price (₹)')
+                          : (formData.auctionType === 'reverse' ? 'Reserve Target (Full Lot ₹)' : 'Reserve Floor (Full Lot ₹)')}{' '}
+                        <span className="text-red-500">*</span>
                       </label>
-                      <span className="text-[10px] text-[#566861]">
-                        per {formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
+                      <span className="text-[11px] text-[#566861]">
+                        {pricingMode === 'rate'
+                          ? `Total: ₹${reservePriceTotal.toLocaleString('en-IN')}`
+                          : `Rate: ₹${(Number(formData.reservePrice) || 0).toLocaleString('en-IN')} / ${formData.unit}`}
                       </span>
                     </div>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#0B3326]">
                         ₹
                       </span>
-                      <input
-                        type="number"
-                        value={formData.reservePrice}
-                        onChange={(e) => setFormData({ ...formData, reservePrice: e.target.value })}
-                        placeholder="e.g. 1850"
-                        min="0.1"
-                        step="any"
-                        className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                      />
+                      {pricingMode === 'rate' ? (
+                        <input
+                          type="number"
+                          value={formData.reservePrice}
+                          onChange={(e) => setFormData({ ...formData, reservePrice: e.target.value })}
+                          placeholder={formData.auctionType === 'reverse' ? `e.g. ${formData.unit === 'MT' ? '18500' : '1850'}` : `e.g. ${formData.unit === 'MT' ? '20000' : '2000'}`}
+                          min="0.1"
+                          step="any"
+                          className="w-full pl-7 pr-16 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          value={totalReservePriceInput || (reservePriceTotal > 0 ? String(reservePriceTotal) : '')}
+                          onChange={(e) => handleTotalReservePriceChange(e.target.value)}
+                          placeholder="e.g. 9250000"
+                          min="1"
+                          step="any"
+                          className="w-full pl-7 pr-16 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-bold text-[#0B3326] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                        />
+                      )}
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#566861]">
+                        {pricingMode === 'rate' ? `/ ${formData.unit}` : 'Total'}
+                      </span>
                     </div>
                   </div>
 
@@ -1055,44 +1301,23 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 </>
               )}
 
-              {/* Live Mandi Rate Breakdown Pill */}
-              {pricingBreakdown.totalEscrowValue > 0 && (
-                <div className="sm:col-span-2 p-3.5 rounded-2xl bg-gradient-to-r from-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs animate-in fade-in">
-                  <div className="space-y-0.5">
-                    <span className="text-[11px] font-bold text-[#0B3326] flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
-                      Auto-Calculated Mandi Equivalent Rates:
-                    </span>
-                    <p className="text-[11px] text-[#2D5A47]">
-                      <strong className="text-[#0B3326]">₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')}/Qtl</strong> (Mandi) • <strong className="text-[#0B3326]">₹{pricingBreakdown.pricePerMT.toLocaleString('en-IN')}/MT</strong> (Bulk) • <strong className="text-[#0B3326]">₹{pricingBreakdown.pricePerKg.toFixed(2)}/kg</strong>
-                    </p>
-                  </div>
-                  <div className="text-left sm:text-right shrink-0">
-                    <span className="text-[10px] text-[#566861] block">Total Lot Conversion:</span>
-                    <span className="font-bold text-[#0B3326] text-xs">
-                      {pricingBreakdown.quantity} {pricingBreakdown.unit} = {pricingBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals ({pricingBreakdown.totalKg.toLocaleString('en-IN')} kg)
-                    </span>
-                  </div>
-                </div>
-              )}
-
             </div>
 
-            {/* Calculated Escrow Box */}
+            {/* Simple Calculated Escrow Box */}
             <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] shadow-xs flex items-center justify-between text-xs">
               <div className="space-y-0.5">
-                <span className="text-xs text-[#DCFCE7]/80 font-semibold block">
+                <span className="text-xs text-[#DCFCE7]/90 font-bold block">
                   Total Transaction Escrow Value:
                 </span>
                 <span className="text-[11px] text-[#34D399]">
-                  {pricingBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals ({pricingBreakdown.quantity} {pricingBreakdown.unit}) × ₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')} / Qtl
+                  {pricingBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals ({pricingBreakdown.quantity || 0} {pricingBreakdown.unit}) × ₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')} / Qtl
                 </span>
               </div>
               <div className="text-right">
                 <span className="text-2xl font-extrabold text-white font-heading">
                   ₹{estimatedValue.toLocaleString('en-IN')}
                 </span>
-                <span className="text-[10px] text-[#DCFCE7]/70 block font-normal">
+                <span className="text-[10px] text-[#34D399] block font-semibold">
                   100% Escrow Protected
                 </span>
               </div>
@@ -1248,8 +1473,10 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 className="w-full font-bold py-3 px-6 shadow-md shadow-[#10B981]/20 text-sm cursor-pointer"
               >
                 {isSubmitting 
-                  ? (isEditing ? 'Updating Produce Listing...' : 'Publishing to Live Exchange...') 
-                  : (isEditing ? 'Save Changes & Update Listing' : 'Confirm & Publish Listing')}
+                  ? (isEditing ? 'Updating Lot...' : 'Publishing to Live Exchange...') 
+                  : (isEditing 
+                      ? (saleType === 'auction' ? 'Save Changes & Update Auction' : 'Save Changes & Update Listing') 
+                      : (saleType === 'auction' ? 'Confirm & Launch Auction' : 'Confirm & Publish Listing'))}
               </Button>
             </div>
           </Card>

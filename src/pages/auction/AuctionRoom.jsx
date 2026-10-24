@@ -195,6 +195,15 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
       setIsVerificationModalOpen(true);
       return;
     }
+    if (isCurrentUserLeading) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Already Leading',
+        message: 'You already hold the leading offer on this lot! You cannot bid against yourself.',
+        type: 'info'
+      });
+      return;
+    }
     setPendingBidAmount(amount);
     setConfirmModalOpen(true);
   };
@@ -483,19 +492,7 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
                 className="w-full h-full object-cover"
               />
 
-              <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap">
-                <Badge variant="dark" size="md" className="font-bold">
-                  Grade {auction.grade}
-                </Badge>
-                <Badge
-                  variant={auction.auctionType === 'reverse' ? 'amber' : 'emerald'}
-                  size="md"
-                  className="font-bold uppercase tracking-wider"
-                >
-                  {auction.auctionType === 'reverse'
-                    ? `Reverse (-₹${auction.bidStep || 25})`
-                    : `Forward (+₹${auction.bidStep || 25})`}
-                </Badge>
+              <div className="absolute top-4 left-4 flex items-center gap-2">
                 {auction.status === 'live' ? (
                   <Badge variant="amber" size="md" dot={true}>
                     LIVE AUCTION
@@ -520,12 +517,15 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
             </div>
 
             {/* Produce Header & Location */}
-            <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4">
+            <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-3">
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-extrabold text-[#0B3326] font-heading">
-                    {auction.commodity}
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-extrabold text-[#0B3326] font-heading">
+                      {auction.commodity}
+                    </h2>
+                    <Badge variant="dark" size="sm">Grade {auction.grade}</Badge>
+                  </div>
                   {hasSpecificVariety(auction.variety) && (
                     <span className="text-xs font-bold text-[#10B981]">
                       Variety: {auction.variety}
@@ -538,9 +538,14 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
                     Location: <strong>{auction.district ? `${auction.district}, ` : ''}{auction.state}</strong>
                   </span>
                 </p>
-                <div className="flex items-center gap-1.5 text-[#10B981] font-semibold">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Verified Lot</span>
+                <div className="flex items-center justify-between pt-2 border-t border-[#E5EDE8] text-xs">
+                  <span className="text-[#566861]">
+                    Lot Size: <strong className="text-[#14211D]">{auction.quantity} {auction.unit}</strong>
+                  </span>
+                  <span className="text-[#10B981] font-semibold flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Verified Lot</span>
+                  </span>
                 </div>
               </div>
             </Card>
@@ -558,6 +563,7 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
               reservePrice={auction.reservePrice}
               isFarmer={isFarmer}
               isAuctionEnded={isAuctionEnded}
+              isLeading={isCurrentUserLeading}
               onInitiateBid={handleInitiateBid}
             />
 

@@ -71,6 +71,21 @@ export default function Register({ onNavigate, navState }) {
         '“AgroLnk helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
       author: 'Ramesh Patel, FPO Lead (Madhya Pradesh)',
     },
+    food_processor: {
+      title: 'Food Processor',
+      tooltip: 'Food Processor & Commercial Miller',
+      emoji: '🏭',
+      badge: 'Dual Trader',
+      tagline: 'Source raw crops & distribute processed food products',
+      bullets: [
+        'Direct procurement from farmers and FPOs at transparent mandi rates',
+        'List and market processed goods (flour, rice, edible oils, pulses, spices)',
+        'Unified dashboard for incoming raw materials and outgoing processed sales',
+      ],
+      quote:
+        '“AgroLnk allows our mill to procure raw farmgate grains at fair prices, and distribute our packaged goods to retailers nationwide.”',
+      author: 'Heritage Agri Foods & Flour Mills',
+    },
     buyer: {
       title: 'Buyer',
       emoji: '🛒',

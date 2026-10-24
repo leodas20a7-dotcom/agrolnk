@@ -48,9 +48,18 @@ BEGIN
         RAISE EXCEPTION 'Producers are not permitted to bid on their own auctions.';
     END IF;
 
-    -- 5. Verify bid amount is strictly higher than current leading bid
-    IF p_bid_amount <= v_auction.current_bid THEN
-        RAISE EXCEPTION 'Your bid of ₹% must be higher than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+    -- 5. Verify bid amount based on auction type (Forward vs Reverse)
+    IF COALESCE(v_auction.auction_type, 'forward') = 'reverse' THEN
+        IF p_bid_amount >= v_auction.current_bid THEN
+            RAISE EXCEPTION 'In a reverse auction, your bid of ₹% must be lower than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+        END IF;
+        IF v_auction.reserve_price IS NOT NULL AND p_bid_amount < v_auction.reserve_price THEN
+            RAISE EXCEPTION 'Bid cannot be lower than the farmer''s reserve floor price of ₹%.', v_auction.reserve_price;
+        END IF;
+    ELSE
+        IF p_bid_amount <= v_auction.current_bid THEN
+            RAISE EXCEPTION 'Your bid of ₹% must be higher than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+        END IF;
     END IF;
 
     -- Save previous highest bidder for outbid notification

@@ -11,6 +11,7 @@ export default function BidForm({
   reservePrice = 0,
   isFarmer = false,
   isAuctionEnded = false,
+  isLeading = false,
   onInitiateBid,
 }) {
   const isReverse = auctionType === 'reverse';
@@ -39,6 +40,7 @@ export default function BidForm({
   const suggestedMultipliers = [1, 2, 3, 4];
 
   const handleQuickSelect = (multiplier) => {
+    if (isLeading) return;
     const delta = multiplier * step;
     const target = isReverse
       ? numericCurrentBid - delta
@@ -58,6 +60,10 @@ export default function BidForm({
     e.preventDefault();
     setError('');
 
+    if (isLeading) {
+      setError('You already hold the leading offer! You cannot bid against yourself.');
+      return;
+    }
     if (isFarmer) {
       setError('You cannot bid on your own produce auction.');
       return;
@@ -79,13 +85,14 @@ export default function BidForm({
         setError(`In a reverse auction, your bid must be lower than the current leading offer of ₹${numericCurrentBid}/${unit}.`);
         return;
       }
+      const isAtReserveFloor = numericReservePrice > 0 && amount === numericReservePrice;
       const dec = numericCurrentBid - amount;
-      if (dec < step) {
+      if (dec < step && !isAtReserveFloor) {
         setError(`Your bid must be lower by at least the required step of ₹${step}/${unit}.`);
         return;
       }
       const remainder = Math.round((dec % step) * 100) / 100;
-      if (remainder > 0.01 && remainder < (step - 0.01)) {
+      if (!isAtReserveFloor && remainder > 0.01 && remainder < (step - 0.01)) {
         setError(`Bids must be in exact step decrements of ₹${step}/${unit} (e.g. ₹${numericCurrentBid - step}, ₹${numericCurrentBid - (step * 2)}).`);
         return;
       }
@@ -152,85 +159,101 @@ export default function BidForm({
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* Quick Suggested Increments / Decrements in exact step multiples */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-bold text-[#566861]">
-                {isReverse ? 'Quick Step Decrements' : 'Quick Step Increments'}
-              </label>
-              <span className="text-[10px] text-[#566861] italic">
-                Multiples of farmer's step (₹{step})
-              </span>
+          {/* Leading Bidder Notice */}
+          {isLeading && (
+            <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/40 text-[#0B3326] space-y-1.5 animate-in fade-in">
+              <div className="flex items-center gap-2 font-bold text-xs text-[#0B3326]">
+                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                <span>You Currently Hold the Leading Offer (₹{numericCurrentBid}/{unit})</span>
+              </div>
+              <p className="text-[11px] text-[#2D5A47] leading-relaxed">
+                You are currently in 1st place to win this lot. You cannot bid against yourself. If another buyer places a competing bid, you can submit a new offer here.
+              </p>
+            </div>
+          )}
+
+          <fieldset disabled={isLeading} className={`space-y-4 ${isLeading ? 'opacity-40 pointer-events-none' : ''}`}>
+            {/* Quick Suggested Increments / Decrements in exact step multiples */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-[#566861]">
+                  {isReverse ? 'Quick Step Decrements' : 'Quick Step Increments'}
+                </label>
+                <span className="text-[10px] text-[#566861] italic">
+                  Multiples of farmer's step (₹{step})
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {suggestedMultipliers.map((m) => {
+                  const delta = m * step;
+                  const targetPrice = isReverse
+                    ? numericCurrentBid - delta
+                    : numericCurrentBid + delta;
+
+                  const isBelowFloor = isReverse && numericReservePrice > 0 && targetPrice < numericReservePrice;
+                  const isSelected = Number(bidAmount) === targetPrice;
+
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      disabled={isBelowFloor || isLeading}
+                      onClick={() => handleQuickSelect(m)}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
+                        isBelowFloor
+                          ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200'
+                          : isSelected
+                          ? (isReverse ? 'bg-[#92400E] text-white shadow-xs' : 'bg-[#0B3326] text-white shadow-xs')
+                          : 'bg-[#F8FAF8] text-[#0B3326] border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]'
+                      }`}
+                    >
+                      <span>
+                        {isReverse ? '-' : '+'}₹{delta}
+                      </span>
+                      <span className="text-[10px] block opacity-80 font-normal">
+                        (₹{targetPrice})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
-              {suggestedMultipliers.map((m) => {
-                const delta = m * step;
-                const targetPrice = isReverse
-                  ? numericCurrentBid - delta
-                  : numericCurrentBid + delta;
+            {/* Numeric Bid Input with unit */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-[#14211D]">
+                  Custom Bid (₹ / {unit})
+                </label>
+                <span className="text-[11px] text-[#566861]">
+                  Must be multiple of ₹{step}
+                </span>
+              </div>
 
-                const isBelowFloor = isReverse && numericReservePrice > 0 && targetPrice < numericReservePrice;
-                const isSelected = Number(bidAmount) === targetPrice;
-
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    disabled={isBelowFloor}
-                    onClick={() => handleQuickSelect(m)}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
-                      isBelowFloor
-                        ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200'
-                        : isSelected
-                        ? (isReverse ? 'bg-[#92400E] text-white shadow-xs' : 'bg-[#0B3326] text-white shadow-xs')
-                        : 'bg-[#F8FAF8] text-[#0B3326] border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]'
-                    }`}
-                  >
-                    <span>
-                      {isReverse ? '-' : '+'}₹{delta}
-                    </span>
-                    <span className="text-[10px] block opacity-80 font-normal">
-                      (₹{targetPrice})
-                    </span>
-                  </button>
-                );
-              })}
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  step={step}
+                  value={bidAmount}
+                  disabled={isLeading}
+                  onChange={(e) => {
+                    setBidAmount(e.target.value);
+                    setError('');
+                  }}
+                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
+                />
+              </div>
+              {isReverse && numericReservePrice > 0 && (
+                <span className="text-[11px] text-[#566861] block pt-1">
+                  🛡️ Reserve floor protection: ₹{numericReservePrice}/{unit} minimum.
+                </span>
+              )}
             </div>
-          </div>
-
-          {/* Numeric Bid Input with unit */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-[#14211D]">
-                Custom Bid (₹ / {unit})
-              </label>
-              <span className="text-[11px] text-[#566861]">
-                Must be multiple of ₹{step}
-              </span>
-            </div>
-
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#0B3326]">
-                ₹
-              </span>
-              <input
-                type="number"
-                step={step}
-                value={bidAmount}
-                onChange={(e) => {
-                  setBidAmount(e.target.value);
-                  setError('');
-                }}
-                className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
-              />
-            </div>
-            {isReverse && numericReservePrice > 0 && (
-              <span className="text-[11px] text-[#566861] block pt-1">
-                🛡️ Reserve floor protection: ₹{numericReservePrice}/{unit} minimum.
-              </span>
-            )}
-          </div>
+          </fieldset>
 
           {/* Error Notice */}
           {error && (
@@ -245,13 +268,18 @@ export default function BidForm({
             type="submit"
             variant={isReverse ? 'warning' : 'accent'}
             size="lg"
-            icon={isReverse ? ArrowDownRight : ArrowUpRight}
+            disabled={isLeading}
+            icon={isLeading ? ShieldCheck : (isReverse ? ArrowDownRight : ArrowUpRight)}
             iconPosition="right"
-            className="w-full justify-center py-3.5 font-bold text-sm shadow-xs cursor-pointer"
+            className={`w-full justify-center py-3.5 font-bold text-sm shadow-xs ${
+              isLeading ? 'opacity-60 cursor-not-allowed bg-[#E5EDE8] text-[#566861]' : 'cursor-pointer'
+            }`}
           >
-            {isReverse
-              ? `Submit Reverse Bid: ₹${bidAmount}/${unit}`
-              : `Place Bid: ₹${bidAmount}/${unit}`}
+            {isLeading
+              ? `You Hold Leading Offer: ₹${numericCurrentBid}/${unit}`
+              : (isReverse
+                  ? `Submit Reverse Bid: ₹${bidAmount}/${unit}`
+                  : `Place Bid: ₹${bidAmount}/${unit}`)}
           </Button>
         </form>
       )}

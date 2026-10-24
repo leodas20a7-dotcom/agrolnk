@@ -33,6 +33,17 @@ export default function RoleSelection({ onNavigate, navState }) {
       highlights: ['Bulk crop aggregation', 'Guaranteed escrow payout'],
     },
     {
+      id: 'food_processor',
+      title: 'Food Processor',
+      tooltip: 'Food Processor & Commercial Miller',
+      headline: 'Process & trade at scale',
+      description: 'Source raw agricultural commodities directly from farmgates, and market finished processed goods.',
+      iconEmoji: '🏭',
+      badge: 'Dual Trader',
+      bgLight: '#FEF3C7',
+      highlights: ['Source raw commodities', 'Sell processed products'],
+    },
+    {
       id: 'buyer',
       title: 'Buyer',
       tooltip: 'Wholesale Buyer & Processor',
@@ -136,8 +147,8 @@ export default function RoleSelection({ onNavigate, navState }) {
           </p>
         </div>
 
-        {/* 6 Selectable Cards with Staggered Entrance Animation */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-3.5 text-left">
+        {/* 7 Selectable Cards with Staggered Entrance Animation */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5 text-left">
           {roles.map((r, idx) => {
             const isSelected = selectedRole === r.id;
 
