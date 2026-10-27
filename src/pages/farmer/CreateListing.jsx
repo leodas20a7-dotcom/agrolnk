@@ -33,7 +33,7 @@ import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
 import MultiMediaUploader from '../../components/ui/MultiMediaUploader';
 import { getVarietyImageUrl, hasSpecificVariety } from '../../data/commodityTaxonomy';
-import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate, getRateInUnit, UNIT_KG_FACTORS } from '../../utils/pricingUnits';
+import { computePricingBreakdown, PRICING_UNIT_OPTIONS, PROCESSOR_PRICING_OPTIONS, formatDualPriceRate, getRateInUnit, UNIT_KG_FACTORS } from '../../utils/pricingUnits';
 
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const activeSessionUser = getCurrentUser();
@@ -171,7 +171,9 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   }, []);
 
   const grades = ['A', 'B', 'C', 'Export'];
-  const units = ['kg', 'Quintal', 'MT'];
+  const standardUnits = ['kg', 'Quintal', 'MT'];
+  const processorUnits = ['Bottle', 'Litre', 'Pack', 'Pouch', 'Piece', 'Can', 'Box', 'kg', 'Quintal', 'MT'];
+  const units = isFoodProcessor ? processorUnits : standardUnits;
 
   const [pricingMode, setPricingMode] = useState('rate'); // 'rate' | 'total'
   const [totalDirectPriceInput, setTotalDirectPriceInput] = useState('');
@@ -1080,7 +1082,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     </div>
                     <div className="w-40 shrink-0">
                       <SearchableSelect
-                        options={PRICING_UNIT_OPTIONS}
+                        options={isFoodProcessor ? PROCESSOR_PRICING_OPTIONS : PRICING_UNIT_OPTIONS}
                         value={formData.priceUnit || (formData.unit === 'MT' ? 'Quintal' : formData.unit)}
                         onChange={(val) => handlePriceUnitChange(val)}
                         placeholder="Per unit"
@@ -1334,7 +1336,10 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                   Total Transaction Escrow Value:
                 </span>
                 <span className="text-[11px] text-[#34D399]">
-                  {pricingBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals ({pricingBreakdown.quantity || 0} {pricingBreakdown.unit}) × ₹{pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')} / Qtl
+                  {pricingBreakdown.isPackagedUnit
+                    ? `${pricingBreakdown.quantity.toLocaleString('en-IN')} ${pricingBreakdown.unit}${pricingBreakdown.quantity !== 1 && !pricingBreakdown.unit.endsWith('s') && !['Litre', 'Piece'].includes(pricingBreakdown.unit) ? 's' : ''} × ₹${pricingBreakdown.quotedPrice.toLocaleString('en-IN')} / ${pricingBreakdown.unit}`
+                    : `${pricingBreakdown.totalQuintals.toLocaleString('en-IN')} Quintals (${pricingBreakdown.quantity || 0} ${pricingBreakdown.unit}) × ₹${pricingBreakdown.pricePerQuintal.toLocaleString('en-IN')} / Qtl`
+                  }
                 </span>
               </div>
               <div className="text-right">

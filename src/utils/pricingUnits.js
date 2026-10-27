@@ -13,32 +13,38 @@ export const UNIT_KG_FACTORS = {
   MT: 1000,
 };
 
+export const PACKAGED_FOOD_UNITS = [
+  'Bottle',
+  'Litre',
+  'Pack',
+  'Pouch',
+  'Piece',
+  'Can',
+  'Box',
+  'Tin',
+];
+
 export const PRICING_UNIT_OPTIONS = [
   { value: 'Quintal', label: 'Quintal (Qtl - Mandi standard)' },
   { value: 'MT', label: 'Metric Tonne (MT - Bulk)' },
   { value: 'kg', label: 'Kilogram (kg - Retail/Sample)' },
 ];
 
+export const PROCESSOR_PRICING_OPTIONS = [
+  { value: 'Bottle', label: 'Bottle (Per Bottle)' },
+  { value: 'Litre', label: 'Litre (Per Litre)' },
+  { value: 'Pack', label: 'Pack (Per Pack)' },
+  { value: 'Pouch', label: 'Pouch (Per Pouch)' },
+  { value: 'Piece', label: 'Piece (Per Unit)' },
+  { value: 'Can', label: 'Can / Tin (Per Can)' },
+  { value: 'Box', label: 'Box / Carton (Per Box)' },
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'Quintal', label: 'Quintal (Qtl - Bulk)' },
+  { value: 'MT', label: 'Metric Tonne (MT - Bulk)' },
+];
+
 /**
- * Computes exact agricultural pricing breakdowns across all canonical units.
- * 
- * Example:
- *   quantity = 30, unit = 'MT'
- *   quotedPrice = 1850, priceUnit = 'Quintal'
- * 
- * Results in:
- *   totalKg = 30,000 kg (300 Qtl)
- *   pricePerKg = ₹18.50 / kg
- *   pricePerQuintal = ₹1,850 / Qtl
- *   pricePerMT = ₹18,500 / MT
- *   totalEscrowValue = ₹5,55,000
- * 
- * @param {Object} params
- * @param {number|string} params.quantity - Batch volume amount
- * @param {string} [params.unit='kg'] - Volume unit ('kg' | 'Quintal' | 'MT')
- * @param {number|string} params.price - Quoted price amount
- * @param {string} [params.priceUnit] - Basis unit of the quoted price (defaults to params.unit)
- * @returns {Object} Comprehensive pricing breakdown
+ * Computes exact agricultural & packaged goods pricing breakdowns.
  */
 export function computePricingBreakdown({
   quantity = 0,
@@ -48,6 +54,29 @@ export function computePricingBreakdown({
 }) {
   const qtyNum = Math.max(0, Number(quantity) || 0);
   const priceNum = Math.max(0, Number(price) || 0);
+
+  // Check if unit is standard bulk weight
+  const isBulkWeight = Boolean(UNIT_KG_FACTORS[unit]);
+
+  if (!isBulkWeight) {
+    const totalEscrowValue = Math.round(qtyNum * priceNum);
+    return {
+      quantity: qtyNum,
+      unit: unit || 'Bottle',
+      quotedPrice: priceNum,
+      priceUnit: priceUnit || unit || 'Bottle',
+      totalKg: qtyNum,
+      totalQuintals: qtyNum / 100,
+      totalMT: qtyNum / 1000,
+      pricePerKg: priceNum,
+      pricePerQuintal: priceNum,
+      pricePerMT: priceNum,
+      canonicalPricePerListingUnit: priceNum,
+      totalEscrowValue,
+      isPackagedUnit: true,
+    };
+  }
+
   const volUnit = UNIT_KG_FACTORS[unit] ? unit : 'kg';
   const rateUnit = UNIT_KG_FACTORS[priceUnit] ? priceUnit : volUnit;
 
@@ -87,6 +116,7 @@ export function computePricingBreakdown({
     pricePerMT,
     canonicalPricePerListingUnit,
     totalEscrowValue,
+    isPackagedUnit: false,
   };
 }
 
@@ -121,6 +151,10 @@ export function formatDualPriceRate(price, unit) {
 export function convertVolume(quantity, fromUnit = 'kg', toUnit = 'kg') {
   const q = Number(quantity) || 0;
   if (q <= 0) return 0;
+  if (fromUnit === toUnit) return q;
+  if (!UNIT_KG_FACTORS[fromUnit] || !UNIT_KG_FACTORS[toUnit]) {
+    return q;
+  }
   const factorFrom = UNIT_KG_FACTORS[fromUnit] || 1;
   const factorTo = UNIT_KG_FACTORS[toUnit] || 1;
   const inKg = q * factorFrom;
@@ -139,6 +173,10 @@ export function convertVolume(quantity, fromUnit = 'kg', toUnit = 'kg') {
 export function getRateInUnit(price, listingUnit = 'kg', targetUnit = 'kg') {
   const p = Number(price) || 0;
   if (p <= 0) return 0;
+  if (listingUnit === targetUnit) return p;
+  if (!UNIT_KG_FACTORS[listingUnit] || !UNIT_KG_FACTORS[targetUnit]) {
+    return p;
+  }
   const factorListing = UNIT_KG_FACTORS[listingUnit] || 1;
   const factorTarget = UNIT_KG_FACTORS[targetUnit] || 1;
   // Price per kg
