@@ -39,7 +39,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const activeSessionUser = getCurrentUser();
   const user = currentUser || activeSessionUser || { name: 'Farmer', id: '', role: 'farmer' };
   const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
-  const isFoodProcessor = effectiveRole === 'food_processor';
+  const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
 
   const initialSource = navState?.editListing || navState?.editAuction || navState?.initialData;
   const isEditing = Boolean(initialSource?.id && initialSource.id !== 'draft_local');
@@ -326,7 +326,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     setError('');
 
     if (currentStep === 2 && !formData.commodity.trim()) {
-      setError('Please select a commodity.');
+      setError(isFoodProcessor ? 'Please enter a commodity or product name.' : 'Please select a commodity.');
       return;
     }
 
@@ -856,26 +856,46 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 <label className="text-xs font-bold text-[#0B3326] block">
                   Commodity <span className="text-red-500">*</span>
                 </label>
-                <CommoditySelect
-                  value={formData.commodity}
-                  onChange={(val) => {
-                    const defaultImg = COMMODITY_IMAGES[val] || COMMODITY_IMAGES.Other;
-                    setFormData((prev) => ({
-                      ...prev,
-                      commodity: val,
-                      variety: 'None',
-                      images: prev.isDefaultImage ? [defaultImg] : (prev.images.length ? prev.images : [defaultImg]),
-                    }));
-                  }}
-                  onImageChange={(imgUrl) => {
-                    if (formData.isDefaultImage) {
-                      setFormData((prev) => ({ ...prev, images: [imgUrl] }));
-                    }
-                  }}
-                  userId={user.id}
-                  placeholder="Select Commodity..."
-                  required
-                />
+                {isFoodProcessor ? (
+                  <input
+                    type="text"
+                    value={formData.commodity || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const defaultImg = COMMODITY_IMAGES[val] || COMMODITY_IMAGES.Other;
+                      setFormData((prev) => ({
+                        ...prev,
+                        commodity: val,
+                        variety: prev.variety || 'None',
+                        images: prev.isDefaultImage ? [defaultImg] : (prev.images && prev.images.length ? prev.images : [defaultImg]),
+                      }));
+                    }}
+                    placeholder="Enter commodity (e.g. Wheat Flour, Tomato Puree, Apple Juice)"
+                    className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-[#CBD7D0] text-[#14211D] placeholder:text-[#8E9F97] focus:outline-hidden focus:ring-2 focus:ring-[#008236] focus:border-[#008236] bg-[#F8FAF8] transition-all shadow-xs"
+                    required
+                  />
+                ) : (
+                  <CommoditySelect
+                    value={formData.commodity}
+                    onChange={(val) => {
+                      const defaultImg = COMMODITY_IMAGES[val] || COMMODITY_IMAGES.Other;
+                      setFormData((prev) => ({
+                        ...prev,
+                        commodity: val,
+                        variety: 'None',
+                        images: prev.isDefaultImage ? [defaultImg] : (prev.images.length ? prev.images : [defaultImg]),
+                      }));
+                    }}
+                    onImageChange={(imgUrl) => {
+                      if (formData.isDefaultImage) {
+                        setFormData((prev) => ({ ...prev, images: [imgUrl] }));
+                      }
+                    }}
+                    userId={user.id}
+                    placeholder="Select Commodity..."
+                    required
+                  />
+                )}
               </div>
 
               {/* Variety */}

@@ -21,7 +21,7 @@ import { createAuction } from '../../utils/auctions';
 import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import { isUserVerified } from '../../utils/admin';
-import { getResolvedUserKycStatus } from '../../utils/auth';
+import { getResolvedUserKycStatus, getCurrentUser } from '../../utils/auth';
 import CommoditySelect from '../../components/ui/CommoditySelect';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VarietySelect from '../../components/ui/VarietySelect';
@@ -29,7 +29,10 @@ import MultiMediaUploader from '../../components/ui/MultiMediaUploader';
 import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate } from '../../utils/pricingUnits';
 
 export default function CreateAuction({ currentUser, onNavigate }) {
-  const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
+  const activeSessionUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+  const user = currentUser || activeSessionUser || { name: 'Farmer', id: '', role: 'farmer' };
+  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
 
   const [formData, setFormData] = useState({
     commodity: '',
@@ -287,21 +290,41 @@ export default function CreateAuction({ currentUser, onNavigate }) {
                 <label className="text-xs font-bold text-[#0B3326] block mb-1.5">
                   Commodity <span className="text-red-500">*</span>
                 </label>
-                <CommoditySelect
-                  value={formData.commodity}
-                  onChange={(val) => {
-                    const defaultImg = COMMODITY_IMAGES[val] || COMMODITY_IMAGES.Other;
-                    setFormData((prev) => ({
-                      ...prev,
-                      commodity: val,
-                      variety: 'None',
-                      images: prev.images.length > 0 ? prev.images : [defaultImg],
-                    }));
-                  }}
-                  userId={user.id}
-                  placeholder="Select Commodity..."
-                  required
-                />
+                {isFoodProcessor ? (
+                  <input
+                    type="text"
+                    value={formData.commodity || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const defaultImg = COMMODITY_IMAGES[val] || COMMODITY_IMAGES.Other;
+                      setFormData((prev) => ({
+                        ...prev,
+                        commodity: val,
+                        variety: prev.variety || 'None',
+                        images: prev.images?.length > 0 ? prev.images : [defaultImg],
+                      }));
+                    }}
+                    placeholder="Enter commodity (e.g. Wheat Flour, Tomato Puree, Apple Juice)"
+                    className="w-full text-xs font-semibold px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#008236] focus:border-[#008236] bg-white text-[#14211D]"
+                    required
+                  />
+                ) : (
+                  <CommoditySelect
+                    value={formData.commodity}
+                    onChange={(val) => {
+                      const defaultImg = COMMODITY_IMAGES[val] || COMMODITY_IMAGES.Other;
+                      setFormData((prev) => ({
+                        ...prev,
+                        commodity: val,
+                        variety: 'None',
+                        images: prev.images.length > 0 ? prev.images : [defaultImg],
+                      }));
+                    }}
+                    userId={user.id}
+                    placeholder="Select Commodity..."
+                    required
+                  />
+                )}
               </div>
 
               <div>
