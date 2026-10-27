@@ -218,6 +218,45 @@ export async function processLiveEscrowRelease(orderNumber, otpCode = '749102') 
   if (found && targetTxn) {
     saveStoredLedger(updated);
 
+    // Sync corresponding order in local cache so Buyer and Farmer terminals immediately show 'completed'
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem('agrolnk_orders_local');
+        if (raw) {
+          const orders = JSON.parse(raw);
+          if (Array.isArray(orders)) {
+            let orderChanged = false;
+            const updatedOrders = orders.map((o) => {
+              if (o.orderNumber === targetTxn.orderNumber || o.id === targetTxn.orderNumber) {
+                orderChanged = true;
+                return {
+                  ...o,
+                  status: 'completed',
+                  escrowStatus: 'released',
+                  escrow_status: 'released',
+                  adminVerificationStatus: 'approved',
+                  admin_verification_status: 'approved',
+                  bankUtr: targetTxn.disbursementUtr,
+                  disbursedAt: targetTxn.settledAt,
+                  updatedAt: new Date().toISOString(),
+                };
+              }
+              return o;
+            });
+            if (orderChanged) {
+              localStorage.setItem('agrolnk_orders_local', JSON.stringify(updatedOrders));
+              localStorage.setItem(`agrolnk_order_status_${targetTxn.orderNumber}`, 'completed');
+              localStorage.setItem(`agrolnk_order_escrow_${targetTxn.orderNumber}`, 'released');
+              window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
+              window.dispatchEvent(new Event('storage'));
+            }
+          }
+        }
+      }
+    } catch (_syncErr) {
+      // Local sync ignore
+    }
+
     // Log webhook event
     logEscrowEvent({
       topic: 'webhook.escrow.payout_disbursed',

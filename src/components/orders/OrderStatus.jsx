@@ -2,6 +2,15 @@ import React from 'react';
 import Badge from '../ui/Badge';
 
 export default function OrderStatus({ status = 'pending', escrowStatus, isAuction, size = 'sm' }) {
+  // If completed or escrow already released:
+  if (status === 'completed' || escrowStatus === 'released' || escrowStatus === 'settled') {
+    return (
+      <Badge variant="emerald" size={size} dot={false}>
+        <span>Settled to Bank</span>
+      </Badge>
+    );
+  }
+
   // If newly placed, pending, or confirmed:
   if (status === 'order_placed' || status === 'pending' || status === 'confirmed') {
     if (escrowStatus === 'funded' && !isAuction) {

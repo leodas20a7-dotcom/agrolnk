@@ -118,22 +118,36 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
   const safeOrders = Array.isArray(orders) ? orders : [];
 
+  const isOrderCompleted = (o) =>
+    o.status === 'completed' ||
+    o.escrowStatus === 'released' ||
+    o.escrow_status === 'released' ||
+    o.adminVerificationStatus === 'approved' ||
+    o.admin_verification_status === 'approved';
+
+  const isOrderPending = (o) =>
+    (o.status === 'pending' || o.status === 'order_placed') && !isOrderCompleted(o);
+
+  const isOrderInProgress = (o) =>
+    (o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered') &&
+    !isOrderCompleted(o);
+
   const tabs = [
     { id: 'all', label: 'All Orders', count: safeOrders.length },
     {
       id: 'pending',
       label: 'Pending',
-      count: safeOrders.filter((o) => o.status === 'pending' || o.status === 'order_placed').length,
+      count: safeOrders.filter(isOrderPending).length,
     },
     {
       id: 'confirmed',
       label: 'In Progress',
-      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered').length,
+      count: safeOrders.filter(isOrderInProgress).length,
     },
     {
       id: 'completed',
       label: 'Completed',
-      count: safeOrders.filter((o) => o.status === 'completed').length,
+      count: safeOrders.filter(isOrderCompleted).length,
     },
   ];
 
@@ -148,11 +162,9 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
   const filteredOrders = safeOrders.filter((o) => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'pending') return o.status === 'pending' || o.status === 'order_placed';
-    if (activeTab === 'confirmed')
-      return o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered';
-    if (activeTab === 'completed')
-      return o.status === 'completed';
+    if (activeTab === 'pending') return isOrderPending(o);
+    if (activeTab === 'confirmed') return isOrderInProgress(o);
+    if (activeTab === 'completed') return isOrderCompleted(o);
     return true;
   });
 

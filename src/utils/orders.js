@@ -177,9 +177,21 @@ export async function getOrders() {
       const localMatch = localMap.get(r.id) || (r.orderNumber && localMap.get(r.orderNumber));
       const confirmed = isConfirmed(r, localMatch);
 
+      // Preserve completed / released status if locally settled or confirmed by admin
+      const isLocallyCompleted =
+        localMatch?.status === 'completed' ||
+        localMatch?.escrowStatus === 'released' ||
+        (typeof window !== 'undefined' && (
+          localStorage.getItem(`agrolnk_order_status_${r.id}`) === 'completed' ||
+          localStorage.getItem(`agrolnk_order_status_${r.orderNumber}`) === 'completed' ||
+          localStorage.getItem(`agrolnk_order_escrow_${r.orderNumber}`) === 'released'
+        ));
+
       const resolved = {
         ...(localMatch || {}),
-        ...r, // Remote database state strictly overrides local fields
+        ...r, // Remote database state
+        status: isLocallyCompleted ? 'completed' : r.status,
+        escrowStatus: isLocallyCompleted ? 'released' : r.escrowStatus,
         buyerConfirmedArrival: confirmed,
         buyerArrivalVerified: confirmed,
       };
@@ -889,15 +901,25 @@ export async function adminVerifyAndReleaseOrderEscrow({
 
     let data = null;
     if (!atomicSuccess) {
-      const { data: updatedData, error } = await supabase
-        .from('orders')
-        .update(updatePayload)
-        .or(`id.eq.${orderId},order_number.eq.${orderId}`)
-        .select()
-        .single();
-      data = updatedData;
-      if (error) {
-        console.warn('Supabase update note in adminVerifyAndReleaseOrderEscrow:', error);
+      // Safe query that avoids Postgres UUID parse errors when orderId is a formatted order number
+      const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
+      try {
+        let updateQuery = supabase.from('orders').update(updatePayload);
+        if (currentOrder?.id && isUuid(currentOrder.id)) {
+          updateQuery = updateQuery.eq('id', currentOrder.id);
+        } else if (isUuid(orderId)) {
+          updateQuery = updateQuery.eq('id', orderId);
+        } else {
+          updateQuery = updateQuery.eq('order_number', currentOrder?.orderNumber || orderId);
+        }
+
+        const { data: updatedData, error } = await updateQuery.select().maybeSingle();
+        data = updatedData;
+        if (error) {
+          console.warn('Supabase update note in adminVerifyAndReleaseOrderEscrow:', error);
+        }
+      } catch (qErr) {
+        console.warn('Query exception in adminVerifyAndReleaseOrderEscrow:', qErr);
       }
     } else {
       const freshOrder = await getOrderById(orderId);
@@ -912,7 +934,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
           status: 'completed',
           updated_at: new Date().toISOString(),
         })
-        .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
+        .or(`order_number.eq.${orderKey}`);
     } catch (delSyncErr) {
       console.warn('Delivery completion sync note:', delSyncErr);
     }
@@ -924,8 +946,44 @@ export async function adminVerifyAndReleaseOrderEscrow({
       console.warn('Escrow nodal release notice:', escrowErr);
     }
 
-    const resolved = data ? mapOrderFromDb(data) : { ...currentOrder, ...updatePayload };
-    window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: resolved }));
+    const resolved = {
+      ...(currentOrder || {}),
+      status: 'completed',
+      escrowStatus: 'released',
+      escrow_status: 'released',
+      adminVerifiedBy: adminName,
+      adminVerificationStatus: 'approved',
+      admin_verification_status: 'approved',
+      adminCallNotes: notes,
+      adminVerifiedAt: new Date().toISOString(),
+      payoutBankName: farmerBank.bankName,
+      payoutAccountNumber: farmerBank.accountNumber,
+      payoutIfsc: farmerBank.ifscCode,
+      bankUtr: generatedUtr,
+      disbursedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...(data ? mapOrderFromDb(data) : {}),
+    };
+
+    // CRITICAL: Persist to local storage cache so all client portals immediately reflect 'completed'
+    saveLocalOrder(resolved);
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`agrolnk_order_status_${orderKey}`, 'completed');
+        localStorage.setItem(`agrolnk_order_escrow_${orderKey}`, 'released');
+        if (currentOrder?.id) {
+          localStorage.setItem(`agrolnk_order_status_${currentOrder.id}`, 'completed');
+          localStorage.setItem(`agrolnk_order_escrow_${currentOrder.id}`, 'released');
+        }
+      }
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: resolved }));
+      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: resolved }));
+      window.dispatchEvent(new Event('storage'));
+    }
     return resolved;
   } catch (err) {
     console.error('Error in adminVerifyAndReleaseOrderEscrow:', err);
