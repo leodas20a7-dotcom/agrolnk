@@ -38,6 +38,8 @@ import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate, get
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const activeSessionUser = getCurrentUser();
   const user = currentUser || activeSessionUser || { name: 'Farmer', id: '', role: 'farmer' };
+  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const isFoodProcessor = effectiveRole === 'food_processor';
 
   const initialSource = navState?.editListing || navState?.editAuction || navState?.initialData;
   const isEditing = Boolean(initialSource?.id && initialSource.id !== 'draft_local');
@@ -127,7 +129,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     village: initialSource?.village || '',
     harvestDate: initialSource?.harvestDate || '',
     description: initialSource?.description || '',
-    productType: initialSource?.productType || (user.role === 'food_processor' ? 'processed' : 'raw'),
+    productType: initialSource?.productType || (isFoodProcessor ? 'processed' : 'raw'),
     brandName: initialSource?.brandName || '',
     packagingType: initialSource?.packagingType || '',
     images: initialSource?.images || [],
@@ -785,65 +787,67 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
               </p>
             </div>
 
-            {/* Product Classification (Raw vs Processed) */}
-            <div className="space-y-2 p-3.5 rounded-xl bg-gray-50 border border-gray-200">
-              <label className="text-xs font-bold text-[#0B3326] block">
-                Product Classification
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, productType: 'raw' })}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
-                    formData.productType !== 'processed'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                  }`}
-                >
-                  Raw Agricultural Commodity
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, productType: 'processed' })}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
-                    formData.productType === 'processed'
-                      ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                  }`}
-                >
-                  Processed Food Product
-                </button>
-              </div>
-
-              {formData.productType === 'processed' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 mt-2 border-t border-gray-200">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-gray-700 block">
-                      Brand / Mill Name (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.brandName || ''}
-                      onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-                      placeholder="e.g. Royal Golden Mills"
-                      className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-gray-700 block">
-                      Packaging Format (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.packagingType || ''}
-                      onChange={(e) => setFormData({ ...formData, packagingType: e.target.value })}
-                      placeholder="e.g. 50kg Bags, 15L Tins, 1kg Pouches"
-                      className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
-                    />
-                  </div>
+            {/* Product Classification (Raw vs Processed) - Only shown for Food Processor accounts */}
+            {isFoodProcessor && (
+              <div className="space-y-2 p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                <label className="text-xs font-bold text-[#0B3326] block">
+                  Product Classification
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, productType: 'raw' })}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
+                      formData.productType !== 'processed'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    Raw Agricultural Commodity
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, productType: 'processed' })}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
+                      formData.productType === 'processed'
+                        ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    Processed Food Product
+                  </button>
                 </div>
-              )}
-            </div>
+
+                {formData.productType === 'processed' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 mt-2 border-t border-gray-200">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-gray-700 block">
+                        Brand / Mill Name (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.brandName || ''}
+                        onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                        placeholder="e.g. Royal Golden Mills"
+                        className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-gray-700 block">
+                        Packaging Format (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.packagingType || ''}
+                        onChange={(e) => setFormData({ ...formData, packagingType: e.target.value })}
+                        placeholder="e.g. 50kg Bags, 15L Tins, 1kg Pouches"
+                        className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               

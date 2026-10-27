@@ -37,6 +37,11 @@ export default class ErrorBoundary extends React.Component {
               <p className="text-xs text-[#566861] mt-1.5 leading-relaxed">
                 An unexpected display error occurred while rendering this module.
               </p>
+              {this.state.error && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-left text-xs font-mono text-red-800 break-words max-h-40 overflow-auto">
+                  {this.state.error.message || String(this.state.error)}
+                </div>
+              )}
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">

@@ -90,3 +90,12 @@
 .animate-slide-up-fade {
   animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

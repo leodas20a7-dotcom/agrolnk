@@ -12,7 +12,9 @@ import {
   CheckCircle2,
   Eye,
   Maximize2,
-  Plus
+  Plus,
+  Link,
+  ImageIcon
 } from 'lucide-react';
 import Badge from './Badge';
 import {
@@ -52,7 +54,55 @@ export default function MultiMediaUploader({
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percent: 0, status: '' });
   const [errorMsg, setErrorMsg] = useState('');
+  const [showUrlModal, setShowUrlModal] = useState(false);
+  const [urlInputType, setUrlInputType] = useState('image'); // 'image' | 'video'
+  const [urlInputValue, setUrlInputValue] = useState('');
+  const [urlModalError, setUrlModalError] = useState('');
   const [previewModalItem, setPreviewModalItem] = useState(null);
+
+  const handleOpenUrlModal = () => {
+    setErrorMsg('');
+    setUrlModalError('');
+    setUrlInputValue('');
+    // If video is already 1/1, default to image
+    setUrlInputType('image');
+    setShowUrlModal(true);
+  };
+
+  const handleAddMediaUrl = (e) => {
+    e?.preventDefault();
+    setUrlModalError('');
+
+    const trimmedUrl = urlInputValue.trim();
+    if (!trimmedUrl) {
+      setUrlModalError('Please enter a valid URL.');
+      return;
+    }
+
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://') && !trimmedUrl.startsWith('data:')) {
+      setUrlModalError('URL must start with http://, https://, or data:');
+      return;
+    }
+
+    if (currentMedia.length >= maxFiles) {
+      setUrlModalError(`Maximum ${maxFiles} media items reached.`);
+      return;
+    }
+
+    if (urlInputType === 'video') {
+      if (currentVideosCount >= maxVideos) {
+        setUrlModalError(`Only ${maxVideos} video clip is allowed. You already have a video.`);
+        return;
+      }
+    }
+
+    // Append URL
+    const updatedMedia = [...currentMedia, trimmedUrl];
+    onChange?.(updatedMedia);
+    toast.success(`${urlInputType === 'video' ? 'Video' : 'Image'} URL added successfully!`);
+    setShowUrlModal(false);
+    setUrlInputValue('');
+  };
 
   const currentMedia = Array.isArray(media) ? media : [];
   const currentVideosCount = currentMedia.filter(isVideoUrl).length;
@@ -187,14 +237,28 @@ export default function MultiMediaUploader({
           </p>
         </div>
 
-        {/* Video Allowance Indicator */}
-        <div className="flex items-center gap-1.5 text-xs">
-          <Film className="w-3.5 h-3.5 text-[#10B981]" />
-          <span className="text-[#566861]">
-            Video clip: <strong className={currentVideosCount >= maxVideos ? 'text-amber-600' : 'text-[#0B3326]'}>
-              {currentVideosCount}/{maxVideos}
-            </strong>
-          </span>
+        {/* Action Controls & Video Allowance Indicator */}
+        <div className="flex items-center gap-3">
+          {/* Add via URL Button */}
+          <button
+            type="button"
+            onClick={handleOpenUrlModal}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg border border-[#10B981] text-[#0B3326] bg-[#F2FBF6] hover:bg-[#10B981] hover:text-white transition-all shadow-2xs cursor-pointer"
+            title="Add image or video by URL"
+          >
+            <Link className="w-3.5 h-3.5" />
+            <span>URL</span>
+          </button>
+
+          {/* Video Allowance Indicator */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <Film className="w-3.5 h-3.5 text-[#10B981]" />
+            <span className="text-[#566861]">
+              Video clip: <strong className={currentVideosCount >= maxVideos ? 'text-amber-600' : 'text-[#0B3326]'}>
+                {currentVideosCount}/{maxVideos}
+              </strong>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -438,6 +502,150 @@ export default function MultiMediaUploader({
                 />
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Media via URL Modal */}
+      {showUrlModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setShowUrlModal(false)}
+        >
+          <div
+            className="relative max-w-md w-full bg-white rounded-2xl overflow-hidden border border-[#E5EDE8] shadow-2xl p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#E5EDE8] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] flex items-center justify-center text-[#10B981]">
+                  <Link className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#0B3326] font-heading">
+                    Add Media from URL
+                  </h3>
+                  <p className="text-[11px] text-[#566861]">
+                    Paste direct link to an image or video
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUrlModal(false)}
+                className="w-7 h-7 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Error in modal */}
+            {urlModalError && (
+              <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
+                <span>{urlModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAddMediaUrl} className="space-y-4">
+              {/* Option Selector: Image vs Video */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#0B3326] block">
+                  Select Media Type
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Image Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrlInputType('image');
+                      setUrlModalError('');
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      urlInputType === 'image'
+                        ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]/20'
+                        : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-gray-50'
+                    }`}
+                  >
+                    <ImageIcon className="w-4 h-4 text-[#10B981]" />
+                    <span>Photo / Image</span>
+                  </button>
+
+                  {/* Video Option */}
+                  <button
+                    type="button"
+                    disabled={currentVideosCount >= maxVideos}
+                    onClick={() => {
+                      if (currentVideosCount < maxVideos) {
+                        setUrlInputType('video');
+                        setUrlModalError('');
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                      currentVideosCount >= maxVideos
+                        ? 'border-gray-200 bg-gray-100 text-gray-400 opacity-60 cursor-not-allowed'
+                        : urlInputType === 'video'
+                        ? 'border-[#10B981] bg-[#F2FBF6] text-[#0B3326] ring-2 ring-[#10B981]/20 cursor-pointer'
+                        : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-gray-50 cursor-pointer'
+                    }`}
+                  >
+                    <Film className="w-4 h-4 text-emerald-600" />
+                    <span>
+                      Video {currentVideosCount >= maxVideos ? '(1/1 Limit)' : '(Max 1)'}
+                    </span>
+                  </button>
+                </div>
+
+                {currentVideosCount >= maxVideos && (
+                  <p className="text-[10.5px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200 mt-1 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>A video is already attached ({currentVideosCount}/{maxVideos}). Remove the existing video first to add a new one.</span>
+                  </p>
+                )}
+              </div>
+
+              {/* URL Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#0B3326] block">
+                  {urlInputType === 'video' ? 'Video Direct URL' : 'Image Direct URL'}
+                </label>
+                <input
+                  type="url"
+                  required
+                  autoFocus
+                  value={urlInputValue}
+                  onChange={(e) => {
+                    setUrlInputValue(e.target.value);
+                    if (urlModalError) setUrlModalError('');
+                  }}
+                  placeholder={
+                    urlInputType === 'video'
+                      ? 'https://example.com/video.mp4'
+                      : 'https://example.com/produce.jpg'
+                  }
+                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/20 bg-white"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5EDE8]">
+                <button
+                  type="button"
+                  onClick={() => setShowUrlModal(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#566861] hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!urlInputValue.trim() || (urlInputType === 'video' && currentVideosCount >= maxVideos)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#10B981] text-white hover:bg-[#0ea371] transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add to Gallery
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
