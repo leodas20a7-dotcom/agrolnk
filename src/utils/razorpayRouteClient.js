@@ -40,6 +40,7 @@ export async function initiateRazorpayRouteCheckout({
   customTradeValue,
   purchaseUnit,
   buyerUser,
+  simulateInstantEscrow = false,
   onSuccess,
   onFailure,
 }) {
@@ -60,6 +61,25 @@ export async function initiateRazorpayRouteCheckout({
   // Total payable in paise (e.g. ₹4,210.50 -> 421050 paise)
   const totalAmountInPaise = Math.round(fin.totalBuyerPayable * 100);
 
+  // Fallback test order identifier for local test mode
+  const testOrderId = `order_test_${Date.now()}`;
+
+  // Direct instant test simulation bypass (e.g. offline testing or when Razorpay CDN is rejected)
+  if (simulateInstantEscrow) {
+    onSuccess?.({
+      razorpay_payment_id: `pay_test_${Date.now()}`,
+      razorpay_order_id: testOrderId,
+      razorpay_signature: 'sig_test_verified',
+      tradeValue: fin.tradeValue,
+      buyerFee: fin.buyerFee,
+      totalPaid: fin.totalBuyerPayable,
+      netFarmerReceivable: fin.netSellerReceivable,
+      platformRevenue: fin.totalPlatformCommission,
+      verified: true,
+    });
+    return;
+  }
+
   // 2. Request Server-Created Order ID (Calls Supabase Edge Function if deployed, or generates test receipt)
   let serverOrderId = null;
   try {
@@ -79,9 +99,6 @@ export async function initiateRazorpayRouteCheckout({
   } catch (_e) {
     // Edge function will be active once deployed to Supabase CLI
   }
-
-  // Fallback test order identifier for local test mode
-  const testOrderId = serverOrderId || `order_test_${Date.now()}`;
 
   // 3. Configure Razorpay Standard Checkout Options
   const activeUnit = purchaseUnit || listing?.unit || 'kg';
@@ -111,7 +128,7 @@ export async function initiateRazorpayRouteCheckout({
     },
     modal: {
       ondismiss: () => {
-        onFailure?.(new Error('Payment window closed by user.'));
+        onFailure?.(new Error('Payment window closed.'));
       },
     },
     handler: async function (response) {
@@ -151,6 +168,12 @@ export async function initiateRazorpayRouteCheckout({
 
   try {
     const rzpInstance = new window.Razorpay(options);
+    if (typeof rzpInstance.on === 'function') {
+      rzpInstance.on('payment.failed', (resp) => {
+        console.warn('Razorpay payment failed:', resp?.error);
+        onFailure?.(new Error(resp?.error?.description || 'Payment rejected by payment gateway.'));
+      });
+    }
     rzpInstance.open();
   } catch (initErr) {
     console.error('Error opening Razorpay modal:', initErr);

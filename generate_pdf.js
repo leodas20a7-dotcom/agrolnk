@@ -19,44 +19,44 @@ function wrapInExecutiveTemplate(contentHtml, title, subtitle) {
 <head>
   <meta charset="UTF-8">
   <title>${title}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Segoe UI Emoji", Arial, sans-serif;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
       color: #1F2937;
       background-color: #FFFFFF;
+      font-size: 12.5px;
+      line-height: 1.6;
     }
     @page {
-      margin: 16mm 14mm 16mm 14mm;
+      margin: 14mm 14mm 14mm 14mm;
       size: A4 portrait;
     }
     
     /* Typography & Hierarchy */
     h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 800;
       color: #0B3326;
       border-bottom: 2px solid #10B981;
       padding-bottom: 8px;
       margin-top: 0;
-      margin-bottom: 16px;
-      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+      letter-spacing: -0.01em;
     }
     h2 {
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 700;
       color: #0B3326;
       background: #F0FDF4;
       border-left: 4px solid #10B981;
-      padding: 8px 12px;
-      border-radius: 0 8px 8px 0;
-      margin-top: 24px;
-      margin-bottom: 12px;
+      padding: 7px 12px;
+      border-radius: 4px;
+      margin-top: 18px;
+      margin-bottom: 10px;
+      break-after: avoid;
+      break-inside: avoid;
       page-break-after: avoid;
     }
     h3 {
@@ -114,20 +114,21 @@ function wrapInExecutiveTemplate(contentHtml, title, subtitle) {
 
     /* Inline Code & Monospace Badges */
     code {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Consolas', 'Courier New', monospace;
       font-size: 11px;
       background-color: #ECFDF5;
       color: #065F46;
       padding: 2px 6px;
       border-radius: 4px;
       border: 1px solid #A7F3D0;
+      font-weight: 600;
     }
     pre {
       background-color: #0B3326;
       color: #A7F3D0;
       padding: 12px 16px;
       border-radius: 10px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Consolas', 'Courier New', monospace;
       font-size: 11px;
       line-height: 1.5;
       margin: 12px 0;
@@ -273,6 +274,14 @@ convertMdToPdf(
   path.join(__dirname, 'AgroLnk_Warehouse_Testing_Guide.pdf'),
   'AgroLnk — Warehouse & e-NWR Workflow Testing Manual',
   'WDRA Accredited Electronic Title, Multi-Chamber Storage & 75% LTV Financing'
+);
+
+// 3. Generate Food Processor Testing Guide PDF
+convertMdToPdf(
+  path.join(__dirname, 'FOOD_PROCESSOR_TESTING_GUIDE.md'),
+  path.join(__dirname, 'AgroLnk_Food_Processor_Testing_Guide.pdf'),
+  'AgroLnk — Food Processor & Milling Terminal Testing Manual',
+  'Dual Procurement, Milled Goods Sales, Escrow & Seasonal Credit Workflow Guide'
 );
 
 console.log('🎉 All high-fidelity PDFs generated successfully with marked parser!');

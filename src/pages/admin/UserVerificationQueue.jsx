@@ -165,12 +165,14 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
   const pendingCount = safeUsers.filter((u) => u.verificationStatus === 'pending' || u.verificationStatus === 'action_required').length;
   const verifiedCount = safeUsers.filter((u) => u.verificationStatus === 'verified').length;
+  const rejectedCount = safeUsers.filter((u) => u.verificationStatus === 'rejected').length;
 
   const filteredUsers = safeUsers.filter((item) => {
     const matchesTab =
       activeTab === 'all' ||
       (activeTab === 'pending' && (item.verificationStatus === 'pending' || item.verificationStatus === 'action_required')) ||
-      (activeTab === 'verified' && item.verificationStatus === 'verified');
+      (activeTab === 'verified' && item.verificationStatus === 'verified') ||
+      (activeTab === 'rejected' && item.verificationStatus === 'rejected');
 
     const matchesRole = roleFilter === 'all' || item.role === roleFilter;
 
@@ -292,6 +294,16 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 }`}
               >
                 Verified ({verifiedCount})
+              </button>
+              <button
+                onClick={() => { setActiveTab('rejected'); setCurrentPage(1); }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'rejected'
+                    ? 'bg-red-600 text-white shadow-xs'
+                    : 'text-[#566861] hover:text-[#0B3326]'
+                }`}
+              >
+                Revoked ({rejectedCount})
               </button>
               <button
                 onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
@@ -505,7 +517,24 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         </button>
 
                         <div className="flex items-center gap-2">
-                          {isPending ? (
+                          {isVerified ? (
+                            <button
+                              type="button"
+                              onClick={() => handleReject(item.id, item.name)}
+                              className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
+                            >
+                              Revoke
+                            </button>
+                          ) : item.verificationStatus === 'rejected' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(item.id, item.name)}
+                              className="px-3.5 py-1.5 rounded-lg bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-2xs cursor-pointer transition-colors flex items-center gap-1.5"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
+                              <span>Re-Approve</span>
+                            </button>
+                          ) : (
                             <>
                               <button
                                 type="button"
@@ -523,14 +552,6 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                                 <span>Approve</span>
                               </button>
                             </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleReject(item.id, item.name)}
-                              className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
-                            >
-                              Revoke
-                            </button>
                           )}
                         </div>
                       </div>
@@ -573,6 +594,10 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                 Pending
                               </span>
+                            ) : item.verificationStatus === 'rejected' ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                                ✕ Revoked
+                              </span>
                             ) : null}
                           </div>
                           <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
@@ -599,7 +624,24 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           <span>Details</span>
                         </button>
 
-                        {isPending ? (
+                        {isVerified ? (
+                          <button
+                            type="button"
+                            onClick={() => handleReject(item.id, item.name)}
+                            className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
+                          >
+                            Revoke
+                          </button>
+                        ) : item.verificationStatus === 'rejected' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(item.id, item.name)}
+                            className="px-4 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
+                            <span>Re-Approve</span>
+                          </button>
+                        ) : (
                           <>
                             <button
                               type="button"
@@ -617,14 +659,6 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                               <span>Approve</span>
                             </button>
                           </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleReject(item.id, item.name)}
-                            className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
-                          >
-                            Revoke
-                          </button>
                         )}
                       </div>
                     </div>
@@ -826,20 +860,32 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 </Button>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => handleReject(selectedUserForDocs.id, selectedUserForDocs.name)}
-                    className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer text-center justify-center w-full sm:w-auto"
-                  >
-                    {selectedUserForDocs.pendingChanges ? 'Reject Revision' : 'Reject'}
-                  </button>
+                  {selectedUserForDocs.verificationStatus !== 'rejected' && (
+                    <button
+                      type="button"
+                      onClick={() => handleReject(selectedUserForDocs.id, selectedUserForDocs.name)}
+                      className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer text-center justify-center w-full sm:w-auto"
+                    >
+                      {selectedUserForDocs.verificationStatus === 'verified'
+                        ? 'Revoke Verification'
+                        : selectedUserForDocs.pendingChanges
+                        ? 'Reject Revision'
+                        : 'Reject'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleApprove(selectedUserForDocs.id, selectedUserForDocs.name)}
                     className="px-5 py-2.5 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
                   >
                     <CheckCircle2 className="w-4 h-4 text-[#34D399]" />
-                    <span>{selectedUserForDocs.pendingChanges ? 'Approve & Apply Revision' : 'Approve & Issue Badge'}</span>
+                    <span>
+                      {selectedUserForDocs.verificationStatus === 'rejected'
+                        ? 'Re-Approve & Restore Badge'
+                        : selectedUserForDocs.pendingChanges
+                        ? 'Approve & Apply Revision'
+                        : 'Approve & Issue Badge'}
+                    </span>
                   </button>
                 </div>
               </div>

@@ -412,99 +412,53 @@ export default function DashboardLayout({
   const foodProcessorNavGroups = [
     {
       type: 'single',
-      label: 'Terminal',
+      label: 'Dashboard',
       page: 'food-processor-dashboard',
       icon: LayoutDashboard,
     },
     {
-      type: 'dropdown',
-      id: 'procurement',
-      label: 'Procurement (Buy)',
+      type: 'single',
+      label: 'Buy Raw Crops',
+      page: 'buyer-marketplace',
       icon: Compass,
+    },
+    {
+      type: 'single',
+      label: 'Sell Products',
+      page: 'farmer-my-listings',
+      icon: Package,
+    },
+    {
+      type: 'dropdown',
+      id: 'processor_orders',
+      label: 'Orders & Dispatch',
+      icon: ShoppingBag,
       items: [
         {
-          label: 'Raw Produce Marketplace',
-          page: 'buyer-marketplace',
-          icon: Compass,
-          desc: 'Source raw agricultural commodities',
-        },
-        {
-          label: 'Procurement Demands',
-          page: 'buyer-demands',
-          icon: FileText,
-          desc: 'Post raw material requirements & tenders',
-        },
-        {
-          label: 'Live Clock Auctions',
-          page: 'buyer-live-auctions',
-          icon: Gavel,
-          desc: 'Bid on commodity clock lots',
-        },
-        {
-          label: 'My Inbound Purchases',
+          label: 'Raw Crop Purchases',
           page: 'buyer-orders',
           icon: ShoppingBag,
-          desc: 'Track raw material purchase contracts',
+          desc: 'Crops bought from farmers & escrow',
         },
         {
-          label: 'Inbound Deliveries',
+          label: 'Customer Sales Orders',
+          page: 'farmer-orders',
+          icon: Tag,
+          desc: 'Processed goods orders from retailers',
+        },
+        {
+          label: 'Trucks & Deliveries',
           page: 'buyer-deliveries',
           icon: Truck,
-          desc: 'Monitor incoming freight & shipments',
+          desc: 'Consignments & delivery OTP verification',
         },
       ],
     },
     {
-      type: 'dropdown',
-      id: 'sales_milling',
-      label: 'Sales & Milling (Sell)',
-      icon: Package,
-      items: [
-        {
-          label: 'List Processed / Raw Product',
-          page: 'farmer-create-listing',
-          icon: Tag,
-          desc: 'List processed food or raw surplus',
-        },
-        {
-          label: 'My Product Catalog',
-          page: 'farmer-my-listings',
-          icon: Package,
-          desc: 'Manage raw and processed inventory listings',
-        },
-        {
-          label: 'Sales Orders Received',
-          page: 'farmer-orders',
-          icon: ShoppingBag,
-          desc: 'Contracts and orders from buyers',
-        },
-        {
-          label: 'Outbound Deliveries',
-          page: 'farmer-deliveries',
-          icon: Truck,
-          desc: 'Manage outbound dispatch & carrier tracking',
-        },
-      ],
-    },
-    {
-      type: 'dropdown',
-      id: 'working_capital',
-      label: 'Finance & Storage',
+      type: 'single',
+      label: 'Credit & Godown',
+      page: 'buyer-financing',
       icon: Landmark,
-      items: [
-        {
-          label: 'Trade Credit / Financing',
-          page: 'buyer-financing',
-          icon: CreditCard,
-          desc: 'Working capital and trade credit facility',
-        },
-        {
-          label: 'Warehouse & Storage',
-          page: 'farmer-inventory',
-          icon: Building2,
-          desc: 'Safe storage & electronic warehouse receipts',
-        },
-      ],
     },
   ];
 

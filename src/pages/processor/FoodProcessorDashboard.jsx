@@ -9,28 +9,12 @@ import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import {
   ShoppingBag,
   Package,
-  TrendingUp,
-  Truck,
   Building2,
   Compass,
-  Tag,
-  Gavel,
   ShieldCheck,
   CreditCard,
   Plus,
-  ArrowRight,
-  ExternalLink,
-  Search,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  FileText,
-  Warehouse,
-  Boxes,
-  Layers,
-  Award,
-  Sparkles,
-  Settings
+  Clock
 } from 'lucide-react';
 import { getBuyerOrders, getFarmerOrders } from '../../utils/orders';
 import { getFarmerListings } from '../../utils/listings';
@@ -170,12 +154,12 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               {getTimeGreeting(user.name || 'Food Processor').fullGreeting} {getTimeGreeting().emoji}
             </h1>
             <p className="text-sm sm:text-base text-[#DCFCE7]/90 leading-relaxed font-normal">
-              Unified terminal for agricultural raw produce procurement, mill inventory management, and outbound processed food sales.
+              Buy raw crops directly from farmers and sell your milled, processed food products to retailers.
             </p>
           </div>
 
-          {/* Primary Action Buttons - horizontally aligned like in FarmerDashboard and BuyerDashboard */}
-          <div className="shrink-0 flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+          {/* Primary Action Buttons: 2 Clear Pillars */}
+          <div className="shrink-0 flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <Button
               variant="white"
               size="md"
@@ -184,27 +168,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               onClick={() => onNavigate('buyer-marketplace')}
               className="py-2.5 px-4 font-bold text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer shadow-sm border border-white"
             >
-              Source Produce
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={FileText}
-              iconPosition="left"
-              onClick={() => onNavigate('buyer-demands')}
-              className="py-2.5 px-3.5 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
-            >
-              Demands ({inboundOrders.length})
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={Truck}
-              iconPosition="left"
-              onClick={() => onNavigate('buyer-deliveries')}
-              className="py-2.5 px-3.5 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
-            >
-              Shipments ({inboundDeliveries.length})
+              Buy Raw Crops
             </Button>
             <Button
               variant="accent"
@@ -214,7 +178,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               onClick={() => onNavigate('farmer-create-listing')}
               className="py-2.5 px-4 font-bold shadow-md shadow-[#10B981]/20 text-xs cursor-pointer"
             >
-              List Produce / Output
+              Sell Processed Goods
             </Button>
           </div>
         </div>
@@ -262,30 +226,18 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
           </div>
         )}
 
-        {/* Four Overview Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Three Clean Operational Metric Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div
-            onClick={() => onNavigate('farmer-my-listings')}
-            className="cursor-pointer"
+            onClick={() => {
+              setActiveTab('procurement');
+            }}
+            className="cursor-pointer transition-transform hover:-translate-y-0.5"
           >
             <StatCard
-              label="Active Catalog"
-              value={`${activeListingsCount} Lots`}
-              subtext={`${processedProductsCount} Processed • ${myListings.length - processedProductsCount} Raw`}
-              icon={Package}
-              iconColor="#10B981"
-              iconBg="#EBF5F0"
-            />
-          </div>
-
-          <div
-            onClick={() => onNavigate('buyer-orders')}
-            className="cursor-pointer"
-          >
-            <StatCard
-              label="Raw Material Sourced"
-              value={totalRawQtyMT > 0 ? `${totalRawQtyMT} MT` : `${inboundOrders.length} Lots`}
-              subtext={`${formatCurrency(totalProcuredAmount)} in contracts`}
+              label="Raw Crop Purchases"
+              value={totalRawQtyMT > 0 ? `${totalRawQtyMT} MT` : `${inboundOrders.length} Purchases`}
+              subtext={`${inboundOrders.length} contracts (${formatCurrency(totalProcuredAmount)}) • ${activeInboundDeliveriesCount} in transit`}
               icon={Compass}
               iconColor="#0B3326"
               iconBg="#F2FBF6"
@@ -293,68 +245,35 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
           </div>
 
           <div
-            onClick={() => onNavigate('buyer-deliveries')}
-            className="cursor-pointer"
+            onClick={() => {
+              setActiveTab('sales');
+            }}
+            className="cursor-pointer transition-transform hover:-translate-y-0.5"
           >
             <StatCard
-              label="Inbound Freight"
-              value={`${activeInboundDeliveriesCount} Active`}
-              subtext={`${inboundDeliveries.length} total consignments`}
-              icon={Truck}
-              iconColor="#1E40AF"
-              iconBg="#EFF6FF"
+              label="Finished Goods & Sales"
+              value={formatCurrency(totalSalesAmount)}
+              subtext={`${salesOrders.length} retailer orders • ${activeListingsCount} active products`}
+              icon={Package}
+              iconColor="#10B981"
+              iconBg="#EBF5F0"
             />
           </div>
 
           <div
-            onClick={() => onNavigate('farmer-orders')}
-            className="cursor-pointer"
+            onClick={() => onNavigate('buyer-financing')}
+            className="cursor-pointer transition-transform hover:-translate-y-0.5"
           >
             <StatCard
-              label="Sales Revenue"
-              value={formatCurrency(totalSalesAmount)}
-              subtext={`${salesOrders.length} customer sales contracts`}
-              icon={ShoppingBag}
-              iconColor="#D97706"
-              iconBg="#FEF3C7"
+              label="Working Capital & Godown"
+              value={financingRequests.length > 0 ? `${financingRequests.length} Facility Active` : "Credit Available"}
+              subtext="Apply for seasonal crop procurement advance"
+              icon={CreditCard}
+              iconColor="#1E40AF"
+              iconBg="#EFF6FF"
             />
           </div>
         </div>
-
-        {/* Trade Credit & Working Capital Banner */}
-        <Card className="p-6 bg-gradient-to-r from-[#EBF5F0] via-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shadow-xs shrink-0">
-              <Award className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-[#10B981] uppercase tracking-wider block">
-                Agri-Processor Working Capital Facility
-              </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-                  Seasonal Procurement Credit & Storage Advances
-                </span>
-              </div>
-              <p className="text-xs text-[#566861] mt-0.5">
-                Procure bulk commodity lots at peak harvest with NBFC institutional credit and warehouse deposit receipt financing.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => onNavigate('buyer-financing')}
-              icon={ArrowRight}
-              iconPosition="right"
-              className="text-xs font-bold shrink-0"
-            >
-              Trade Credit Vault
-            </Button>
-          </div>
-        </Card>
 
         {/* Operational Workspace with Unified Tabs */}
         <Card className="p-6 sm:p-7 bg-white border border-[#E5EDE8] shadow-xs space-y-6">
@@ -371,7 +290,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 }`}
               >
                 <Compass className="w-3.5 h-3.5" />
-                Raw Procurement ({inboundOrders.length})
+                Raw Crop Purchases ({inboundOrders.length})
               </button>
 
               <button
@@ -384,7 +303,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 }`}
               >
                 <Package className="w-3.5 h-3.5" />
-                Product Catalog & Sales ({myListings.length} / {salesOrders.length})
+                Products & Retail Sales ({myListings.length} Stock / {salesOrders.length} Orders)
               </button>
 
               <button
@@ -397,7 +316,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
-                Facility & Working Capital
+                Mill Profile & Licenses
               </button>
             </div>
 
@@ -407,50 +326,40 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               onClick={loadData}
               className="text-xs font-semibold py-1.5 px-3 self-start sm:self-auto"
             >
-              Refresh Live Data
+              Refresh Data
             </Button>
           </div>
 
-          {/* TAB 1: Procurement (Inbound Buy Side) */}
+          {/* TAB 1: Raw Crop Purchases (Buying from Farmers) */}
           {activeTab === 'procurement' && (
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                    Raw Material Procurement Contracts
+                    Raw Crop Purchase Contracts
                   </h3>
                   <p className="text-xs text-[#566861] mt-0.5">
-                    Direct farm purchases, cooperative lots, and auction purchases secured in escrow.
+                    Crops bought directly from verified farmers and FPOs with digital escrow payment protection.
                   </p>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onNavigate('buyer-demands')}
-                    className="text-xs font-semibold"
-                  >
-                    Post Requirement Tender
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => onNavigate('buyer-marketplace')}
-                    icon={Compass}
-                    iconPosition="left"
-                    className="text-xs font-bold"
-                  >
-                    Browse Produce
-                  </Button>
-                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onNavigate('buyer-marketplace')}
+                  icon={Compass}
+                  iconPosition="left"
+                  className="text-xs font-bold shrink-0"
+                >
+                  Find Available Crops
+                </Button>
               </div>
 
               {inboundOrders.length === 0 ? (
                 <div className="text-center py-12 px-4 border-2 border-dashed border-[#E5EDE8] rounded-2xl bg-[#F8FAF8]">
                   <Compass className="w-12 h-12 text-[#10B981]/50 mx-auto mb-3" />
-                  <h4 className="text-sm font-bold text-[#0B3326]">No Raw Produce Purchases Yet</h4>
+                  <h4 className="text-sm font-bold text-[#0B3326]">No Raw Crop Purchases Yet</h4>
                   <p className="text-xs text-[#566861] max-w-md mx-auto mt-1 mb-4">
-                    Source certified raw commodities directly from verified farmers and FPOs with digital escrow security.
+                    Source wheat, paddy, mustard, pulses, and oilseeds directly from verified farmers at transparent rates.
                   </p>
                   <Button
                     variant="primary"
@@ -458,7 +367,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                     onClick={() => onNavigate('buyer-marketplace')}
                     className="text-xs font-bold"
                   >
-                    Explore Raw Produce Marketplace
+                    Browse Farmers' Produce Marketplace
                   </Button>
                 </div>
               ) : (
@@ -466,12 +375,12 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                   <table className="min-w-full divide-y divide-[#E5EDE8] text-left text-xs">
                     <thead className="bg-[#F8FAF8] font-bold text-[#566861] uppercase tracking-wider">
                       <tr>
-                        <th className="py-3 px-4">Order / Produce</th>
-                        <th className="py-3 px-4">Supplier / Producer</th>
+                        <th className="py-3 px-4">Crop / Lot</th>
+                        <th className="py-3 px-4">Farmer / Producer</th>
                         <th className="py-3 px-4">Quantity</th>
-                        <th className="py-3 px-4">Contract Value</th>
+                        <th className="py-3 px-4">Total Amount</th>
                         <th className="py-3 px-4">Escrow Status</th>
-                        <th className="py-3 px-4">Logistics</th>
+                        <th className="py-3 px-4">Truck / Dispatch</th>
                         <th className="py-3 px-4 text-right">Action</th>
                       </tr>
                     </thead>
@@ -497,7 +406,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                               variant={order.escrowStatus === 'released' ? 'emerald' : order.escrowStatus === 'funded' ? 'blue' : 'amber'}
                               size="sm"
                             >
-                              {order.escrowStatus === 'released' ? 'Released' : order.escrowStatus === 'funded' ? 'In Escrow' : 'Pending Deposit'}
+                              {order.escrowStatus === 'released' ? 'Released to Farmer' : order.escrowStatus === 'funded' ? 'Protected in Escrow' : 'Payment Pending'}
                             </Badge>
                           </td>
                           <td className="py-3.5 px-4 font-medium text-[#566861] capitalize">
@@ -510,7 +419,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                               onClick={() => onNavigate('buyer-orders')}
                               className="text-xs font-semibold py-1 px-2.5 h-auto"
                             >
-                              View Contract
+                              View Details
                             </Button>
                           </td>
                         </tr>
@@ -522,18 +431,18 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
             </div>
           )}
 
-          {/* TAB 2: Catalog & Sales Orders (Sell Side) */}
+          {/* TAB 2: Processed Goods Catalog & Retailer Orders (Sell Side) */}
           {activeTab === 'sales' && (
             <div className="space-y-8">
-              {/* Product Catalog Section */}
+              {/* Product Stock Section */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                      Active Product Catalog
+                      Milled & Finished Goods Stock
                     </h3>
                     <p className="text-xs text-[#566861] mt-0.5">
-                      Processed products (flour, milled rice, edible oils, pulses) and raw commodity surplus.
+                      Flour, milled rice, mustard oil, processed pulses, and packaged foods ready for retailers.
                     </p>
                   </div>
                   <Button
@@ -542,18 +451,18 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                     onClick={() => onNavigate('farmer-create-listing')}
                     icon={Plus}
                     iconPosition="left"
-                    className="text-xs font-bold"
+                    className="text-xs font-bold shrink-0"
                   >
-                    List New Product
+                    Add Product to Sell
                   </Button>
                 </div>
 
                 {myListings.length === 0 ? (
                   <div className="text-center py-10 px-4 border-2 border-dashed border-[#E5EDE8] rounded-2xl bg-[#F8FAF8]">
                     <Package className="w-12 h-12 text-[#10B981]/50 mx-auto mb-3" />
-                    <h4 className="text-sm font-bold text-[#0B3326]">No Product Listings Yet</h4>
+                    <h4 className="text-sm font-bold text-[#0B3326]">No Products Listed for Sale Yet</h4>
                     <p className="text-xs text-[#566861] max-w-md mx-auto mt-1 mb-4">
-                      Create your first listing to sell milled goods, packaged food products, or raw lots directly to wholesale buyers.
+                      List your milled flour, edible oils, polished grain, or packaged goods to start receiving wholesale orders.
                     </p>
                     <Button
                       variant="primary"
@@ -561,7 +470,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                       onClick={() => onNavigate('farmer-create-listing')}
                       className="text-xs font-bold"
                     >
-                      Create Product Listing
+                      List First Product
                     </Button>
                   </div>
                 ) : (
@@ -578,7 +487,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                                 ? 'bg-purple-100 text-purple-800 border border-purple-200'
                                 : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                             }`}>
-                              {lot.productType === 'processed' ? 'Processed Food' : 'Raw Commodity'}
+                              {lot.productType === 'processed' ? 'Processed / Milled' : 'Raw Crop Lot'}
                             </span>
                             <h4 className="font-bold text-[#0B3326] text-sm">{lot.commodity}</h4>
                             <p className="text-[11px] text-[#566861]">Variety: {lot.variety || 'Standard'} • Grade {lot.grade || 'A'}</p>
@@ -590,7 +499,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
 
                         <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between text-xs">
                           <div>
-                            <span className="text-[#566861]">Available Stock:</span>{' '}
+                            <span className="text-[#566861]">In Stock:</span>{' '}
                             <span className="font-bold text-[#0B3326]">{lot.quantity} {lot.unit}</span>
                           </div>
                           <div className="text-right">
@@ -614,7 +523,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                             onClick={() => onNavigate('farmer-my-listings')}
                             className="text-xs py-1 px-2.5 h-auto font-bold"
                           >
-                            Manage
+                            Manage Stock
                           </Button>
                         </div>
                       </div>
@@ -623,15 +532,15 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 )}
               </div>
 
-              {/* Customer Sales Orders Section */}
+              {/* Retailer Orders Section */}
               <div className="pt-6 border-t border-[#E5EDE8] space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                      Customer Orders Received
+                      Retailer & Buyer Orders Received
                     </h3>
                     <p className="text-xs text-[#566861] mt-0.5">
-                      Wholesale purchase agreements from buyers and retailers for your products.
+                      Customer orders placed for your processed products.
                     </p>
                   </div>
                   <Button
@@ -640,22 +549,22 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                     onClick={() => onNavigate('farmer-orders')}
                     className="text-xs font-semibold"
                   >
-                    View All Sales Orders
+                    View All Orders
                   </Button>
                 </div>
 
                 {salesOrders.length === 0 ? (
                   <div className="text-center py-8 border border-dashed border-[#E5EDE8] rounded-2xl bg-[#F8FAF8]">
                     <ShoppingBag className="w-8 h-8 text-[#566861]/40 mx-auto mb-2" />
-                    <p className="text-xs text-[#566861]">No customer sales orders received yet.</p>
+                    <p className="text-xs text-[#566861]">No retailer orders received yet.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto border border-[#E5EDE8] rounded-2xl">
                     <table className="min-w-full divide-y divide-[#E5EDE8] text-left text-xs">
                       <thead className="bg-[#F8FAF8] font-bold text-[#566861] uppercase tracking-wider">
                         <tr>
-                          <th className="py-3 px-4">Order / Product</th>
-                          <th className="py-3 px-4">Buyer Customer</th>
+                          <th className="py-3 px-4">Product</th>
+                          <th className="py-3 px-4">Retailer / Buyer</th>
                           <th className="py-3 px-4">Quantity</th>
                           <th className="py-3 px-4">Total Amount</th>
                           <th className="py-3 px-4">Escrow Status</th>
@@ -670,7 +579,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                               <div className="text-[11px] text-[#566861]">#{ord.orderNumber || ord.id?.slice(0, 8)}</div>
                             </td>
                             <td className="py-3.5 px-4 font-semibold text-[#14211D]">
-                              {ord.buyerName || 'Buyer Customer'}
+                              {ord.buyerName || 'Retail Customer'}
                             </td>
                             <td className="py-3.5 px-4 font-bold text-[#14211D]">
                               {ord.quantity} {ord.unit}
@@ -703,7 +612,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
             </div>
           )}
 
-          {/* TAB 3: Milling & Facility & Working Capital */}
+          {/* TAB 3: Mill Facility & Licenses */}
           {activeTab === 'facility' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -714,30 +623,30 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                       <Building2 className="w-5 h-5 text-[#10B981]" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-[#0B3326] text-sm">Processing & Milling Specifications</h4>
-                      <p className="text-xs text-[#566861]">Facility regulatory compliance and capacity</p>
+                      <h4 className="font-bold text-[#0B3326] text-sm">Mill & Enterprise Profile</h4>
+                      <p className="text-xs text-[#566861]">Business registration and regulatory status</p>
                     </div>
                   </div>
 
                   <div className="space-y-3 pt-2 text-xs">
                     <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">Enterprise Name</span>
+                      <span className="text-[#566861]">Business / Mill Name</span>
                       <span className="font-bold text-[#0B3326]">{user.companyName || user.name || 'Agro Mills Facility'}</span>
                     </div>
                     <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">Account Role</span>
-                      <span className="font-bold text-[#10B981] capitalize">Food Processor (Dual Procurement & Sales)</span>
+                      <span className="text-[#566861]">Account Type</span>
+                      <span className="font-bold text-[#10B981]">Food Processor (Procure & Sell)</span>
                     </div>
                     <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">FSSAI / Business License</span>
+                      <span className="text-[#566861]">FSSAI / GST Number</span>
                       <span className="font-bold text-[#14211D]">{user.fssaiNumber || user.gstNumber || 'Provided during onboarding'}</span>
                     </div>
                     <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">Facility Location</span>
+                      <span className="text-[#566861]">Mill Location</span>
                       <span className="font-bold text-[#14211D]">{user.state || 'India'}</span>
                     </div>
                     <div className="flex items-center justify-between py-2">
-                      <span className="text-[#566861]">KYC Status</span>
+                      <span className="text-[#566861]">Compliance Verification</span>
                       <Badge variant={isVerified ? 'emerald' : 'amber'} size="sm">
                         {currentKycStatus}
                       </Badge>
@@ -763,19 +672,19 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                       <CreditCard className="w-5 h-5 text-[#1E40AF]" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-[#0B3326] text-sm">Trade Credit & Working Capital</h4>
-                      <p className="text-xs text-[#566861]">Procurement financing & invoice discounting</p>
+                      <h4 className="font-bold text-[#0B3326] text-sm">Seasonal Working Capital</h4>
+                      <p className="text-xs text-[#566861]">Harvest season bulk procurement credit lines</p>
                     </div>
                   </div>
 
                   <p className="text-xs text-[#566861] leading-relaxed">
-                    Food processors can leverage NBFC & banking partner credit lines to procure large volume commodities during harvest season and repay post milling.
+                    Access institutional trade credit and godown warehouse receipt financing to purchase raw crops during peak harvest season and repay after milling.
                   </p>
 
                   <div className="p-3.5 rounded-xl bg-white border border-[#E5EDE8] space-y-2 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-[#566861]">Active Credit Facilities:</span>
-                      <span className="font-bold text-[#0B3326]">{financingRequests.length} Applications</span>
+                      <span className="text-[#566861]">Active Applications:</span>
+                      <span className="font-bold text-[#0B3326]">{financingRequests.length} Facility</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[#566861]">Interest Rates:</span>
@@ -789,7 +698,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                     onClick={() => onNavigate('buyer-financing')}
                     className="w-full text-xs font-bold border-[#10B981]/40 text-[#0B3326] hover:bg-[#EBF5F0]"
                   >
-                    Apply for Procurement Trade Credit
+                    Apply for Working Capital Advance
                   </Button>
                 </div>
               </div>
