@@ -409,8 +409,29 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
               onInspectQuality={(ord) => setOrderForInspection(ord)}
             />
 
-            {/* Action Bar when Delivered */}
-            {selectedOrder.status === 'delivered' ? (
+            {/* Action Bar when Completed vs Delivered */}
+            {isOrderCompleted(selectedOrder) ? (
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm text-left">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#34D399]/20 text-[#34D399] flex items-center justify-center font-bold text-lg shrink-0 border border-[#34D399]/30">
+                    ✓
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white block">
+                        Trade Fulfilled &amp; Payment Released
+                      </span>
+                      <Badge variant="accent" size="sm">
+                        Settled to Bank
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-white/80">
+                      AgroLnk verified goods arrival and disbursed escrow funds directly to the producer.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : selectedOrder.status === 'delivered' ? (
               isBuyerArrivalConfirmed(selectedOrder) ? (
                 <div className="p-4 sm:p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-3 shadow-sm text-left">
                   <div className="flex flex-wrap items-center justify-between gap-2">

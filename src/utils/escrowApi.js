@@ -286,3 +286,28 @@ export function resetDemoEscrowLedger() {
     details: 'Escrow nodal vault ledger reset to baseline seed state.',
   });
 }
+
+/**
+ * Check if an order is settled/released in the live escrow ledger
+ */
+export function isOrderSettledInEscrow(orderKey) {
+  try {
+    if (typeof window === 'undefined') return false;
+    const raw = localStorage.getItem(ESCROW_STORAGE_KEY);
+    if (!raw) return false;
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return false;
+    const cleanKey = String(orderKey || '').trim().toLowerCase();
+    if (!cleanKey) return false;
+    return list.some(
+      (t) =>
+        t &&
+        t.status === 'SETTLED_TO_FARMER' &&
+        (String(t.orderNumber || '').trim().toLowerCase() === cleanKey ||
+         String(t.id || '').trim().toLowerCase() === cleanKey)
+    );
+  } catch {
+    return false;
+  }
+}
+

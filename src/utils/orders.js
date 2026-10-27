@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { createDelivery } from './deliveries';
-import { processLiveEscrowDeposit, processLiveEscrowRelease } from './escrowApi';
+import { processLiveEscrowDeposit, processLiveEscrowRelease, isOrderSettledInEscrow } from './escrowApi';
 import { getUserBankDetails } from './bankDetails';
 import { broadcastDataChange } from './syncChannel';
 import { sendNotification } from './notifications';
@@ -177,8 +177,10 @@ export async function getOrders() {
       const localMatch = localMap.get(r.id) || (r.orderNumber && localMap.get(r.orderNumber));
       const confirmed = isConfirmed(r, localMatch);
 
-      // Preserve completed / released status if locally settled or confirmed by admin
+      // Preserve completed / released status if locally settled in escrow ledger or confirmed by admin
+      const isSettledInEscrow = isOrderSettledInEscrow(r.orderNumber) || isOrderSettledInEscrow(r.id);
       const isLocallyCompleted =
+        isSettledInEscrow ||
         localMatch?.status === 'completed' ||
         localMatch?.escrowStatus === 'released' ||
         (typeof window !== 'undefined' && (
@@ -192,6 +194,7 @@ export async function getOrders() {
         ...r, // Remote database state
         status: isLocallyCompleted ? 'completed' : r.status,
         escrowStatus: isLocallyCompleted ? 'released' : r.escrowStatus,
+        adminVerificationStatus: isLocallyCompleted ? 'approved' : r.adminVerificationStatus,
         buyerConfirmedArrival: confirmed,
         buyerArrivalVerified: confirmed,
       };
