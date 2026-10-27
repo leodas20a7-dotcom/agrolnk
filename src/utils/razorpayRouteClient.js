@@ -50,7 +50,7 @@ export async function initiateRazorpayRouteCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
 
   // 1. Calculate order financials server-side or via standard formula
   const qty = Number(quantity) || Number(listing?.quantity) || 100;
@@ -197,7 +197,7 @@ export async function initiateRazorpayTransportCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const freightAmount = Number(delivery?.freightAmount) || 2400;
   const totalAmountInPaise = Math.round(freightAmount * 100);
   const testOrderId = `transport_${Date.now()}`;
@@ -272,7 +272,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const payAmount = Number(amount) || 350;
   const totalAmountInPaise = Math.round(payAmount * 100);
   const testOrderId = `wh_rent_${Date.now()}`;
@@ -347,7 +347,7 @@ export async function initiateRazorpayInspectionFeeCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const feeAmount = Number(inspection?.inspectionFee) || 500;
   const totalAmountInPaise = Math.round(feeAmount * 100);
   const testOrderId = `insp_fee_${Date.now()}`;
@@ -422,7 +422,7 @@ export async function initiateFinancierEscrowDisbursement({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const disburseAmount = Number(approvedAmount) || Number(request?.approvedAmount) || Number(request?.requestedAmount) || 10000;
   const totalAmountInPaise = Math.round(disburseAmount * 100);
   const testOrderId = `disb_escrow_${Date.now()}`;
@@ -500,7 +500,7 @@ export async function initiateBuyerMarginDepositCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const payMargin = Number(marginAmount) || 5000;
   const totalAmountInPaise = Math.round(payMargin * 100);
   const testOrderId = `margin_${Date.now()}`;
@@ -575,7 +575,7 @@ export async function initiateRazorpayLoanRepaymentCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZQxhpX8xDBPH5';
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const repayAmount = Number(amount) || Number(request?.approvedAmount) || 1000;
   const totalAmountInPaise = Math.round(repayAmount * 100);
   const testOrderId = `repay_${Date.now()}`;
