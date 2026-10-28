@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, User, MapPin, ShieldCheck, Clock, Landmark } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -10,9 +10,9 @@ import { getFinancingRequestForOrder } from '../../utils/financing';
 import { formatDualVolume } from '../../utils/pricingUnits';
 
 export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
-  const [financingReq, setFinancingReq] = React.useState(null);
+  const [financingReq, setFinancingReq] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
     if (order?.orderNumber || order?.id) {
       getFinancingRequestForOrder(order.orderNumber || order.id)

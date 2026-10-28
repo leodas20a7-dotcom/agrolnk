@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   ShieldCheck,
@@ -36,12 +36,12 @@ export default function OrderSummary({
   onConfirmReceipt,
   onInspectQuality,
 }) {
-  const [existingFinancing, setExistingFinancing] = React.useState(null);
-  const [existingDelivery, setExistingDelivery] = React.useState(null);
-  const [existingInspection, setExistingInspection] = React.useState(null);
-  const [showReceiptModal, setShowReceiptModal] = React.useState(false);
+  const [existingFinancing, setExistingFinancing] = useState(null);
+  const [existingDelivery, setExistingDelivery] = useState(null);
+  const [existingInspection, setExistingInspection] = useState(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
     const loadLinkedData = async () => {
       if (!order?.orderNumber && !order?.id) return;

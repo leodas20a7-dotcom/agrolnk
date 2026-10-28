@@ -6,16 +6,14 @@ import { submitDemandOffer, placeDemandBid } from '../../utils/demands';
 import { showGlobalToast } from '../../context/ToastContext';
 
 export default function SubmitOfferModal({ isOpen, onClose, demand, currentUser, onSuccess, onSubmitted }) {
-  if (!isOpen || !demand) return null;
-
   const isReverse = demand?.procurement_mode === 'reverse_auction';
-  const currentLowest = Number(demand.current_lowest_bid || demand.target_price);
-  const step = Number(demand.bid_step) || 25;
+  const currentLowest = Number(demand?.current_lowest_bid || demand?.target_price || 0);
+  const step = Number(demand?.bid_step) || 25;
   const nextValidBid = Math.max(1, currentLowest - step);
 
-  const [quantityOffered, setQuantityOffered] = useState(String(demand.quantity || ''));
+  const [quantityOffered, setQuantityOffered] = useState(String(demand?.quantity || ''));
   const [offerPrice, setOfferPrice] = useState(
-    isReverse ? String(nextValidBid) : String(demand.target_price || '')
+    isReverse ? String(nextValidBid) : String(demand?.target_price || '')
   );
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,7 +25,9 @@ export default function SubmitOfferModal({ isOpen, onClose, demand, currentUser,
       setOfferPrice(isReverse ? String(nextValidBid) : String(demand.target_price || ''));
       setError('');
     }
-  }, [demand?.id, isReverse]);
+  }, [demand?.id, isReverse, nextValidBid]);
+
+  if (!isOpen || !demand) return null;
 
   const isMatchingTargetPrice = Number(offerPrice) === Number(demand.target_price);
   const isMatchingNextBid = Number(offerPrice) === nextValidBid;

@@ -7,8 +7,6 @@ import { createBuyerDemand } from '../../utils/demands';
 import { showGlobalToast } from '../../context/ToastContext';
 
 export default function PostDemandModal({ isOpen, onClose, currentUser, onSuccess, onCreated }) {
-  if (!isOpen) return null;
-
   const [formData, setFormData] = useState({
     commodity: '',
     variety: 'None',
@@ -27,6 +25,8 @@ export default function PostDemandModal({ isOpen, onClose, currentUser, onSucces
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  if (!isOpen) return null;
 
   const units = ['kg', 'Quintal', 'MT'];
   const grades = ['A', 'B', 'C', 'Export'];
