@@ -154,22 +154,37 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   const safeOrders = Array.isArray(orders) ? orders : [];
 
+  const isOrderCompleted = (o) =>
+    o.status === 'completed' ||
+    o.escrowStatus === 'released' ||
+    o.escrow_status === 'released' ||
+    o.adminVerificationStatus === 'approved' ||
+    o.admin_verification_status === 'approved' ||
+    Boolean(o.disbursedAt || o.disbursed_at || o.bankUtr || o.bank_utr);
+
+  const isOrderPending = (o) =>
+    (o.status === 'pending' || o.status === 'order_placed') && !isOrderCompleted(o);
+
+  const isOrderInProgress = (o) =>
+    (o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered') &&
+    !isOrderCompleted(o);
+
   const tabs = [
     { id: 'all', label: 'All Orders', count: safeOrders.length },
     {
       id: 'pending',
       label: 'Pending',
-      count: safeOrders.filter((o) => o.status === 'pending' || o.status === 'order_placed').length,
+      count: safeOrders.filter(isOrderPending).length,
     },
     {
       id: 'confirmed',
       label: 'In Progress',
-      count: safeOrders.filter((o) => o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered').length,
+      count: safeOrders.filter(isOrderInProgress).length,
     },
     {
       id: 'completed',
       label: 'Completed',
-      count: safeOrders.filter((o) => o.status === 'completed').length,
+      count: safeOrders.filter(isOrderCompleted).length,
     },
   ];
 
@@ -180,11 +195,9 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   const filteredOrders = safeOrders.filter((o) => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'pending') return o.status === 'pending' || o.status === 'order_placed';
-    if (activeTab === 'confirmed')
-      return o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered';
-    if (activeTab === 'completed')
-      return o.status === 'completed';
+    if (activeTab === 'pending') return isOrderPending(o);
+    if (activeTab === 'confirmed') return isOrderInProgress(o);
+    if (activeTab === 'completed') return isOrderCompleted(o);
     return true;
   });
 
@@ -536,8 +549,35 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
               </div>
             )}
 
-            {/* Delivered Status Note */}
-            {selectedOrder.status === 'delivered' && (
+            {/* Completed / Settled to Bank Status Note */}
+            {(selectedOrder.status === 'completed' || selectedOrder.escrowStatus === 'released' || selectedOrder.adminVerificationStatus === 'approved') && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-left space-y-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-emerald-950 block">
+                      ✓ Trade Fulfilled & Escrow Payout Released
+                    </span>
+                    <span className="text-[11px] text-emerald-800">
+                      Payment of <strong>₹{(selectedOrder.totalAmount || 0).toLocaleString('en-IN')}</strong> has been approved and settled directly to your bank account.
+                    </span>
+                  </div>
+                </div>
+                {selectedOrder.bankUtr && (
+                  <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px]">
+                    <span className="text-emerald-800 font-medium">Bank Clearance Reference:</span>
+                    <span className="font-mono font-bold text-emerald-950 bg-white/80 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                      UTR: {selectedOrder.bankUtr}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Delivered Status Note (Only if NOT completed/settled) */}
+            {selectedOrder.status === 'delivered' && !isOrderCompleted(selectedOrder) && (
               <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-left space-y-1">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />

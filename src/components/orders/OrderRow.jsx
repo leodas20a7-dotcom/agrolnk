@@ -121,6 +121,7 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
           <OrderStatus
             status={order.status}
             escrowStatus={order.escrowStatus || order.escrow_status}
+            adminVerificationStatus={order.adminVerificationStatus || order.admin_verification_status}
             isAuction={Boolean(order.auctionId || order.auction_id)}
             size="sm"
           />

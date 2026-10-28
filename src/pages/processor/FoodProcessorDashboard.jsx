@@ -588,8 +588,8 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                               {formatCurrency(ord.totalAmount)}
                             </td>
                             <td className="py-3.5 px-4">
-                              <Badge variant="emerald" size="sm">
-                                {ord.escrowStatus || 'funded'}
+                              <Badge variant={ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'emerald' : 'blue'} size="sm">
+                                {ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'Settled to Bank' : (ord.escrowStatus || 'Escrow Funded')}
                               </Badge>
                             </td>
                             <td className="py-3.5 px-4 text-right">

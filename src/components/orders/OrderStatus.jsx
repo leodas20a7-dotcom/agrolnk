@@ -1,9 +1,9 @@
 import React from 'react';
 import Badge from '../ui/Badge';
 
-export default function OrderStatus({ status = 'pending', escrowStatus, isAuction, size = 'sm' }) {
-  // If completed or escrow already released:
-  if (status === 'completed' || escrowStatus === 'released' || escrowStatus === 'settled') {
+export default function OrderStatus({ status = 'pending', escrowStatus, adminVerificationStatus, isAuction, size = 'sm' }) {
+  // If completed, admin approved, or escrow already released:
+  if (status === 'completed' || escrowStatus === 'released' || escrowStatus === 'settled' || adminVerificationStatus === 'approved') {
     return (
       <Badge variant="emerald" size={size} dot={false}>
         <span>Settled to Bank</span>
