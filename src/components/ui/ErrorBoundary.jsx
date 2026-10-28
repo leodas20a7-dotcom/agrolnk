@@ -5,7 +5,7 @@ import Button from './Button';
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error) {
@@ -14,6 +14,7 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('AgroLnk Render Error caught by boundary:', error, errorInfo);
+    this.setState({ errorInfo });
   }
 
   handleReset = () => {
@@ -38,8 +39,16 @@ export default class ErrorBoundary extends React.Component {
                 An unexpected display error occurred while rendering this module.
               </p>
               {this.state.error && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-left text-xs font-mono text-red-800 break-words max-h-40 overflow-auto">
-                  {this.state.error.message || String(this.state.error)}
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-left text-xs font-mono text-red-800 break-words max-h-60 overflow-auto whitespace-pre-wrap">
+                  <p className="font-bold mb-1">{this.state.error.message || String(this.state.error)}</p>
+                  {this.state.error.stack && <p className="text-[10px] opacity-80 mt-1">{this.state.error.stack}</p>}
+                  {this.state.errorInfo?.componentStack && (
+                    <p className="text-[10px] text-red-900 mt-2 font-sans border-t border-red-200 pt-1">
+                      <strong>Component Stack:</strong>
+                      <br />
+                      {this.state.errorInfo.componentStack}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

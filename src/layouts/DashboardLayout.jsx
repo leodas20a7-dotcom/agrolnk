@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   LogOut,
   ArrowLeft,
@@ -49,6 +49,21 @@ export default function DashboardLayout({
   });
 
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(activeUser));
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [activeChatThread, setActiveChatThread] = useState(null);
+  const [activePartnerContext, setActivePartnerContext] = useState(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const navRef = useRef(null);
+
+  const user = useMemo(() => ({
+    ...activeUser,
+    role: activeUser?.role || currentUser?.role || getCurrentUser()?.role || 'farmer',
+    kycStatus: currentKycStatus,
+    verificationStatus: currentKycStatus,
+  }), [activeUser, currentUser?.role, currentKycStatus]);
 
   useEffect(() => {
     if (currentUser) {
@@ -104,22 +119,6 @@ export default function DashboardLayout({
     };
   }, [activeUser?.id, activeUser?.email]);
 
-  const user = {
-    ...activeUser,
-    role: activeUser?.role || currentUser?.role || getCurrentUser()?.role || 'farmer',
-    kycStatus: currentKycStatus,
-    verificationStatus: currentKycStatus,
-  };
-
-  const [activeDropdown, setActiveDropdown] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [activeChatThread, setActiveChatThread] = useState(null);
-  const [activePartnerContext, setActivePartnerContext] = useState(null);
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const navRef = useRef(null);
-
   // Dynamic calculation and live sync of unread messages count via Supabase Realtime
   useEffect(() => {
     const handleUnreadEvent = (e) => {
@@ -142,7 +141,7 @@ export default function DashboardLayout({
         unsubscribeRealtime();
       }
     };
-  }, [user, isChatOpen]);
+  }, [user?.id, user?.role, isChatOpen]);
 
   // Global listener to open chat for specific partners (e.g. warehouse operators)
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense, startTransition, useRef } from 'react';
 import Landing from './pages/Landing';
 import RoleSelection from './pages/RoleSelection';
 import Register from './pages/Register';
@@ -223,6 +223,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [currentPage, setCurrentPage] = useState(() => getInitialPage());
   const [navState, setNavState] = useState({});
+  const isNavigatingRef = useRef(false);
 
   // Initial app load flash curtain to hide blank flashes
   useEffect(() => {
@@ -248,14 +249,18 @@ export default function App() {
     const user = getCurrentUser() || currentUser;
     const resolvedPage = resolveRoute(page, user);
 
-    triggerFlashTransition(resolvedPage);
-    setCurrentPage(resolvedPage);
-    setNavState(state || {});
     if (state?.user) {
       setCurrentUser(state.user);
     } else if (user) {
       setCurrentUser(user);
     }
+    setNavState(state || {});
+
+    isNavigatingRef.current = true;
+    startTransition(() => {
+      triggerFlashTransition(resolvedPage);
+      setCurrentPage(resolvedPage);
+    });
 
     const newHash = `#/${resolvedPage}`;
     if (window.location.hash !== newHash) {
@@ -267,16 +272,26 @@ export default function App() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 150);
   };
 
   useEffect(() => {
     const handleHashChange = () => {
+      if (isNavigatingRef.current) {
+        return;
+      }
       const user = getCurrentUser();
-      setCurrentUser(user);
+      if (user) {
+        setCurrentUser(user);
+      }
 
       const resolved = resolveRoute(window.location.hash, user);
-      triggerFlashTransition(resolved);
-      setCurrentPage(resolved);
+      startTransition(() => {
+        triggerFlashTransition(resolved);
+        setCurrentPage(resolved);
+      });
 
       const targetHash = `#/${resolved}`;
       if (window.location.hash !== targetHash) {

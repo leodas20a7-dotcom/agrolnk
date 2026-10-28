@@ -61,6 +61,10 @@ export default function Login({ onNavigate, navState }) {
       setSignInError('Please enter your email address or 10-digit mobile number.');
       return;
     }
+    if (!signInPassword || !signInPassword.trim()) {
+      setSignInError('Please enter your password.');
+      return;
+    }
 
     setIsSigningIn(true);
 
@@ -102,6 +106,10 @@ export default function Login({ onNavigate, navState }) {
       setRegisterError('Please enter a valid email address (e.g. user@example.com).');
       return;
     }
+    if (!registerData.password || registerData.password.length < 6) {
+      setRegisterError('Password must be at least 6 characters.');
+      return;
+    }
 
     setIsRegistering(true);
 
@@ -110,6 +118,7 @@ export default function Login({ onNavigate, navState }) {
         name: registerData.name,
         phone: registerData.phone,
         email: registerData.email,
+        password: registerData.password,
         role: selectedRole,
       });
 
@@ -201,7 +210,7 @@ export default function Login({ onNavigate, navState }) {
                 <ShieldCheck className="w-4 h-4 text-[#34D399]" />
                 <span>Escrow & Bank Grade Security</span>
               </div>
-            </div>
+            </div>  
 
             {/* Right Sign In Form */}
             <div className="lg:col-span-7 p-7 sm:p-9 xl:p-11 flex flex-col justify-between bg-white space-y-6">

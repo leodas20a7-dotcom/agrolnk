@@ -210,6 +210,7 @@ export default function Register({ onNavigate, navState }) {
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
+        password: formData.password,
         role: selectedRole,
       });
 

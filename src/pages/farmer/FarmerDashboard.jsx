@@ -492,14 +492,16 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
         </div>
 
         {/* Farmer Bank Account & Settlement Settings Modal */}
-        <FarmerBankSettingsModal
-          isOpen={isBankModalOpen}
-          onClose={() => setIsBankModalOpen(false)}
-          currentUser={user}
-          onSaved={(updated) => {
-            setBankDetails(updated);
-          }}
-        />
+        {isBankModalOpen && (
+          <FarmerBankSettingsModal
+            isOpen={isBankModalOpen}
+            onClose={() => setIsBankModalOpen(false)}
+            currentUser={user}
+            onSaved={(updated) => {
+              setBankDetails(updated);
+            }}
+          />
+        )}
 
         {/* Verification Required Modal */}
         {isVerificationModalOpen && (

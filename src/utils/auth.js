@@ -7,12 +7,86 @@ const IS_AUTH_KEY = 'isAuthenticated';
 export const DEFAULT_DEMO_USERS = [];
 
 /**
- * Register a new user in Supabase Profiles
+ * Cryptographic Password Hashing using Web Crypto PBKDF2 (SHA-256)
  */
-export async function registerUser({ name, phone, email, role, state, district, companyName }) {
+export async function hashPassword(password, saltHex = null) {
+  if (!password || typeof password !== 'string') return { hash: '', salt: '' };
+  try {
+    const enc = new TextEncoder();
+    let salt;
+    if (saltHex && typeof saltHex === 'string' && saltHex.length === 32) {
+      salt = new Uint8Array(saltHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
+    } else {
+      salt = (typeof window !== 'undefined' && window.crypto?.getRandomValues)
+        ? window.crypto.getRandomValues(new Uint8Array(16))
+        : (typeof crypto !== 'undefined' && crypto.getRandomValues)
+        ? crypto.getRandomValues(new Uint8Array(16))
+        : new Uint8Array(16).fill(7);
+    }
+
+    const subtle = (typeof window !== 'undefined' && window.crypto?.subtle)
+      || (typeof crypto !== 'undefined' && crypto.subtle);
+
+    if (subtle) {
+      const keyMaterial = await subtle.importKey(
+        'raw',
+        enc.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+      );
+      const derivedBits = await subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt,
+          iterations: 100000,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        256
+      );
+      const hash = Array.from(new Uint8Array(derivedBits))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      const finalSalt = Array.from(salt)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      return { hash, salt: finalSalt };
+    }
+  } catch (err) {
+    console.warn('WebCrypto PBKDF2 fallback:', err);
+  }
+
+  // Fallback deterministic salt & hash if subtle is unavailable
+  const fallbackSalt = saltHex || 'agrolnk_sec_salt_v1';
+  let hashVal = 0;
+  const combined = `${password}:${fallbackSalt}`;
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    hashVal = (hashVal << 5) - hashVal + char;
+    hashVal |= 0;
+  }
+  return { hash: Math.abs(hashVal).toString(16), salt: fallbackSalt };
+}
+
+export async function verifyPassword(password, expectedHash, saltHex) {
+  if (!password || !expectedHash) return false;
+  const { hash } = await hashPassword(password, saltHex);
+  return hash === expectedHash;
+}
+
+/**
+ * Register a new user in Supabase Profiles & Supabase Auth
+ */
+export async function registerUser({ name, phone, email, password, role, state, district, companyName }) {
   const normalizedEmail = (email || '').trim().toLowerCase();
   const rawPhone = (phone || '').trim();
   const normalizedPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
+  const trimmedPassword = (password || '').trim();
+
+  if (!trimmedPassword || trimmedPassword.length < 6) {
+    throw new Error('Password is required and must be at least 6 characters.');
+  }
 
   try {
     let supabaseEmailChecked = false;
@@ -107,6 +181,25 @@ export async function registerUser({ name, phone, email, role, state, district, 
       }
     };
 
+    const { hash: passwordHash, salt: passwordSalt } = await hashPassword(trimmedPassword);
+
+    // Attempt native Supabase Auth user registration
+    try {
+      await supabase.auth.signUp({
+        email: normalizedEmail,
+        password: trimmedPassword,
+        options: {
+          data: {
+            name: (name || '').trim(),
+            phone: rawPhone,
+            role: role || 'farmer',
+          },
+        },
+      });
+    } catch (authErr) {
+      console.warn('Supabase auth.signUp notice:', authErr?.message || authErr);
+    }
+
     const newProfile = {
       id: generateId(),
       name: (name || '').trim(),
@@ -117,6 +210,10 @@ export async function registerUser({ name, phone, email, role, state, district, 
       district: (district || '').trim(),
       company_name: companyName || '',
       kyc_status: 'pending',
+      meta: {
+        password_hash: passwordHash,
+        password_salt: passwordSalt,
+      },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -205,9 +302,19 @@ export async function loginUser({ email, password }) {
   const normalizedEmail = rawInput.toLowerCase();
   const phoneDigits = rawInput.replace(/\D/g, '').slice(-10);
   const isPhone = phoneDigits.length >= 10 && !rawInput.includes('@');
+  const trimmedPassword = (password || '').trim();
 
-  // Instant built-in Admin account support
+  // 1. Password must be mandatory
+  if (!trimmedPassword) {
+    throw new Error('Please enter your password to sign in.');
+  }
+
+  // 2. Built-in Admin account authentication (Password protected)
   if (normalizedEmail === 'admin@agrolnk.com' || normalizedEmail === 'admin') {
+    const validAdminPasswords = ['admin123', 'admin@agrolnk2026', 'admin'];
+    if (!validAdminPasswords.includes(trimmedPassword)) {
+      throw new Error('Invalid administrator password. Access denied.');
+    }
     const adminUser = {
       id: 'usr_admin_master',
       name: 'System Administrator',
@@ -227,7 +334,7 @@ export async function loginUser({ email, password }) {
   try {
     let profile = null;
 
-    // 1. Query Supabase by phone or email (case-insensitive)
+    // 3. Query Supabase by phone or email (case-insensitive)
     if (isPhone) {
       const { data: byPhone, error: phoneErr } = await supabase
         .from('profiles')
@@ -252,7 +359,7 @@ export async function loginUser({ email, password }) {
       }
     }
 
-    // 2. Offline / local resilience fallback
+    // 4. Offline / local resilience fallback
     if (!profile) {
       try {
         const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
@@ -280,6 +387,7 @@ export async function loginUser({ email, password }) {
                 company_name: match.orgName || match.companyName,
                 kyc_status: match.verificationStatus || 'pending',
                 created_at: match.submittedAt || new Date().toISOString(),
+                meta: match.meta || {},
               };
             }
           }
@@ -293,6 +401,69 @@ export async function loginUser({ email, password }) {
           ? "We couldn't find an account registered with this mobile number. Please check the number or register."
           : "We couldn't find an account with this email. Please check your spelling or register a new account."
       );
+    }
+
+    // 5. Authenticate Password with Supabase Auth or WebCrypto PBKDF2
+    let authenticatedBySupabaseAuth = false;
+    if (profile.email) {
+      try {
+        const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+          email: profile.email,
+          password: trimmedPassword,
+        });
+        if (!authErr && authData?.session) {
+          authenticatedBySupabaseAuth = true;
+        }
+      } catch (authException) {
+        console.warn('Supabase Auth signIn attempt notice:', authException?.message || authException);
+      }
+    }
+
+    if (!authenticatedBySupabaseAuth) {
+      // Check stored password hash in profile.meta
+      const meta = (typeof profile.meta === 'object' && profile.meta) ? profile.meta : {};
+      const storedHash = meta.password_hash;
+      const storedSalt = meta.password_salt;
+
+      if (storedHash && storedSalt) {
+        const isValid = await verifyPassword(trimmedPassword, storedHash, storedSalt);
+        if (!isValid) {
+          throw new Error('Incorrect password. Please verify your credentials and try again.');
+        }
+      } else {
+        // Legacy account created before password enforcement:
+        // Set this provided password as their permanent credentials going forward
+        if (trimmedPassword.length < 6) {
+          throw new Error('Password must be at least 6 characters.');
+        }
+        const { hash: newHash, salt: newSalt } = await hashPassword(trimmedPassword);
+        const updatedMeta = { ...meta, password_hash: newHash, password_salt: newSalt };
+        profile.meta = updatedMeta;
+
+        try {
+          await supabase
+            .from('profiles')
+            .update({ meta: updatedMeta, updated_at: new Date().toISOString() })
+            .eq('id', profile.id);
+        } catch (updateErr) {
+          console.warn('Failed to persist legacy account password to profile meta:', updateErr);
+        }
+
+        // Also attempt background sync to Supabase Auth
+        try {
+          await supabase.auth.signUp({
+            email: profile.email,
+            password: trimmedPassword,
+            options: {
+              data: {
+                name: profile.name,
+                phone: profile.phone,
+                role: profile.role,
+              },
+            },
+          });
+        } catch {}
+      }
     }
 
     const userObj = {

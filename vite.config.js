@@ -8,6 +8,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
+  },
   css: {
     postcss: {
       plugins: []
