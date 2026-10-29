@@ -9,9 +9,18 @@ function mapAuctionFromDb(row) {
   let auctionType = row.auction_type || 'forward';
   let bidStep = Number(row.bid_step) || 25;
   let reservePrice = Number(row.reserve_price);
+  let organizationName = row.organization_name || row.company_name || '';
 
   // Extract from description metadata fallback if column was absent
   if (row.description) {
+    const orgMatch = row.description.match(/<!--agrolnk:org_name:(.*?)-->/);
+    if (orgMatch && orgMatch[1]) {
+      try {
+        organizationName = decodeURIComponent(orgMatch[1]);
+      } catch {
+        organizationName = orgMatch[1];
+      }
+    }
     const typeMatch = row.description.match(/<!--agrolnk:auction_type:([a-z]+)-->/);
     if (typeMatch && typeMatch[1]) {
       auctionType = typeMatch[1];
@@ -28,6 +37,7 @@ function mapAuctionFromDb(row) {
 
   const cleanDescription = (row.description || '')
     .replace(/<!--agrolnk:village:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:org_name:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:auction_type:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:bid_step:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:reverse_reserve_price:.*?-->\n?/g, '')
@@ -37,6 +47,7 @@ function mapAuctionFromDb(row) {
     id: row.id,
     farmerId: row.farmer_id,
     farmerName: row.farmer_name,
+    organizationName: organizationName || '',
     commodity: row.commodity,
     variety: row.variety,
     grade: row.grade,
@@ -460,10 +471,14 @@ export async function createAuction(auctionData) {
 
     const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
     const validFarmerId = isUuid(auctionData.farmerId) ? auctionData.farmerId : null;
+    const orgName = (auctionData.organizationName || auctionData.companyName || auctionData.orgName || '').trim();
 
     let metaTags = `<!--agrolnk:auction_type:${auctionType}-->\n<!--agrolnk:bid_step:${bidStep}-->`;
     if (auctionType === 'reverse') {
       metaTags += `\n<!--agrolnk:reverse_reserve_price:${reservePrice}-->`;
+    }
+    if (orgName) {
+      metaTags += `\n<!--agrolnk:org_name:${encodeURIComponent(orgName)}-->`;
     }
     const fullDesc = auctionData.description ? `${metaTags}\n${auctionData.description}` : metaTags;
 

@@ -15,7 +15,8 @@ import {
   Camera,
   Check,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Building2
 } from 'lucide-react';
 import { createAuction } from '../../utils/auctions';
 import { COMMODITY_IMAGES, getPlatformCommodities, registerCustomCommodity, fetchRemoteCommodities } from '../../utils/listings';
@@ -34,6 +35,8 @@ export default function CreateAuction({ currentUser, onNavigate }) {
   const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
 
+  const defaultOrgName = user?.companyName || user?.orgName || user?.businessName || (isFoodProcessor ? 'Food Processing Enterprise' : '');
+
   const [formData, setFormData] = useState({
     commodity: '',
     variety: 'None',
@@ -46,8 +49,9 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     auctionType: 'forward',
     bidStep: '25',
     durationMinutes: '1440',
-    state: '',
-    district: '',
+    state: user?.state || '',
+    district: user?.district || '',
+    organizationName: defaultOrgName,
     description: '',
     images: [],
   });
@@ -196,6 +200,8 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     setIsPublishing(true);
 
     try {
+      const resolvedOrg = (formData.organizationName || user.companyName || user.orgName || user.businessName || (isFoodProcessor ? 'Food Processing Facility' : '')).trim();
+
       await createAuction({
         ...formData,
         auctionType: formData.auctionType || 'forward',
@@ -205,6 +211,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
         reservePrice: reserveBreakdown.canonicalPricePerListingUnit,
         farmerId: user.id,
         farmerName: user.name || 'Farmer Account',
+        organizationName: resolvedOrg,
       });
 
       onNavigate('farmer-my-auctions');
@@ -284,6 +291,24 @@ export default function CreateAuction({ currentUser, onNavigate }) {
               <h3 className="text-base font-bold text-[#0B3326] font-heading">
                 Produce Specifications
               </h3>
+            </div>
+
+            {/* Conducting Organisation / Entity Name */}
+            <div>
+              <label className="text-xs font-bold text-[#0B3326] flex items-center justify-between mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-[#10B981]" /> Conducting Organisation / Host Name
+                </span>
+                <span className="text-[10px] text-[#566861] font-normal">Visible to live auction bidders</span>
+              </label>
+              <input
+                type="text"
+                name="organizationName"
+                value={formData.organizationName || ''}
+                onChange={handleChange}
+                placeholder={isFoodProcessor ? "e.g. Apex Agri Processors Pvt Ltd" : "e.g. Kaveri Farmers Producer Co. / Farm Entity Name"}
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] focus:ring-2 focus:ring-[#10B981] bg-white text-[#14211D]"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

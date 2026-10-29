@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   XCircle,
   Zap,
-  Lock
+  Lock,
+  Building2
 } from 'lucide-react';
 import {
   getAuctionById,
@@ -517,8 +518,8 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
             </div>
 
             {/* Produce Header & Location */}
-            <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-3">
-              <div className="space-y-1">
+            <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-2xl font-extrabold text-[#0B3326] font-heading">
@@ -532,6 +533,34 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
                     </span>
                   )}
                 </div>
+
+                {/* Conducting Organisation & Seller Banner */}
+                <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center shrink-0">
+                      <Building2 className="w-4 h-4 text-[#10B981]" />
+                    </div>
+                    <div className="min-w-0 text-left">
+                      <span className="text-[10px] text-[#566861] uppercase font-bold tracking-wider block">
+                        Conducted By / Organisation
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-extrabold text-[#0B3326] truncate">
+                          {auction.organizationName || auction.farmerName || 'Verified Producer'}
+                        </span>
+                        {auction.organizationName && auction.farmerName && auction.organizationName !== auction.farmerName && (
+                          <span className="text-[11px] text-[#566861]">
+                            (Host: {auction.farmerName})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant="emerald" size="sm" className="shrink-0 font-bold">
+                    ✓ Verified Host
+                  </Badge>
+                </div>
+
                 <p className="text-xs text-[#566861] flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                   <span>

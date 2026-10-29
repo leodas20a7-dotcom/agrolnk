@@ -121,6 +121,24 @@ export default function AuctionHistoryModal({
             </div>
           </div>
 
+          {/* Conducting Organisation & Producer */}
+          <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center shrink-0">
+                <Building2 className="w-4 h-4 text-[#10B981]" />
+              </div>
+              <div className="text-left">
+                <span className="text-[10px] text-[#566861] uppercase font-bold tracking-wider block">
+                  Conducted By / Host
+                </span>
+                <span className="font-extrabold text-[#0B3326]">
+                  {auction.organizationName || auction.farmerName || 'Verified Producer'}
+                </span>
+              </div>
+            </div>
+            <Badge variant="emerald" size="sm">✓ Verified Host</Badge>
+          </div>
+
           {/* Commodity Details & Time Record */}
           <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
             <div className="space-y-1">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Gavel, Clock, Trophy, Zap, ShoppingBag, MapPin, Edit2, Trash2 } from 'lucide-react';
+import { Eye, Gavel, Clock, Trophy, Zap, ShoppingBag, MapPin, Edit2, Trash2, Building2 } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 
@@ -68,6 +68,11 @@ export default function AuctionRow({
           </div>
 
           <div className="flex items-center gap-2 text-xs text-[#566861] flex-wrap">
+            <span className="flex items-center gap-1 text-[#0B3326] font-semibold bg-[#EBF5F0] px-2 py-0.5 rounded-md text-[11px]">
+              <Building2 className="w-3 h-3 text-[#10B981]" />
+              {auction.organizationName || auction.farmerName || 'Verified Host'}
+            </span>
+            <span>&bull;</span>
             <span>
               Lot: <strong>{auction.quantity} {auction.unit}</strong>
             </span>

@@ -21,7 +21,8 @@ import {
   Trophy,
   History,
   CheckCircle2,
-  Lock
+  Lock,
+  Building2
 } from 'lucide-react';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import { getAuctions } from '../../utils/auctions';
@@ -127,6 +128,8 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
       return (
         a.commodity?.toLowerCase().includes(query) ||
         a.variety?.toLowerCase().includes(query) ||
+        a.organizationName?.toLowerCase().includes(query) ||
+        a.farmerName?.toLowerCase().includes(query) ||
         a.state?.toLowerCase().includes(query) ||
         a.district?.toLowerCase().includes(query)
       );
@@ -333,6 +336,13 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
                                 {lot.variety}
                               </span>
                             )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 text-xs text-[#566861]">
+                            <Building2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                            <span className="truncate">
+                              By: <strong className="text-[#14211D]">{lot.organizationName || lot.farmerName || 'Verified Host'}</strong>
+                            </span>
                           </div>
 
                           <p className="text-xs text-[#566861] flex items-center gap-1">
