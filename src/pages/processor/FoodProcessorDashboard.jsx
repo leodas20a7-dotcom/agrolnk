@@ -6,6 +6,8 @@ import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
+import Modal from '../../components/ui/Modal';
+import { toast } from '../../context/ToastContext';
 import {
   ShoppingBag,
   Package,
@@ -14,10 +16,13 @@ import {
   ShieldCheck,
   CreditCard,
   Plus,
-  Clock
+  Clock,
+  Download,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { getBuyerOrders, getFarmerOrders } from '../../utils/orders';
-import { getFarmerListings } from '../../utils/listings';
+import { getFarmerListings, exportListingsToExcel, deleteListing, checkListingBookings } from '../../utils/listings';
 import { getBuyerDeliveries } from '../../utils/deliveries';
 import { getBuyerFinancingRequests } from '../../utils/financing';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
@@ -83,6 +88,61 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
       console.error('Error loading Food Processor dashboard data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [blockedDeleteInfo, setBlockedDeleteInfo] = useState(null);
+  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
+
+  const handleExportToExcel = () => {
+    try {
+      if (!myListings || myListings.length === 0) {
+        toast.info('No products listed to export.');
+        return;
+      }
+      const filename = exportListingsToExcel(
+        myListings,
+        `AgroLnk_FoodProcessor_Products_${user.name ? user.name.replace(/\s+/g, '_') : 'Processor'}`
+      );
+      toast.success(`Successfully exported ${myListings.length} products to ${filename}!`);
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export products to Excel.');
+    }
+  };
+
+  const handleDeleteProductClick = async (lot) => {
+    try {
+      const check = await checkListingBookings(lot.id);
+      if (check.isBooked) {
+        setBlockedDeleteInfo({
+          lot,
+          buyerName: check.buyerName,
+          orderCount: check.orderCount,
+        });
+      } else {
+        setProductToDelete(lot);
+      }
+    } catch (err) {
+      console.error('Error checking lot booking status:', err);
+      setProductToDelete(lot);
+    }
+  };
+
+  const handleConfirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setIsDeletingProduct(true);
+    try {
+      await deleteListing(productToDelete.id, user.id);
+      toast.success(`"${productToDelete.commodity}" listing removed successfully.`);
+      setProductToDelete(null);
+      await loadData();
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      toast.error(err.message || 'Failed to delete product.');
+    } finally {
+      setIsDeletingProduct(false);
     }
   };
 
@@ -445,16 +505,31 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                       Flour, milled rice, mustard oil, processed pulses, and packaged foods ready for retailers.
                     </p>
                   </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => onNavigate('farmer-create-listing')}
-                    icon={Plus}
-                    iconPosition="left"
-                    className="text-xs font-bold shrink-0"
-                  >
-                    Add Product to Sell
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {myListings.length > 0 && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleExportToExcel}
+                        icon={Download}
+                        iconPosition="left"
+                        className="text-xs font-semibold shrink-0 cursor-pointer"
+                        title="Safely backup all products to Excel spreadsheet"
+                      >
+                        Export Excel ({myListings.length})
+                      </Button>
+                    )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => onNavigate('farmer-create-listing')}
+                      icon={Plus}
+                      iconPosition="left"
+                      className="text-xs font-bold shrink-0"
+                    >
+                      Add Product to Sell
+                    </Button>
+                  </div>
                 </div>
 
                 {myListings.length === 0 ? (
@@ -508,23 +583,33 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                           </div>
                         </div>
 
-                        <div className="pt-2 flex items-center justify-end gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => onNavigate('farmer-create-listing', { editListing: lot })}
-                            className="text-xs py-1 px-2.5 h-auto font-semibold"
+                        <div className="pt-2 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProductClick(lot)}
+                            title="Delete product listing"
+                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                           >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => onNavigate('farmer-my-listings')}
-                            className="text-xs py-1 px-2.5 h-auto font-bold"
-                          >
-                            Manage Stock
-                          </Button>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => onNavigate('farmer-create-listing', { editListing: lot })}
+                              className="text-xs py-1 px-2.5 h-auto font-semibold"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => onNavigate('farmer-my-listings')}
+                              className="text-xs py-1 px-2.5 h-auto font-bold"
+                            >
+                              Manage Stock
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -725,6 +810,88 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
           docUrl={inspectingDoc.file_url || inspectingDoc.fileUrl || inspectingDoc.url}
           docName={inspectingDoc.doc_name || inspectingDoc.docName || inspectingDoc.type || 'KYC Document'}
         />
+      )}
+
+      {/* Delete Product Confirmation Modal */}
+      {productToDelete && (
+        <Modal
+          isOpen={Boolean(productToDelete)}
+          onClose={() => setProductToDelete(null)}
+          title="Delete Product Listing"
+          subtitle={`Are you sure you want to remove "${productToDelete.commodity}"?`}
+          icon={Trash2}
+          iconColor="text-rose-600"
+          iconBg="bg-rose-50"
+          maxWidth="max-w-md"
+          footer={
+            <div className="flex items-center justify-end gap-2 w-full">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setProductToDelete(null)}
+                disabled={isDeletingProduct}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleConfirmDeleteProduct}
+                disabled={isDeletingProduct}
+                icon={Trash2}
+              >
+                {isDeletingProduct ? 'Deleting...' : 'Delete Product'}
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-3 text-left">
+            <p className="text-xs text-[#566861] leading-relaxed">
+              This will permanently remove this finished product lot from the marketplace catalog. Retailers will no longer be able to place new purchase orders against this lot.
+            </p>
+            <div className="p-3 bg-[#F8FAF8] rounded-xl border border-[#E5EDE8] text-xs space-y-1">
+              <div><span className="text-[#566861]">Commodity:</span> <strong className="text-[#0B3326]">{productToDelete.commodity}</strong></div>
+              <div><span className="text-[#566861]">In Stock:</span> <strong className="text-[#0B3326]">{productToDelete.quantity} {productToDelete.unit}</strong></div>
+              <div><span className="text-[#566861]">Listed Price:</span> <strong className="text-[#10B981]">₹{productToDelete.price}/{productToDelete.priceUnit || productToDelete.unit}</strong></div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Blocked Delete Modal (Protected by Active Escrow Orders) */}
+      {blockedDeleteInfo && (
+        <Modal
+          isOpen={Boolean(blockedDeleteInfo)}
+          onClose={() => setBlockedDeleteInfo(null)}
+          title="Deletion Protected by Escrow"
+          subtitle="This produce lot cannot be deleted while active purchase agreements exist."
+          icon={AlertTriangle}
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
+          maxWidth="max-w-md"
+          footer={
+            <div className="flex justify-end w-full">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setBlockedDeleteInfo(null)}
+              >
+                Understood
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-3 text-left">
+            <p className="text-xs text-[#566861] leading-relaxed">
+              <strong>{blockedDeleteInfo.lot?.commodity}</strong> has {blockedDeleteInfo.orderCount || 1} active order contract(s) tied to buyer escrow locks. To protect transaction integrity, active exchange contracts must be settled or cancelled before deleting the listing.
+            </p>
+            {blockedDeleteInfo.buyerName && (
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-900">
+                <span>Active buyer counterparty: <strong>{blockedDeleteInfo.buyerName}</strong></span>
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
     </DashboardLayout>
   );

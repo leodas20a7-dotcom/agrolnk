@@ -23,7 +23,8 @@ import {
   AlertCircle,
   Search,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import BulkUploadExcelModal from '../../components/farmer/BulkUploadExcelModal';
@@ -34,7 +35,8 @@ import {
   clearListingDraft,
   checkListingBookings,
   deleteListing,
-  deleteAllFarmerListings
+  deleteAllFarmerListings,
+  exportListingsToExcel
 } from '../../utils/listings';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { toast } from '../../context/ToastContext';
@@ -200,6 +202,23 @@ export default function MyListings({ currentUser, onNavigate }) {
     }
   };
 
+  const handleExportToExcel = () => {
+    try {
+      if (!safeListings || safeListings.length === 0) {
+        toast.info('No produce listings available to export.');
+        return;
+      }
+      const filename = exportListingsToExcel(
+        safeListings,
+        `AgroLnk_Produce_Listings_${user.name ? user.name.replace(/\s+/g, '_') : 'Farmer'}`
+      );
+      toast.success(`Successfully exported ${safeListings.length} produce lots to ${filename}!`);
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export listings to Excel.');
+    }
+  };
+
   const safeListings = Array.isArray(listings) ? listings : [];
 
   // Auto-clean stale draft if an identical live listing is already active in exchange
@@ -309,6 +328,20 @@ export default function MyListings({ currentUser, onNavigate }) {
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+            {safeListings.length > 0 && (
+              <Button
+                variant="outline"
+                size="md"
+                icon={Download}
+                iconPosition="left"
+                onClick={handleExportToExcel}
+                className="font-bold py-2.5 px-4 shadow-xs shrink-0 cursor-pointer text-xs sm:text-sm text-[#0B3326] border-[#CBD7D0] hover:bg-[#F2FBF6]"
+                title="Download safe offline backup of all produce listings to Excel"
+              >
+                Export Excel ({safeListings.length})
+              </Button>
+            )}
+
             {safeListings.length > 0 && (
               <Button
                 variant="danger-outline"

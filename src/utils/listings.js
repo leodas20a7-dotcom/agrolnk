@@ -1,4 +1,5 @@
 // AgroLnk Supabase Listings Management Engine
+import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import {
   getAllCommodityNames,
@@ -1194,5 +1195,70 @@ export async function bulkCreateListings(farmerId, farmerName, rawRows = [], onP
 
   return { success: true, count: dbRows.length, listings: dbRows };
 }
+
+/**
+ * Safely export listings to an Excel (.xlsx) spreadsheet backup
+ * Formatted directly to be compatible with Bulk Upload re-import
+ */
+export function exportListingsToExcel(listings = [], filenamePrefix = 'AgroLnk_Produce_Listings_Backup') {
+  if (!Array.isArray(listings) || listings.length === 0) {
+    throw new Error('No produce listings found to export.');
+  }
+
+  const exportRows = listings.map((lot) => ({
+    'ID': lot.id || '',
+    'Commodity': lot.commodity || '',
+    'Variety': lot.variety || 'Standard',
+    'Grade': lot.grade || 'A',
+    'Quantity': Number(lot.quantity) || 0,
+    'Unit': lot.unit || 'kg',
+    'Price': Number(lot.price) || 0,
+    'Price Unit': lot.priceUnit || lot.unit || 'kg',
+    'Total Value (₹)': Math.round((Number(lot.quantity) || 0) * (Number(lot.price) || 0)),
+    'State': lot.state || '',
+    'District': lot.district || '',
+    'Village': lot.village || '',
+    'Product Type': lot.productType === 'processed' ? 'Processed' : 'Raw Crop',
+    'Brand Name': lot.brandName || '',
+    'Packaging Format': lot.packagingType || '',
+    'Status': lot.status || 'active',
+    'Description': lot.description || '',
+    'Image URL': Array.isArray(lot.images) && lot.images.length > 0 ? lot.images[0] : (lot.image || ''),
+    'Created Date': lot.createdAt ? new Date(lot.createdAt).toLocaleDateString() : (lot.created_at ? new Date(lot.created_at).toLocaleDateString() : new Date().toLocaleDateString()),
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportRows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Produce Listings');
+
+  // Auto-fit column widths for clear presentation
+  worksheet['!cols'] = [
+    { wch: 18 }, // ID
+    { wch: 24 }, // Commodity
+    { wch: 20 }, // Variety
+    { wch: 10 }, // Grade
+    { wch: 12 }, // Quantity
+    { wch: 10 }, // Unit
+    { wch: 12 }, // Price
+    { wch: 12 }, // Price Unit
+    { wch: 16 }, // Total Value
+    { wch: 16 }, // State
+    { wch: 18 }, // District
+    { wch: 16 }, // Village
+    { wch: 14 }, // Product Type
+    { wch: 20 }, // Brand Name
+    { wch: 18 }, // Packaging Format
+    { wch: 12 }, // Status
+    { wch: 35 }, // Description
+    { wch: 35 }, // Image URL
+    { wch: 14 }, // Created Date
+  ];
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  const filename = `${filenamePrefix}_${dateStr}.xlsx`;
+  XLSX.writeFile(workbook, filename);
+  return filename;
+}
+
 
 
