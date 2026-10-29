@@ -42,7 +42,11 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
 
   const initialSource = navState?.editListing || navState?.editAuction || navState?.initialData;
-  const isEditing = Boolean(initialSource?.id && initialSource.id !== 'draft_local');
+  const isEditing = Boolean(
+    navState?.editListing ||
+    navState?.editAuction ||
+    (initialSource?.id && initialSource.id !== 'draft_local')
+  );
   const editingListingId = isEditing ? initialSource.id : null;
   const isEditingAuction = Boolean(navState?.editAuction || (isEditing && (initialSource?.saleType === 'auction' || initialSource?.basePrice !== undefined)));
 
@@ -858,7 +862,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 <label className="text-xs font-bold text-[#0B3326] block">
                   Commodity <span className="text-red-500">*</span>
                 </label>
-                {isFoodProcessor ? (
+                {(isEditing || isFoodProcessor) ? (
                   <input
                     type="text"
                     value={formData.commodity || ''}
@@ -868,11 +872,11 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                       setFormData((prev) => ({
                         ...prev,
                         commodity: val,
-                        variety: prev.variety || 'None',
+                        variety: prev.variety !== undefined ? prev.variety : 'None',
                         images: prev.isDefaultImage ? [defaultImg] : (prev.images && prev.images.length ? prev.images : [defaultImg]),
                       }));
                     }}
-                    placeholder="Enter commodity (e.g. Wheat Flour, Tomato Puree, Apple Juice)"
+                    placeholder={isFoodProcessor ? "Enter commodity (e.g. Wheat Flour, Tomato Puree, Apple Juice)" : "Enter commodity (e.g. Rice, Wheat, Cotton)"}
                     className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-[#CBD7D0] text-[#14211D] placeholder:text-[#8E9F97] focus:outline-hidden focus:ring-2 focus:ring-[#008236] focus:border-[#008236] bg-[#F8FAF8] transition-all shadow-xs"
                     required
                   />

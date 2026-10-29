@@ -10,7 +10,8 @@ import { toast } from '../../context/ToastContext';
 import MultiMediaUploader from '../ui/MultiMediaUploader';
 import { computePricingBreakdown, PRICING_UNIT_OPTIONS } from '../../utils/pricingUnits';
 
-export default function ProduceForm({ formData, onChange, onImageChange }) {
+export default function ProduceForm({ formData, onChange, onImageChange, isEditing = false }) {
+  const isEditingRecord = Boolean(isEditing || formData?.id);
   const grades = ['Grade A', 'Grade B', 'Grade C'];
   const units = ['kg', 'Quintal', 'MT'];
 
@@ -61,20 +62,32 @@ export default function ProduceForm({ formData, onChange, onImageChange }) {
             <label className="block text-xs font-bold text-[#14211D] mb-1.5">
               Commodity <span className="text-red-500">*</span>
             </label>
-            <CommoditySelect
-              value={formData.commodity}
-              onChange={(val) => {
-                onChange({ target: { name: 'commodity', value: val } });
-                if (!formData.images || formData.images.length === 0 || formData.isDefaultImage) {
-                  if (COMMODITY_IMAGES[val]) {
-                    onImageChange(COMMODITY_IMAGES[val], true);
+            {isEditingRecord ? (
+              <input
+                type="text"
+                name="commodity"
+                value={formData.commodity || ''}
+                onChange={onChange}
+                placeholder="Enter commodity name..."
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-[#CBD7D0] text-[#14211D] placeholder:text-[#8E9F97] focus:outline-hidden focus:ring-2 focus:ring-[#008236] focus:border-[#008236] bg-[#F8FAF8] transition-all shadow-xs"
+                required
+              />
+            ) : (
+              <CommoditySelect
+                value={formData.commodity}
+                onChange={(val) => {
+                  onChange({ target: { name: 'commodity', value: val } });
+                  if (!formData.images || formData.images.length === 0 || formData.isDefaultImage) {
+                    if (COMMODITY_IMAGES[val]) {
+                      onImageChange(COMMODITY_IMAGES[val], true);
+                    }
                   }
-                }
-              }}
-              onImageChange={onImageChange}
-              placeholder="Select Commodity..."
-              required
-            />
+                }}
+                onImageChange={onImageChange}
+                placeholder="Select Commodity..."
+                required
+              />
+            )}
           </div>
 
           {/* Variety */}
