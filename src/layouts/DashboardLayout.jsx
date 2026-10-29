@@ -24,7 +24,9 @@ import {
   Menu,
   X,
   MessageSquare,
-  Settings
+  Settings,
+  Clock,
+  Plus
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -426,6 +428,32 @@ export default function DashboardLayout({
       label: 'Sell Products',
       page: 'farmer-my-listings',
       icon: Package,
+    },
+    {
+      type: 'dropdown',
+      id: 'processor_auctions',
+      label: 'Auctions Desk',
+      icon: Gavel,
+      items: [
+        {
+          label: 'My Auctions & Live Ticker',
+          page: 'farmer-my-auctions',
+          icon: Gavel,
+          desc: 'Your active auctions, live room & history',
+        },
+        {
+          label: 'Launch Live Auction',
+          page: 'farmer-create-auction',
+          icon: Plus,
+          desc: 'Start competitive live bidding for your goods',
+        },
+        {
+          label: 'Raw Crop Live Auctions',
+          page: 'buyer-live-auctions',
+          icon: Clock,
+          desc: 'Bid on live crop harvest lots from farmers',
+        },
+      ],
     },
     {
       type: 'dropdown',

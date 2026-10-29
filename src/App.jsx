@@ -168,7 +168,7 @@ export function resolveRoute(rawRoute, user) {
     return 'buyer-marketplace';
   }
   if (clean === 'auctions') {
-    return (user?.role === 'farmer' || user?.role === 'fpo') ? 'farmer-my-auctions' : 'buyer-live-auctions';
+    return (user?.role === 'farmer' || user?.role === 'fpo' || user?.role === 'food_processor') ? 'farmer-my-auctions' : 'buyer-live-auctions';
   }
 
   if (VALID_ROUTES.has(clean)) {

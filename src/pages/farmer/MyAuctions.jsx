@@ -36,6 +36,8 @@ import { toast } from '../../context/ToastContext';
 
 export default function MyAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
+  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const dashboardTarget = (effectiveRole === 'food_processor' || effectiveRole === 'processor') ? 'food-processor-dashboard' : 'farmer-dashboard';
   const [auctions, setAuctions] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -191,7 +193,7 @@ export default function MyAuctions({ currentUser, onNavigate }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <button
-              onClick={() => onNavigate('farmer-dashboard')}
+              onClick={() => onNavigate(dashboardTarget)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-2 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard

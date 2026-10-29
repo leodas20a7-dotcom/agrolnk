@@ -229,7 +229,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
         {/* Top Navigation */}
         <div className="flex items-center justify-between">
           <button
-            onClick={() => onNavigate('farmer-dashboard')}
+            onClick={() => onNavigate(isFoodProcessor ? 'food-processor-dashboard' : 'farmer-dashboard')}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard

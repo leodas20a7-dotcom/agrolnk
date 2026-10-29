@@ -19,7 +19,8 @@ import {
   Clock,
   Download,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Gavel
 } from 'lucide-react';
 import { getBuyerOrders, getFarmerOrders } from '../../utils/orders';
 import { getFarmerListings, exportListingsToExcel, deleteListing, checkListingBookings } from '../../utils/listings';
@@ -218,7 +219,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
             </p>
           </div>
 
-          {/* Primary Action Buttons: 2 Clear Pillars */}
+          {/* Primary Action Buttons: 3 Clear Pillars */}
           <div className="shrink-0 flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <Button
               variant="white"
@@ -229,6 +230,16 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               className="py-2.5 px-4 font-bold text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer shadow-sm border border-white"
             >
               Buy Raw Crops
+            </Button>
+            <Button
+              variant="white"
+              size="md"
+              icon={Gavel}
+              iconPosition="left"
+              onClick={() => onNavigate('farmer-my-auctions')}
+              className="py-2.5 px-4 font-bold text-xs !bg-[#0F4A37] !text-white hover:!bg-[#14624A] cursor-pointer shadow-sm border border-[#14624A]"
+            >
+              Live Auctions
             </Button>
             <Button
               variant="accent"
