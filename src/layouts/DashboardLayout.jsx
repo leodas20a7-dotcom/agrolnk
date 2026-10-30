@@ -435,12 +435,6 @@ export default function DashboardLayout({
           icon: Package,
           desc: 'Manage your catalog of milled & processed goods',
         },
-        {
-          label: 'List New Product',
-          page: 'farmer-create-listing',
-          icon: Plus,
-          desc: 'Post a new processed goods listing for buyers',
-        },
       ],
     },
     {
@@ -454,12 +448,6 @@ export default function DashboardLayout({
           page: 'farmer-my-auctions',
           icon: Gavel,
           desc: 'Your active auctions, live room & history',
-        },
-        {
-          label: 'Launch Live Auction',
-          page: 'farmer-create-auction',
-          icon: Plus,
-          desc: 'Start competitive live bidding for your goods',
         },
         {
           label: 'Raw Crop Live Auctions',
