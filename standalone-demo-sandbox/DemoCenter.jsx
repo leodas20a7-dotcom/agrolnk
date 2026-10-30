@@ -51,7 +51,7 @@ import {
   createDemoAuctionCustom,
   updateDemoFreightTariff,
   resolveDemoQualityDispute
-} from '../../utils/demoEngine';
+} from './demoEngine';
 
 export default function DemoCenter({ currentUser, onNavigate, navState }) {
   const [state, setState] = useState(() => getDemoState());

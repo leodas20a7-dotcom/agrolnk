@@ -626,17 +626,6 @@ export default function DashboardLayout({
 
             {/* 3. Right: Role Pill, Verification Status, User Avatar & Sign Out */}
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-              {/* Interactive Demo Sandbox Pill */}
-              <button
-                type="button"
-                onClick={() => onNavigate('demo')}
-                title="Launch Isolated Interactive Demo Sandbox"
-                className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#EBF5F0] text-[#0B3326] border border-[#10B981]/40 hover:bg-[#10B981] hover:text-white transition-all cursor-pointer shadow-2xs group"
-              >
-                <Sparkles className="w-3 h-3 text-[#10B981] group-hover:text-white" />
-                <span>Interactive Sandbox</span>
-              </button>
-
               {/* Role Badge */}
               <div className="hidden xs:inline-flex">
                 <Badge variant={currentRoleConfig.badge} size="sm" dot={true}>
