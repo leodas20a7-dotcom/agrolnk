@@ -420,7 +420,7 @@ export default function DashboardLayout({
     {
       type: 'dropdown',
       id: 'processor_materials',
-      label: 'Buy & Sell Materials',
+      label: 'Buy & Sell',
       icon: Package,
       items: [
         {
@@ -446,7 +446,7 @@ export default function DashboardLayout({
     {
       type: 'dropdown',
       id: 'processor_auctions',
-      label: 'Auctions Desk',
+      label: 'Auctions',
       icon: Gavel,
       items: [
         {
