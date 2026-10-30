@@ -35,7 +35,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
     ? currentUser
     : (activeSession || { name: 'Food Processor', id: '', role: 'food_processor' });
 
-  const [activeTab, setActiveTab] = useState('procurement'); // 'procurement' | 'sales' | 'facility'
+  const [activeTab, setActiveTab] = useState('procurement'); // 'procurement' | 'sales'
   const [inboundOrders, setInboundOrders] = useState([]);
   const [salesOrders, setSalesOrders] = useState([]);
   const [myListings, setMyListings] = useState([]);
@@ -361,7 +361,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 }`}
               >
                 <Compass className="w-3.5 h-3.5" />
-                Raw Crop Purchases ({inboundOrders.length})
+                Purchases ({inboundOrders.length})
               </button>
 
               <button
@@ -374,20 +374,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 }`}
               >
                 <Package className="w-3.5 h-3.5" />
-                Products & Retail Sales ({myListings.length} Stock / {salesOrders.length} Orders)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('facility')}
-                className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'facility'
-                    ? 'bg-[#0B3326] text-white shadow-xs'
-                    : 'bg-[#F8FAF8] text-[#566861] hover:bg-[#EBF5F0] hover:text-[#0B3326]'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                Mill Profile & Licenses
+                Products & Sales ({myListings.length} Stock / {salesOrders.length} Orders)
               </button>
             </div>
 
@@ -704,99 +691,6 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                     </table>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Mill Facility & Licenses */}
-          {activeTab === 'facility' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Facility Profile Card */}
-                <div className="p-6 rounded-2xl border border-[#E5EDE8] bg-[#F8FAF8] space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center">
-                      <Building2 className="w-5 h-5 text-[#10B981]" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-[#0B3326] text-sm">Mill & Enterprise Profile</h4>
-                      <p className="text-xs text-[#566861]">Business registration and regulatory status</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 pt-2 text-xs">
-                    <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">Business / Mill Name</span>
-                      <span className="font-bold text-[#0B3326]">{user.companyName || user.name || 'Agro Mills Facility'}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">Account Type</span>
-                      <span className="font-bold text-[#10B981]">Food Processor (Procure & Sell)</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">FSSAI / GST Number</span>
-                      <span className="font-bold text-[#14211D]">{user.fssaiNumber || user.gstNumber || 'Provided during onboarding'}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-[#E5EDE8]">
-                      <span className="text-[#566861]">Mill Location</span>
-                      <span className="font-bold text-[#14211D]">{user.state || 'India'}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-[#566861]">Compliance Verification</span>
-                      <Badge variant={isVerified ? 'emerald' : 'amber'} size="sm">
-                        {currentKycStatus}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {!isVerified && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleOpenKycAction}
-                      className="w-full text-xs font-bold"
-                    >
-                      {currentKycStatus === 'pending' ? 'View Submitted Documents' : 'Submit FSSAI / KYC Documents'}
-                    </Button>
-                  )}
-                </div>
-
-                {/* Working Capital & Trade Credit Card */}
-                <div className="p-6 rounded-2xl border border-[#E5EDE8] bg-[#F8FAF8] space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-[#1E40AF]" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-[#0B3326] text-sm">Seasonal Working Capital</h4>
-                      <p className="text-xs text-[#566861]">Harvest season bulk procurement credit lines</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-[#566861] leading-relaxed">
-                    Access institutional trade credit and godown warehouse receipt financing to purchase raw crops during peak harvest season and repay after milling.
-                  </p>
-
-                  <div className="p-3.5 rounded-xl bg-white border border-[#E5EDE8] space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#566861]">Active Applications:</span>
-                      <span className="font-bold text-[#0B3326]">{financingRequests.length} Facility</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#566861]">Interest Rates:</span>
-                      <span className="font-bold text-[#10B981]">From 1.2% / month</span>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onNavigate('buyer-financing')}
-                    className="w-full text-xs font-bold border-[#10B981]/40 text-[#0B3326] hover:bg-[#EBF5F0]"
-                  >
-                    Apply for Working Capital Advance
-                  </Button>
-                </div>
               </div>
             </div>
           )}
