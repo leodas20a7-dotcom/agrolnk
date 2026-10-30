@@ -478,23 +478,27 @@ export function finalizeDemoAuction(isEarlyKnockdown = false) {
 /**
  * Step 3: Fund Escrow Deposit
  */
-export function fundDemoEscrow() {
+export function fundDemoEscrow(depositMethod = 'rtgs_escrow') {
   const state = readState();
   if (!state.order) return;
 
+  const txnId = `TXN-ESCROW-${Date.now().toString().slice(-6)}`;
   state.order.escrowStatus = 'funded';
   state.order.status = 'confirmed';
+  state.order.escrowTxnId = txnId;
+  state.order.depositMethod = depositMethod;
   state.delivery.status = 'assigned';
   state.currentStage = 4; // Advance to logistics & OTP transit
   state.activePersonaKey = 'transporter'; // Hand off to transporter
 
   state.escrowLedger.unshift({
-    id: `txn_${Date.now()}`,
+    id: txnId,
     type: 'deposit',
     amount: state.order.totalAmount,
     from: DEMO_PERSONAS.buyer.name,
     to: 'AgroLnk Escrow Trust Account (IDBI Bank)',
     status: 'LOCKED_IN_TRUST',
+    method: depositMethod,
     timestamp: new Date().toLocaleTimeString(),
   });
 
@@ -502,7 +506,38 @@ export function fundDemoEscrow() {
     id: `log_${Date.now()}`,
     time: 'Just now',
     role: 'Buyer',
-    text: `Buyer funded ₹${state.order.totalAmount.toLocaleString('en-IN')} into AgroLnk Escrow Trust. Money locked. Transporter authorized for pickup.`,
+    text: `Buyer deposited ₹${state.order.totalAmount.toLocaleString('en-IN')} via ${depositMethod.toUpperCase()}. Funds locked in Escrow Trust (${txnId}). Transporter authorized for pickup.`,
+  });
+
+  writeState(state);
+  return state;
+}
+
+/**
+ * Update Vehicle Tariff Dynamically
+ */
+export function updateDemoFreightTariff(vehicleType) {
+  const state = readState();
+  if (!state.delivery) return;
+
+  const rates = {
+    mini_truck: { base: 400, perKm: 14, name: 'Mini Truck (Tata Ace)' },
+    medium_lcv: { base: 900, perKm: 24, name: 'Medium LCV (14ft Eicher)' },
+    reefer_truck: { base: 1600, perKm: 34, name: 'Reefer Cold-Chain Truck' },
+  };
+
+  const rate = rates[vehicleType] || rates.medium_lcv;
+  const dist = state.delivery.distanceKm || 340;
+  const fare = rate.base + dist * rate.perKm;
+
+  state.delivery.vehicleType = vehicleType;
+  state.delivery.freightAmount = fare;
+
+  state.logs.unshift({
+    id: `log_${Date.now()}`,
+    time: 'Just now',
+    role: 'Logistics',
+    text: `Updated transport vehicle to ${rate.name}. Tariff: Base ₹${rate.base} + ₹${rate.perKm}/km (${dist} km) = ₹${fare.toLocaleString('en-IN')}.`,
   });
 
   writeState(state);

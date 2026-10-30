@@ -46,7 +46,8 @@ import {
   submitDemoQualityInspection,
   releaseDemoEscrow,
   createDemoAuction,
-  createDemoAuctionCustom
+  createDemoAuctionCustom,
+  updateDemoFreightTariff
 } from '../../utils/demoEngine';
 
 export default function DemoCenter({ currentUser, onNavigate, navState }) {
@@ -70,6 +71,10 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
   const [customBidStep, setCustomBidStep] = useState('1');
   const [customOrigin, setCustomOrigin] = useState('Erode Mandi Yard, Tamil Nadu');
   const [customDestination, setCustomDestination] = useState('ITC Spices Processing Plant, Guntur');
+
+  // Phase 4 States: Escrow Deposit Method & Vehicle Fleet Selector
+  const [depositMethod, setDepositMethod] = useState('rtgs_escrow'); // 'rtgs_escrow' | 'upi_mandate' | 'credit_advance'
+  const [selectedVehicleType, setSelectedVehicleType] = useState('medium_lcv'); // 'mini_truck' | 'medium_lcv' | 'reefer_truck'
 
   // Live Timer Countdown for Stage 2
   useEffect(() => {
@@ -930,64 +935,134 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
             {/* STAGE 3: ESCROW DEPOSIT */}
             {state.currentStage === 3 && (
               <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-6">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 text-[10px] font-bold border border-blue-200">
-                    <Lock className="w-3 h-3" /> ESCROW TRUST DEPOSIT
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5EDE8]">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 text-[10px] font-bold border border-blue-200">
+                      <Lock className="w-3 h-3" /> ESCROW TRUST CUSTODY
+                    </div>
+                    <h3 className="text-xl font-extrabold text-[#0B3326] font-heading mt-1">
+                      Order {state.order?.orderNumber} Escrow Funding Portal
+                    </h3>
+                    <p className="text-xs text-[#566861] mt-0.5">
+                      Buyer deposits contract value into the bank trust account. Funds remain locked until destination inspection.
+                    </p>
                   </div>
-                  <h3 className="text-lg font-bold text-[#0B3326] font-heading mt-1">
-                    Order {state.order?.orderNumber} Awaiting Escrow Funding
-                  </h3>
-                  <p className="text-xs text-[#566861]">
-                    The buyer deposits funds into the AgroLnk Bank Escrow Trust Account. Neither buyer nor seller holds custody during transit.
-                  </p>
+
+                  <div className="text-left sm:text-right bg-[#EFF6FF] p-3 rounded-2xl border border-blue-200 min-w-[140px]">
+                    <span className="text-[10px] text-blue-900 uppercase tracking-wider font-bold block">
+                      Required Deposit
+                    </span>
+                    <span className="text-2xl font-black text-[#1E40AF] font-heading block">
+                      ₹{state.order?.totalAmount?.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-blue-800 font-semibold">100% Escrow Protected</span>
+                  </div>
                 </div>
 
+                {/* Contract Summary Spec Grid */}
                 <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <span className="text-xs font-bold text-[#0B3326] block">
+                    Contract &amp; Lot Specifications
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     <div>
-                      <span className="text-[#566861] block text-[11px]">Commodity</span>
-                      <b className="text-[#0B3326]">{state.order?.commodity}</b>
+                      <span className="text-[#566861] block text-[11px]">Commodity &amp; Grade</span>
+                      <b className="text-[#0B3326]">{state.order?.commodity} (Grade {state.order?.grade})</b>
                     </div>
                     <div>
-                      <span className="text-[#566861] block text-[11px]">Quantity</span>
+                      <span className="text-[#566861] block text-[11px]">Contract Volume</span>
                       <b className="text-[#0B3326]">{state.order?.quantity} {state.order?.unit}</b>
                     </div>
                     <div>
-                      <span className="text-[#566861] block text-[11px]">Rate</span>
+                      <span className="text-[#566861] block text-[11px]">Winning Auction Rate</span>
                       <b className="text-[#10B981]">₹{state.order?.pricePerUnit}/{state.order?.unit}</b>
                     </div>
                     <div>
-                      <span className="text-[#566861] block text-[11px]">Total Contract</span>
-                      <b className="text-[#0B3326] text-sm">₹{state.order?.totalAmount?.toLocaleString('en-IN')}</b>
+                      <span className="text-[#566861] block text-[11px]">Seller / Producer</span>
+                      <b className="text-[#0B3326]">{state.order?.farmerName}</b>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#10B981] text-white flex items-center justify-center font-bold">
-                      🏛️
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-[#0B3326] block">
-                        AgroLnk Escrow Trust Account (IDBI Bank)
+                {/* Deposit Method Selector */}
+                <div className="space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#566861]">
+                    Select Institutional Deposit Facility
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      {
+                        key: 'rtgs_escrow',
+                        title: 'Bank RTGS / NEFT Trust',
+                        subtitle: 'Direct Nodal Escrow Account',
+                        badge: 'Recommended',
+                        icon: Building2,
+                      },
+                      {
+                        key: 'upi_mandate',
+                        title: 'Corporate UPI Mandate',
+                        subtitle: 'NPCI E-Mandate Instant Lock',
+                        badge: 'Instant',
+                        icon: Zap,
+                      },
+                      {
+                        key: 'credit_advance',
+                        title: 'Seasonal Procurement Credit',
+                        subtitle: 'Godown Warehouse Advance',
+                        badge: 'Credit Line',
+                        icon: CreditCard,
+                      },
+                    ].map((opt) => (
+                      <div
+                        key={opt.key}
+                        onClick={() => setDepositMethod(opt.key)}
+                        className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all ${
+                          depositMethod === opt.key
+                            ? 'bg-[#EBF5F0] border-[#10B981] ring-1 ring-[#10B981] shadow-2xs'
+                            : 'bg-white border-[#E5EDE8] hover:bg-[#F8FAF8]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <opt.icon className="w-4 h-4 text-[#10B981]" />
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                            depositMethod === opt.key ? 'bg-[#10B981] text-white' : 'bg-[#E5EDE8] text-[#566861]'
+                          }`}>
+                            {opt.badge}
+                          </span>
+                        </div>
+                        <div className="font-bold text-xs text-[#0B3326]">{opt.title}</div>
+                        <div className="text-[10px] text-[#566861]">{opt.subtitle}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Escrow Custody Account Box & Action Button */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+                  <div className="space-y-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-[#34D399]" />
+                      <span className="font-extrabold text-sm text-white">
+                        IDBI Bank Custody: AgroLnk Nodal Trust Account
                       </span>
-                      <span className="text-[11px] text-[#566861]">
-                        Safe Custody Account • 100% RBI Protected
-                      </span>
                     </div>
+                    <p className="text-[11px] text-[#A7F3D0]">
+                      Account: <b>0041104000189421</b> • IFSC: <b>IBKL0000041</b> • Zero fee platform guarantee
+                    </p>
                   </div>
 
                   <Button
-                    variant="primary"
+                    variant="accent"
                     size="md"
                     onClick={() => {
-                      fundDemoEscrow();
-                      showFeedback('Escrow funded! Money locked in trust. Dispatch authorized.');
+                      fundDemoEscrow(depositMethod);
+                      showFeedback(`Escrow funded via ${depositMethod.toUpperCase()}! Money secured in trust.`);
                     }}
-                    className="font-bold text-xs py-2 px-4 shadow-sm"
+                    icon={Lock}
+                    iconPosition="left"
+                    className="font-bold text-xs py-3 px-5 shadow-sm shrink-0 cursor-pointer"
                   >
-                    Deposit ₹{state.order?.totalAmount?.toLocaleString('en-IN')} Now
+                    Deposit &amp; Lock ₹{state.order?.totalAmount?.toLocaleString('en-IN')}
                   </Button>
                 </div>
               </Card>
@@ -996,108 +1071,261 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
             {/* STAGE 4: LOGISTICS & 2-OTP TRANSIT */}
             {state.currentStage === 4 && (
               <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-6">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
-                    <Truck className="w-3 h-3" /> TWO-STEP ANTI-THEFT LOGISTICS
+                
+                {/* Header with Transport Status */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5EDE8]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                        <Truck className="w-3 h-3" /> TWO-STEP ANTI-THEFT LOGISTICS
+                      </div>
+                      <span className="text-xs text-[#566861]">Consignment #{state.delivery?.deliveryNumber}</span>
+                    </div>
+                    <h3 className="text-xl font-extrabold text-[#0B3326] font-heading mt-1">
+                      Carrier Dispatch: {state.delivery?.pickupLocation?.split(',')[0]} ➔ {state.delivery?.deliveryLocation?.split(',')[0]}
+                    </h3>
+                    <p className="text-xs text-[#566861] mt-0.5">
+                      Estimated Distance: <b>{state.delivery?.distanceKm} km</b> • Tariff: <b>₹{state.delivery?.freightAmount?.toLocaleString('en-IN')}</b>
+                    </p>
                   </div>
-                  <h3 className="text-lg font-bold text-[#0B3326] font-heading mt-1">
-                    Consignment {state.delivery?.deliveryNumber} Dispatch
-                  </h3>
-                  <p className="text-xs text-[#566861]">
-                    Truck: <b>{state.delivery?.vehicleNumber}</b> • Driver: <b>{state.delivery?.driverName}</b> ({state.delivery?.driverPhone})
-                  </p>
+
+                  <Badge variant={state.delivery?.status === 'delivered' ? 'emerald' : state.delivery?.status === 'in_transit' ? 'blue' : 'amber'} size="md">
+                    {state.delivery?.status === 'delivered' ? '✓ Delivered' : state.delivery?.status === 'in_transit' ? '🚚 In Transit (340 km)' : 'Awaiting Farmgate Pickup'}
+                  </Badge>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Step 4A: Farmgate Pickup */}
-                  <div className={`p-4 rounded-2xl border space-y-3 ${
+                {/* Fleet Category Selector */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#566861]">
+                      Select Carrier Vehicle Category
+                    </span>
+                    <span className="text-[10px] text-[#10B981] font-semibold">APMC Corridor Tariff Matrix</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {[
+                      {
+                        type: 'mini_truck',
+                        name: 'Mini Truck (Tata Ace)',
+                        cap: 'Up to 1.5 MT',
+                        rate: 'Base ₹400 + ₹14/km',
+                      },
+                      {
+                        type: 'medium_lcv',
+                        name: 'Medium LCV (14ft Eicher)',
+                        cap: 'Up to 5.0 MT (Standard)',
+                        rate: 'Base ₹900 + ₹24/km',
+                      },
+                      {
+                        type: 'reefer_truck',
+                        name: 'Reefer Cold-Chain',
+                        cap: 'Up to 8.0 MT (Perishables)',
+                        rate: 'Base ₹1,600 + ₹34/km',
+                      },
+                    ].map((v) => (
+                      <button
+                        key={v.type}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVehicleType(v.type);
+                          updateDemoFreightTariff(v.type);
+                          showFeedback(`Updated vehicle to ${v.name}`);
+                        }}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                          (state.delivery?.vehicleType || selectedVehicleType) === v.type
+                            ? 'bg-[#EBF5F0] border-[#10B981] ring-1 ring-[#10B981]'
+                            : 'bg-[#F8FAF8] border-[#E5EDE8] hover:bg-white'
+                        }`}
+                      >
+                        <div className="font-bold text-xs text-[#0B3326]">{v.name}</div>
+                        <div className="text-[10px] text-[#566861] mt-0.5">{v.cap}</div>
+                        <div className="text-[10px] font-bold text-[#10B981] mt-1">{v.rate}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Assigned Vehicle & Driver Info Card */}
+                <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-[#566861] block text-[11px]">Carrier Fleet</span>
+                    <b className="text-[#0B3326]">{state.delivery?.transporterName}</b>
+                  </div>
+                  <div>
+                    <span className="text-[#566861] block text-[11px]">Truck Registration</span>
+                    <b className="text-[#0B3326]">{state.delivery?.vehicleNumber}</b>
+                  </div>
+                  <div>
+                    <span className="text-[#566861] block text-[11px]">Assigned Driver</span>
+                    <b className="text-[#0B3326]">{state.delivery?.driverName}</b>
+                  </div>
+                  <div>
+                    <span className="text-[#566861] block text-[11px]">Driver Mobile</span>
+                    <b className="text-[#10B981]">{state.delivery?.driverPhone}</b>
+                  </div>
+                </div>
+
+                {/* Two-Step Anti-Theft OTP Verification Consoles */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* Step 4A: Farmgate Pickup OTP Console */}
+                  <div className={`p-4 sm:p-5 rounded-2xl border space-y-3 transition-all ${
                     state.delivery?.status === 'in_transit' || state.delivery?.status === 'delivered'
                       ? 'bg-emerald-50/50 border-emerald-200'
-                      : 'bg-white border-[#E5EDE8]'
+                      : 'bg-white border-[#E5EDE8] shadow-xs'
                   }`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#0B3326]">
-                        Step 1: Farmgate Loading OTP
+                      <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                        Step 1: Farmgate Loading Verification
                       </span>
                       <Badge variant={state.delivery?.status === 'in_transit' || state.delivery?.status === 'delivered' ? 'emerald' : 'amber'} size="sm">
-                        {state.delivery?.status === 'in_transit' || state.delivery?.status === 'delivered' ? '✓ Verified' : 'Awaiting Driver'}
+                        {state.delivery?.status === 'in_transit' || state.delivery?.status === 'delivered' ? '✓ Dispatched' : 'Pending Loading'}
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-[#566861]">
-                      Farmer reveals code upon inspecting truck: <b className="text-[#0B3326] text-sm tracking-widest">{state.delivery?.pickupOtp}</b>
-                    </p>
-                    {state.delivery?.status !== 'in_transit' && state.delivery?.status !== 'delivered' && (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Enter 4-digit code"
-                          value={pickupOtpInput}
-                          onChange={(e) => setPickupOtpInput(e.target.value)}
-                          className="w-full bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl px-3 py-2 text-xs font-bold text-center tracking-widest"
-                        />
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => {
-                            try {
-                              verifyDemoPickupOtp(pickupOtpInput || state.delivery?.pickupOtp);
-                              setPickupOtpInput('');
-                              showFeedback('Pickup OTP confirmed! Produce is now in transit.');
-                            } catch (e) {
-                              showError(e.message);
-                            }
-                          }}
-                          className="shrink-0 text-xs font-bold"
-                        >
-                          Verify Pickup
-                        </Button>
+
+                    <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs space-y-1">
+                      <span className="text-[#566861] text-[11px] block">Farmer Screen Secure Pickup OTP:</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-black font-mono tracking-widest text-[#0B3326]">
+                          {state.delivery?.pickupOtp}
+                        </span>
+                        {state.delivery?.status === 'pending_escrow' || state.delivery?.status === 'assigned' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPickupOtpInput(state.delivery?.pickupOtp);
+                              showFeedback('Pickup OTP copied to driver input box!');
+                            }}
+                            className="text-[10px] font-bold text-[#10B981] hover:underline cursor-pointer"
+                          >
+                            Auto-Fill for Driver
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {state.delivery?.status !== 'in_transit' && state.delivery?.status !== 'delivered' ? (
+                      <div className="space-y-2 pt-1">
+                        <span className="text-[11px] text-[#566861] block">
+                          Driver inputs code after physical lot verification:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Enter 4-digit code"
+                            value={pickupOtpInput}
+                            onChange={(e) => setPickupOtpInput(e.target.value)}
+                            maxLength={4}
+                            className="w-full bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl px-3 py-2 text-sm font-black font-mono text-center tracking-widest focus:outline-none focus:border-[#10B981]"
+                          />
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                              try {
+                                verifyDemoPickupOtp(pickupOtpInput || state.delivery?.pickupOtp);
+                                setPickupOtpInput('');
+                                showFeedback('Pickup OTP verified! Carrier has departed farmgate.');
+                              } catch (e) {
+                                showError(e.message);
+                              }
+                            }}
+                            className="shrink-0 text-xs font-bold py-2 px-3"
+                          >
+                            Verify &amp; Dispatch
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-emerald-800 font-semibold bg-emerald-100/60 p-2.5 rounded-xl border border-emerald-200 flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-700" />
+                        <span>Pickup authenticated. Consignment safely loaded on truck.</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Step 4B: Destination Delivery */}
-                  <div className={`p-4 rounded-2xl border space-y-3 ${
+                  {/* Step 4B: Destination Delivery OTP Console */}
+                  <div className={`p-4 sm:p-5 rounded-2xl border space-y-3 transition-all ${
                     state.delivery?.status === 'delivered'
                       ? 'bg-emerald-50/50 border-emerald-200'
-                      : 'bg-[#F8FAF8] border-[#E5EDE8]'
+                      : state.delivery?.status === 'in_transit'
+                      ? 'bg-white border-[#E5EDE8] shadow-xs'
+                      : 'bg-[#F8FAF8] border-[#E5EDE8] text-[#566861]/60'
                   }`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#0B3326]">
-                        Step 2: Destination Delivery OTP
+                      <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                        <Package className="w-4 h-4 text-[#10B981]" />
+                        Step 2: Destination Arrival Verification
                       </span>
                       <Badge variant={state.delivery?.status === 'delivered' ? 'emerald' : 'dark'} size="sm">
-                        {state.delivery?.status === 'delivered' ? '✓ Unloaded' : 'In Transit'}
+                        {state.delivery?.status === 'delivered' ? '✓ Unloaded' : 'Awaiting Arrival'}
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-[#566861]">
-                      Buyer reveals code upon arrival at mill: <b className="text-[#0B3326] text-sm tracking-widest">{state.delivery?.deliveryOtp}</b>
-                    </p>
-                    {state.delivery?.status === 'in_transit' && (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Enter 4-digit code"
-                          value={deliveryOtpInput}
-                          onChange={(e) => setDeliveryOtpInput(e.target.value)}
-                          className="w-full bg-white border border-[#E5EDE8] rounded-xl px-3 py-2 text-xs font-bold text-center tracking-widest"
-                        />
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => {
-                            try {
-                              verifyDemoDeliveryOtp(deliveryOtpInput || state.delivery?.deliveryOtp);
-                              setDeliveryOtpInput('');
-                              showFeedback('Delivery OTP confirmed! Truck safely unloaded.');
-                            } catch (e) {
-                              showError(e.message);
-                            }
-                          }}
-                          className="shrink-0 text-xs font-bold"
-                        >
-                          Verify Arrival
-                        </Button>
+
+                    <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs space-y-1">
+                      <span className="text-[#566861] text-[11px] block">Buyer Screen Secure Delivery OTP:</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-black font-mono tracking-widest text-[#0B3326]">
+                          {state.delivery?.deliveryOtp}
+                        </span>
+                        {state.delivery?.status === 'in_transit' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryOtpInput(state.delivery?.deliveryOtp);
+                              showFeedback('Delivery OTP copied to receiver input box!');
+                            }}
+                            className="text-[10px] font-bold text-[#10B981] hover:underline cursor-pointer"
+                          >
+                            Auto-Fill for Driver
+                          </button>
+                        ) : null}
                       </div>
+                    </div>
+
+                    {state.delivery?.status === 'in_transit' ? (
+                      <div className="space-y-2 pt-1">
+                        <span className="text-[11px] text-[#566861] block">
+                          Driver inputs code after cargo arrival at buyer bay:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Enter 4-digit code"
+                            value={deliveryOtpInput}
+                            onChange={(e) => setDeliveryOtpInput(e.target.value)}
+                            maxLength={4}
+                            className="w-full bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl px-3 py-2 text-sm font-black font-mono text-center tracking-widest focus:outline-none focus:border-[#10B981]"
+                          />
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                              try {
+                                verifyDemoDeliveryOtp(deliveryOtpInput || state.delivery?.deliveryOtp);
+                                setDeliveryOtpInput('');
+                                showFeedback('Delivery OTP confirmed! Cargo safely received at mill.');
+                              } catch (e) {
+                                showError(e.message);
+                              }
+                            }}
+                            className="shrink-0 text-xs font-bold py-2 px-3"
+                          >
+                            Verify &amp; Unload
+                          </Button>
+                        </div>
+                      </div>
+                    ) : state.delivery?.status === 'delivered' ? (
+                      <div className="text-xs text-emerald-800 font-semibold bg-emerald-100/60 p-2.5 rounded-xl border border-emerald-200 flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-700" />
+                        <span>Consignment received at mill. Unloaded for assay check.</span>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-[#566861]">
+                        Unlocks automatically when truck completes farmgate pickup.
+                      </p>
                     )}
                   </div>
                 </div>
