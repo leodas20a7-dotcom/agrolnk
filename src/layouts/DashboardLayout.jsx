@@ -497,7 +497,7 @@ export default function DashboardLayout({
     },
     {
       type: 'single',
-      label: 'Credit & Godown',
+      label: 'Credit',
       page: 'buyer-financing',
       icon: Landmark,
     },
