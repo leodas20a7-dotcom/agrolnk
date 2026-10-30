@@ -207,7 +207,7 @@ export default function DashboardLayout({
     },
     food_processor: {
       badge: 'amber',
-      title: 'Food Processor Terminal',
+      title: 'Food Processor',
     },
   };
 
@@ -524,21 +524,21 @@ export default function DashboardLayout({
           <div className="h-16 flex items-center justify-between gap-2 sm:gap-4">
             
             {/* 1. Left: Brand Logo & Desk Indicator */}
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <button
                 onClick={() => onNavigate('landing')}
-                className="flex items-center gap-2 sm:gap-2.5 group focus:outline-none cursor-pointer min-w-0"
+                className="flex items-center gap-2 sm:gap-2.5 group focus:outline-none cursor-pointer shrink-0"
               >
                 <img
                   src={logoImg}
                   alt="AgroLnk Logo"
                   className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl bg-white border border-[#E5EDE8] p-0.5 shadow-xs shrink-0"
                 />
-                <div className="text-left min-w-0">
+                <div className="text-left shrink-0">
                   <span className="text-base sm:text-lg font-bold text-[#0B3326] font-heading leading-none block">
                     AgroLnk
                   </span>
-                  <span className="text-[9px] sm:text-[10px] text-[#10B981] font-semibold uppercase tracking-wider block mt-0.5 truncate max-w-[110px] sm:max-w-none">
+                  <span className="text-[9px] sm:text-[10px] text-[#10B981] font-semibold uppercase tracking-wider block mt-0.5 whitespace-nowrap">
                     {currentRoleConfig.title}
                   </span>
                 </div>
@@ -546,7 +546,7 @@ export default function DashboardLayout({
             </div>
 
             {/* 2. Center: Grouped Modern Dropdown Navigation */}
-            <nav ref={navRef} className="hidden lg:flex items-center gap-1.5">
+            <nav ref={navRef} className="hidden lg:flex items-center gap-1 xl:gap-1.5">
               {navGroups.map((group, idx) => {
                 if (group.type === 'single') {
                   const Icon = group.icon;
@@ -554,7 +554,7 @@ export default function DashboardLayout({
                     <button
                       key={group.page || idx}
                       onClick={() => onNavigate(group.page)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#566861] hover:text-[#0B3326] hover:bg-[#F2FBF6] transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold text-[#566861] hover:text-[#0B3326] hover:bg-[#F2FBF6] transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
                     >
                       <Icon className="w-3.5 h-3.5 text-[#10B981]" />
                       <span>{group.label}</span>
@@ -571,7 +571,7 @@ export default function DashboardLayout({
                     <button
                       type="button"
                       onClick={() => setActiveDropdown(isOpen ? null : group.id)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                         isOpen
                           ? 'bg-[#0B3326] text-white shadow-xs'
                           : 'text-[#566861] hover:text-[#0B3326] hover:bg-[#F2FBF6]'

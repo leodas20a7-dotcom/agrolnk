@@ -78,6 +78,7 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     return () => window.removeEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
   }, []);
 
+  const grades = ['A', 'B', 'C'];
   const standardUnits = ['kg', 'Quintal', 'MT'];
   const processorUnits = ['Bottle', 'Litre', 'Pack', 'Pouch', 'Piece', 'Can', 'Box', 'kg', 'Quintal', 'MT'];
   const units = isFoodProcessor ? processorUnits : standardUnits;

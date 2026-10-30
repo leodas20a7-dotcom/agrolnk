@@ -142,6 +142,11 @@ export function resolveRoute(rawRoute, user) {
     return user ? roleDashboard : 'landing';
   }
 
+  // Enforce Food Processor Terminal containment
+  if (currentRole === 'food_processor' && (clean === 'farmer-dashboard' || clean === 'buyer-dashboard')) {
+    return 'food-processor-dashboard';
+  }
+
   // Handle common aliases and shortcuts
   if (clean === 'dashboard') {
     return user ? roleDashboard : 'login';
@@ -348,7 +353,7 @@ export default function App() {
 
       {/* 5. Farmer & FPO Experience Module Routes */}
       {(currentPage === 'farmer-dashboard' || currentPage === 'fpo-dashboard') && (
-        <ProtectedRoute requiredRole="farmer" onNavigate={handleNavigate}>
+        <ProtectedRoute allowedRoles={['farmer', 'fpo']} onNavigate={handleNavigate}>
           <FarmerDashboard
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}

@@ -39,6 +39,9 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
     ? currentUser
     : (getCurrentUser() || { name: 'Buyer', id: '', role: 'buyer' });
+  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'buyer';
+  const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
+  const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'buyer-dashboard';
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedOrder, setSelectedOrder] = useState(navState?.newOrder || null);
@@ -221,7 +224,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <button
-              onClick={() => onNavigate('buyer-dashboard')}
+              onClick={() => onNavigate(dashboardTarget)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-2 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard

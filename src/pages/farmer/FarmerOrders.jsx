@@ -41,6 +41,9 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
     ? currentUser
     : (getCurrentUser() || { name: 'Farmer', id: '', role: 'farmer' });
+  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
+  const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'farmer-dashboard';
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
   const [currentPage, setCurrentPage] = useState(1);
@@ -229,7 +232,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <button
-              onClick={() => onNavigate('farmer-dashboard')}
+              onClick={() => onNavigate(dashboardTarget)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-2 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard

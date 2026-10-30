@@ -394,7 +394,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
       } else if (isEditing) {
         onNavigate('farmer-my-listings');
       } else {
-        onNavigate('farmer-dashboard');
+        onNavigate(isFoodProcessor ? 'food-processor-dashboard' : 'farmer-dashboard');
       }
     }
   };

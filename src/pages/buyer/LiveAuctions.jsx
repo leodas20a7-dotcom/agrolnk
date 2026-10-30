@@ -32,6 +32,9 @@ import VerificationRequiredModal from '../../components/verification/Verificatio
 
 export default function LiveAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { id: '', name: 'Buyer', role: 'buyer' };
+  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'buyer';
+  const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
+  const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'buyer-dashboard';
   const [auctions, setAuctions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('live'); // 'live' | 'ended'
@@ -152,7 +155,7 @@ export default function LiveAuctions({ currentUser, onNavigate }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <button
-              onClick={() => onNavigate('buyer-dashboard')}
+              onClick={() => onNavigate(dashboardTarget)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-2 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard
