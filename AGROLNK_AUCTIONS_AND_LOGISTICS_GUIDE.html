@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AgroLnk Auctions & Logistics Operational Guide</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+      @bottom-right {
+        content: counter(page) " / " counter(pages);
+      }
+    }
+    
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #14211D;
+      line-height: 1.55;
+      font-size: 10pt;
+      margin: 0;
+      padding: 0;
+      background-color: #ffffff;
+    }
+
+    .header-banner {
+      background: linear-gradient(135deg, #0B3326 0%, #0F4A37 100%);
+      color: white;
+      padding: 24px 28px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-title {
+      font-size: 20pt;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0 0 4px 0;
+      color: #ffffff;
+    }
+
+    .brand-subtitle {
+      font-size: 9.5pt;
+      color: #A7F3D0;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .badge-doc {
+      background: #10B981;
+      color: #064E3B;
+      font-weight: 700;
+      font-size: 8pt;
+      padding: 6px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    h1, h2, h3, h4 {
+      color: #0B3326;
+      font-weight: 700;
+      margin-top: 18px;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 13pt;
+      border-bottom: 2px solid #E5EDE8;
+      padding-bottom: 6px;
+      margin-top: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h3 {
+      font-size: 11pt;
+      margin-top: 14px;
+      color: #0F4A37;
+    }
+
+    p {
+      margin: 0 0 10px 0;
+      color: #374151;
+    }
+
+    ul, ol {
+      margin: 0 0 12px 0;
+      padding-left: 20px;
+      color: #374151;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    .highlight-box {
+      background: #F2FBF6;
+      border-left: 4px solid #10B981;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 14px 0;
+    }
+
+    .warning-box {
+      background: #FFFBEB;
+      border-left: 4px solid #F59E0B;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 14px 0;
+    }
+
+    .info-card {
+      background: #FFFFFF;
+      border: 1px solid #E5EDE8;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+
+    .flow-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .flow-step {
+      background: #F8FAF8;
+      border: 1px solid #D1E5DA;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .step-number {
+      background: #0B3326;
+      color: white;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8pt;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .step-title {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #0B3326;
+      margin-bottom: 2px;
+    }
+
+    .step-desc {
+      font-size: 7.5pt;
+      color: #566861;
+      line-height: 1.3;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 8.5pt;
+    }
+
+    th, td {
+      border: 1px solid #E5EDE8;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #F8FAF8;
+      font-weight: 700;
+      color: #0B3326;
+    }
+
+    tr:nth-child(even) td {
+      background: #FCFDFC;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .tag-emerald { background: #DCFCE7; color: #166534; }
+    .tag-blue { background: #DBEAFE; color: #1E40AF; }
+    .tag-amber { background: #FEF3C7; color: #92400E; }
+    .tag-purple { background: #F3E8FF; color: #6B21A8; }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    .faq-q {
+      font-weight: 700;
+      color: #0B3326;
+      margin-top: 10px;
+      margin-bottom: 3px;
+    }
+
+    .faq-a {
+      margin-bottom: 12px;
+      color: #4B5563;
+      font-size: 9pt;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Banner -->
+  <div class="header-banner">
+    <div>
+      <div class="brand-title">AgroLnk Exchange</div>
+      <div class="brand-subtitle">End-to-End Operational Guide: Auctions, Escrow Payouts, & Logistics</div>
+    </div>
+    <div style="text-align: right;">
+      <span class="badge-doc">Official Architecture Reference</span>
+      <div style="font-size: 7.5pt; color: #D1E5DA; margin-top: 5px;">Release 2026.1 • Escrow Trust & Ticker Engine</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: EXECUTIVE WORKFLOW OVERVIEW -->
+  <h2>1. End-to-End Workflow at a Glance</h2>
+  <p>
+    AgroLnk connects agricultural producers and food processors through a 100% verified, escrow-secured trading infrastructure. The diagram below illustrates how an auction transforms into a settled financial contract and physical delivery:
+  </p>
+
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="step-number">1</div>
+      <div class="step-title">Auction Won</div>
+      <div class="step-desc">Timer expires or farmer accepts early bid. Reserve price verified.</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-number">2</div>
+      <div class="step-title">Order Generated</div>
+      <div class="step-desc">Order #AGM-XXXX auto-created. Escrow status: <i>pending_deposit</i>.</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-number">3</div>
+      <div class="step-title">2-OTP Transport</div>
+      <div class="step-desc">Transporter assigned. Farmgate Pickup OTP & Destination Delivery OTP.</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-number">4</div>
+      <div class="step-title">Escrow Release</div>
+      <div class="step-desc">Buyer confirms arrival & quality. Funds disbursed directly to farmer.</div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: WHAT HAPPENS IMMEDIATELY AFTER AN AUCTION IS WON -->
+  <h2>2. Next Steps After Winning an Auction</h2>
+  <div class="highlight-box">
+    <strong>Key Rule:</strong> When the auction timer reaches 00:00:00 (or the farmer clicks <i>"Accept Offer & Close Now"</i>), the system executes an atomic transaction (<code>finalize_auction_atomic</code>). If the winning bid meets or exceeds the farmer's <strong>Reserve Floor Price</strong>, the auction is formally completed and the sale contract is bound.
+  </div>
+
+  <h3>Action Items for the Winning Buyer:</h3>
+  <ul>
+    <li><strong>Instant Victory Notification:</strong> A trophy modal banner appears in the live auction room declaring the winning rate and total valuation.</li>
+    <li><strong>Order Redirect:</strong> The buyer clicks <code>View Order</code> or navigates to <code>Orders & Dispatch -> Purchases</code>.</li>
+    <li><strong>Escrow Deposit (Locking Funds):</strong> The buyer deposits the purchase value into AgroLnk's Bank Escrow Trust Account. This guarantees that farmer will get paid immediately upon delivery.</li>
+    <li><strong>Delivery Destination Confirmation:</strong> The buyer verifies the destination warehouse address and contact details for incoming freight.</li>
+  </ul>
+
+  <h3>Action Items for the Seller / Farmer:</h3>
+  <ul>
+    <li><strong>Order Created Notification:</strong> The farmer receives an alert in their Notification Bell: <i>"Auction Won! Order #AGM-XXXX created. Awaiting buyer escrow funding."</i></li>
+    <li><strong>Lot Preparation:</strong> Farmer bags and prepares the harvest lot at farmgate or aggregation godown.</li>
+    <li><strong>Pickup Security Code (OTP):</strong> A secure 4-digit Pickup OTP is generated in the farmer's portal to verify the transporter before allowing truck loading.</li>
+  </ul>
+
+  <!-- SECTION 3: NOTIFICATIONS & LIVE ALERTS -->
+  <h2>3. How Notifications and Alerts Pass Between Parties</h2>
+  <p>AgroLnk employs a dual-channel notification architecture:</p>
+  <ul>
+    <li><strong>Real-Time WebSocket Feed (Supabase Realtime):</strong> When a new bid is placed, ticker prices update instantly across all active screens with sub-second latency.</li>
+    <li><strong>State-Driven User Alerts (In-App Bell & Storage Sync):</strong> Targeted alerts delivered strictly to relevant roles without spam.</li>
+  </ul>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Event Trigger</th>
+        <th>Recipient</th>
+        <th>Alert Channel</th>
+        <th>Actionable Outcome</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Outbid Event</strong></td>
+        <td>Previous Leading Bidder</td>
+        <td>Screen Banner + Sound</td>
+        <td>Alerts user they are outbid; allows instant counter-bid.</td>
+      </tr>
+      <tr>
+        <td><strong>Early Knockdown</strong></td>
+        <td>All Bidders in Room</td>
+        <td>Live Ticker Broadcast</td>
+        <td>Freezes timer; declares winner chosen by farmer.</td>
+      </tr>
+      <tr>
+        <td><strong>Auction Won</strong></td>
+        <td>Winner (Buyer) & Seller</td>
+        <td>In-App Bell + Modal</td>
+        <td>Provides 1-click button to Escrow Order checkout.</td>
+      </tr>
+      <tr>
+        <td><strong>Escrow Funded</strong></td>
+        <td>Farmer & Transporter</td>
+        <td>Notification Bell + Badge</td>
+        <td>Authorizes farmer to release produce to the truck.</td>
+      </tr>
+      <tr>
+        <td><strong>Consignment Dispatched</strong></td>
+        <td>Buyer</td>
+        <td>Live Delivery Tracker</td>
+        <td>Displays vehicle number, driver phone, and live route.</td>
+      </tr>
+      <tr>
+        <td><strong>Arrival & Inspection</strong></td>
+        <td>Escrow Desk & Farmer</td>
+        <td>Order Detail Badge</td>
+        <td>Triggers escrow release to farmer's verified bank account.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 4: ESCROW ORDER RELEASE OPTION -->
+  <h2>4. Is the "Order Release" / Payment Release Option Available?</h2>
+  <div class="highlight-box">
+    <strong>YES, 100% AVAILABLE:</strong> AgroLnk utilizes a strict digital escrow trust protocol to protect both farmers from default and buyers from fraudulent or sub-standard consignments.
+  </div>
+
+  <h3>How Escrow Release Works Step-by-Step:</h3>
+  <ol>
+    <li>
+      <strong>Escrow Funded (Deposit Held in Trust):</strong><br>
+      The buyer deposits the total contract amount. Funds are locked securely under bank custody (IDBI / Razorpay Escrow Trust). The farmer sees the status <code>Protected in Escrow</code>.
+    </li>
+    <li>
+      <strong>Physical Delivery & Inspection:</strong><br>
+      The transport truck arrives at the buyer's destination mill or depot. The buyer inspects the consignment for quantity, moisture, and grade compliance.
+    </li>
+    <li>
+      <strong>Delivery OTP Verification:</strong><br>
+      The buyer provides the 4-digit Delivery OTP to the driver, confirming physical handover.
+    </li>
+    <li>
+      <strong>Release Trigger (Buyer Confirmation & Ops Verification):</strong><br>
+      The buyer clicks <code>Confirm Order Receipt</code> in their portal. In accordance with APMC guidelines, AgroLnk Operations desk conducts an automated / quick telephone audit to verify assay parameters.
+    </li>
+    <li>
+      <strong>Disbursement to Farmer Bank Account:</strong><br>
+      Funds are immediately disbursed via IMPS / NEFT directly into the farmer's verified bank account. A <strong>Bank UTR Reference Number</strong> (e.g. <code>UTR-20261030-98421</code>) is stamped permanently on the order invoice. The order changes to <code>Settled to Bank (Completed)</code>.
+    </li>
+  </ol>
+
+  <!-- SECTION 5: POST-ORDER CONFIRMATION TRANSPORT & LOGISTICS -->
+  <h2>5. How the Logistics & Transport Process Works</h2>
+  <p>
+    When an auction completes and generates an order, AgroLnk automatically instantiates a companion delivery consignment (<code>DEL-XXXX</code>) in the logistics system.
+  </p>
+
+  <h3>Logistics Execution Sequence:</h3>
+  <div class="info-card">
+    <h4 style="margin: 0 0 6px 0; color: #0B3326;">A. Automatic Vehicle & Tariff Calculation</h4>
+    <p style="margin: 0; font-size: 8.5pt; color: #566861;">
+      Distance is computed using our district transit matrix. Freight is priced according to transparent vehicle categories:
+    </p>
+    <ul style="margin: 6px 0 0 0; font-size: 8.5pt;">
+      <li><strong>Mini Truck (Tata Ace / Bolero):</strong> Base ₹400 + ₹14/km (lots up to 1.5 MT)</li>
+      <li><strong>Medium LCV (14ft Eicher):</strong> Base ₹900 + ₹24/km (standard loads up to 5.0 MT)</li>
+      <li><strong>Reefer Cold-Chain Truck:</strong> Base ₹1600 + ₹34/km (temperature-controlled perishables)</li>
+    </ul>
+  </div>
+
+  <div class="info-card">
+    <h4 style="margin: 0 0 6px 0; color: #0B3326;">B. Transporter Assignment</h4>
+    <p style="margin: 0; font-size: 8.5pt; color: #566861;">
+      Verified logistics partners in the origin cluster review the delivery request via their <code>Transporter Dashboard</code>. Once assigned, driver name, phone number, and vehicle registration are visible to both buyer and farmer.
+    </p>
+  </div>
+
+  <div class="info-card">
+    <h4 style="margin: 0 0 6px 0; color: #0B3326;">C. Two-Step Anti-Theft OTP Protocol</h4>
+    <p style="margin: 0; font-size: 8.5pt; color: #566861;">
+      <strong>Step 1 (Pickup OTP):</strong> When the truck reaches the farmgate, the farmer inspects the truck and shares the <i>Pickup OTP</i> with the driver. This moves the order to <code>In Transit</code>.<br>
+      <strong>Step 2 (Delivery OTP):</strong> Upon safe arrival at the buyer facility, the buyer gives the <i>Delivery OTP</i> to confirm unloading.
+    </p>
+  </div>
+
+  <!-- SECTION 6: EXPIRY DURATION, RUNNER-UP OFFERS & RELISTING -->
+  <h2>6. Buyer Confirmation Expiry, Farmer Decisions & Runner-Up Policy</h2>
+
+  <div class="warning-box">
+    <strong>Payment & Confirmation Window: 24 Hours Standard</strong><br>
+    The winning bidder has a strict <strong>24-hour window</strong> to fund the escrow trust account. During this period, the farmer's lot is reserved exclusively for the winning buyer.
+  </div>
+
+  <h3>Scenario A: The Winning Buyer Confirms & Funds Escrow</h3>
+  <p>The contract proceeds smoothly into pickup, dispatch, and final settlement.</p>
+
+  <h3>Scenario B: The Winning Buyer Fails to Confirm (Expires or Backs Out)</h3>
+  <p>
+    If the 24-hour window lapses without payment deposit, the winning bid is declared <strong>defaulted</strong>. The farmer has two powerful, one-click options:
+  </p>
+
+  <ol>
+    <li>
+      <strong>Offer to Runner-Up (2nd Highest Bidder):</strong><br>
+      The farmer can instantly extend a purchase offer to the 2nd highest bidder at their recorded bid price. The 2nd bidder receives an urgent alert: <i>"Opportunity: The leading lot is offered to you at ₹X/unit. Accept within 12 hours to claim."</i>
+    </li>
+    <li>
+      <strong>1-Click Relist / Re-Auction:</strong><br>
+      If the runner-up offer is not desired, the farmer clicks <code>Relist Produce</code>. The system automatically pre-populates all commodity details, photos, and grades, allowing the farmer to launch a fresh 30-minute or 2-hour live auction with an updated reserve price.
+    </li>
+  </ol>
+
+  <!-- SECTION 7: CRITICAL QUESTIONS & ANSWERS (FAQ) -->
+  <h2>7. Frequently Asked Operational Questions</h2>
+
+  <div class="faq-q">Q1: Can a farmer bid on their own auction to artificially raise the price?</div>
+  <div class="faq-a"><strong>No.</strong> AgroLnk's database RPC enforces strict identity isolation. Producers are forbidden from bidding on their own lots, and the leading bidder cannot place consecutive bids against themselves.</div>
+
+  <div class="faq-q">Q2: What happens if the highest bid is below the farmer's Reserve Floor?</div>
+  <div class="faq-a">The auction status changes to <code>reserve_not_met</code>. No order is created, and the farmer is under no legal obligation to sell. The farmer can freely relist or offer the lot in the general produce marketplace.</div>
+
+  <div class="faq-q">Q3: What if the buyer finds quality defects upon truck arrival?</div>
+  <div class="faq-a">AgroLnk includes an in-order <code>Inspect Assay Quality</code> modal. If the lot deviates from the declared grade (e.g. moisture > 14% or foreign matter), the buyer can raise a formal dispute before releasing escrow. An AgroLnk certified quality surveyor reviews the assay data to negotiate an equitable price adjustment or return freight.</div>
+
+  <div class="faq-q">Q4: How does a Reverse Auction differ from a Standard Forward Auction?</div>
+  <div class="faq-a">In a <strong>Forward Auction</strong>, buyers compete by submitting increasingly higher bids (₹+25 step). In a <strong>Reverse Auction</strong> (procurement contract), suppliers compete by submitting lower bids down to the buyer's reserve ceiling. Both models utilize identical escrow, OTP, and dispatch mechanics.</div>
+
+  <div style="margin-top: 30px; padding: 12px; background: #F8FAF8; border-top: 1px solid #E5EDE8; text-align: center; font-size: 8pt; color: #566861;">
+    Document Reference: AGROLNK-OPS-DOC-2026-v2 • AgroLnk Technologies Pvt Ltd • Escrow & Exchange Division
+  </div>
+
+</body>
+</html>
