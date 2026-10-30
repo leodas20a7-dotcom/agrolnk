@@ -6,22 +6,52 @@
 -- ----------------------------------------------------------------------------
 -- 1. ATOMIC AUCTION BID PLACEMENT
 -- Concurrency lock: FOR UPDATE on auctions row
--- Enforces: active status, expiry, anti-shill (no farmer self-bidding), strictly higher bid
--- Automatically notifies previous highest bidder
+-- Enforces:
+--   1. Strict authentication & identity binding (auth.uid())
+--   2. Enforces minimum bid step (bid_step) to stop 1-paisa sniping
+--   3. Soft-close extension (+2 mins) if bid placed in final 2 minutes
+--   4. Anti-shill self-bidding prevention
+--   5. Forward vs Reverse auction logic & reserve floor checks
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.place_auction_bid_atomic(
     p_auction_id TEXT,
-    p_bidder_id TEXT,
-    p_bidder_name TEXT,
-    p_bid_amount NUMERIC
+    p_bidder_id TEXT DEFAULT NULL,
+    p_bidder_name TEXT DEFAULT NULL,
+    p_bid_amount NUMERIC DEFAULT 0
 ) RETURNS JSONB AS $$
 DECLARE
     v_auction RECORD;
     v_new_bid_id TEXT;
     v_prev_bidder_id TEXT;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_bidder_id TEXT;
+    v_bidder_name TEXT;
+    v_step NUMERIC;
+    v_new_end_time TIMESTAMP WITH TIME ZONE;
+    v_extended BOOLEAN := false;
 BEGIN
-    -- 1. Acquire exclusive row lock on the auction to eliminate race conditions
+    -- 1. Cryptographically bind bidder identity from Supabase Auth session
+    v_bidder_id := auth.uid()::text;
+    IF v_bidder_id IS NULL THEN
+        -- Fallback for direct testing / service role if explicit param provided
+        v_bidder_id := NULLIF(TRIM(p_bidder_id), '');
+    END IF;
+
+    IF v_bidder_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required: You must be logged in to place a bid.';
+    END IF;
+
+    -- Resolve authoritative bidder name from profiles if available
+    SELECT COALESCE(NULLIF(TRIM(full_name), ''), NULLIF(TRIM(name), ''), p_bidder_name, 'Verified Buyer')
+    INTO v_bidder_name
+    FROM public.profiles
+    WHERE id = v_bidder_id;
+
+    IF v_bidder_name IS NULL THEN
+        v_bidder_name := COALESCE(NULLIF(TRIM(p_bidder_name), ''), 'Verified Buyer');
+    END IF;
+
+    -- 2. Acquire exclusive row lock on the auction to eliminate race conditions
     SELECT * INTO v_auction 
     FROM public.auctions 
     WHERE id = p_auction_id 
@@ -31,56 +61,85 @@ BEGIN
         RAISE EXCEPTION 'Auction lot not found.';
     END IF;
 
-    -- 2. Verify auction is strictly live
+    -- 3. Verify auction is strictly live
     IF v_auction.status != 'live' THEN
         RAISE EXCEPTION 'This auction is no longer live (Status: %).', v_auction.status;
     END IF;
 
-    -- 3. Verify auction has not expired
+    -- 4. Verify auction has not expired
     IF v_now >= v_auction.end_time THEN
-        -- Auto-close if expired
         UPDATE public.auctions SET status = 'completed', updated_at = v_now WHERE id = p_auction_id;
         RAISE EXCEPTION 'This auction has ended and is no longer accepting bids.';
     END IF;
 
-    -- 4. Prevent Shill-Bidding (Producers cannot bid on their own lot)
-    IF v_auction.farmer_id IS NOT NULL AND v_auction.farmer_id = p_bidder_id THEN
+    -- 5. Prevent Shill-Bidding (Producers cannot bid on their own lot)
+    IF v_auction.farmer_id IS NOT NULL AND v_auction.farmer_id = v_bidder_id THEN
         RAISE EXCEPTION 'Producers are not permitted to bid on their own auctions.';
     END IF;
 
-    -- 5. Verify bid amount based on auction type (Forward vs Reverse)
+    -- 6. Enforce Minimum Bid Step (bid_step)
+    v_step := COALESCE(v_auction.bid_step, 1);
+    IF v_step <= 0 THEN
+        v_step := 1;
+    END IF;
+
     IF COALESCE(v_auction.auction_type, 'forward') = 'reverse' THEN
-        IF p_bid_amount >= v_auction.current_bid THEN
-            RAISE EXCEPTION 'In a reverse auction, your bid of ₹% must be lower than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+        -- REVERSE AUCTION (Descending Bids: Suppliers undercut each other)
+        IF COALESCE(v_auction.total_bids, 0) = 0 THEN
+            IF p_bid_amount > v_auction.current_bid THEN
+                RAISE EXCEPTION 'In a reverse auction, opening bid cannot exceed the starting ceiling price of ₹%.', v_auction.current_bid;
+            END IF;
+        ELSE
+            IF p_bid_amount > (v_auction.current_bid - v_step) THEN
+                RAISE EXCEPTION 'In a reverse auction, your bid of ₹% must reduce the current leading bid of ₹% by at least the bid step of ₹% (Maximum allowable bid: ₹%).',
+                    p_bid_amount, v_auction.current_bid, v_step, (v_auction.current_bid - v_step);
+            END IF;
         END IF;
+
         IF v_auction.reserve_price IS NOT NULL AND p_bid_amount < v_auction.reserve_price THEN
-            RAISE EXCEPTION 'Bid cannot be lower than the farmer''s reserve floor price of ₹%.', v_auction.reserve_price;
+            RAISE EXCEPTION 'Bid of ₹% cannot be lower than the reserve floor price of ₹%.', p_bid_amount, v_auction.reserve_price;
         END IF;
     ELSE
-        IF p_bid_amount <= v_auction.current_bid THEN
-            RAISE EXCEPTION 'Your bid of ₹% must be higher than the current leading bid of ₹%.', p_bid_amount, v_auction.current_bid;
+        -- FORWARD AUCTION (Ascending Bids: Buyers bid upwards)
+        IF COALESCE(v_auction.total_bids, 0) = 0 THEN
+            IF p_bid_amount < v_auction.current_bid THEN
+                RAISE EXCEPTION 'Opening bid of ₹% must be at least the starting price of ₹%.', p_bid_amount, v_auction.current_bid;
+            END IF;
+        ELSE
+            IF p_bid_amount < (v_auction.current_bid + v_step) THEN
+                RAISE EXCEPTION 'Your bid of ₹% must be at least ₹% higher than the current leading bid of ₹% (Minimum next bid: ₹%).',
+                    p_bid_amount, v_step, v_auction.current_bid, (v_auction.current_bid + v_step);
+            END IF;
         END IF;
+    END IF;
+
+    -- 7. Soft-Close Anti-Sniping Protection (Extend by 2 mins if bid placed in final 2 minutes)
+    v_new_end_time := v_auction.end_time;
+    IF (v_auction.end_time - v_now) < INTERVAL '2 minutes' THEN
+        v_new_end_time := v_now + INTERVAL '2 minutes';
+        v_extended := true;
     END IF;
 
     -- Save previous highest bidder for outbid notification
     v_prev_bidder_id := v_auction.highest_bidder_id;
 
-    -- 6. Insert new bid record
+    -- 8. Insert new bid record
     v_new_bid_id := 'bid_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6);
     INSERT INTO public.auction_bids (id, auction_id, bidder_id, bidder_name, bid_amount, created_at)
-    VALUES (v_new_bid_id, p_auction_id, p_bidder_id, COALESCE(p_bidder_name, 'Buyer Partner'), p_bid_amount, v_now);
+    VALUES (v_new_bid_id, p_auction_id, v_bidder_id, v_bidder_name, p_bid_amount, v_now);
 
-    -- 7. Update auction current bid atomically
+    -- 9. Update auction current bid atomically
     UPDATE public.auctions SET
         current_bid = p_bid_amount,
-        highest_bidder_id = p_bidder_id,
-        highest_bidder_name = COALESCE(p_bidder_name, 'Buyer Partner'),
+        highest_bidder_id = v_bidder_id,
+        highest_bidder_name = v_bidder_name,
         total_bids = COALESCE(v_auction.total_bids, 0) + 1,
+        end_time = v_new_end_time,
         updated_at = v_now
     WHERE id = p_auction_id;
 
-    -- 8. Disclose instant outbid notification to previous leader
-    IF v_prev_bidder_id IS NOT NULL AND v_prev_bidder_id != p_bidder_id THEN
+    -- 10. Instant outbid notification to previous leader
+    IF v_prev_bidder_id IS NOT NULL AND v_prev_bidder_id != v_bidder_id THEN
         INSERT INTO public.notifications (
             id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
         ) VALUES (
@@ -101,9 +160,11 @@ BEGIN
         'auction_id', p_auction_id,
         'bid_id', v_new_bid_id,
         'current_bid', p_bid_amount,
-        'highest_bidder_id', p_bidder_id,
-        'highest_bidder_name', COALESCE(p_bidder_name, 'Buyer Partner'),
+        'highest_bidder_id', v_bidder_id,
+        'highest_bidder_name', v_bidder_name,
         'total_bids', COALESCE(v_auction.total_bids, 0) + 1,
+        'end_time', v_new_end_time,
+        'extended', v_extended,
         'status', 'live'
     );
 END;

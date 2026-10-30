@@ -79,16 +79,23 @@ ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS farmer_phone TEXT;
 DROP POLICY IF EXISTS "orders_select_policy" ON public.orders;
 DROP POLICY IF EXISTS "orders_read_policy" ON public.orders;
 DROP POLICY IF EXISTS "Enable read access for all users" ON public.orders;
+DROP POLICY IF EXISTS "Allow public read orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow public write orders" ON public.orders;
 
 CREATE POLICY "orders_select_policy" ON public.orders
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        auth.uid()::text = buyer_id OR
+        auth.uid()::text = farmer_id OR
+        (farmer_email IS NOT NULL AND auth.jwt() ->> 'email' = farmer_email) OR
+        public.is_admin() OR
+        public.is_verified_financier()
+    );
 
 DROP POLICY IF EXISTS "orders_insert_policy" ON public.orders;
 CREATE POLICY "orders_insert_policy" ON public.orders
     FOR INSERT WITH CHECK (
         auth.uid()::text = buyer_id OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        public.is_admin()
     );
 
 DROP POLICY IF EXISTS "orders_update_policy" ON public.orders;
@@ -96,13 +103,13 @@ CREATE POLICY "orders_update_policy" ON public.orders
     FOR UPDATE USING (
         auth.uid()::text = farmer_id OR
         auth.uid()::text = buyer_id OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        (farmer_email IS NOT NULL AND auth.jwt() ->> 'email' = farmer_email) OR
+        public.is_admin()
     ) WITH CHECK (
         auth.uid()::text = farmer_id OR
         auth.uid()::text = buyer_id OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        (farmer_email IS NOT NULL AND auth.jwt() ->> 'email' = farmer_email) OR
+        public.is_admin()
     );
 
 -- Anti-tampering trigger: Prevents non-admin users from altering price, escrow, or payout fields directly
@@ -137,26 +144,44 @@ CREATE TRIGGER trg_protect_order_financial_fields
 ALTER TABLE IF EXISTS public.deliveries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "deliveries_select_policy" ON public.deliveries;
+DROP POLICY IF EXISTS "Allow public read deliveries" ON public.deliveries;
+DROP POLICY IF EXISTS "Allow public write deliveries" ON public.deliveries;
+
 CREATE POLICY "deliveries_select_policy" ON public.deliveries
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        auth.uid()::text = buyer_id OR
+        auth.uid()::text = farmer_id OR
+        auth.uid()::text = transporter_id OR
+        (status = 'transport_requested' AND (
+            EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid()::text AND role = 'transporter') OR
+            (auth.jwt() -> 'app_metadata' ->> 'role') = 'transporter' OR
+            (auth.jwt() ->> 'role') = 'authenticated'
+        )) OR
+        public.is_admin()
+    );
 
 DROP POLICY IF EXISTS "deliveries_insert_policy" ON public.deliveries;
 CREATE POLICY "deliveries_insert_policy" ON public.deliveries
     FOR INSERT WITH CHECK (
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        auth.uid()::text = farmer_id OR
+        auth.uid()::text = buyer_id OR
+        public.is_admin()
     );
 
 DROP POLICY IF EXISTS "deliveries_update_policy" ON public.deliveries;
 CREATE POLICY "deliveries_update_policy" ON public.deliveries
     FOR UPDATE USING (
         auth.uid()::text = transporter_id OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        auth.uid()::text = farmer_id OR
+        auth.uid()::text = buyer_id OR
+        (transporter_id IS NULL AND status = 'transport_requested') OR
+        public.is_admin()
     ) WITH CHECK (
         auth.uid()::text = transporter_id OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        auth.uid()::text = farmer_id OR
+        auth.uid()::text = buyer_id OR
+        (status IN ('assigned', 'transport_requested')) OR
+        public.is_admin()
     );
 
 -- ----------------------------------------------------------------------------
@@ -237,20 +262,24 @@ CREATE TRIGGER trg_protect_financing_approval_fields
 ALTER TABLE IF EXISTS public.chat_messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "chat_select_policy" ON public.chat_messages;
+DROP POLICY IF EXISTS "Allow public read chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Allow public write chat_messages" ON public.chat_messages;
+
 CREATE POLICY "chat_select_policy" ON public.chat_messages
     FOR SELECT USING (
         thread_key ILIKE '%' || auth.uid()::text || '%' OR
+        thread_key ILIKE '%' || (auth.jwt() ->> 'email') || '%' OR
         sender_id = auth.uid()::text OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        sender_id = (auth.jwt() ->> 'email') OR
+        public.is_admin()
     );
 
 DROP POLICY IF EXISTS "chat_insert_policy" ON public.chat_messages;
 CREATE POLICY "chat_insert_policy" ON public.chat_messages
     FOR INSERT WITH CHECK (
         sender_id = auth.uid()::text OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        sender_id = (auth.jwt() ->> 'email') OR
+        public.is_admin()
     );
 
 -- ----------------------------------------------------------------------------
@@ -259,19 +288,41 @@ CREATE POLICY "chat_insert_policy" ON public.chat_messages
 ALTER TABLE IF EXISTS public.inspections ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "inspections_select_policy" ON public.inspections;
+DROP POLICY IF EXISTS "Allow public read inspections" ON public.inspections;
+DROP POLICY IF EXISTS "Allow public write inspections" ON public.inspections;
+
 CREATE POLICY "inspections_select_policy" ON public.inspections
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        auth.uid()::text = buyer_id OR
+        EXISTS (
+            SELECT 1 FROM public.orders o 
+            WHERE (o.id = inspections.order_id OR o.order_number = inspections.order_number) 
+              AND (o.farmer_id = auth.uid()::text OR o.buyer_id = auth.uid()::text)
+        ) OR
+        EXISTS (
+            SELECT 1 FROM public.listings l 
+            WHERE (l.id = inspections.order_id OR l.id = inspections.order_number) 
+              AND l.farmer_id = auth.uid()::text
+        ) OR
+        public.is_admin()
+    );
 
 DROP POLICY IF EXISTS "inspections_insert_update_policy" ON public.inspections;
-CREATE POLICY "inspections_insert_update_policy" ON public.inspections
-    FOR ALL USING (
+DROP POLICY IF EXISTS "inspections_insert_policy" ON public.inspections;
+CREATE POLICY "inspections_insert_policy" ON public.inspections
+    FOR INSERT WITH CHECK (
         auth.uid()::text = buyer_id OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        public.is_admin()
+    );
+
+DROP POLICY IF EXISTS "inspections_update_policy" ON public.inspections;
+CREATE POLICY "inspections_update_policy" ON public.inspections
+    FOR UPDATE USING (
+        auth.uid()::text = buyer_id OR
+        public.is_admin()
     ) WITH CHECK (
         auth.uid()::text = buyer_id OR
-        public.is_admin() OR
-        auth.role() IN ('authenticated', 'anon')
+        public.is_admin()
     );
 
 -- ----------------------------------------------------------------------------
