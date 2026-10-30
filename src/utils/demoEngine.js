@@ -264,6 +264,60 @@ export function createDemoAuction(templateId) {
 }
 
 /**
+ * Launch an auction with custom parameters
+ */
+export function createDemoAuctionCustom(customData) {
+  const state = readState();
+  const commodity = customData.commodity || 'Paddy (Sona Masoori)';
+  const quantity = Number(customData.quantity) || 10;
+  const unit = customData.unit || 'MT';
+  const startBid = Number(customData.startingBid) || 30;
+  const reserve = Number(customData.reservePrice) || Math.round(startBid * 1.15);
+  const step = Number(customData.bidStep) || 1;
+  const origin = customData.origin || 'Salem Farmgate Hub, Tamil Nadu';
+  const destination = customData.destination || 'Global Mills Receiving Silo, Chennai';
+
+  state.auction = {
+    id: `demo_auc_${Date.now().toString().slice(-4)}`,
+    commodity,
+    variety: customData.variety || 'Standard Grade',
+    grade: customData.grade || 'A',
+    quantity,
+    unit,
+    startingBid: startBid,
+    reservePrice: reserve,
+    currentBid: startBid,
+    bidStep: step,
+    totalBids: 0,
+    farmerId: DEMO_PERSONAS.farmer.id,
+    farmerName: DEMO_PERSONAS.farmer.name,
+    highestBidderId: null,
+    highestBidderName: null,
+    status: 'live',
+    remainingSeconds: 180,
+    origin,
+    destination,
+    createdAt: new Date().toISOString(),
+  };
+
+  state.bids = [];
+  state.order = null;
+  state.delivery = null;
+  state.currentStage = 2; // Jump to live floor
+  state.activePersonaKey = 'buyer'; // Switch to buyer to bid
+
+  state.logs.unshift({
+    id: `log_${Date.now()}`,
+    time: 'Just now',
+    role: 'Farmer',
+    text: `Created and launched custom auction: ${quantity} ${unit} of ${commodity}. Reserve: ₹${reserve}/${unit}.`,
+  });
+
+  writeState(state);
+  return state;
+}
+
+/**
  * Place a bid in the live room
  */
 export function placeDemoBid(amount) {
