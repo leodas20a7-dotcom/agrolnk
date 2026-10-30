@@ -12,3 +12,4 @@ This folder contains the complete, isolated **AgroLnk 5-Stage End-to-End Demo Sa
 3. **Stage 3**: Buyer IDBI Bank nodal escrow trust account deposit with 3 payment channel options.
 4. **Stage 4**: Logistics carrier assignment with Two-Step Anti-Theft OTP verification (Farmgate Pickup OTP & Mill Delivery OTP).
 5. **Stage 5**: Destination quality moisture assay certification, mutual discount dispute resolution, and final instant IMPS bank payout with authoritative UTR generation.
+

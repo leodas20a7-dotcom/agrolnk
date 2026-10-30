@@ -823,35 +823,6 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                     Processed Food Product
                   </button>
                 </div>
-
-                {formData.productType === 'processed' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 mt-2 border-t border-gray-200">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 block">
-                        Brand / Mill Name (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.brandName || ''}
-                        onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-                        placeholder="e.g. Royal Golden Mills"
-                        className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 block">
-                        Packaging Format (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.packagingType || ''}
-                        onChange={(e) => setFormData({ ...formData, packagingType: e.target.value })}
-                        placeholder="e.g. 50kg Bags, 15L Tins, 1kg Pouches"
-                        className="w-full text-xs px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-purple-600 focus:border-purple-600 bg-white"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
