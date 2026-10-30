@@ -464,13 +464,13 @@ export default function DashboardLayout({
       icon: ShoppingBag,
       items: [
         {
-          label: 'Raw Crop Purchases',
+          label: 'Purchases',
           page: 'buyer-orders',
           icon: ShoppingBag,
           desc: 'Crops bought from farmers & escrow',
         },
         {
-          label: 'Customer Sales Orders',
+          label: 'Orders',
           page: 'farmer-orders',
           icon: Tag,
           desc: 'Processed goods orders from retailers',
