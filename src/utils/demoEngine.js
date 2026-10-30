@@ -57,8 +57,8 @@ export const DEMO_TEMPLATES = [
     commodity: 'Paddy (Sona Masoori)',
     variety: 'Milled Grade A',
     grade: 'A',
-    quantity: 20,
-    unit: 'MT',
+    quantity: 2000,
+    unit: 'KG',
     startingBid: 32,
     reservePrice: 35,
     bidStep: 1,
@@ -71,8 +71,8 @@ export const DEMO_TEMPLATES = [
     commodity: 'Tomato (Hybrid Shivam)',
     variety: 'Table / Processing Grade',
     grade: 'A',
-    quantity: 5,
-    unit: 'MT',
+    quantity: 1000,
+    unit: 'KG',
     startingBid: 28,
     reservePrice: 34,
     bidStep: 1,
@@ -85,8 +85,8 @@ export const DEMO_TEMPLATES = [
     commodity: 'Mustard Seed (Pusa Bold)',
     variety: 'High Oil Content (42%)',
     grade: 'A',
-    quantity: 10,
-    unit: 'MT',
+    quantity: 1500,
+    unit: 'KG',
     startingBid: 52,
     reservePrice: 58,
     bidStep: 2,
@@ -96,6 +96,14 @@ export const DEMO_TEMPLATES = [
   },
 ];
 
+export function getUnitKgMultiplier(unit) {
+  if (!unit) return 1;
+  const normalized = String(unit).trim().toUpperCase();
+  if (normalized === 'MT' || normalized === 'TON') return 1000;
+  if (normalized === 'QUINTAL') return 100;
+  return 1; // Default 'KG' or 'kg'
+}
+
 const INITIAL_DEMO_STATE = {
   currentStage: 1, // 1: Setup & Launch | 2: Live Floor Bidding | 3: Escrow Deposit | 4: Logistics & 2-OTP Transit | 5: Inspection & Settlement
   activePersonaKey: 'farmer',
@@ -104,8 +112,8 @@ const INITIAL_DEMO_STATE = {
     commodity: 'Paddy (Sona Masoori)',
     variety: 'Milled Grade A',
     grade: 'A',
-    quantity: 20,
-    unit: 'MT',
+    quantity: 2000,
+    unit: 'KG',
     startingBid: 32,
     reservePrice: 35,
     currentBid: 34,
@@ -160,7 +168,7 @@ const INITIAL_DEMO_STATE = {
       id: 'log_init',
       time: 'Just now',
       role: 'System',
-      text: 'AgroLnk Demo Sandbox initialized with Paddy (Sona Masoori) 20 MT lot.',
+      text: 'AgroLnk Demo Sandbox initialized with Paddy (Sona Masoori) 2,000 KG lot.',
     },
   ],
 };
@@ -269,8 +277,8 @@ export function createDemoAuction(templateId) {
 export function createDemoAuctionCustom(customData) {
   const state = readState();
   const commodity = customData.commodity || 'Paddy (Sona Masoori)';
-  const quantity = Number(customData.quantity) || 10;
-  const unit = customData.unit || 'MT';
+  const quantity = Number(customData.quantity) || 1000;
+  const unit = customData.unit || 'KG';
   const startBid = Number(customData.startingBid) || 30;
   const reserve = Number(customData.reservePrice) || Math.round(startBid * 1.15);
   const step = Number(customData.bidStep) || 1;
@@ -415,7 +423,8 @@ export function finalizeDemoAuction(isEarlyKnockdown = false) {
   }
 
   auction.status = 'completed';
-  const totalValuation = auction.quantity * 1000 * auction.currentBid; // MT to kg
+  const unitKg = getUnitKgMultiplier(auction.unit);
+  const totalValuation = auction.quantity * unitKg * auction.currentBid;
 
   // 1. Create Escrow Order
   state.order = {
@@ -631,7 +640,7 @@ export function resolveDemoQualityDispute(discountPerUnit = 2) {
   if (!state.order) return;
 
   const originalAmt = state.order.totalAmount;
-  const unitKg = state.order.unit === 'MT' ? 1000 : 1;
+  const unitKg = getUnitKgMultiplier(state.order.unit);
   const totalDeduction = state.order.quantity * unitKg * discountPerUnit;
   const revisedAmt = Math.max(1000, originalAmt - totalDeduction);
 

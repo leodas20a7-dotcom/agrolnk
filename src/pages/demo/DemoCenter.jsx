@@ -65,8 +65,8 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
   const [autoBotBidding, setAutoBotBidding] = useState(true);
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customCommodity, setCustomCommodity] = useState('Turmeric (Finger Polish)');
-  const [customQuantity, setCustomQuantity] = useState('15');
-  const [customUnit, setCustomUnit] = useState('MT');
+  const [customQuantity, setCustomQuantity] = useState('1000');
+  const [customUnit, setCustomUnit] = useState('KG');
   const [customStartingBid, setCustomStartingBid] = useState('65');
   const [customReservePrice, setCustomReservePrice] = useState('74');
   const [customBidStep, setCustomBidStep] = useState('1');
@@ -88,12 +88,12 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
     resetDemoState();
 
     setTimeout(() => {
-      setTourStepText('Step 1 of 5: Farmer Suresh launches 20 MT Sona Masoori Paddy lot.');
+      setTourStepText('Step 1 of 5: Farmer Suresh launches 2,000 KG Sona Masoori Paddy lot.');
       createDemoAuction('tpl_paddy');
     }, 1200);
 
     setTimeout(() => {
-      setTourStepText('Step 2 of 5: Buyer Maran bids ₹35/kg. Competitor counter-bids. Farmer accepts early.');
+      setTourStepText('Step 2 of 5: Buyer Maran bids ₹35/KG. Competitor counter-bids. Farmer accepts early.');
       placeDemoBid(35);
       simulateCompetitorBid();
       placeDemoBid(36);
@@ -101,7 +101,7 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
     }, 4000);
 
     setTimeout(() => {
-      setTourStepText('Step 3 of 5: Buyer deposits ₹7,20,000 into IDBI Bank Escrow Trust Account. Money locked.');
+      setTourStepText('Step 3 of 5: Buyer deposits ₹72,000 into IDBI Bank Escrow Trust Account. Money locked.');
       fundDemoEscrow('rtgs_escrow');
     }, 7500);
 
@@ -593,7 +593,7 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                         <div className="text-[11px] text-[#566861] space-y-1 bg-[#F8FAF8] p-2.5 rounded-xl border border-[#E5EDE8]/60">
                           <div className="flex justify-between">
                             <span>Volume:</span>
-                            <b className="text-[#0B3326]">{tpl.quantity} {tpl.unit}</b>
+                            <b className="text-[#0B3326]">{tpl.quantity?.toLocaleString('en-IN')} {tpl.unit}</b>
                           </div>
                           <div className="flex justify-between">
                             <span>Base Bid:</span>
@@ -647,9 +647,9 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                             onChange={(e) => setCustomUnit(e.target.value)}
                             className="bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl px-2 py-2 font-bold text-[#0B3326]"
                           >
-                            <option value="MT">MT</option>
+                            <option value="KG">KG</option>
                             <option value="Quintal">Quintal</option>
-                            <option value="kg">kg</option>
+                            <option value="MT">MT</option>
                           </select>
                         </div>
                       </div>
@@ -697,8 +697,8 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                           Contract Valuation Forecast
                         </span>
                         <span className="text-[#566861]">
-                          Base: ₹{((Number(customQuantity) || 0) * (customUnit === 'MT' ? 1000 : 1) * (Number(customStartingBid) || 0)).toLocaleString('en-IN')} • 
-                          Reserve Floor: ₹{((Number(customQuantity) || 0) * (customUnit === 'MT' ? 1000 : 1) * (Number(customReservePrice) || 0)).toLocaleString('en-IN')}
+                          Base: ₹{((Number(customQuantity) || 0) * (customUnit === 'MT' ? 1000 : customUnit === 'Quintal' ? 100 : 1) * (Number(customStartingBid) || 0)).toLocaleString('en-IN')} • 
+                          Reserve Floor: ₹{((Number(customQuantity) || 0) * (customUnit === 'MT' ? 1000 : customUnit === 'Quintal' ? 100 : 1) * (Number(customReservePrice) || 0)).toLocaleString('en-IN')}
                         </span>
                       </div>
                       <Button
@@ -948,7 +948,7 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                     <div className="p-2.5 rounded-xl bg-white/80 border border-amber-200/80 text-xs space-y-0.5">
                       <div className="text-[10px] text-[#566861] uppercase font-bold">Total Gross Valuation</div>
                       <div className="text-lg font-black text-[#0B3326] font-heading">
-                        ₹{(state.auction?.quantity * (state.auction?.unit === 'MT' ? 1000 : 1) * state.auction?.currentBid).toLocaleString('en-IN')}
+                        ₹{(state.auction?.quantity * (state.auction?.unit === 'MT' ? 1000 : state.auction?.unit === 'Quintal' ? 100 : 1) * state.auction?.currentBid).toLocaleString('en-IN')}
                       </div>
                     </div>
 
@@ -1198,19 +1198,19 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                       {
                         type: 'mini_truck',
                         name: 'Mini Truck (Tata Ace)',
-                        cap: 'Up to 1.5 MT',
+                        cap: 'Up to 1,500 KG',
                         rate: 'Base ₹400 + ₹14/km',
                       },
                       {
                         type: 'medium_lcv',
                         name: 'Medium LCV (14ft Eicher)',
-                        cap: 'Up to 5.0 MT (Standard)',
+                        cap: 'Up to 5,000 KG (Standard)',
                         rate: 'Base ₹900 + ₹24/km',
                       },
                       {
                         type: 'reefer_truck',
                         name: 'Reefer Cold-Chain',
-                        cap: 'Up to 8.0 MT (Perishables)',
+                        cap: 'Up to 8,000 KG (Perishables)',
                         rate: 'Base ₹1,600 + ₹34/km',
                       },
                     ].map((v) => (
