@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   RotateCcw,
   ArrowRight,
+  ArrowDown,
   ShieldCheck,
   CheckCircle2,
   Clock,
@@ -21,6 +22,7 @@ import {
   Check,
   HelpCircle,
   Play,
+  Pause,
   AlertTriangle,
   Trophy,
   Bot,
@@ -79,51 +81,204 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
 
   // Phase 5 States: Auto-Play Showcase Tour & Escrow Telephone Audit
   const [isTourRunning, setIsTourRunning] = useState(false);
+  const [currentTourStep, setCurrentTourStep] = useState(0); // 0 = inactive, 1..5
+  const [cloudVisible, setCloudVisible] = useState(false);
+  const [activeTourDef, setActiveTourDef] = useState(null);
+  const [isTourPaused, setIsTourPaused] = useState(false);
   const [tourStepText, setTourStepText] = useState('');
   const [escrowAudited, setEscrowAudited] = useState(true);
 
+  const tourTimeoutsRef = useRef([]);
+
+  const clearAllTourTimeouts = () => {
+    tourTimeoutsRef.current.forEach(clearTimeout);
+    tourTimeoutsRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => clearAllTourTimeouts();
+  }, []);
+
+  const TOUR_STEP_DEFINITIONS = [
+    {
+      step: 1,
+      title: 'Stage 1: Launch Produce Auction Lot',
+      actorName: 'Suresh Sharma',
+      actorRole: 'Farmer / Producer',
+      actorIcon: '🧑‍🌾',
+      badgeText: 'Step 1 of 5 • Farmgate Launch',
+      headline: 'Listing 2,000 KG Milled Paddy directly to Live Exchange',
+      caption: 'Farmer Suresh selects 2,000 KG of Grade A Sona Masoori Paddy and sets a reserve floor of ₹35/KG. Clicking "Launch This Lot" creates a certified auction visible to verified commercial buyers across India with zero middleman commissions.',
+      targetHighlightId: 'tour-target-paddy-lot',
+      duration: 6500,
+      actionDelay: 2000,
+      action: () => {
+        createDemoAuction('tpl_paddy');
+      },
+    },
+    {
+      step: 2,
+      title: 'Stage 2: Live Floor Bidding & Knockdown',
+      actorName: 'Maran S & Competitors',
+      actorRole: 'Verified Buyers',
+      actorIcon: '🏢',
+      badgeText: 'Step 2 of 5 • Bidding & Knockdown',
+      headline: 'Real-Time Floor Competition & Early Acceptance',
+      caption: 'Buyer Maran places a competitive bid of ₹35/KG. An AI competitor trader instantly counter-bids at ₹36/KG! Farmer Suresh decides to lock in the ₹72,000 gross valuation immediately by accepting early knockdown without waiting for the clock.',
+      targetHighlightId: 'tour-target-bidding-area',
+      duration: 7200,
+      actionDelay: 1800,
+      action: () => {
+        placeDemoBid(35);
+        const t1 = setTimeout(() => simulateCompetitorBid(), 700);
+        const t2 = setTimeout(() => {
+          placeDemoBid(36);
+          finalizeDemoAuction(true);
+        }, 1500);
+        tourTimeoutsRef.current.push(t1, t2);
+      },
+    },
+    {
+      step: 3,
+      title: 'Stage 3: Escrow Trust Custody Deposit',
+      actorName: 'Maran S & Trustee Desk',
+      actorRole: 'IDBI Bank Escrow Custody',
+      actorIcon: '🔒',
+      badgeText: 'Step 3 of 5 • Escrow Funding',
+      headline: 'Locking ₹72,000 into Legal Neutral Bank Trust Custody',
+      caption: 'To protect both parties, Buyer Maran deposits ₹72,000 into the IDBI Bank Nodal Escrow Trust Account. Funds are safely frozen in institutional custody — the farmer knows payout is 100% guaranteed, and the buyer knows money is safe until delivery passes inspection.',
+      targetHighlightId: 'tour-target-escrow-deposit',
+      duration: 6500,
+      actionDelay: 2000,
+      action: () => {
+        fundDemoEscrow('rtgs_escrow');
+      },
+    },
+    {
+      step: 4,
+      title: 'Stage 4: Logistics & 2-Step Anti-Theft OTP Verification',
+      actorName: 'Ravi Kumar',
+      actorRole: 'Logistics Fleet Driver',
+      actorIcon: '🚚',
+      badgeText: 'Step 4 of 5 • 2-Step OTP Transit',
+      headline: 'Tamper-Proof Farmgate Pickup & Destination Handover',
+      caption: 'Carrier Ravi enters Farmgate Pickup OTP "8492" at Suresh\'s farm to confirm loading. The GPS-tracked truck delivers 2,000 KG to Chennai Mill, where Delivery OTP "3175" is verified to guarantee genuine physical arrival without cargo substitution.',
+      targetHighlightId: 'tour-target-transit-otps',
+      duration: 7200,
+      actionDelay: 1800,
+      action: () => {
+        verifyDemoPickupOtp('8492');
+        const t = setTimeout(() => {
+          verifyDemoDeliveryOtp('3175');
+        }, 1200);
+        tourTimeoutsRef.current.push(t);
+      },
+    },
+    {
+      step: 5,
+      title: 'Stage 5: Quality Assay Certification & Direct Bank IMPS Payout',
+      actorName: 'Priya Raman',
+      actorRole: 'AgroLnk Escrow Trustee',
+      actorIcon: '🏆',
+      badgeText: 'Step 5 of 5 • Final Settlement',
+      headline: 'Moisture Tested 12.4% (Grade A Approved) & Instant IMPS Bank Disbursal',
+      caption: 'Destination lab certifies moisture at 12.4% (well within 14% limit). Escrow Desk Trustee Priya Raman executes the instant ₹72,000 IMPS payout directly into Suresh\'s SBI account with Bank UTR: UTR-20261030-8421. The permanent legal settlement certificate is generated!',
+      targetHighlightId: 'tour-target-settlement',
+      duration: 7500,
+      actionDelay: 1800,
+      action: () => {
+        submitDemoQualityInspection(true);
+        const t = setTimeout(() => {
+          releaseDemoEscrow();
+        }, 1000);
+        tourTimeoutsRef.current.push(t);
+      },
+    },
+  ];
+
+  const executeTourStep = (stepNum) => {
+    const stepDef = TOUR_STEP_DEFINITIONS.find((s) => s.step === stepNum);
+    if (!stepDef) {
+      // Finished all 5 steps!
+      setCloudVisible(false);
+      clearAllTourTimeouts();
+      const tEnd = setTimeout(() => {
+        setIsTourRunning(false);
+        setCurrentTourStep(0);
+        setActiveTourDef(null);
+        setTourStepText('');
+        showFeedback('🎉 Complete 5-Stage Demo Tour finished! All operations successfully verified.');
+      }, 700);
+      tourTimeoutsRef.current.push(tEnd);
+      return;
+    }
+
+    setCurrentTourStep(stepNum);
+    setActiveTourDef(stepDef);
+    setTourStepText(`${stepDef.badgeText}: ${stepDef.headline}`);
+
+    // Phase 1: Slowly open cloud (fade in & scale from 0.9 to 1.0)
+    setCloudVisible(false);
+    const tOpen = setTimeout(() => {
+      setCloudVisible(true);
+      const targetEl = document.getElementById(stepDef.targetHighlightId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 80);
+    tourTimeoutsRef.current.push(tOpen);
+
+    // Phase 2: Execute platform action midway while user watches
+    const tAction = setTimeout(() => {
+      stepDef.action();
+    }, stepDef.actionDelay);
+    tourTimeoutsRef.current.push(tAction);
+
+    // Phase 3: Slowly fade out cloud instructions (duration - 800ms)
+    const tFade = setTimeout(() => {
+      setCloudVisible(false);
+    }, stepDef.duration - 800);
+    tourTimeoutsRef.current.push(tFade);
+
+    // Phase 4: Advance to next step
+    const tNext = setTimeout(() => {
+      executeTourStep(stepNum + 1);
+    }, stepDef.duration);
+    tourTimeoutsRef.current.push(tNext);
+  };
+
   const startAutoTour = () => {
+    clearAllTourTimeouts();
     setIsTourRunning(true);
+    setIsTourPaused(false);
     setTourStepText('Tour Initializing: Resetting to clean state...');
     resetDemoState();
 
-    setTimeout(() => {
-      setTourStepText('Step 1 of 5: Farmer Suresh launches 2,000 KG Sona Masoori Paddy lot.');
-      createDemoAuction('tpl_paddy');
-    }, 1200);
-
-    setTimeout(() => {
-      setTourStepText('Step 2 of 5: Buyer Maran bids ₹35/KG. Competitor counter-bids. Farmer accepts early.');
-      placeDemoBid(35);
-      simulateCompetitorBid();
-      placeDemoBid(36);
-      finalizeDemoAuction(true);
-    }, 4000);
-
-    setTimeout(() => {
-      setTourStepText('Step 3 of 5: Buyer deposits ₹72,000 into IDBI Bank Escrow Trust Account. Money locked.');
-      fundDemoEscrow('rtgs_escrow');
-    }, 7500);
-
-    setTimeout(() => {
-      setTourStepText('Step 4 of 5: Transporter inputs Pickup OTP 8492 at farmgate ➔ Truck arrives at mill ➔ Delivery OTP 3175 verified.');
-      verifyDemoPickupOtp('8492');
-      verifyDemoDeliveryOtp('3175');
-    }, 11500);
-
-    setTimeout(() => {
-      setTourStepText('Step 5 of 5: Moisture assay 12.4% certified Grade A. Escrow Desk Priya releases IMPS payout with Bank UTR.');
-      submitDemoQualityInspection(true);
-      releaseDemoEscrow();
-      setIsTourRunning(false);
-      showFeedback('🎉 Full 5-stage trade tour completed successfully!');
-    }, 15500);
+    const tInit = setTimeout(() => {
+      executeTourStep(1);
+    }, 600);
+    tourTimeoutsRef.current.push(tInit);
   };
 
   const stopAutoTour = () => {
+    clearAllTourTimeouts();
+    setCloudVisible(false);
     setIsTourRunning(false);
+    setIsTourPaused(false);
+    setCurrentTourStep(0);
+    setActiveTourDef(null);
     setTourStepText('');
     showFeedback('Auto-Play Tour stopped.');
+  };
+
+  const nextTourStep = () => {
+    clearAllTourTimeouts();
+    setCloudVisible(false);
+    const nextStep = currentTourStep + 1;
+    const tNext = setTimeout(() => {
+      executeTourStep(nextStep);
+    }, 300);
+    tourTimeoutsRef.current.push(tNext);
   };
 
   // Live Timer Countdown for Stage 2
@@ -540,6 +695,114 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
           
           {/* Main Stage Interactive Panel (8 Cols) */}
           <div className="lg:col-span-8 space-y-6">
+
+            {/* Auto-Play Cloud Guide Instructions & Bouncing Arrow */}
+            {isTourRunning && activeTourDef && (
+              <div
+                className={`transition-all duration-700 ease-out transform mb-6 ${
+                  cloudVisible
+                    ? 'opacity-100 scale-100 translate-y-0'
+                    : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'
+                }`}
+              >
+                <div className="relative mx-auto max-w-3xl">
+                  {/* Decorative Cloud Puffs on top */}
+                  <div className="absolute -top-3.5 left-10 w-14 h-7 bg-white/95 rounded-t-full border-t-2 border-l-2 border-r-2 border-[#10B981] backdrop-blur-md pointer-events-none -z-10 shadow-xs" />
+                  <div className="absolute -top-6 left-22 w-20 h-10 bg-white/95 rounded-t-full border-t-2 border-l-2 border-r-2 border-[#10B981] backdrop-blur-md pointer-events-none -z-10 shadow-xs" />
+                  <div className="absolute -top-3.5 left-38 w-12 h-6 bg-white/95 rounded-t-full border-t-2 border-l-2 border-r-2 border-[#10B981] backdrop-blur-md pointer-events-none -z-10 shadow-xs" />
+                  <div className="absolute -top-4 right-16 w-16 h-8 bg-white/95 rounded-t-full border-t-2 border-l-2 border-r-2 border-[#10B981] backdrop-blur-md pointer-events-none -z-10 shadow-xs" />
+
+                  {/* Cloud Main Body */}
+                  <div className="relative bg-white/95 backdrop-blur-xl rounded-[28px] p-5 sm:p-6 border-2 border-[#10B981] shadow-[0_20px_50px_rgba(11,51,38,0.22)] ring-4 ring-[#10B981]/20 text-[#0B3326] space-y-3.5 overflow-hidden">
+                    {/* Radial background ambient light */}
+                    <div className="absolute -right-12 -top-12 w-44 h-44 bg-gradient-to-br from-emerald-200/50 to-teal-100/10 rounded-full blur-2xl pointer-events-none" />
+
+                    {/* Header Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#E5EDE8] pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-2xl p-1.5 bg-[#EBF5F0] rounded-2xl shadow-2xs border border-emerald-100">
+                          {activeTourDef.actorIcon}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-xs sm:text-sm text-[#0B3326]">
+                              {activeTourDef.actorName}
+                            </span>
+                            <span className="text-[10px] text-[#065F46] font-semibold bg-[#ECFDF5] border border-[#A7F3D0] px-2 py-0.5 rounded-full">
+                              {activeTourDef.actorRole}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-[#10B981] uppercase tracking-wider block mt-0.5">
+                            {activeTourDef.badgeText}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Interactive Tour Controls */}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={nextTourStep}
+                          className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl bg-[#EBF5F0] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-all cursor-pointer shadow-2xs"
+                          title="Skip to next step"
+                        >
+                          <span>Next</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stopAutoTour}
+                          className="w-7 h-7 flex items-center justify-center rounded-xl text-[#566861] hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer font-bold text-xs"
+                          title="Close tour"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Caption Headline & Description */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-sm sm:text-base font-extrabold text-[#0B3326] font-heading">
+                        <span className="text-base">☁️</span>
+                        <span>{activeTourDef.headline}</span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-[#334E43] leading-relaxed font-medium">
+                        {activeTourDef.caption}
+                      </p>
+                    </div>
+
+                    {/* Step Countdown / Progress Bar */}
+                    <div className="pt-1">
+                      <div className="w-full bg-[#E5EDE8] h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-[#10B981] to-[#059669] h-full rounded-full transition-all ease-linear"
+                          style={{
+                            width: cloudVisible ? '100%' : '0%',
+                            transitionDuration: `${Math.max(500, activeTourDef.duration - 800)}ms`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Speech Bubble Tail & Animated Pointing Arrow */}
+                  <div className="flex flex-col items-center -mb-8 mt-1">
+                    {/* Tail Triangle */}
+                    <div className="w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-t-[16px] border-t-white drop-shadow-[0_2px_4px_rgba(11,51,38,0.1)] -mt-0.5" />
+                    
+                    {/* Animated Bouncing Arrow pointing at the target action below */}
+                    <div className="flex flex-col items-center animate-bounce mt-1">
+                      <div className="w-10 h-10 rounded-full bg-[#10B981] text-white flex items-center justify-center shadow-lg shadow-[#10B981]/50 ring-4 ring-[#A7F3D0]">
+                        <ArrowDown className="w-5 h-5 stroke-[2.5]" />
+                      </div>
+                      <span className="text-[10px] font-extrabold text-[#0B3326] bg-white px-2 py-0.5 rounded-full shadow-xs border border-emerald-300 mt-1">
+                        Active Action Below ↓
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* STAGE 1: SETUP & LAUNCH */}
             {state.currentStage === 1 && (
@@ -577,11 +840,18 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
 
                 {!isCustomMode ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    {DEMO_TEMPLATES.map((tpl) => (
-                      <div
-                        key={tpl.id}
-                        className="p-4 rounded-2xl border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]/40 transition-all text-left space-y-3 group shadow-2xs bg-white"
-                      >
+                    {DEMO_TEMPLATES.map((tpl) => {
+                      const isTarget = isTourRunning && currentTourStep === 1 && tpl.id === 'tpl_paddy';
+                      return (
+                        <div
+                          key={tpl.id}
+                          id={tpl.id === 'tpl_paddy' ? 'tour-target-paddy-lot' : undefined}
+                          className={`p-4 rounded-2xl border transition-all text-left space-y-3 group shadow-2xs bg-white ${
+                            isTarget
+                              ? 'ring-4 ring-[#10B981] ring-offset-2 border-[#10B981] shadow-xl animate-pulse scale-[1.02]'
+                              : 'border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]/40'
+                          }`}
+                        >
                         <div className="flex items-start justify-between gap-1">
                           <span className="text-xs font-bold text-[#0B3326] block group-hover:text-[#10B981]">
                             {tpl.commodity}
@@ -619,7 +889,7 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                           Launch This Lot
                         </Button>
                       </div>
-                    ))}
+                    ); })}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -930,7 +1200,14 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                   </div>
 
                   {/* Farmer Early Knockdown Console */}
-                  <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200 text-[#92400E] space-y-3 shadow-2xs">
+                  <div
+                    id="tour-target-bidding-area"
+                    className={`p-4 rounded-2xl bg-amber-50/50 border text-[#92400E] space-y-3 shadow-2xs transition-all ${
+                      isTourRunning && currentTourStep === 2
+                        ? 'ring-4 ring-[#10B981] ring-offset-2 border-[#10B981] shadow-xl animate-pulse scale-[1.01]'
+                        : 'border-amber-200'
+                    }`}
+                  >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
                         <Gavel className="w-3.5 h-3.5 text-amber-700" />
@@ -1128,7 +1405,14 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                 </div>
 
                 {/* Escrow Custody Account Box & Action Button */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+                <div
+                  id="tour-target-escrow-deposit"
+                  className={`p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#0B3326] to-[#0F4A37] text-white border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm transition-all ${
+                    isTourRunning && currentTourStep === 3
+                      ? 'ring-4 ring-[#10B981] ring-offset-2 border-[#10B981] shadow-xl animate-pulse scale-[1.01]'
+                      : 'border-[#14624A]'
+                  }`}
+                >
                   <div className="space-y-1 text-left">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-[#34D399]" />
@@ -1257,7 +1541,14 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                 </div>
 
                 {/* Two-Step Anti-Theft OTP Verification Consoles */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div
+                  id="tour-target-transit-otps"
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-all rounded-3xl ${
+                    isTourRunning && currentTourStep === 4
+                      ? 'ring-4 ring-[#10B981] ring-offset-2 p-2 bg-emerald-50/40 shadow-xl scale-[1.01]'
+                      : ''
+                  }`}
+                >
                   
                   {/* Step 4A: Farmgate Pickup OTP Console */}
                   <div className={`p-4 sm:p-5 rounded-2xl border space-y-3 transition-all ${
@@ -1534,6 +1825,14 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                 </div>
 
                 {/* Final Payout Release Box or Settled Certificate */}
+                <div
+                  id="tour-target-settlement"
+                  className={`transition-all rounded-3xl ${
+                    isTourRunning && currentTourStep === 5
+                      ? 'ring-4 ring-[#10B981] ring-offset-2 shadow-2xl animate-pulse scale-[1.01]'
+                      : ''
+                  }`}
+                >
                 {state.order?.escrowStatus === 'released' ? (
                   <div className="p-6 rounded-3xl bg-gradient-to-r from-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] space-y-4 shadow-md animate-in fade-in">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#14624A] pb-3">
@@ -1638,6 +1937,7 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                     </div>
                   </div>
                 )}
+                </div>
               </Card>
             )}
           </div>
