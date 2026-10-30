@@ -361,7 +361,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 }`}
               >
                 <Compass className="w-3.5 h-3.5" />
-                Purchases ({inboundOrders.length})
+                Purchases
               </button>
 
               <button
@@ -374,7 +374,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                 }`}
               >
                 <Package className="w-3.5 h-3.5" />
-                Products & Sales ({myListings.length} Stock / {salesOrders.length} Orders)
+                Products & Sales
               </button>
             </div>
 
