@@ -624,6 +624,34 @@ export function submitDemoQualityInspection(isPass = true) {
 }
 
 /**
+ * Resolve Quality Assay Dispute Mutually
+ */
+export function resolveDemoQualityDispute(discountPerUnit = 2) {
+  const state = readState();
+  if (!state.order) return;
+
+  const originalAmt = state.order.totalAmount;
+  const unitKg = state.order.unit === 'MT' ? 1000 : 1;
+  const totalDeduction = state.order.quantity * unitKg * discountPerUnit;
+  const revisedAmt = Math.max(1000, originalAmt - totalDeduction);
+
+  state.order.totalAmount = revisedAmt;
+  state.qualityAssay.status = 'passed';
+  state.qualityAssay.disputeSettled = true;
+  state.qualityAssay.notes = `Settled with mutually agreed allowance of ₹${discountPerUnit}/${state.order.unit} for moisture variance. Revised payout: ₹${revisedAmt.toLocaleString('en-IN')}.`;
+
+  state.logs.unshift({
+    id: `log_${Date.now()}`,
+    time: 'Just now',
+    role: 'Quality Desk',
+    text: `Moisture dispute resolved! Agreed ₹${discountPerUnit}/${state.order.unit} adjustment. Total payout revised from ₹${originalAmt.toLocaleString('en-IN')} to ₹${revisedAmt.toLocaleString('en-IN')}.`,
+  });
+
+  writeState(state);
+  return state;
+}
+
+/**
  * Step 5B: Release Escrow Payment to Farmer Bank Account
  */
 export function releaseDemoEscrow() {

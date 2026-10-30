@@ -47,7 +47,8 @@ import {
   releaseDemoEscrow,
   createDemoAuction,
   createDemoAuctionCustom,
-  updateDemoFreightTariff
+  updateDemoFreightTariff,
+  resolveDemoQualityDispute
 } from '../../utils/demoEngine';
 
 export default function DemoCenter({ currentUser, onNavigate, navState }) {
@@ -75,6 +76,55 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
   // Phase 4 States: Escrow Deposit Method & Vehicle Fleet Selector
   const [depositMethod, setDepositMethod] = useState('rtgs_escrow'); // 'rtgs_escrow' | 'upi_mandate' | 'credit_advance'
   const [selectedVehicleType, setSelectedVehicleType] = useState('medium_lcv'); // 'mini_truck' | 'medium_lcv' | 'reefer_truck'
+
+  // Phase 5 States: Auto-Play Showcase Tour & Escrow Telephone Audit
+  const [isTourRunning, setIsTourRunning] = useState(false);
+  const [tourStepText, setTourStepText] = useState('');
+  const [escrowAudited, setEscrowAudited] = useState(true);
+
+  const startAutoTour = () => {
+    setIsTourRunning(true);
+    setTourStepText('Tour Initializing: Resetting to clean state...');
+    resetDemoState();
+
+    setTimeout(() => {
+      setTourStepText('Step 1 of 5: Farmer Suresh launches 20 MT Sona Masoori Paddy lot.');
+      createDemoAuction('tpl_paddy');
+    }, 1200);
+
+    setTimeout(() => {
+      setTourStepText('Step 2 of 5: Buyer Maran bids ₹35/kg. Competitor counter-bids. Farmer accepts early.');
+      placeDemoBid(35);
+      simulateCompetitorBid();
+      placeDemoBid(36);
+      finalizeDemoAuction(true);
+    }, 4000);
+
+    setTimeout(() => {
+      setTourStepText('Step 3 of 5: Buyer deposits ₹7,20,000 into IDBI Bank Escrow Trust Account. Money locked.');
+      fundDemoEscrow('rtgs_escrow');
+    }, 7500);
+
+    setTimeout(() => {
+      setTourStepText('Step 4 of 5: Transporter inputs Pickup OTP 8492 at farmgate ➔ Truck arrives at mill ➔ Delivery OTP 3175 verified.');
+      verifyDemoPickupOtp('8492');
+      verifyDemoDeliveryOtp('3175');
+    }, 11500);
+
+    setTimeout(() => {
+      setTourStepText('Step 5 of 5: Moisture assay 12.4% certified Grade A. Escrow Desk Priya releases IMPS payout with Bank UTR.');
+      submitDemoQualityInspection(true);
+      releaseDemoEscrow();
+      setIsTourRunning(false);
+      showFeedback('🎉 Full 5-stage trade tour completed successfully!');
+    }, 15500);
+  };
+
+  const stopAutoTour = () => {
+    setIsTourRunning(false);
+    setTourStepText('');
+    showFeedback('Auto-Play Tour stopped.');
+  };
 
   // Live Timer Countdown for Stage 2
   useEffect(() => {
@@ -269,6 +319,21 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
               </select>
             </div>
 
+            {/* Auto-Play Showcase Tour Button */}
+            <Button
+              variant={isTourRunning ? 'accent' : 'primary'}
+              size="sm"
+              onClick={isTourRunning ? stopAutoTour : startAutoTour}
+              icon={isTourRunning ? RotateCcw : Play}
+              iconPosition="left"
+              className={`text-xs font-bold py-1.5 px-3 h-auto cursor-pointer shadow-xs ${
+                isTourRunning ? 'animate-pulse' : ''
+              }`}
+              title="Automatically run through all 5 trade stages"
+            >
+              {isTourRunning ? 'Stop Tour' : 'Auto-Play 60s Tour'}
+            </Button>
+
             <Button
               variant="secondary"
               size="sm"
@@ -286,6 +351,31 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 pt-6 space-y-6">
+
+        {/* Live Auto-Tour Narrative Banner */}
+        {isTourRunning && (
+          <div className="p-4 rounded-2xl bg-[#0B3326] text-white border-2 border-[#34D399] shadow-lg flex items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-[#10B981] animate-ping shrink-0" />
+              <div className="space-y-0.5 text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#34D399] block">
+                  Automated 60-Second Trade Tour Active
+                </span>
+                <p className="text-xs sm:text-sm font-semibold text-white">
+                  {tourStepText}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="white"
+              size="sm"
+              onClick={stopAutoTour}
+              className="text-xs font-bold py-1.5 px-3 shrink-0 cursor-pointer !bg-white !text-[#0B3326]"
+            >
+              Exit Tour
+            </Button>
+          </div>
+        )}
 
         {/* Global Feedback & Error Toasts */}
         {feedbackMsg && (
@@ -1335,44 +1425,75 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
             {/* STAGE 5: SETTLEMENT & UTR */}
             {state.currentStage === 5 && (
               <Card className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-6">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 text-[10px] font-bold border border-purple-200">
-                    <CreditCard className="w-3 h-3" /> SETTLEMENT &amp; ASSAY AUDIT
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5EDE8]">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 text-[10px] font-bold border border-purple-200">
+                      <CreditCard className="w-3 h-3" /> SETTLEMENT &amp; ASSAY AUDIT
+                    </div>
+                    <h3 className="text-xl font-extrabold text-[#0B3326] font-heading mt-1">
+                      Quality Inspection &amp; Final Bank Payout
+                    </h3>
+                    <p className="text-xs text-[#566861] mt-0.5">
+                      Destination assay certification. Funds release from escrow directly to the farmer bank account via IMPS/NEFT.
+                    </p>
                   </div>
-                  <h3 className="text-lg font-bold text-[#0B3326] font-heading mt-1">
-                    Quality Inspection &amp; Final Bank Payout
-                  </h3>
-                  <p className="text-xs text-[#566861]">
-                    Destination moisture assay verified. Payment releases from escrow trust directly to the farmer bank account.
-                  </p>
+
+                  <Badge variant={state.order?.escrowStatus === 'released' ? 'emerald' : 'purple'} size="md">
+                    {state.order?.escrowStatus === 'released' ? '✓ Trade 100% Settled' : 'Ready for Disbursement'}
+                  </Badge>
                 </div>
 
-                {/* Quality Assay Card */}
-                <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#0B3326]">
-                      Moisture &amp; Quality Assay Report
+                {/* Quality Assay Laboratory Report */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                      <span className="text-xs font-bold text-[#0B3326]">
+                        Digital Quality Assay Certificate (#AGR-ASSAY-98421)
+                      </span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      state.qualityAssay?.status === 'disputed'
+                        ? 'bg-rose-50 text-rose-800 border-rose-200'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    }`}>
+                      {state.qualityAssay?.status === 'disputed' ? '⚠️ Moisture Dispute Flagged' : '✓ Grade A Certified'}
                     </span>
-                    <Badge variant={state.qualityAssay?.status === 'disputed' ? 'rose' : 'emerald'} size="sm">
-                      {state.qualityAssay?.status === 'disputed' ? '⚠️ Moisture Dispute' : '✓ Grade A Certified'}
-                    </Badge>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs text-[#566861]">
-                    <div>Moisture: <b>{state.qualityAssay?.moisturePercentage}%</b> (Limit 14%)</div>
-                    <div>Foreign Matter: <b>{state.qualityAssay?.foreignMatterPct}%</b></div>
-                    <div>Germination: <b>{state.qualityAssay?.germinationPct}%</b></div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-white p-3.5 rounded-xl border border-[#E5EDE8]">
+                    <div>
+                      <span className="text-[#566861] block text-[11px]">Moisture Content</span>
+                      <b className={state.qualityAssay?.moisturePercentage > 14 ? 'text-rose-600' : 'text-[#0B3326]'}>
+                        {state.qualityAssay?.moisturePercentage}% (Limit: 14.0%)
+                      </b>
+                    </div>
+                    <div>
+                      <span className="text-[#566861] block text-[11px]">Foreign Matter</span>
+                      <b className="text-[#0B3326]">{state.qualityAssay?.foreignMatterPct}% (Limit: 1.0%)</b>
+                    </div>
+                    <div>
+                      <span className="text-[#566861] block text-[11px]">Germination Rate</span>
+                      <b className="text-[#0B3326]">{state.qualityAssay?.germinationPct}% (Min: 85%)</b>
+                    </div>
+                    <div>
+                      <span className="text-[#566861] block text-[11px]">Certified At</span>
+                      <b className="text-[#10B981]">{state.qualityAssay?.inspectedAt || 'Destination Bay'}</b>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-1">
+
+                  {/* Quality Inspection Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => {
                         submitDemoQualityInspection(true);
-                        showFeedback('Moisture assay set to Passed (12.4%).');
+                        showFeedback('Moisture assay certified: 12.4% (Grade A Approved).');
                       }}
-                      className="text-xs font-semibold py-1 px-2.5 h-auto"
+                      className="text-xs font-semibold py-1.5 px-3 h-auto cursor-pointer"
                     >
-                      Certify Assay Passed
+                      ✓ Certify Assay Passed (12.4%)
                     </Button>
                     <Button
                       variant="secondary"
@@ -1381,51 +1502,140 @@ export default function DemoCenter({ currentUser, onNavigate, navState }) {
                         submitDemoQualityInspection(false);
                         showFeedback('Quality dispute triggered for high moisture (16.2%).');
                       }}
-                      className="text-xs font-semibold py-1 px-2.5 h-auto text-rose-700"
+                      className="text-xs font-semibold py-1.5 px-3 h-auto text-rose-700 hover:bg-rose-50 cursor-pointer"
                     >
-                      Trigger Quality Dispute
+                      ⚠️ Test Moisture Dispute (16.2%)
                     </Button>
                   </div>
+
+                  {/* Dispute Settlement Banner if Disputed */}
+                  {state.qualityAssay?.status === 'disputed' && (
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 space-y-2 animate-in fade-in">
+                      <div className="flex items-center gap-2 font-bold text-xs text-amber-900">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <span>AgroLnk Quality Surveyor Inspection Notice</span>
+                      </div>
+                      <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                        Moisture measured at 16.2% exceeds the 14% threshold. Surveyor recommends an amicable ₹2/kg discount or return consignment.
+                      </p>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          resolveDemoQualityDispute(2);
+                          showFeedback('Dispute resolved! Mutually agreed ₹2/kg adjustment applied.');
+                        }}
+                        className="text-xs font-bold py-1 px-3 h-auto"
+                      >
+                        Accept ₹2/kg Adjustment &amp; Settle
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Final Payout Release Box */}
+                {/* Final Payout Release Box or Settled Certificate */}
                 {state.order?.escrowStatus === 'released' ? (
-                  <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🎉</span>
-                      <span className="font-extrabold text-sm text-[#34D399]">
-                        Trade 100% Settled &amp; Paid to Bank
-                      </span>
+                  <div className="p-6 rounded-3xl bg-gradient-to-r from-[#0B3326] to-[#0F4A37] text-white border border-[#14624A] space-y-4 shadow-md animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#14624A] pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-2xl">🏆</span>
+                        <div>
+                          <h4 className="font-extrabold text-base text-white">
+                            Trade Settled &amp; Paid to Bank
+                          </h4>
+                          <span className="text-xs text-[#34D399]">
+                            Permanent Legal Settlement Certificate #AGR-SETTLE-8421
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="accent" size="sm">
+                        Bank IMPS Completed
+                      </Badge>
                     </div>
-                    <p className="text-xs text-[#DCFCE7]/90 leading-relaxed">
-                      Escrow funds of <b>₹{state.order?.totalAmount?.toLocaleString('en-IN')}</b> have been credited to Suresh Sharma's State Bank of India account.
-                    </p>
-                    <div className="pt-2 border-t border-[#14624A] text-xs flex items-center justify-between font-mono text-[#A7F3D0]">
-                      <span>Bank UTR: {state.order?.bankUtr}</span>
-                      <span className="text-white font-sans text-xs">✓ Escrow Released</span>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-white/10 p-3.5 rounded-2xl border border-white/10">
+                      <div>
+                        <span className="text-[#A7F3D0] block text-[11px]">Disbursed Amount</span>
+                        <b className="text-white text-sm">₹{state.order?.totalAmount?.toLocaleString('en-IN')}</b>
+                      </div>
+                      <div>
+                        <span className="text-[#A7F3D0] block text-[11px]">Beneficiary Farmer</span>
+                        <b className="text-white">{DEMO_PERSONAS.farmer.name}</b>
+                      </div>
+                      <div>
+                        <span className="text-[#A7F3D0] block text-[11px]">Bank Account</span>
+                        <b className="text-white">{DEMO_PERSONAS.farmer.bankAccount}</b>
+                      </div>
+                      <div>
+                        <span className="text-[#A7F3D0] block text-[11px]">Authoritative UTR</span>
+                        <b className="text-[#34D399] font-mono">{state.order?.bankUtr}</b>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs pt-1">
+                      <span className="text-[#DCFCE7]/90 text-[11px]">
+                        ✓ All 5 stages verified: Auction Won ➔ Escrow Funded ➔ 2-OTP Transit ➔ Assay Certified ➔ Payout Disbursed.
+                      </span>
+                      <Button
+                        variant="white"
+                        size="sm"
+                        onClick={handleReset}
+                        icon={RotateCcw}
+                        iconPosition="left"
+                        className="text-xs font-bold py-1.5 px-3 shrink-0 !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0]"
+                      >
+                        Run New Simulation
+                      </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div>
-                      <span className="text-xs font-bold text-[#0B3326] block">
-                        Ready for Bank Disbursement
-                      </span>
-                      <span className="text-[11px] text-[#566861]">
-                        Target: {DEMO_PERSONAS.farmer.bankAccount} (IFSC: {DEMO_PERSONAS.farmer.ifsc})
-                      </span>
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-[#0B3326] block">
+                          Escrow Payment Disbursement Authorization
+                        </span>
+                        <span className="text-[11px] text-[#566861]">
+                          Beneficiary: {DEMO_PERSONAS.farmer.name} • Account: {DEMO_PERSONAS.farmer.bankAccount} (IFSC: {DEMO_PERSONAS.farmer.ifsc})
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-[#566861] block">Net Payable to Farmer:</span>
+                        <span className="text-xl font-black text-[#10B981]">
+                          ₹{state.order?.totalAmount?.toLocaleString('en-IN')}
+                        </span>
+                      </div>
                     </div>
-                    <Button
-                      variant="primary"
-                      size="md"
-                      onClick={() => {
-                        releaseDemoEscrow();
-                        showFeedback('Payout processed! Bank UTR generated.');
-                      }}
-                      className="text-xs font-bold py-2 px-4 shadow-sm"
-                    >
-                      Authorize IMPS Payout
-                    </Button>
+
+                    <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] flex items-center justify-between text-xs">
+                      <label className="flex items-center gap-2 cursor-pointer font-semibold text-[#0B3326]">
+                        <input
+                          type="checkbox"
+                          checked={escrowAudited}
+                          onChange={(e) => setEscrowAudited(e.target.checked)}
+                          className="rounded text-[#10B981] focus:ring-0"
+                        />
+                        <span>Priya Raman (Escrow Operations Desk) verified telephone audit with Buyer Maran S</span>
+                      </label>
+                      <Badge variant="emerald" size="sm">Audit Complete</Badge>
+                    </div>
+
+                    <div className="flex items-center justify-end">
+                      <Button
+                        variant="primary"
+                        size="md"
+                        onClick={() => {
+                          releaseDemoEscrow();
+                          showFeedback('Disbursement completed! IMPS Bank UTR generated.');
+                        }}
+                        disabled={!escrowAudited}
+                        icon={CheckCircle2}
+                        iconPosition="left"
+                        className="text-xs font-bold py-2.5 px-5 shadow-sm"
+                      >
+                        Authorize IMPS Disbursement (₹{state.order?.totalAmount?.toLocaleString('en-IN')})
+                      </Button>
+                    </div>
                   </div>
                 )}
               </Card>
