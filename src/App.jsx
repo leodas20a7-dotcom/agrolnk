@@ -56,6 +56,9 @@ const EscrowCommissionLedger = lazy(() => import('./pages/admin/EscrowCommission
 const InspectionDisputes = lazy(() => import('./pages/admin/InspectionDisputes'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 
+// Interactive Sandbox Demo Page (Code-Split)
+const DemoCenter = lazy(() => import('./pages/demo/DemoCenter'));
+
 import ProtectedRoute from './components/ProtectedRoute';
 import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
 import ErrorBoundary from './components/ui/ErrorBoundary';
@@ -63,13 +66,14 @@ import { LoadingProvider, showGlobalLoader, hideGlobalLoader } from './context/L
 import { ToastProvider } from './context/ToastContext';
 import { getCurrentUser } from './utils/auth';
 
-const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
+const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login', 'demo']);
 
 const VALID_ROUTES = new Set([
   'landing',
   'role-selection',
   'register',
   'login',
+  'demo',
   // Admin
   'admin-dashboard',
   'admin-verification',
@@ -695,6 +699,14 @@ export default function App() {
             navState={currentPage === 'admin-commodities' ? { ...(navState || {}), initialTab: 'commodities' } : navState}
           />
         </ProtectedRoute>
+      )}
+
+      {currentPage === 'demo' && (
+        <DemoCenter
+          currentUser={currentUser || navState.user}
+          onNavigate={handleNavigate}
+          navState={navState}
+        />
       )}
           </Suspense>
         </div>
