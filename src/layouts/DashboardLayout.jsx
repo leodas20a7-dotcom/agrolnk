@@ -418,16 +418,30 @@ export default function DashboardLayout({
       icon: LayoutDashboard,
     },
     {
-      type: 'single',
-      label: 'Buy Raw Crops',
-      page: 'buyer-marketplace',
-      icon: Compass,
-    },
-    {
-      type: 'single',
-      label: 'Sell Products',
-      page: 'farmer-my-listings',
+      type: 'dropdown',
+      id: 'processor_materials',
+      label: 'Buy & Sell Materials',
       icon: Package,
+      items: [
+        {
+          label: 'Buy Raw Crops',
+          page: 'buyer-marketplace',
+          icon: Compass,
+          desc: 'Source grains & harvest lots directly from farmers',
+        },
+        {
+          label: 'Sell Processed Products',
+          page: 'farmer-my-listings',
+          icon: Package,
+          desc: 'Manage your catalog of milled & processed goods',
+        },
+        {
+          label: 'List New Product',
+          page: 'farmer-create-listing',
+          icon: Plus,
+          desc: 'Post a new processed goods listing for buyers',
+        },
+      ],
     },
     {
       type: 'dropdown',
