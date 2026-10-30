@@ -4,6 +4,7 @@ import StatCard from '../../components/farmer/StatCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import Pagination from '../../components/ui/Pagination';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import Modal from '../../components/ui/Modal';
@@ -42,6 +43,11 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
   const [inboundDeliveries, setInboundDeliveries] = useState([]);
   const [financingRequests, setFinancingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Pagination states
+  const [purchasesPage, setPurchasesPage] = useState(1);
+  const [productsPage, setProductsPage] = useState(1);
+  const [salesOrdersPage, setSalesOrdersPage] = useState(1);
 
   // KYC Verification state
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
@@ -197,6 +203,47 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
       maximumFractionDigits: 0,
     }).format(num || 0);
   };
+
+  // Pagination constants and slicing
+  const PURCHASES_PER_PAGE = 5;
+  const PRODUCTS_PER_PAGE = 6;
+  const SALES_ORDERS_PER_PAGE = 5;
+
+  const totalPurchasesPages = Math.ceil(inboundOrders.length / PURCHASES_PER_PAGE) || 1;
+  const paginatedPurchases = inboundOrders.slice(
+    (purchasesPage - 1) * PURCHASES_PER_PAGE,
+    purchasesPage * PURCHASES_PER_PAGE
+  );
+
+  const totalProductsPages = Math.ceil(myListings.length / PRODUCTS_PER_PAGE) || 1;
+  const paginatedProducts = myListings.slice(
+    (productsPage - 1) * PRODUCTS_PER_PAGE,
+    productsPage * PRODUCTS_PER_PAGE
+  );
+
+  const totalSalesOrdersPages = Math.ceil(salesOrders.length / SALES_ORDERS_PER_PAGE) || 1;
+  const paginatedSalesOrders = salesOrders.slice(
+    (salesOrdersPage - 1) * SALES_ORDERS_PER_PAGE,
+    salesOrdersPage * SALES_ORDERS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (purchasesPage > totalPurchasesPages && totalPurchasesPages > 0) {
+      setPurchasesPage(totalPurchasesPages);
+    }
+  }, [purchasesPage, totalPurchasesPages]);
+
+  useEffect(() => {
+    if (productsPage > totalProductsPages && totalProductsPages > 0) {
+      setProductsPage(totalProductsPages);
+    }
+  }, [productsPage, totalProductsPages]);
+
+  useEffect(() => {
+    if (salesOrdersPage > totalSalesOrdersPages && totalSalesOrdersPages > 0) {
+      setSalesOrdersPage(totalSalesOrdersPages);
+    }
+  }, [salesOrdersPage, totalSalesOrdersPages]);
 
   return (
     <DashboardLayout
@@ -429,61 +476,70 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                   </Button>
                 </div>
               ) : (
-                <div className="overflow-x-auto border border-[#E5EDE8] rounded-2xl">
-                  <table className="min-w-full divide-y divide-[#E5EDE8] text-left text-xs">
-                    <thead className="bg-[#F8FAF8] font-bold text-[#566861] uppercase tracking-wider">
-                      <tr>
-                        <th className="py-3 px-4">Crop / Lot</th>
-                        <th className="py-3 px-4">Farmer / Producer</th>
-                        <th className="py-3 px-4">Quantity</th>
-                        <th className="py-3 px-4">Total Amount</th>
-                        <th className="py-3 px-4">Escrow Status</th>
-                        <th className="py-3 px-4">Truck / Dispatch</th>
-                        <th className="py-3 px-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E5EDE8] bg-white">
-                      {inboundOrders.map((order) => (
-                        <tr key={order.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-[#0B3326]">{order.commodity}</div>
-                            <div className="text-[11px] text-[#566861]">#{order.orderNumber || order.id?.slice(0, 8)}</div>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <div className="font-semibold text-[#14211D]">{order.farmerName || 'Verified Producer'}</div>
-                            <div className="text-[11px] text-[#566861]">{order.state || 'Direct Farm'}</div>
-                          </td>
-                          <td className="py-3.5 px-4 font-bold text-[#14211D]">
-                            {order.quantity} {order.unit || 'kg'}
-                          </td>
-                          <td className="py-3.5 px-4 font-bold text-[#10B981]">
-                            {formatCurrency(order.totalAmount)}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <Badge
-                              variant={order.escrowStatus === 'released' ? 'emerald' : order.escrowStatus === 'funded' ? 'blue' : 'amber'}
-                              size="sm"
-                            >
-                              {order.escrowStatus === 'released' ? 'Released to Farmer' : order.escrowStatus === 'funded' ? 'Protected in Escrow' : 'Payment Pending'}
-                            </Badge>
-                          </td>
-                          <td className="py-3.5 px-4 font-medium text-[#566861] capitalize">
-                            {order.status?.replace('_', ' ') || 'Order Placed'}
-                          </td>
-                          <td className="py-3.5 px-4 text-right">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => onNavigate('buyer-orders')}
-                              className="text-xs font-semibold py-1 px-2.5 h-auto"
-                            >
-                              View Details
-                            </Button>
-                          </td>
+                <div className="space-y-4">
+                  <div className="overflow-x-auto border border-[#E5EDE8] rounded-2xl">
+                    <table className="min-w-full divide-y divide-[#E5EDE8] text-left text-xs">
+                      <thead className="bg-[#F8FAF8] font-bold text-[#566861] uppercase tracking-wider">
+                        <tr>
+                          <th className="py-3 px-4">Crop / Lot</th>
+                          <th className="py-3 px-4">Farmer / Producer</th>
+                          <th className="py-3 px-4">Quantity</th>
+                          <th className="py-3 px-4">Total Amount</th>
+                          <th className="py-3 px-4">Escrow Status</th>
+                          <th className="py-3 px-4">Truck / Dispatch</th>
+                          <th className="py-3 px-4 text-right">Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5EDE8] bg-white">
+                        {paginatedPurchases.map((order) => (
+                          <tr key={order.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-[#0B3326]">{order.commodity}</div>
+                              <div className="text-[11px] text-[#566861]">#{order.orderNumber || order.id?.slice(0, 8)}</div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-semibold text-[#14211D]">{order.farmerName || 'Verified Producer'}</div>
+                              <div className="text-[11px] text-[#566861]">{order.state || 'Direct Farm'}</div>
+                            </td>
+                            <td className="py-3.5 px-4 font-bold text-[#14211D]">
+                              {order.quantity} {order.unit || 'kg'}
+                            </td>
+                            <td className="py-3.5 px-4 font-bold text-[#10B981]">
+                              {formatCurrency(order.totalAmount)}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <Badge
+                                variant={order.escrowStatus === 'released' ? 'emerald' : order.escrowStatus === 'funded' ? 'blue' : 'amber'}
+                                size="sm"
+                              >
+                                {order.escrowStatus === 'released' ? 'Released to Farmer' : order.escrowStatus === 'funded' ? 'Protected in Escrow' : 'Payment Pending'}
+                              </Badge>
+                            </td>
+                            <td className="py-3.5 px-4 font-medium text-[#566861] capitalize">
+                              {order.status?.replace('_', ' ') || 'Order Placed'}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => onNavigate('buyer-orders')}
+                                className="text-xs font-semibold py-1 px-2.5 h-auto"
+                              >
+                                View Details
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Pagination
+                    currentPage={purchasesPage}
+                    totalPages={totalPurchasesPages}
+                    totalItems={inboundOrders.length}
+                    itemsPerPage={PURCHASES_PER_PAGE}
+                    onPageChange={setPurchasesPage}
+                  />
                 </div>
               )}
             </div>
@@ -547,70 +603,79 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {myListings.map((lot) => (
-                      <div
-                        key={lot.id}
-                        className="p-4 rounded-2xl border border-[#E5EDE8] bg-white hover:border-[#10B981] transition-all shadow-xs space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-1 ${
-                              lot.productType === 'processed'
-                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            }`}>
-                              {lot.productType === 'processed' ? 'Processed / Milled' : 'Raw Crop Lot'}
-                            </span>
-                            <h4 className="font-bold text-[#0B3326] text-sm">{lot.commodity}</h4>
-                            <p className="text-[11px] text-[#566861]">Variety: {lot.variety || 'Standard'} • Grade {lot.grade || 'A'}</p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {paginatedProducts.map((lot) => (
+                        <div
+                          key={lot.id}
+                          className="p-4 rounded-2xl border border-[#E5EDE8] bg-white hover:border-[#10B981] transition-all shadow-xs space-y-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                                lot.productType === 'processed'
+                                  ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              }`}>
+                                {lot.productType === 'processed' ? 'Processed / Milled' : 'Raw Crop Lot'}
+                              </span>
+                              <h4 className="font-bold text-[#0B3326] text-sm">{lot.commodity}</h4>
+                              <p className="text-[11px] text-[#566861]">Variety: {lot.variety || 'Standard'} • Grade {lot.grade || 'A'}</p>
+                            </div>
+                            <Badge variant={lot.status === 'active' ? 'emerald' : 'dark'} size="sm">
+                              {lot.status}
+                            </Badge>
                           </div>
-                          <Badge variant={lot.status === 'active' ? 'emerald' : 'dark'} size="sm">
-                            {lot.status}
-                          </Badge>
-                        </div>
 
-                        <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between text-xs">
-                          <div>
-                            <span className="text-[#566861]">In Stock:</span>{' '}
-                            <span className="font-bold text-[#0B3326]">{lot.quantity} {lot.unit}</span>
+                          <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between text-xs">
+                            <div>
+                              <span className="text-[#566861]">In Stock:</span>{' '}
+                              <span className="font-bold text-[#0B3326]">{lot.quantity} {lot.unit}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold text-[#10B981] text-sm">₹{lot.price}</span>
+                              <span className="text-[#566861]">/{lot.priceUnit || lot.unit}</span>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <span className="font-bold text-[#10B981] text-sm">₹{lot.price}</span>
-                            <span className="text-[#566861]">/{lot.priceUnit || lot.unit}</span>
-                          </div>
-                        </div>
 
-                        <div className="pt-2 flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProductClick(lot)}
-                            title="Delete product listing"
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => onNavigate('farmer-create-listing', { editListing: lot })}
-                              className="text-xs py-1 px-2.5 h-auto font-semibold"
+                          <div className="pt-2 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProductClick(lot)}
+                              title="Delete product listing"
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                             >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => onNavigate('farmer-my-listings')}
-                              className="text-xs py-1 px-2.5 h-auto font-bold"
-                            >
-                              Manage Stock
-                            </Button>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => onNavigate('farmer-create-listing', { editListing: lot })}
+                                className="text-xs py-1 px-2.5 h-auto font-semibold"
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => onNavigate('farmer-my-listings')}
+                                className="text-xs py-1 px-2.5 h-auto font-bold"
+                              >
+                                Manage Stock
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <Pagination
+                      currentPage={productsPage}
+                      totalPages={totalProductsPages}
+                      totalItems={myListings.length}
+                      itemsPerPage={PRODUCTS_PER_PAGE}
+                      onPageChange={setProductsPage}
+                    />
                   </div>
                 )}
               </div>
@@ -642,53 +707,62 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                     <p className="text-xs text-[#566861]">No retailer orders received yet.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto border border-[#E5EDE8] rounded-2xl">
-                    <table className="min-w-full divide-y divide-[#E5EDE8] text-left text-xs">
-                      <thead className="bg-[#F8FAF8] font-bold text-[#566861] uppercase tracking-wider">
-                        <tr>
-                          <th className="py-3 px-4">Product</th>
-                          <th className="py-3 px-4">Retailer / Buyer</th>
-                          <th className="py-3 px-4">Quantity</th>
-                          <th className="py-3 px-4">Total Amount</th>
-                          <th className="py-3 px-4">Escrow Status</th>
-                          <th className="py-3 px-4 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#E5EDE8] bg-white">
-                        {salesOrders.map((ord) => (
-                          <tr key={ord.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
-                            <td className="py-3.5 px-4">
-                              <div className="font-bold text-[#0B3326]">{ord.commodity}</div>
-                              <div className="text-[11px] text-[#566861]">#{ord.orderNumber || ord.id?.slice(0, 8)}</div>
-                            </td>
-                            <td className="py-3.5 px-4 font-semibold text-[#14211D]">
-                              {ord.buyerName || 'Retail Customer'}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-[#14211D]">
-                              {ord.quantity} {ord.unit}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-[#10B981]">
-                              {formatCurrency(ord.totalAmount)}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <Badge variant={ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'emerald' : 'blue'} size="sm">
-                                {ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'Settled to Bank' : (ord.escrowStatus || 'Escrow Funded')}
-                              </Badge>
-                            </td>
-                            <td className="py-3.5 px-4 text-right">
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => onNavigate('farmer-orders')}
-                                className="text-xs font-semibold py-1 px-2.5 h-auto"
-                              >
-                                Dispatch Order
-                              </Button>
-                            </td>
+                  <div className="space-y-4">
+                    <div className="overflow-x-auto border border-[#E5EDE8] rounded-2xl">
+                      <table className="min-w-full divide-y divide-[#E5EDE8] text-left text-xs">
+                        <thead className="bg-[#F8FAF8] font-bold text-[#566861] uppercase tracking-wider">
+                          <tr>
+                            <th className="py-3 px-4">Product</th>
+                            <th className="py-3 px-4">Retailer / Buyer</th>
+                            <th className="py-3 px-4">Quantity</th>
+                            <th className="py-3 px-4">Total Amount</th>
+                            <th className="py-3 px-4">Escrow Status</th>
+                            <th className="py-3 px-4 text-right">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5EDE8] bg-white">
+                          {paginatedSalesOrders.map((ord) => (
+                            <tr key={ord.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
+                              <td className="py-3.5 px-4">
+                                <div className="font-bold text-[#0B3326]">{ord.commodity}</div>
+                                <div className="text-[11px] text-[#566861]">#{ord.orderNumber || ord.id?.slice(0, 8)}</div>
+                              </td>
+                              <td className="py-3.5 px-4 font-semibold text-[#14211D]">
+                                {ord.buyerName || 'Retail Customer'}
+                              </td>
+                              <td className="py-3.5 px-4 font-bold text-[#14211D]">
+                                {ord.quantity} {ord.unit}
+                              </td>
+                              <td className="py-3.5 px-4 font-bold text-[#10B981]">
+                                {formatCurrency(ord.totalAmount)}
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <Badge variant={ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'emerald' : 'blue'} size="sm">
+                                  {ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'Settled to Bank' : (ord.escrowStatus || 'Escrow Funded')}
+                                </Badge>
+                              </td>
+                              <td className="py-3.5 px-4 text-right">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => onNavigate('farmer-orders')}
+                                  className="text-xs font-semibold py-1 px-2.5 h-auto"
+                                >
+                                  Dispatch Order
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <Pagination
+                      currentPage={salesOrdersPage}
+                      totalPages={totalSalesOrdersPages}
+                      totalItems={salesOrders.length}
+                      itemsPerPage={SALES_ORDERS_PER_PAGE}
+                      onPageChange={setSalesOrdersPage}
+                    />
                   </div>
                 )}
               </div>
