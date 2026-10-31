@@ -183,9 +183,10 @@ export async function registerUser({ name, phone, email, password, role, state, 
 
     const { hash: passwordHash, salt: passwordSalt } = await hashPassword(trimmedPassword);
 
-    // Attempt native Supabase Auth user registration
+    // Attempt native Supabase Auth user registration and capture authoritative auth UID
+    let authUserId = null;
     try {
-      await supabase.auth.signUp({
+      const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: normalizedEmail,
         password: trimmedPassword,
         options: {
@@ -196,12 +197,36 @@ export async function registerUser({ name, phone, email, password, role, state, 
           },
         },
       });
+
+      if (authErr) {
+        if (
+          authErr.message &&
+          (authErr.message.toLowerCase().includes('already registered') ||
+            authErr.message.toLowerCase().includes('already exists'))
+        ) {
+          throw new Error('An account with this email already exists. Please sign in instead.');
+        }
+        console.warn('Supabase auth.signUp notice:', authErr?.message || authErr);
+      } else if (authData?.user?.id) {
+        authUserId = authData.user.id;
+      }
     } catch (authErr) {
+      if (
+        authErr.message &&
+        (authErr.message.toLowerCase().includes('already registered') ||
+          authErr.message.toLowerCase().includes('already exists'))
+      ) {
+        throw authErr;
+      }
       console.warn('Supabase auth.signUp notice:', authErr?.message || authErr);
     }
 
+    // Unify Profile ID with Supabase Auth UID (profiles.id = auth.users.id)
+    // Fall back to generated UUID only in offline/disconnected scenarios
+    const profileId = authUserId || generateId();
+
     const newProfile = {
-      id: generateId(),
+      id: profileId,
       name: (name || '').trim(),
       phone: rawPhone,
       email: normalizedEmail,
