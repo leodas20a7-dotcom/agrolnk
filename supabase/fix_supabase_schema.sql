@@ -19,6 +19,11 @@ ALTER TABLE IF EXISTS public.orders ADD CONSTRAINT orders_escrow_status_check
 ALTER TABLE IF EXISTS public.orders ADD CONSTRAINT orders_status_check 
   CHECK (status IN ('pending', 'order_placed', 'confirmed', 'ready_for_delivery', 'transport_assigned', 'dispatched', 'in_transit', 'delivered', 'completed', 'cancelled'));
 
+-- Prevent Self-Trading (buyer cannot be the seller of the same order)
+ALTER TABLE IF EXISTS public.orders DROP CONSTRAINT IF EXISTS orders_prevent_self_trading_check;
+ALTER TABLE IF EXISTS public.orders ADD CONSTRAINT orders_prevent_self_trading_check 
+  CHECK (buyer_id IS NULL OR farmer_id IS NULL OR buyer_id <> farmer_id);
+
 -- Ensure all application columns exist on orders
 ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS payment_mode TEXT DEFAULT 'direct';
 ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS financing_request_id TEXT;

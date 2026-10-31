@@ -141,8 +141,19 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
 
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
 
+  const isOwnListing = Boolean(
+    user?.id && (
+      String(user.id) === String(listing?.farmerId || listing?.farmer_id) ||
+      (user.email && listing?.farmerEmail && user.email.toLowerCase() === listing.farmerEmail.toLowerCase())
+    )
+  );
+
   const handleOrderConfirmed = async (orderPayload) => {
     if (!listing || isProcessingOrder) return;
+    if (isOwnListing) {
+      toast.error('You cannot buy your own produce. Self-trading is not permitted on AgroLnk.');
+      return;
+    }
     setIsProcessingOrder(true);
     try {
       const order = await createOrder({
@@ -502,35 +513,43 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   </div>
                 )}
 
-                {/* Condition 4: No inspection requested OR inspection passed AND fee is paid */}
-                {(!existingInspection || (
-                  (existingInspection.status === 'passed' || existingInspection.status === 'resolved') && 
-                  existingInspection.feeStatus === 'paid'
-                )) && (
-                  <div>
-                    {existingInspection?.feeStatus === 'paid' && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-[#F2FBF6] border border-[#A7F3D0] px-3 py-1.5 rounded-xl font-semibold mb-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Quality Assayed & Fee Paid • Ready for Purchase</span>
-                      </div>
-                    )}
-                    <Button
-                      variant="accent"
-                      size="lg"
-                      onClick={() => {
-                        if (!isVerified) {
-                          setIsVerificationModalOpen(true);
-                        } else {
-                          setIsModalOpen(true);
-                        }
-                      }}
-                      icon={ShoppingBag}
-                      iconPosition="left"
-                      className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
-                    >
-                      Buy Now &bull; Escrow Secured
-                    </Button>
+                {/* Anti-Self-Trading: Seller cannot purchase own produce */}
+                {isOwnListing ? (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold text-center flex items-center justify-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>You are the producer of this listing. Self-trading is not permitted.</span>
                   </div>
+                ) : (
+                  /* Condition 4: No inspection requested OR inspection passed AND fee is paid */
+                  (!existingInspection || (
+                    (existingInspection.status === 'passed' || existingInspection.status === 'resolved') && 
+                    existingInspection.feeStatus === 'paid'
+                  )) && (
+                    <div>
+                      {existingInspection?.feeStatus === 'paid' && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-[#F2FBF6] border border-[#A7F3D0] px-3 py-1.5 rounded-xl font-semibold mb-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Quality Assayed & Fee Paid • Ready for Purchase</span>
+                        </div>
+                      )}
+                      <Button
+                        variant="accent"
+                        size="lg"
+                        onClick={() => {
+                          if (!isVerified) {
+                            setIsVerificationModalOpen(true);
+                          } else {
+                            setIsModalOpen(true);
+                          }
+                        }}
+                        icon={ShoppingBag}
+                        iconPosition="left"
+                        className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
+                      >
+                        Buy Now &bull; Escrow Secured
+                      </Button>
+                    </div>
+                  )
                 )}
               </div>
 

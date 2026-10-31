@@ -495,6 +495,14 @@ BEGIN
         RAISE EXCEPTION 'This lot is already sold out.';
     END IF;
 
+    -- 2b. Prevent Self-Trading (Sellers cannot buy their own produce)
+    IF v_listing.farmer_id IS NOT NULL AND (
+        v_listing.farmer_id = p_buyer_id OR 
+        (auth.uid() IS NOT NULL AND v_listing.farmer_id = auth.uid()::text)
+    ) THEN
+        RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgroLnk.';
+    END IF;
+
     -- 3. Check inventory availability
     IF p_quantity > v_listing.quantity THEN
         RAISE EXCEPTION 'Requested quantity (% %) exceeds available inventory (% %).', 

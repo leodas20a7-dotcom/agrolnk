@@ -94,7 +94,7 @@ CREATE POLICY "orders_select_policy" ON public.orders
 DROP POLICY IF EXISTS "orders_insert_policy" ON public.orders;
 CREATE POLICY "orders_insert_policy" ON public.orders
     FOR INSERT WITH CHECK (
-        auth.uid()::text = buyer_id OR
+        (auth.uid()::text = buyer_id AND (farmer_id IS NULL OR buyer_id <> farmer_id)) OR
         public.is_admin()
     );
 

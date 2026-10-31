@@ -346,6 +346,13 @@ export async function createOrder(orderData) {
       return `#AGM-${num}`;
     };
 
+    // Anti-Self-Trading Guard: Prevent producers/sellers from purchasing their own produce
+    const buyerIdStr = String(orderData.buyerId || '').trim();
+    const farmerIdStr = String(orderData.farmerId || '').trim();
+    if (buyerIdStr && farmerIdStr && buyerIdStr === farmerIdStr) {
+      throw new Error('You cannot buy your own produce. Self-trading is not permitted on AgroLnk.');
+    }
+
     let orderId = orderData.id || generateId();
     let orderNumber = orderData.orderNumber || generateOrderNum();
     const isTradeCredit = orderData.paymentMode === 'trade_credit';
