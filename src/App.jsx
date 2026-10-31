@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense, startTransition, useRef } from 'react';
+import React, { useState, useEffect, lazy, Suspense, startTransition, useRef, useCallback } from 'react';
 import Landing from './pages/Landing';
 import RoleSelection from './pages/RoleSelection';
 import Register from './pages/Register';
@@ -242,27 +242,26 @@ export default function App() {
     };
   }, []);
 
-  const triggerFlashTransition = (targetPage) => {
+  const triggerFlashTransition = useCallback((targetPage) => {
     const msg = PAGE_MESSAGES[targetPage] || 'Loading AgroLnk...';
     showGlobalLoader(msg, 'Fetching verified records from network...');
     setTimeout(() => {
       hideGlobalLoader();
     }, 280);
-  };
+  }, []);
 
-  const handleNavigate = (page, state = {}, replace = false) => {
+  const handleNavigate = useCallback((page, state = {}, replace = false) => {
     const freshUser = state?.user !== undefined ? state.user : getCurrentUser();
-    setCurrentUser(freshUser || null);
     const resolvedPage = resolveRoute(page, freshUser);
-    setNavState(state || {});
 
     isNavigatingRef.current = true;
-    startTransition(() => {
-      if (resolvedPage !== 'login' && resolvedPage !== 'landing' && resolvedPage !== 'role-selection') {
-        triggerFlashTransition(resolvedPage);
-      }
-      setCurrentPage(resolvedPage);
-    });
+    setCurrentUser(freshUser || null);
+    setNavState(state || {});
+    setCurrentPage(resolvedPage);
+
+    if (resolvedPage !== 'login' && resolvedPage !== 'landing' && resolvedPage !== 'role-selection') {
+      triggerFlashTransition(resolvedPage);
+    }
 
     const newHash = `#/${resolvedPage}`;
     if (window.location.hash !== newHash || window.location.pathname !== '/') {
@@ -277,7 +276,7 @@ export default function App() {
     setTimeout(() => {
       isNavigatingRef.current = false;
     }, 150);
-  };
+  }, [triggerFlashTransition]);
 
   useEffect(() => {
     // 1. Force pathname normalization: Strip any legacy /demo or subpath and rewrite to root '/'
@@ -292,15 +291,13 @@ export default function App() {
         return;
       }
       const user = getCurrentUser();
-      if (user) {
-        setCurrentUser(user);
-      }
+      setCurrentUser(user || null);
 
       const resolved = resolveRoute(window.location.hash, user);
-      startTransition(() => {
+      if (resolved !== 'login' && resolved !== 'landing' && resolved !== 'role-selection') {
         triggerFlashTransition(resolved);
-        setCurrentPage(resolved);
-      });
+      }
+      setCurrentPage(resolved);
 
       const targetHash = `#/${resolved}`;
       if (window.location.hash !== targetHash || window.location.pathname !== '/') {

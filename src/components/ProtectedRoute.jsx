@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { getCurrentUser, isAuthenticated, getUserRole } from '../utils/auth';
 
 export default function ProtectedRoute({ children, requiredRole, allowedRoles, onNavigate }) {
@@ -6,6 +6,7 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
   const user = getCurrentUser();
   const currentRole = getUserRole();
   const effectiveRole = currentRole || user?.role;
+  const hasRedirectedRef = useRef(false);
 
   const isRoleAllowed = () => {
     if (!effectiveRole) return false;
@@ -26,18 +27,24 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
 
   useEffect(() => {
     if (!authenticated || !user) {
-      onNavigate('login', { user: null }, true);
+      if (!hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
+        onNavigate('login', { user: null }, true);
+      }
       return;
     }
 
     if (!isRoleAllowed()) {
-      // Redirect to the user's appropriate role dashboard safely
-      const targetDashboard = effectiveRole === 'food_processor'
-        ? 'food-processor-dashboard'
-        : (effectiveRole ? `${effectiveRole}-dashboard` : 'role-selection');
-      onNavigate(targetDashboard, { user }, true);
+      if (!hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
+        // Redirect to the user's appropriate role dashboard safely
+        const targetDashboard = effectiveRole === 'food_processor'
+          ? 'food-processor-dashboard'
+          : (effectiveRole ? `${effectiveRole}-dashboard` : 'role-selection');
+        onNavigate(targetDashboard, { user }, true);
+      }
     }
-  }, [authenticated, user, effectiveRole, requiredRole, allowedRoles, onNavigate]);
+  }, [authenticated, user?.id, effectiveRole, requiredRole, onNavigate]);
 
   if (!authenticated || !user) {
     return (
