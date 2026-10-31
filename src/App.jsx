@@ -268,9 +268,9 @@ export default function App() {
     });
 
     const newHash = `#/${resolvedPage}`;
-    if (window.location.hash !== newHash) {
-      if (replace) {
-        window.location.replace(newHash);
+    if (window.location.hash !== newHash || window.location.pathname !== '/') {
+      if (replace || window.location.pathname !== '/') {
+        window.history.replaceState(null, '', `/${newHash}`);
       } else {
         window.location.hash = newHash;
       }
@@ -283,6 +283,13 @@ export default function App() {
   };
 
   useEffect(() => {
+    // 1. Force pathname normalization: Strip any legacy /demo or subpath and rewrite to root '/'
+    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+      const initialTarget = getInitialPage();
+      const currentHash = window.location.hash || `#/${initialTarget}`;
+      window.history.replaceState(null, '', `/${currentHash}`);
+    }
+
     const handleHashChange = () => {
       if (isNavigatingRef.current) {
         return;
@@ -299,16 +306,16 @@ export default function App() {
       });
 
       const targetHash = `#/${resolved}`;
-      if (window.location.hash !== targetHash) {
-        window.location.replace(targetHash);
+      if (window.location.hash !== targetHash || window.location.pathname !== '/') {
+        window.history.replaceState(null, '', `/${targetHash}`);
       }
     };
 
     // Ensure clean valid hash on initial mount
     const initial = getInitialPage();
     const expectedHash = `#/${initial}`;
-    if (window.location.hash !== expectedHash) {
-      window.location.replace(expectedHash);
+    if (window.location.hash !== expectedHash || window.location.pathname !== '/') {
+      window.history.replaceState(null, '', `/${expectedHash}`);
     }
 
     window.addEventListener('hashchange', handleHashChange);

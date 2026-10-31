@@ -33,7 +33,6 @@ import {
 import { getAdminMetrics } from '../../utils/admin';
 import { formatINR } from '../../utils/commission';
 import { getListings, checkListingBookings, deleteListing, COMMODITY_IMAGES } from '../../utils/listings';
-import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
 import ProduceDetailModal from '../../components/farmer/ProduceDetailModal';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { toast } from '../../context/ToastContext';
@@ -61,7 +60,6 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
     activeDeliveriesCount: 0,
     storedWarehouseTonnes: 0,
   });
-  const [isEscrowModalOpen, setIsEscrowModalOpen] = useState(false);
 
   // Marketplace Listings Management State
   const [listings, setListings] = useState([]);
@@ -205,16 +203,6 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Zap}
-              iconPosition="left"
-              onClick={() => setIsEscrowModalOpen(true)}
-              className="font-semibold text-xs bg-[#10B981] hover:bg-[#059669] text-white cursor-pointer shadow-sm"
-            >
-              ⚡ Live Escrow API
-            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -555,12 +543,6 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             </div>
           )}
         </div>
-
-        {/* Live Escrow Gateway & API Console Modal */}
-        <DemoEscrowLiveModal
-          isOpen={isEscrowModalOpen}
-          onClose={() => setIsEscrowModalOpen(false)}
-        />
 
         {/* Produce Detail Modal (Admin View & Delete) */}
         {selectedListing && (

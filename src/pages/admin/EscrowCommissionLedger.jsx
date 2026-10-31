@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { getOrders } from '../../utils/orders';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
-import DemoEscrowLiveModal from '../../components/escrow/DemoEscrowLiveModal';
 import AdminCallVerificationModal from '../../components/admin/AdminCallVerificationModal';
 import Pagination from '../../components/ui/Pagination';
 import { Zap, PhoneCall, Phone, UserCheck, ShieldAlert } from 'lucide-react';
@@ -36,7 +35,6 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending_call' | 'locked' | 'released'
   const [downloadSuccess, setDownloadSuccess] = useState(false);
-  const [isEscrowModalOpen, setIsEscrowModalOpen] = useState(false);
   const [orderForVerification, setOrderForVerification] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
@@ -147,16 +145,6 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Zap}
-              iconPosition="left"
-              onClick={() => setIsEscrowModalOpen(true)}
-              className="text-xs font-bold cursor-pointer bg-[#0B3326] text-white hover:bg-[#0A261D] w-full sm:w-auto justify-center py-2.5 px-4"
-            >
-              ⚡ Live Escrow Gateway & API
-            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -437,12 +425,6 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           onSuccess={() => {
             loadData();
           }}
-        />
-
-        {/* Demo Live Escrow Gateway API & Simulator Modal */}
-        <DemoEscrowLiveModal
-          isOpen={isEscrowModalOpen}
-          onClose={() => setIsEscrowModalOpen(false)}
         />
 
       </div>
