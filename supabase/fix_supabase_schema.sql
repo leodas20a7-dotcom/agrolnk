@@ -24,6 +24,33 @@ ALTER TABLE IF EXISTS public.orders DROP CONSTRAINT IF EXISTS orders_prevent_sel
 ALTER TABLE IF EXISTS public.orders ADD CONSTRAINT orders_prevent_self_trading_check 
   CHECK (buyer_id IS NULL OR farmer_id IS NULL OR buyer_id <> farmer_id);
 
+-- Enforce Server-Side Price Integrity (lock price_per_unit and total_amount to database listings)
+CREATE OR REPLACE FUNCTION public.enforce_order_price_integrity()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_actual_price NUMERIC;
+BEGIN
+    IF NEW.listing_id IS NOT NULL THEN
+        SELECT price INTO v_actual_price
+        FROM public.listings
+        WHERE id = NEW.listing_id;
+
+        IF FOUND AND v_actual_price IS NOT NULL AND v_actual_price > 0 THEN
+            NEW.price_per_unit := v_actual_price;
+            NEW.total_amount := ROUND(NEW.quantity * v_actual_price, 2);
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_enforce_order_price_integrity ON public.orders;
+CREATE TRIGGER trg_enforce_order_price_integrity
+    BEFORE INSERT ON public.orders
+    FOR EACH ROW
+    EXECUTE FUNCTION public.enforce_order_price_integrity();
+
 -- Ensure all application columns exist on orders
 ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS payment_mode TEXT DEFAULT 'direct';
 ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS financing_request_id TEXT;

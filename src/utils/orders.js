@@ -482,8 +482,11 @@ export async function createOrder(orderData) {
 
     // 2. Client-side Fallback with Strict Concurrency & Inventory Lock
     const deductQty = Number(orderData.quantityInListingUnit ?? orderData.quantity);
+    let verifiedPricePerUnit = Number(orderData.pricePerUnit);
+    let verifiedTotalAmount = Number(orderData.totalAmount);
+
     if (orderData.listingId && deductQty > 0) {
-      // Step A: Verify stock availability in live Supabase listing
+      // Step A: Verify stock availability & authoritative price in live Supabase listing
       const { data: currentListing, error: checkErr } = await supabase
         .from('listings')
         .select('id, quantity, status, price, farmer_id')
@@ -498,6 +501,14 @@ export async function createOrder(orderData) {
           throw new Error(
             `Requested quantity (${deductQty}) exceeds available inventory (${currentListing.quantity}).`
           );
+        }
+
+        // Authoritative Server-Side Pricing Guard: Override any client-tampered price
+        if (currentListing.price !== undefined && currentListing.price !== null && Number(currentListing.price) > 0) {
+          verifiedPricePerUnit = Number(currentListing.price);
+          verifiedTotalAmount = Math.round(deductQty * verifiedPricePerUnit * 100) / 100;
+          localItem.pricePerUnit = verifiedPricePerUnit;
+          localItem.totalAmount = verifiedTotalAmount;
         }
 
         // Step B: Atomically decrement stock with conditional .gte guard to eliminate overselling
@@ -551,8 +562,8 @@ export async function createOrder(orderData) {
       grade: orderData.grade || 'A',
       quantity: Number(orderData.quantity),
       unit: orderData.unit || 'kg',
-      price_per_unit: Number(orderData.pricePerUnit),
-      total_amount: Number(orderData.totalAmount),
+      price_per_unit: verifiedPricePerUnit,
+      total_amount: verifiedTotalAmount,
       state: orderData.state || '',
       district: orderData.district || '',
       escrow_status: isTradeCredit ? 'pending' : 'funded',
