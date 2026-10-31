@@ -612,15 +612,18 @@ export async function updateListing(listingId, listingData) {
  */
 export async function deductListingQuantity(listingId, quantityToDeduct) {
   try {
+    const deductVal = Number(quantityToDeduct);
+    if (!listingId || isNaN(deductVal) || deductVal <= 0) return;
+
     const { data: current, error: fetchErr } = await supabase
       .from('listings')
-      .select('quantity')
+      .select('quantity, status')
       .eq('id', listingId)
       .single();
 
     if (fetchErr || !current) return;
 
-    const newQty = Math.max(0, Number(current.quantity) - Number(quantityToDeduct));
+    const newQty = Math.max(0, Number(current.quantity) - deductVal);
     const newStatus = newQty === 0 ? 'sold' : 'active';
 
     const { error: updateErr } = await supabase
@@ -630,7 +633,8 @@ export async function deductListingQuantity(listingId, quantityToDeduct) {
         status: newStatus,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', listingId);
+      .eq('id', listingId)
+      .gte('quantity', deductVal);
 
     if (updateErr) {
       console.error('Supabase listing deduction error:', updateErr);

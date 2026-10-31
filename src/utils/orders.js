@@ -408,8 +408,6 @@ export async function createOrder(orderData) {
       updatedAt: new Date().toISOString(),
     };
 
-    saveLocalOrder(localItem);
-
     // 1. Try atomic PostgreSQL purchase RPC (Eliminates inventory race condition & oversell)
     // Note: Deduct in the listing's native inventory unit (e.g. 50 Quintals => 5 MT deducted from 30 MT lot)
     if (orderData.listingId) {
@@ -431,6 +429,7 @@ export async function createOrder(orderData) {
           localItem.orderNumber = orderNumber;
           localItem.totalAmount = Number(rpcData.total_amount || localItem.totalAmount);
           localItem.escrowStatus = rpcData.escrow_status || localItem.escrowStatus;
+          localItem.atomicDeducted = true;
           saveLocalOrder(localItem);
 
           // Register in Live Escrow API Engine
@@ -456,18 +455,75 @@ export async function createOrder(orderData) {
 
         if (rpcErr) {
           const msg = rpcErr.message || '';
-          if (msg.includes('sold out') || msg.includes('exceeds available inventory') || msg.includes('not found')) {
+          // Business rejections must fail immediately - do NOT fall back to creating an unbacked order
+          if (
+            msg.includes('sold out') ||
+            msg.includes('exceeds available inventory') ||
+            msg.includes('not found') ||
+            msg.includes('cannot buy your own produce') ||
+            msg.includes('Self-trading')
+          ) {
             throw new Error(msg);
           }
         }
       } catch (rpcCatch) {
-        if (rpcCatch.message && (rpcCatch.message.includes('sold out') || rpcCatch.message.includes('exceeds available inventory'))) {
+        if (
+          rpcCatch.message &&
+          (rpcCatch.message.includes('sold out') ||
+            rpcCatch.message.includes('exceeds available inventory') ||
+            rpcCatch.message.includes('not found') ||
+            rpcCatch.message.includes('cannot buy your own produce') ||
+            rpcCatch.message.includes('Self-trading'))
+        ) {
           throw rpcCatch;
         }
       }
     }
 
-    // 2. Client-side Fallback
+    // 2. Client-side Fallback with Strict Concurrency & Inventory Lock
+    const deductQty = Number(orderData.quantityInListingUnit ?? orderData.quantity);
+    if (orderData.listingId && deductQty > 0) {
+      // Step A: Verify stock availability in live Supabase listing
+      const { data: currentListing, error: checkErr } = await supabase
+        .from('listings')
+        .select('id, quantity, status, price, farmer_id')
+        .eq('id', orderData.listingId)
+        .maybeSingle();
+
+      if (!checkErr && currentListing) {
+        if (currentListing.status === 'sold' || Number(currentListing.quantity) <= 0) {
+          throw new Error('This lot is already sold out. Order cannot be placed.');
+        }
+        if (deductQty > Number(currentListing.quantity)) {
+          throw new Error(
+            `Requested quantity (${deductQty}) exceeds available inventory (${currentListing.quantity}).`
+          );
+        }
+
+        // Step B: Atomically decrement stock with conditional .gte guard to eliminate overselling
+        const newQty = Number(currentListing.quantity) - deductQty;
+        const newStatus = newQty <= 0 ? 'sold' : 'active';
+
+        const { data: updatedListing, error: deductErr } = await supabase
+          .from('listings')
+          .update({
+            quantity: Math.max(0, newQty),
+            status: newStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', orderData.listingId)
+          .gte('quantity', deductQty)
+          .select();
+
+        if (deductErr || !updatedListing || updatedListing.length === 0) {
+          throw new Error(
+            'Inventory was just purchased by another buyer or is no longer available. Order aborted to prevent overselling.'
+          );
+        }
+        localItem.atomicDeducted = true;
+      }
+    }
+
     const isUuid = (str) =>
       typeof str === 'string' &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -514,10 +570,13 @@ export async function createOrder(orderData) {
 
       if (!error && data) {
         const mapped = mapOrderFromDb(data);
-        saveLocalOrder({ ...localItem, ...mapped });
+        saveLocalOrder({ ...localItem, ...mapped, atomicDeducted: true });
+      } else {
+        saveLocalOrder(localItem);
       }
     } catch (dbErr) {
       console.warn('Supabase order creation note:', dbErr);
+      saveLocalOrder(localItem);
     }
 
     // Register deposit in Live Escrow API Engine

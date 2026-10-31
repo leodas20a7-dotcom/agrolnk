@@ -177,9 +177,11 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         },
       });
 
-      // Deduct quantity from live listing in listing's native unit (e.g. converting Quintals back to MT)
+      // Deduct quantity only if not already deducted by createOrder
       const deductQty = orderPayload.quantityInListingUnit ?? orderPayload.quantity;
-      await deductListingQuantity(listing.id, deductQty);
+      if (!order?.atomicDeducted) {
+        await deductListingQuantity(listing.id, deductQty);
+      }
 
       toast.success('Order placed successfully! Escrow deposit held in security.');
       setIsModalOpen(false);
