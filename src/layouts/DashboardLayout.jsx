@@ -173,7 +173,7 @@ export default function DashboardLayout({
 
   const handleSignOut = () => {
     logoutUser();
-    onNavigate('landing');
+    onNavigate('login', { user: null }, true);
   };
 
   const roleColors = {

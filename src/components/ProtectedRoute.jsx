@@ -26,7 +26,7 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
 
   useEffect(() => {
     if (!authenticated || !user) {
-      onNavigate('login', {}, true);
+      onNavigate('login', { user: null }, true);
       return;
     }
 

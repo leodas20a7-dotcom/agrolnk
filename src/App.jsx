@@ -251,19 +251,16 @@ export default function App() {
   };
 
   const handleNavigate = (page, state = {}, replace = false) => {
-    const user = getCurrentUser() || currentUser;
-    const resolvedPage = resolveRoute(page, user);
-
-    if (state?.user) {
-      setCurrentUser(state.user);
-    } else if (user) {
-      setCurrentUser(user);
-    }
+    const freshUser = state?.user !== undefined ? state.user : getCurrentUser();
+    setCurrentUser(freshUser || null);
+    const resolvedPage = resolveRoute(page, freshUser);
     setNavState(state || {});
 
     isNavigatingRef.current = true;
     startTransition(() => {
-      triggerFlashTransition(resolvedPage);
+      if (resolvedPage !== 'login' && resolvedPage !== 'landing' && resolvedPage !== 'role-selection') {
+        triggerFlashTransition(resolvedPage);
+      }
       setCurrentPage(resolvedPage);
     });
 
