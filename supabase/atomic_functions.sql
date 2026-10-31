@@ -455,17 +455,72 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Concurrency lock: FOR UPDATE on listings row
 -- Enforces: stock availability check, atomic inventory reduction, duplicate prevention
 -- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
+-- AGRICULTURAL UNIT CONVERSION HELPER
+-- Normalized factors: 1 MT = 10 Quintals = 1,000 kg
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.convert_agri_volume(
+    p_qty NUMERIC,
+    p_from_unit TEXT,
+    p_to_unit TEXT
+) RETURNS NUMERIC AS $$
+DECLARE
+    v_from TEXT := LOWER(TRIM(COALESCE(p_from_unit, 'kg')));
+    v_to TEXT := LOWER(TRIM(COALESCE(p_to_unit, 'kg')));
+    v_factor_from NUMERIC := 1;
+    v_factor_to NUMERIC := 1;
+BEGIN
+    IF p_qty IS NULL OR p_qty <= 0 THEN
+        RETURN 0;
+    END IF;
+
+    IF v_from = v_to THEN
+        RETURN p_qty;
+    END IF;
+
+    -- Factor to KG
+    IF v_from IN ('mt', 'ton', 'tonne', 't') THEN
+        v_factor_from := 1000;
+    ELSIF v_from IN ('quintal', 'qtl') THEN
+        v_factor_from := 100;
+    ELSIF v_from IN ('kg', 'kgs', 'kilogram') THEN
+        v_factor_from := 1;
+    ELSE
+        RETURN p_qty; -- non-weight or packaged unit, return as-is
+    END IF;
+
+    IF v_to IN ('mt', 'ton', 'tonne', 't') THEN
+        v_factor_to := 1000;
+    ELSIF v_to IN ('quintal', 'qtl') THEN
+        v_factor_to := 100;
+    ELSIF v_to IN ('kg', 'kgs', 'kilogram') THEN
+        v_factor_to := 1;
+    ELSE
+        RETURN p_qty;
+    END IF;
+
+    RETURN ROUND((p_qty * v_factor_from) / v_factor_to, 4);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ----------------------------------------------------------------------------
+-- 5. ATOMIC DIRECT ORDER PURCHASE
+-- Concurrency lock: FOR UPDATE on listings row
+-- Enforces: stock availability check, unit conversion, atomic inventory reduction, duplicate prevention
+-- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.create_direct_order_atomic(
     p_listing_id TEXT,
     p_buyer_id TEXT,
     p_buyer_name TEXT,
     p_quantity NUMERIC,
     p_delivery_location JSONB DEFAULT '{}'::jsonb,
-    p_is_trade_credit BOOLEAN DEFAULT false
+    p_is_trade_credit BOOLEAN DEFAULT false,
+    p_buyer_unit TEXT DEFAULT NULL
 ) RETURNS JSONB AS $$
 DECLARE
     v_listing RECORD;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_deduct_qty NUMERIC;
     v_order_id TEXT;
     v_order_num TEXT;
     v_delivery_id TEXT;
@@ -503,22 +558,29 @@ BEGIN
         RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgroLnk.';
     END IF;
 
-    -- 3. Check inventory availability
-    IF p_quantity > v_listing.quantity THEN
-        RAISE EXCEPTION 'Requested quantity (% %) exceeds available inventory (% %).', 
-            p_quantity, COALESCE(v_listing.unit, 'kg'), v_listing.quantity, COALESCE(v_listing.unit, 'kg');
+    -- 2c. Canonical unit conversion to listing's native unit
+    IF p_buyer_unit IS NOT NULL AND TRIM(p_buyer_unit) <> '' AND LOWER(TRIM(p_buyer_unit)) <> LOWER(TRIM(COALESCE(v_listing.unit, 'kg'))) THEN
+        v_deduct_qty := public.convert_agri_volume(p_quantity, p_buyer_unit, v_listing.unit);
+    ELSE
+        v_deduct_qty := p_quantity;
     END IF;
 
-    -- 4. Compute financial breakdown
+    -- 3. Check inventory availability against converted volume
+    IF v_deduct_qty > v_listing.quantity THEN
+        RAISE EXCEPTION 'Requested quantity (% %) exceeds available inventory (% %).', 
+            p_quantity, COALESCE(p_buyer_unit, v_listing.unit, 'kg'), v_listing.quantity, COALESCE(v_listing.unit, 'kg');
+    END IF;
+
+    -- 4. Compute financial breakdown using authoritative listing price
     v_unit_price := v_listing.price;
-    v_total_amt := p_quantity * v_unit_price;
+    v_total_amt := ROUND(v_deduct_qty * v_unit_price, 2);
     v_buyer_fee := ROUND(v_total_amt * 0.0025, 2);
     v_seller_fee := ROUND(v_total_amt * 0.0025, 2);
     v_platform_fee := v_buyer_fee + v_seller_fee;
     v_net_seller := v_total_amt - v_seller_fee;
 
     -- 5. Deduct inventory and update listing status
-    v_new_qty := v_listing.quantity - p_quantity;
+    v_new_qty := ROUND(v_listing.quantity - v_deduct_qty, 4);
     UPDATE public.listings SET
         quantity = v_new_qty,
         status = CASE WHEN v_new_qty <= 0 THEN 'sold' ELSE 'active' END,
@@ -540,7 +602,7 @@ BEGIN
     ) VALUES (
         v_order_id, v_order_num, v_listing.id, NULL, p_buyer_id, COALESCE(p_buyer_name, 'Wholesale Buyer'),
         v_listing.farmer_id, COALESCE(v_listing.farmer_name, 'Verified Producer'), v_listing.commodity,
-        v_listing.variety, v_listing.grade, p_quantity, v_listing.unit,
+        v_listing.variety, v_listing.grade, p_quantity, COALESCE(p_buyer_unit, v_listing.unit),
         v_unit_price, v_total_amt, v_buyer_fee, v_seller_fee,
         v_platform_fee, v_net_seller, p_delivery_location,
         COALESCE(p_delivery_location->>'state', v_listing.state, ''),

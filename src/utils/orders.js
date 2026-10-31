@@ -5,6 +5,7 @@ import { getUserBankDetails } from './bankDetails';
 import { broadcastDataChange } from './syncChannel';
 import { sendNotification } from './notifications';
 import { getCurrentUser } from './auth';
+import { convertVolume, normalizeUnitName } from './pricingUnits';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -412,7 +413,15 @@ export async function createOrder(orderData) {
     // Note: Deduct in the listing's native inventory unit (e.g. 50 Quintals => 5 MT deducted from 30 MT lot)
     if (orderData.listingId) {
       try {
-        const deductQty = Number(orderData.quantityInListingUnit ?? orderData.quantity);
+        let deductQty = Number(orderData.quantityInListingUnit);
+        if (isNaN(deductQty) || deductQty <= 0) {
+          if (orderData.listingUnit && orderData.unit) {
+            deductQty = convertVolume(orderData.quantity, orderData.unit, orderData.listingUnit);
+          } else {
+            deductQty = Number(orderData.quantity);
+          }
+        }
+
         const { data: rpcData, error: rpcErr } = await supabase.rpc('create_direct_order_atomic', {
           p_listing_id: orderData.listingId,
           p_buyer_id: orderData.buyerId || '',
@@ -481,38 +490,42 @@ export async function createOrder(orderData) {
     }
 
     // 2. Client-side Fallback with Strict Concurrency & Inventory Lock
-    const deductQty = Number(orderData.quantityInListingUnit ?? orderData.quantity);
     let verifiedPricePerUnit = Number(orderData.pricePerUnit);
     let verifiedTotalAmount = Number(orderData.totalAmount);
 
-    if (orderData.listingId && deductQty > 0) {
+    if (orderData.listingId && Number(orderData.quantity) > 0) {
       // Step A: Verify stock availability & authoritative price in live Supabase listing
       const { data: currentListing, error: checkErr } = await supabase
         .from('listings')
-        .select('id, quantity, status, price, farmer_id')
+        .select('id, quantity, status, price, farmer_id, unit')
         .eq('id', orderData.listingId)
         .maybeSingle();
 
       if (!checkErr && currentListing) {
+        // Enforce accurate cross-unit conversion against live listing's native unit
+        const listingUnit = currentListing.unit || orderData.listingUnit || orderData.unit || 'kg';
+        const buyerUnit = orderData.unit || listingUnit;
+        const actualDeductQty = convertVolume(orderData.quantity, buyerUnit, listingUnit);
+
         if (currentListing.status === 'sold' || Number(currentListing.quantity) <= 0) {
           throw new Error('This lot is already sold out. Order cannot be placed.');
         }
-        if (deductQty > Number(currentListing.quantity)) {
+        if (actualDeductQty > Number(currentListing.quantity)) {
           throw new Error(
-            `Requested quantity (${deductQty}) exceeds available inventory (${currentListing.quantity}).`
+            `Requested quantity (${orderData.quantity} ${buyerUnit} = ${actualDeductQty} ${listingUnit}) exceeds available inventory (${currentListing.quantity} ${listingUnit}).`
           );
         }
 
         // Authoritative Server-Side Pricing Guard: Override any client-tampered price
         if (currentListing.price !== undefined && currentListing.price !== null && Number(currentListing.price) > 0) {
           verifiedPricePerUnit = Number(currentListing.price);
-          verifiedTotalAmount = Math.round(deductQty * verifiedPricePerUnit * 100) / 100;
+          verifiedTotalAmount = Math.round(actualDeductQty * verifiedPricePerUnit * 100) / 100;
           localItem.pricePerUnit = verifiedPricePerUnit;
           localItem.totalAmount = verifiedTotalAmount;
         }
 
         // Step B: Atomically decrement stock with conditional .gte guard to eliminate overselling
-        const newQty = Number(currentListing.quantity) - deductQty;
+        const newQty = Math.round((Number(currentListing.quantity) - actualDeductQty) * 10000) / 10000;
         const newStatus = newQty <= 0 ? 'sold' : 'active';
 
         const { data: updatedListing, error: deductErr } = await supabase
@@ -523,7 +536,7 @@ export async function createOrder(orderData) {
             updated_at: new Date().toISOString(),
           })
           .eq('id', orderData.listingId)
-          .gte('quantity', deductQty)
+          .gte('quantity', actualDeductQty)
           .select();
 
         if (deductErr || !updatedListing || updatedListing.length === 0) {

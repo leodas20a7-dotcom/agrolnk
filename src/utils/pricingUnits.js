@@ -141,6 +141,15 @@ export function formatDualPriceRate(price, unit) {
   return `₹${p.toLocaleString('en-IN')} per ${unit}`;
 }
 
+export function normalizeUnitName(unit) {
+  if (!unit) return 'kg';
+  const u = String(unit).trim().toLowerCase();
+  if (['mt', 'ton', 'tonne', 't'].includes(u)) return 'MT';
+  if (['quintal', 'qtl'].includes(u)) return 'Quintal';
+  if (['kg', 'kgs', 'kilogram', 'kilograms'].includes(u)) return 'kg';
+  return unit;
+}
+
 /**
  * Converts a volume quantity from one agricultural unit to another.
  * Example:
@@ -151,12 +160,14 @@ export function formatDualPriceRate(price, unit) {
 export function convertVolume(quantity, fromUnit = 'kg', toUnit = 'kg') {
   const q = Number(quantity) || 0;
   if (q <= 0) return 0;
-  if (fromUnit === toUnit) return q;
-  if (!UNIT_KG_FACTORS[fromUnit] || !UNIT_KG_FACTORS[toUnit]) {
+  const normFrom = normalizeUnitName(fromUnit);
+  const normTo = normalizeUnitName(toUnit);
+  if (normFrom === normTo) return q;
+  if (!UNIT_KG_FACTORS[normFrom] || !UNIT_KG_FACTORS[normTo]) {
     return q;
   }
-  const factorFrom = UNIT_KG_FACTORS[fromUnit] || 1;
-  const factorTo = UNIT_KG_FACTORS[toUnit] || 1;
+  const factorFrom = UNIT_KG_FACTORS[normFrom] || 1;
+  const factorTo = UNIT_KG_FACTORS[normTo] || 1;
   const inKg = q * factorFrom;
   const result = inKg / factorTo;
   // Round cleanly up to 4 decimal places for clean display
