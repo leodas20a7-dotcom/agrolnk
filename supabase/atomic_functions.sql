@@ -372,7 +372,8 @@ BEGIN
         v_order_num := '#AGM-' || floor(1000 + random() * 9000)::text;
         v_total_amt := v_auction.quantity * v_auction.current_bid;
 
-        -- Insert primary order
+        -- Insert primary order with 'pending' escrow & 'pending' order status
+        -- Produce pickup and dispatch must NOT be authorized until the winning bidder completes payment deposit
         INSERT INTO public.orders (
             id, order_number, auction_id, listing_id, buyer_id, buyer_name,
             farmer_id, farmer_name, commodity, variety, grade, quantity, unit,
@@ -381,59 +382,37 @@ BEGIN
         ) VALUES (
             v_order_id, v_order_num, v_auction.id, NULL, v_auction.highest_bidder_id, COALESCE(v_auction.highest_bidder_name, 'Buyer Partner'),
             v_auction.farmer_id, COALESCE(v_auction.farmer_name, 'Farmer Partner'), v_auction.commodity, v_auction.variety, v_auction.grade, v_auction.quantity, v_auction.unit,
-            v_auction.current_bid, v_total_amt, v_auction.state, v_auction.district, 'funded', 'order_placed',
+            v_auction.current_bid, v_total_amt, v_auction.state, v_auction.district, 'pending', 'pending',
             v_now, v_now
         );
 
-        -- Insert delivery request
-        v_delivery_id := 'del_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 9);
-        v_delivery_num := 'DEL-' || floor(1000 + random() * 9000)::text;
+        -- Note: Deliveries are NOT inserted until escrow funding is completed by the buyer.
+        -- This prevents false transporter dispatches and ghost bookings for unpaid lots.
 
-        INSERT INTO public.deliveries (
-            id, delivery_number, order_id, order_number, farmer_id, farmer_name,
-            buyer_id, buyer_name, commodity, grade, variety, quantity, unit,
-            pickup_location, delivery_location, distance_km, fare_amount, status,
-            tracking_steps, created_at, updated_at
-        ) VALUES (
-            v_delivery_id, v_delivery_num, v_order_id, v_order_num, v_auction.farmer_id, v_auction.farmer_name,
-            v_auction.highest_bidder_id, v_auction.highest_bidder_name, v_auction.commodity, v_auction.grade, v_auction.variety, v_auction.quantity, v_auction.unit,
-            jsonb_build_object('state', v_auction.state, 'district', v_auction.district, 'address', v_auction.district || ' Farmgate Aggregation Depot'),
-            jsonb_build_object('state', 'Tamil Nadu', 'district', 'Chennai', 'address', 'Buyer Central Receiving Hub'),
-            NULL, NULL, 'transport_requested',
-            jsonb_build_array(
-                jsonb_build_object('step', 'Order Confirmed', 'completed', true, 'timestamp', v_now),
-                jsonb_build_object('step', 'Transporter Assigned', 'completed', false),
-                jsonb_build_object('step', 'Pickup Completed', 'completed', false),
-                jsonb_build_object('step', 'In Transit', 'completed', false),
-                jsonb_build_object('step', 'Delivered', 'completed', false)
-            ),
-            v_now, v_now
-        );
-
-        -- Notify buyer of auction win
+        -- Notify buyer of auction win & required escrow deposit
         INSERT INTO public.notifications (
             id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
         ) VALUES (
             'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
             v_auction.highest_bidder_id,
             'buyer',
-            'Auction Won! (' || v_auction.commodity || ')',
-            'Congratulations! You won the auction with a final bid of ₹' || v_auction.current_bid || '/' || v_auction.unit || '. Order ' || v_order_num || ' has been created.',
+            'Auction Won! Escrow Deposit Required (' || v_auction.commodity || ')',
+            'Congratulations! You won the auction with a final bid of ₹' || v_auction.current_bid || '/' || v_auction.unit || '. Please complete your escrow deposit of ₹' || v_total_amt || ' to authorize packaging and dispatch.',
             'order',
             '/buyer-orders',
             false,
             v_now
         );
 
-        -- Notify farmer of successful lot sale
+        -- Notify farmer of successful lot sale (escrow pending)
         INSERT INTO public.notifications (
             id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
         ) VALUES (
             'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
             v_auction.farmer_id,
             'farmer',
-            'Lot Sold! (' || v_auction.commodity || ')',
-            'Your auction closed successfully at ₹' || v_auction.current_bid || '/' || v_auction.unit || ' (Total: ₹' || v_total_amt || '). Order ' || v_order_num || ' created.',
+            'Lot Sold! Awaiting Escrow (' || v_auction.commodity || ')',
+            'Your auction closed successfully at ₹' || v_auction.current_bid || '/' || v_auction.unit || ' (Total: ₹' || v_total_amt || '). Order ' || v_order_num || ' created — awaiting buyer escrow deposit before dispatch.',
             'order',
             '/farmer-orders',
             false,

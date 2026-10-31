@@ -13,6 +13,13 @@ export default function OrderStatus({ status = 'pending', escrowStatus, adminVer
 
   // If newly placed, pending, or confirmed:
   if (status === 'order_placed' || status === 'pending' || status === 'confirmed') {
+    if (escrowStatus === 'pending' || status === 'pending') {
+      return (
+        <Badge variant="amber" size={size} dot={true}>
+          <span>Awaiting Escrow Deposit</span>
+        </Badge>
+      );
+    }
     if (escrowStatus === 'funded' && !isAuction) {
       return (
         <Badge variant="blue" size={size} dot={true}>

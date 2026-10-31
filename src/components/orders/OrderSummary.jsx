@@ -12,7 +12,9 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Receipt,
-  Clock
+  Clock,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -25,6 +27,10 @@ import { getDeliveryForOrder } from '../../utils/deliveries';
 import { getInspectionForOrder } from '../../utils/inspection';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import { formatDualVolume } from '../../utils/pricingUnits';
+import { getCurrentUser } from '../../utils/auth';
+import { toast } from '../../context/ToastContext';
+import { depositOrderEscrow } from '../../utils/orders';
+import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 
 export default function OrderSummary({
   order,
@@ -40,6 +46,7 @@ export default function OrderSummary({
   const [existingDelivery, setExistingDelivery] = useState(null);
   const [existingInspection, setExistingInspection] = useState(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [isDepositing, setIsDepositing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -126,8 +133,115 @@ export default function OrderSummary({
       ? 'delivered'
       : existingDelivery?.status || order.status;
 
+  const isPendingEscrow = Boolean(
+    (order.escrowStatus === 'pending' || order.escrow_status === 'pending' || order.status === 'pending') &&
+    !isBuyerFinanced &&
+    order.status !== 'completed' &&
+    order.status !== 'cancelled'
+  );
+
+  const handleDepositEscrow = async () => {
+    setIsDepositing(true);
+    const currentUser = getCurrentUser();
+    try {
+      await initiateRazorpayRouteCheckout({
+        listing: {
+          id: order.listingId || order.listing_id || order.auctionId || order.auction_id || 'lot',
+          commodity: order.commodity,
+          unit: order.unit,
+          price_per_unit: Number(order.pricePerUnit || order.price_per_unit || (order.totalAmount / (order.quantity || 1)) || 0),
+        },
+        quantity: Number(order.quantity || 1),
+        pricePerUnit: Number(order.pricePerUnit || order.price_per_unit || (order.totalAmount / (order.quantity || 1)) || 0),
+        customTradeValue: Number(order.totalAmount || order.total_amount || 0),
+        purchaseUnit: order.unit || 'kg',
+        buyerUser: currentUser || { name: order.buyerName || 'Buyer Partner', id: order.buyerId },
+        simulateInstantEscrow: true,
+        onSuccess: async (payRes) => {
+          try {
+            await depositOrderEscrow(order.id, {
+              paymentMode: payRes?.razorpay_payment_id ? `Razorpay Route (${payRes.razorpay_payment_id})` : 'Instant Escrow Deposit',
+            });
+            toast.success('Escrow deposit secured! Transport dispatch is now authorized.');
+          } catch (err) {
+            console.error('Error settling order escrow deposit:', err);
+            toast.error('Payment captured, updating order failed. Please refresh.');
+          } finally {
+            setIsDepositing(false);
+          }
+        },
+        onFailure: (err) => {
+          setIsDepositing(false);
+          if (err?.message !== 'Payment window closed.') {
+            toast.error(err?.message || 'Payment initiation failed.');
+          }
+        },
+      });
+    } catch (err) {
+      setIsDepositing(false);
+      toast.error(err?.message || 'Failed to open escrow payment checkout.');
+    }
+  };
+
   return (
     <div className="space-y-4 text-left">
+
+      {/* Buyer Awaiting Escrow Deposit Banner */}
+      {isBuyer && isPendingEscrow && (
+        <div className="p-4 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left animate-in fade-in shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-900 shrink-0">
+              <ShieldAlert className="w-5 h-5 text-amber-700" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-amber-950 text-sm">
+                  {order.auctionId || order.auction_id ? 'Auction Won — Escrow Deposit Required' : 'Awaiting Escrow Deposit'}
+                </span>
+                <Badge variant="amber" size="xs">
+                  Pending Payment
+                </Badge>
+              </div>
+              <p className="text-[#566861]">
+                Deposit <strong className="text-emerald-800 font-bold">₹{Number(order.totalAmount || order.total_amount || 0).toLocaleString('en-IN')}</strong> into AgroLnk Escrow to authorize farmgate packaging and truck dispatch.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="accent"
+              size="sm"
+              disabled={isDepositing}
+              onClick={handleDepositEscrow}
+              className="font-bold text-xs py-2 px-4 shadow-sm cursor-pointer whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white"
+            >
+              {isDepositing ? 'Opening Payment...' : `Deposit Escrow (₹${Number(order.totalAmount || order.total_amount || 0).toLocaleString('en-IN')})`}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Farmer Cautionary Banner - Escrow Not Yet Funded */}
+      {!isBuyer && isPendingEscrow && (
+        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs flex items-center gap-3 text-left animate-in fade-in">
+          <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+          </div>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-amber-950 text-sm">
+                Awaiting Buyer Escrow Deposit
+              </span>
+              <Badge variant="amber" size="xs">
+                Do Not Dispatch
+              </Badge>
+            </div>
+            <p className="text-amber-900">
+              The winning buyer has not yet deposited trade funds (₹{Number(order.totalAmount || order.total_amount || 0).toLocaleString('en-IN')}) into escrow. <strong>Do not pack or release goods</strong> until the escrow status changes to Funded.
+            </p>
+          </div>
+        </div>
+      )}
       
       {/* 1. Unified Order Header & Produce Summary */}
       <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs space-y-4">
@@ -402,25 +516,36 @@ export default function OrderSummary({
           )}
         </div>
 
-        {/* 4-Step Progress Bar */}
-        <DeliveryTimeline currentStatus={effectiveDeliveryStatus} delivery={existingDelivery || {}} />
-
-        {/* Driver & Vehicle Tag */}
-        {existingDelivery?.vehicleNumber && (
-          <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 text-xs">
-            <div className="flex items-center gap-2">
-              <Truck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-              <span className="text-[#0B3326]">
-                Vehicle: <strong className="font-mono">{existingDelivery.vehicleNumber}</strong>
-                {existingDelivery.transporterName ? ` (${existingDelivery.transporterName})` : ''}
-              </span>
-            </div>
-            {existingDelivery.driverPhone && (
-              <span className="text-[11px] text-[#566861]">
-                Driver: <strong>{existingDelivery.driverName || 'Driver'}</strong> ({existingDelivery.driverPhone})
-              </span>
-            )}
+        {isPendingEscrow && !existingDelivery ? (
+          <div className="p-3.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#566861] flex items-center gap-2.5">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Logistics on Hold:</strong> Farmgate collection and transporter dispatch will activate automatically once buyer escrow deposit is completed.
+            </span>
           </div>
+        ) : (
+          <>
+            {/* 4-Step Progress Bar */}
+            <DeliveryTimeline currentStatus={effectiveDeliveryStatus} delivery={existingDelivery || {}} />
+
+            {/* Driver & Vehicle Tag */}
+            {existingDelivery?.vehicleNumber && (
+              <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                  <span className="text-[#0B3326]">
+                    Vehicle: <strong className="font-mono">{existingDelivery.vehicleNumber}</strong>
+                    {existingDelivery.transporterName ? ` (${existingDelivery.transporterName})` : ''}
+                  </span>
+                </div>
+                {existingDelivery.driverPhone && (
+                  <span className="text-[11px] text-[#566861]">
+                    Driver: <strong>{existingDelivery.driverName || 'Driver'}</strong> ({existingDelivery.driverPhone})
+                  </span>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

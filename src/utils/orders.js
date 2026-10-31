@@ -981,6 +981,154 @@ export async function updateOrderStatus(orderId, newStatus) {
 }
 
 /**
+ * Deposit Escrow for an Order (e.g. following an auction win or pending direct order)
+ * Moves escrow_status from 'pending' to 'funded' and status to 'order_placed',
+ * then initializes delivery dispatch in public.deliveries.
+ */
+export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
+  try {
+    const { data: order, error: fetchErr } = await supabase
+      .from('orders')
+      .select('*')
+      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+      .single();
+
+    if (fetchErr || !order) {
+      throw new Error('Order not found for deposit: ' + (fetchErr?.message || orderId));
+    }
+
+    const nowIso = new Date().toISOString();
+
+    const { data: updatedOrder, error: updateErr } = await supabase
+      .from('orders')
+      .update({
+        escrow_status: 'funded',
+        status: 'order_placed',
+        updated_at: nowIso,
+      })
+      .eq('id', order.id)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // Trigger delivery request now that escrow is funded
+    try {
+      const { data: existingDel } = await supabase
+        .from('deliveries')
+        .select('id')
+        .eq('order_id', order.id)
+        .maybeSingle();
+
+      if (!existingDel) {
+        const deliveryId = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const deliveryNum = `DEL-${Math.floor(1000 + Math.random() * 9000)}`;
+        await supabase.from('deliveries').insert([
+          {
+            id: deliveryId,
+            delivery_number: deliveryNum,
+            order_id: order.id,
+            order_number: order.order_number,
+            farmer_id: order.farmer_id,
+            farmer_name: order.farmer_name,
+            buyer_id: order.buyer_id,
+            buyer_name: order.buyer_name,
+            commodity: order.commodity,
+            grade: order.grade || 'A',
+            variety: order.variety || 'Standard Lot',
+            quantity: order.quantity,
+            unit: order.unit,
+            pickup_location: {
+              state: order.state || 'Madhya Pradesh',
+              district: order.district || 'Indore',
+              address: `${order.district || 'Farmgate'} Aggregation Depot`,
+            },
+            delivery_location: {
+              state: 'Tamil Nadu',
+              district: 'Chennai',
+              address: 'Buyer Central Receiving Hub',
+            },
+            distance_km: null,
+            fare_amount: null,
+            status: 'transport_requested',
+            tracking_steps: [
+              { step: 'Order Confirmed', completed: true, timestamp: nowIso },
+              { step: 'Transporter Assigned', completed: false },
+              { step: 'Pickup Completed', completed: false },
+              { step: 'In Transit', completed: false },
+              { step: 'Delivered', completed: false },
+            ],
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+        ]);
+      }
+    } catch (delErr) {
+      console.warn('Delivery dispatch notice after escrow deposit:', delErr);
+    }
+
+    // Register deposit in Live Escrow API Engine
+    try {
+      await processLiveEscrowDeposit({
+        orderNumber: order.order_number,
+        commodity: `${order.commodity} (${order.variety || 'Standard'}, ${order.grade || 'A'})`,
+        tradeAmount: Number(order.total_amount),
+        buyerName: order.buyer_name,
+        farmerName: order.farmer_name,
+        paymentMode: paymentMetadata.paymentMode || 'Razorpay Gateway (Instant Escrow Deposit)',
+      });
+    } catch (escrowErr) {
+      console.warn('Live escrow deposit record notice:', escrowErr);
+    }
+
+    // Dispatch notifications
+    try {
+      sendNotification({
+        recipientId: order.farmer_id,
+        recipientRole: 'farmer',
+        title: `Escrow Funded for Order ${order.order_number}`,
+        message: `Buyer deposited ₹${Number(order.total_amount).toLocaleString('en-IN')} into Escrow vault. Produce pickup and packaging is now authorized.`,
+        type: 'order',
+        link: '/farmer-orders',
+      });
+      sendNotification({
+        recipientId: order.buyer_id,
+        recipientRole: 'buyer',
+        title: `Escrow Secured (${order.order_number})`,
+        message: `Your deposit of ₹${Number(order.total_amount).toLocaleString('en-IN')} is locked in AgroLnk Escrow. Produce is being prepared for transport.`,
+        type: 'order',
+        link: '/buyer-orders',
+      });
+    } catch (notifErr) {
+      console.warn('Escrow deposit notification notice:', notifErr);
+    }
+
+    const mapped = mapOrderFromDb(updatedOrder);
+
+    // Update local cache
+    try {
+      const stored = getLocalOrders();
+      const idx = stored.findIndex((o) => o.id === order.id || o.orderNumber === order.order_number);
+      if (idx !== -1) {
+        stored[idx] = { ...stored[idx], ...mapped };
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(stored));
+      }
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
+      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return mapped;
+  } catch (err) {
+    console.error('Error depositing escrow for order:', err);
+    throw err;
+  }
+}
+
+/**
  * Get order by ID
  */
 export async function getOrderById(orderId) {

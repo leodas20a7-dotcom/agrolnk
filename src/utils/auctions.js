@@ -713,8 +713,8 @@ export async function finalizeAuction(auctionId) {
                 total_amount: totalAmt,
                 state: data.state,
                 district: data.district,
-                escrow_status: 'pending_deposit',
-                status: 'order_placed',
+                escrow_status: 'pending',
+                status: 'pending',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               },
@@ -722,53 +722,8 @@ export async function finalizeAuction(auctionId) {
             .select()
             .single();
 
-          if (createdOrder) {
-            try {
-              const deliveryId = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-              const deliveryNum = `DEL-${Math.floor(1000 + Math.random() * 9000)}`;
-              await supabase.from('deliveries').insert([
-                {
-                  id: deliveryId,
-                  delivery_number: deliveryNum,
-                  order_id: createdOrder.id,
-                  order_number: createdOrder.order_number,
-                  farmer_id: createdOrder.farmer_id,
-                  farmer_name: createdOrder.farmer_name,
-                  buyer_id: createdOrder.buyer_id,
-                  buyer_name: createdOrder.buyer_name,
-                  commodity: createdOrder.commodity,
-                  grade: createdOrder.grade || 'A',
-                  variety: createdOrder.variety || 'Standard Lot',
-                  quantity: createdOrder.quantity,
-                  unit: createdOrder.unit,
-                  pickup_location: {
-                    state: data.state,
-                    district: data.district,
-                    address: `${data.district} Farmgate Aggregation Depot`,
-                  },
-                  delivery_location: {
-                    state: 'Tamil Nadu',
-                    district: 'Chennai',
-                    address: 'Buyer Central Receiving Hub',
-                  },
-                  distance_km: null,
-                  fare_amount: null,
-                  status: 'transport_requested',
-                  tracking_steps: [
-                    { step: 'Order Confirmed', completed: true, timestamp: new Date().toISOString() },
-                    { step: 'Transporter Assigned', completed: false },
-                    { step: 'Pickup Completed', completed: false },
-                    { step: 'In Transit', completed: false },
-                    { step: 'Delivered', completed: false },
-                  ],
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                },
-              ]);
-            } catch (delErr) {
-              console.warn('Auto delivery creation notice:', delErr);
-            }
-          }
+          // Note: Deliveries are NOT scheduled until the winning bidder completes escrow funding.
+          // This prevents premature logistics dispatches for unpaid auction orders.
         }
       } catch (orderErr) {
         console.warn('Auto auction order creation notice:', orderErr);
@@ -861,8 +816,8 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
             total_amount: totalAmt,
             state: updatedAuction.state,
             district: updatedAuction.district,
-            escrow_status: 'pending_deposit',
-            status: 'order_placed',
+            escrow_status: 'pending',
+            status: 'pending',
             created_at: nowIso,
             updated_at: nowIso,
           },
@@ -874,51 +829,7 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
         console.warn('Order creation error on early accept:', orderErr);
       } else {
         createdOrder = newOrder;
-        try {
-          const deliveryId = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const deliveryNum = `DEL-${Math.floor(1000 + Math.random() * 9000)}`;
-          await supabase.from('deliveries').insert([
-            {
-              id: deliveryId,
-              delivery_number: deliveryNum,
-              order_id: createdOrder.id,
-              order_number: createdOrder.order_number,
-              farmer_id: createdOrder.farmer_id,
-              farmer_name: createdOrder.farmer_name,
-              buyer_id: createdOrder.buyer_id,
-              buyer_name: createdOrder.buyer_name,
-              commodity: createdOrder.commodity,
-              grade: createdOrder.grade || 'A',
-              variety: createdOrder.variety || 'Standard Lot',
-              quantity: createdOrder.quantity,
-              unit: createdOrder.unit,
-              pickup_location: {
-                state: updatedAuction.state,
-                district: updatedAuction.district,
-                address: `${updatedAuction.district} Farmgate Aggregation Depot`,
-              },
-              delivery_location: {
-                state: 'Tamil Nadu',
-                district: 'Chennai',
-                address: 'Buyer Central Receiving Hub',
-              },
-              distance_km: null,
-              fare_amount: null,
-              status: 'transport_requested',
-              tracking_steps: [
-                { step: 'Order Confirmed', completed: true, timestamp: nowIso },
-                { step: 'Transporter Assigned', completed: false },
-                { step: 'Pickup Completed', completed: false },
-                { step: 'In Transit', completed: false },
-                { step: 'Delivered', completed: false },
-              ],
-              created_at: nowIso,
-              updated_at: nowIso,
-            },
-          ]);
-        } catch (delErr) {
-          console.warn('Auto delivery creation notice:', delErr);
-        }
+        // Note: Delivery is NOT scheduled until buyer completes escrow funding
       }
     }
 
