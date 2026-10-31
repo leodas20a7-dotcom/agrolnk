@@ -331,7 +331,7 @@ export default function DeliveryDetailModal({
                   Carrier Price Quote Received
                 </span>
                 <span className="text-xs text-white/80">
-                  {currentDelivery.transporterName || 'Carrier'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} for this ~{currentDelivery.estimatedDistanceKm || 150} km route.
+                  {currentDelivery.transporterName || 'Carrier'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} for this {currentDelivery.estimatedDistanceKm || currentDelivery.distanceKm ? `~${currentDelivery.estimatedDistanceKm || currentDelivery.distanceKm} km` : 'freight'} route.
                 </span>
               </div>
               <div className="text-right shrink-0">

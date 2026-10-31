@@ -71,7 +71,7 @@ export function estimateDistanceKm(originDistrict = '', destDistrict = '') {
   const key2 = `${dest}-${orig}`;
   if (DISTRICT_DISTANCES[key1]) return DISTRICT_DISTANCES[key1];
   if (DISTRICT_DISTANCES[key2]) return DISTRICT_DISTANCES[key2];
-  return 180;
+  return null;
 }
 
 /**

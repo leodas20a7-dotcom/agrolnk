@@ -751,8 +751,8 @@ export async function finalizeAuction(auctionId) {
                     district: 'Chennai',
                     address: 'Buyer Central Receiving Hub',
                   },
-                  distance_km: 180,
-                  fare_amount: 4500,
+                  distance_km: null,
+                  fare_amount: null,
                   status: 'transport_requested',
                   tracking_steps: [
                     { step: 'Order Confirmed', completed: true, timestamp: new Date().toISOString() },
@@ -902,8 +902,8 @@ export async function acceptAuctionBidEarly(auctionId, options = {}) {
                 district: 'Chennai',
                 address: 'Buyer Central Receiving Hub',
               },
-              distance_km: 180,
-              fare_amount: 4500,
+              distance_km: null,
+              fare_amount: null,
               status: 'transport_requested',
               tracking_steps: [
                 { step: 'Order Confirmed', completed: true, timestamp: nowIso },

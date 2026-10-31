@@ -399,7 +399,7 @@ BEGIN
             v_auction.highest_bidder_id, v_auction.highest_bidder_name, v_auction.commodity, v_auction.grade, v_auction.variety, v_auction.quantity, v_auction.unit,
             jsonb_build_object('state', v_auction.state, 'district', v_auction.district, 'address', v_auction.district || ' Farmgate Aggregation Depot'),
             jsonb_build_object('state', 'Tamil Nadu', 'district', 'Chennai', 'address', 'Buyer Central Receiving Hub'),
-            180, 4500, 'transport_requested',
+            NULL, NULL, 'transport_requested',
             jsonb_build_array(
                 jsonb_build_object('step', 'Order Confirmed', 'completed', true, 'timestamp', v_now),
                 jsonb_build_object('step', 'Transporter Assigned', 'completed', false),
@@ -621,9 +621,9 @@ BEGIN
         delivery_otp, created_at, updated_at
     ) VALUES (
         v_delivery_id, v_delivery_num, v_order_id, v_order_num, v_listing.farmer_id, v_listing.farmer_name,
-        p_buyer_id, p_buyer_name, v_listing.commodity, v_listing.grade, v_listing.variety, p_quantity, v_listing.unit,
+        p_buyer_id, p_buyer_name, v_listing.commodity, v_listing.grade, v_listing.variety, p_quantity, COALESCE(p_buyer_unit, v_listing.unit),
         jsonb_build_object('state', v_listing.state, 'district', v_listing.district, 'address', v_listing.district || ' Farmgate Aggregation Hub'),
-        p_delivery_location, 180, 4500, 'transport_requested',
+        p_delivery_location, NULL, NULL, 'transport_requested',
         floor(100000 + random() * 900000)::text, v_now, v_now
     );
 
