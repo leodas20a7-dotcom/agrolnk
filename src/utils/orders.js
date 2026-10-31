@@ -864,14 +864,31 @@ export async function confirmOrderReceipt(orderId) {
 /**
  * Update order status
  */
+/**
+ * Update order status with automatic inventory restoration on cancellation
+ */
 export async function updateOrderStatus(orderId, newStatus) {
   try {
+    // 1. Fetch current order state before updating
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('*')
+      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+      .maybeSingle();
+
+    const previousStatus = existingOrder?.status;
     const updatePayload = {
       status: newStatus,
       updated_at: new Date().toISOString(),
     };
+
     if (newStatus === 'completed') {
       updatePayload.escrow_status = 'released';
+    } else if (newStatus === 'cancelled') {
+      // If escrow was funded/held, mark as refunded
+      if (existingOrder?.escrow_status && ['funded', 'escrow_secured', 'held'].includes(existingOrder.escrow_status)) {
+        updatePayload.escrow_status = 'refunded';
+      }
     }
 
     const { data, error } = await supabase
@@ -883,12 +900,48 @@ export async function updateOrderStatus(orderId, newStatus) {
 
     if (error) throw error;
 
-    // Automatically sync linked delivery when order progresses
+    // 2. Inventory Restoration: If order was cancelled before truck pickup/dispatch, return stock to listing
+    if (
+      newStatus === 'cancelled' &&
+      previousStatus !== 'cancelled' &&
+      existingOrder?.listing_id &&
+      Number(existingOrder?.quantity) > 0 &&
+      !['dispatched', 'in_transit', 'delivered', 'completed'].includes(previousStatus)
+    ) {
+      try {
+        const { data: listingData } = await supabase
+          .from('listings')
+          .select('id, quantity, status, unit')
+          .eq('id', existingOrder.listing_id)
+          .maybeSingle();
+
+        if (listingData) {
+          const listingUnit = listingData.unit || existingOrder.unit || 'kg';
+          const orderUnit = existingOrder.unit || listingUnit;
+          const restoreQty = convertVolume(existingOrder.quantity, orderUnit, listingUnit);
+
+          const restoredStock = Math.round((Number(listingData.quantity || 0) + restoreQty) * 10000) / 10000;
+          await supabase
+            .from('listings')
+            .update({
+              quantity: restoredStock,
+              status: 'active', // Reactivate listing if it was marked sold
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingOrder.listing_id);
+        }
+      } catch (restoreErr) {
+        console.warn('Client-side inventory restoration notice:', restoreErr);
+      }
+    }
+
+    // 3. Automatically sync linked delivery when order progresses or cancels
     try {
       let linkedDeliveryStatus = null;
       if (newStatus === 'completed') linkedDeliveryStatus = 'completed';
       else if (newStatus === 'delivered') linkedDeliveryStatus = 'delivered';
       else if (newStatus === 'in_transit' || newStatus === 'ready_for_delivery') linkedDeliveryStatus = 'in_transit';
+      else if (newStatus === 'cancelled') linkedDeliveryStatus = 'cancelled';
 
       if (linkedDeliveryStatus) {
         await supabase
@@ -903,7 +956,24 @@ export async function updateOrderStatus(orderId, newStatus) {
       console.warn('Delivery status auto-sync notice:', delErr);
     }
 
-    return mapOrderFromDb(data);
+    const mapped = mapOrderFromDb(data);
+
+    // 4. Update local storage cache and notify active views
+    try {
+      const stored = getLocalOrders();
+      const idx = stored.findIndex((o) => o.id === data.id || o.orderNumber === data.order_number);
+      if (idx !== -1) {
+        stored[idx] = { ...stored[idx], ...mapped };
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(stored));
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
+        window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch {}
+
+    return mapped;
   } catch (err) {
     console.error('Error updating order status:', err);
     throw err;

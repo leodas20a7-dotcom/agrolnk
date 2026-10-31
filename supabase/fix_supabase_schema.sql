@@ -51,6 +51,60 @@ CREATE TRIGGER trg_enforce_order_price_integrity
     FOR EACH ROW
     EXECUTE FUNCTION public.enforce_order_price_integrity();
 
+-- Automatically restore inventory to listings when an un-dispatched order is cancelled
+CREATE OR REPLACE FUNCTION public.restore_inventory_on_order_cancellation()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_listing RECORD;
+    v_restore_qty NUMERIC;
+BEGIN
+    -- Only trigger if transitioning TO 'cancelled' from a non-dispatched status
+    IF NEW.status = 'cancelled' 
+       AND (OLD.status IS NULL OR OLD.status NOT IN ('cancelled', 'dispatched', 'in_transit', 'delivered', 'completed'))
+       AND NEW.listing_id IS NOT NULL 
+       AND NEW.quantity > 0 THEN
+
+        -- Fetch the target listing with a lock
+        SELECT * INTO v_listing
+        FROM public.listings
+        WHERE id = NEW.listing_id
+        FOR UPDATE;
+
+        IF FOUND THEN
+            -- Convert order quantity to listing's native unit
+            v_restore_qty := public.convert_agri_volume(NEW.quantity, NEW.unit, v_listing.unit);
+
+            -- Add quantity back and ensure status is 'active'
+            UPDATE public.listings SET
+                quantity = ROUND(COALESCE(quantity, 0) + v_restore_qty, 4),
+                status = 'active',
+                updated_at = NOW()
+            WHERE id = NEW.listing_id;
+        END IF;
+
+        -- Cancel linked delivery if it exists and hasn't been dispatched
+        UPDATE public.deliveries SET
+            status = 'cancelled',
+            updated_at = NOW()
+        WHERE (order_id = NEW.id OR order_number = NEW.order_number)
+          AND status IN ('transport_requested', 'price_offered', 'assigned');
+
+        -- Mark escrow status as refunded if funds were held
+        IF NEW.escrow_status IN ('funded', 'escrow_secured', 'held') THEN
+            NEW.escrow_status := 'refunded';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_restore_inventory_on_order_cancellation ON public.orders;
+CREATE TRIGGER trg_restore_inventory_on_order_cancellation
+    BEFORE UPDATE OF status ON public.orders
+    FOR EACH ROW
+    EXECUTE FUNCTION public.restore_inventory_on_order_cancellation();
+
 -- Ensure all application columns exist on orders
 ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS payment_mode TEXT DEFAULT 'direct';
 ALTER TABLE IF EXISTS public.orders ADD COLUMN IF NOT EXISTS financing_request_id TEXT;
