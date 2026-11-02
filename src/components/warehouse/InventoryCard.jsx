@@ -12,7 +12,8 @@ import {
   Clock,
   CheckCircle2,
   Truck,
-  ArrowRight
+  ArrowRight,
+  Lock
 } from 'lucide-react';
 import { calculateStorageRentalDues, calculateMonthlyRentDeadline } from '../../utils/warehouses';
 
@@ -36,6 +37,11 @@ export default function InventoryCard({
   const isQuoteProvided = inventory?.status === 'quote_provided';
   const isQuoteRequested = inventory?.status === 'quote_requested';
   const isInTransit = inventory?.status === 'in_transit';
+  const isPledged = Boolean(
+    inventory?.lienStatus === 'pledged' ||
+    inventory?.isPledged ||
+    inventory?.lien_status === 'pledged'
+  );
 
   return (
     <Card
@@ -71,7 +77,13 @@ export default function InventoryCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {isPledged && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
+                <Lock className="w-3 h-3 text-purple-700" />
+                Pledged
+              </span>
+            )}
             {isStored && (
               <Badge variant="emerald" size="sm">
                 In Storage
@@ -226,6 +238,16 @@ export default function InventoryCard({
           >
             Review Quote & Send Goods
           </Button>
+        ) : isPledged ? (
+          <div className="p-2.5 rounded-2xl bg-purple-50/80 border border-purple-200 text-xs text-purple-950 flex items-center justify-between">
+            <span className="font-bold flex items-center gap-1.5 truncate">
+              <Lock className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+              <span className="truncate">Lien: {inventory.lienHolderName || 'Financier'}</span>
+            </span>
+            <span className="text-[10px] bg-purple-200/90 text-purple-950 px-2 py-0.5 rounded-lg font-mono font-bold shrink-0">
+              {inventory.lienLoanNumber ? `#${inventory.lienLoanNumber}` : 'Active Loan'}
+            </span>
+          </div>
         ) : isStored && inventory.availableQuantity > 0 && onList ? (
           <Button
             variant="accent"
@@ -264,12 +286,18 @@ export default function InventoryCard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onRequestFinancing(inventory)}
-              icon={Landmark}
+              disabled={isPledged}
+              onClick={() => !isPledged && onRequestFinancing(inventory)}
+              icon={isPledged ? Lock : Landmark}
               iconPosition="left"
-              className="w-full justify-center text-[11px] font-bold py-2 cursor-pointer border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]"
+              title={isPledged ? 'Loan already active against this receipt' : 'Apply for working capital loan'}
+              className={`w-full justify-center text-[11px] font-bold py-2 ${
+                isPledged
+                  ? 'opacity-60 cursor-not-allowed bg-purple-50/50 text-purple-800 border-purple-200'
+                  : 'cursor-pointer border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]'
+              }`}
             >
-              Loan
+              {isPledged ? 'Pledged' : 'Loan'}
             </Button>
           )}
 

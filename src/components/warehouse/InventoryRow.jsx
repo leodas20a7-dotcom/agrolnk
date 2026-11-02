@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, ThermometerSnowflake, Sparkles, Receipt, Eye, Truck, Clock, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Building2, ThermometerSnowflake, Sparkles, Receipt, Eye, Truck, Clock, ArrowRight, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { calculateStorageRentalDues, calculateMonthlyRentDeadline } from '../../utils/warehouses';
@@ -24,6 +24,11 @@ export default function InventoryRow({
   const isQuoteProvided = inventory?.status === 'quote_provided';
   const isQuoteRequested = inventory?.status === 'quote_requested';
   const isInTransit = inventory?.status === 'in_transit';
+  const isPledged = Boolean(
+    inventory?.lienStatus === 'pledged' ||
+    inventory?.isPledged ||
+    inventory?.lien_status === 'pledged'
+  );
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-left">
@@ -53,6 +58,13 @@ export default function InventoryRow({
             <Badge variant="dark" size="sm">
               Grade {inventory.grade || 'A'}
             </Badge>
+
+            {isPledged && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
+                <Lock className="w-3 h-3 text-purple-700" />
+                Pledged ({inventory.lienHolderName || 'Financier'})
+              </span>
+            )}
 
             {/* Dynamic Status Badge */}
             {isStored && (
@@ -188,7 +200,12 @@ export default function InventoryRow({
           </Button>
         )}
 
-        {isStored && Number(inventory.availableQuantity) > 0 && onList && (
+        {isPledged ? (
+          <span className="text-[11px] font-bold text-purple-950 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-200 flex items-center gap-1">
+            <Lock className="w-3.5 h-3.5 text-purple-700" />
+            Lien #{inventory.lienLoanNumber || 'Active'}
+          </span>
+        ) : isStored && Number(inventory.availableQuantity) > 0 && onList ? (
           <Button
             variant="accent"
             size="sm"
@@ -199,7 +216,7 @@ export default function InventoryRow({
           >
             List Produce
           </Button>
-        )}
+        ) : null}
 
         <Button
           variant="ghost"

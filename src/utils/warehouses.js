@@ -32,6 +32,14 @@ export function mapReceiptFromDb(row) {
     lastRentPaidAt: row.last_rent_paid_at,
     validUntil: row.valid_until,
     status: row.status || 'quote_requested',
+    lienStatus: row.lien_status || 'unencumbered',
+    isPledged: row.lien_status === 'pledged',
+    lienHolderId: row.lien_holder_id || null,
+    lienHolderName: row.lien_holder_name || null,
+    lienLoanId: row.lien_loan_id || null,
+    lienLoanNumber: row.lien_loan_number || null,
+    pledgedAt: row.pledged_at || null,
+    lienReleasedAt: row.lien_released_at || null,
     paymentMode: row.payment_mode || 'auto_deduct',
     initialPaymentStatus: row.initial_payment_status || 'pending',
     initialPaymentAmount: Number(row.initial_payment_amount || 0),
@@ -602,6 +610,13 @@ export async function listProduceFromInventory(receiptId, listData, currentUser 
       return null;
     }
 
+    // Security Check: Block listing if active institutional lien exists
+    if (receipt.lien_status === 'pledged') {
+      const lender = receipt.lien_holder_name || 'an institutional lender';
+      const loan = receipt.lien_loan_number ? ` under loan #${receipt.lien_loan_number}` : '';
+      throw new Error(`Cannot list produce: Warehouse receipt #${receipt.receipt_number || receiptId} has an active institutional lien held by ${lender}${loan}. Multiple pledges or sales of mortgaged stock are strictly prohibited.`);
+    }
+
     const qtyToList = Number(listData.quantity || receipt.available_quantity);
     const newAvail = Math.max(0, Number(receipt.available_quantity || 0) - qtyToList);
     const newLocked = Number(receipt.locked_quantity || 0) + qtyToList;
@@ -699,6 +714,12 @@ export async function dispatchProduceFromWarehouse(receiptId, dispatchData = {})
     if (fetchErr || !receipt) {
       console.error('Receipt not found for dispatch:', fetchErr);
       return null;
+    }
+
+    // Security Check: Block physical withdrawal if active institutional lien exists
+    if (receipt.lien_status === 'pledged' && !dispatchData.isAuthorizedLienRelease) {
+      const lender = receipt.lien_holder_name || 'an institutional financier';
+      throw new Error(`Cannot release produce: Warehouse receipt #${receipt.receipt_number || receiptId} has an active institutional lien held by ${lender}. Physical withdrawal is prohibited until loan clearance.`);
     }
 
     const qtyToDispatch = Number(dispatchData.quantity || receipt.locked_quantity || receipt.total_quantity);
