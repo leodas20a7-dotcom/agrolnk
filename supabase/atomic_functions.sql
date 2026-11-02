@@ -15,9 +15,9 @@
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.place_auction_bid_atomic(
     p_auction_id TEXT,
+    p_bid_amount NUMERIC,
     p_bidder_id TEXT DEFAULT NULL,
-    p_bidder_name TEXT DEFAULT NULL,
-    p_bid_amount NUMERIC DEFAULT 0
+    p_bidder_name TEXT DEFAULT NULL
 ) RETURNS JSONB AS $$
 DECLARE
     v_auction RECORD;

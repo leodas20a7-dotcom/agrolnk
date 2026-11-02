@@ -318,6 +318,9 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
     }
 
     const numAmount = Number(amount);
+    if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+      throw new Error('Please enter a valid positive bid amount.');
+    }
 
     // Verify Buyer KYC Status before placing bid
     const activeUser = getCurrentUser();
@@ -325,140 +328,38 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
       throw new Error('Buyer KYC verification is mandatory before participating in auctions.');
     }
 
-    // 1. Production Atomic Database RPC with Row Locking (Eliminates Concurrency Race Conditions)
-    try {
-      const { data: rpcData, error: rpcErr } = await supabase.rpc('place_auction_bid_atomic', {
+    // 1. Authoritative Atomic Database RPC with Row Locking
+    // (Eliminates race conditions, extends clock on soft-close, and bypasses RLS safely via SECURITY DEFINER)
+    let rpcRes = await supabase.rpc('place_auction_bid_atomic', {
+      p_auction_id: auctionId,
+      p_bid_amount: numAmount,
+      p_bidder_id: bidderId || activeUser?.id || '',
+      p_bidder_name: bidderName || activeUser?.name || 'Buyer Partner',
+    });
+
+    // Fallback attempt for 2-parameter signature if parameter mismatch occurs
+    if (rpcRes.error && (rpcRes.error.code === 'PGRST202' || rpcRes.error.message?.includes('parameter') || rpcRes.error.message?.includes('schema cache'))) {
+      rpcRes = await supabase.rpc('place_auction_bid_atomic', {
         p_auction_id: auctionId,
-        p_bidder_id: bidderId || '',
-        p_bidder_name: bidderName || 'Buyer Partner',
         p_bid_amount: numAmount,
       });
-
-      if (!rpcErr && rpcData?.success) {
-        const fresh = await getAuctionById(auctionId);
-        return fresh;
-      }
-
-      if (rpcErr) {
-        const msg = rpcErr.message || '';
-        if (
-          msg.includes('Producers are not permitted') ||
-          msg.includes('auction has ended') ||
-          msg.includes('no longer live') ||
-          msg.includes('not found')
-        ) {
-          throw new Error(msg);
-        }
-        console.info('Atomic bid RPC notice (using fallback):', rpcErr.message);
-      }
-    } catch (rpcCatch) {
-      if (
-        rpcCatch.message &&
-        (rpcCatch.message.includes('Producers are not permitted') ||
-         rpcCatch.message.includes('auction has ended') ||
-         rpcCatch.message.includes('no longer live'))
-      ) {
-        throw rpcCatch;
-      }
     }
 
-    // 2. Client-side Fallback (Ensures complete offline/local compatibility)
-    const { data: currentAuction, error: fetchErr } = await supabase
-      .from('auctions')
-      .select('*')
-      .eq('id', auctionId)
-      .single();
-
-    if (fetchErr || !currentAuction) {
-      throw new Error('Auction not found.');
+    if (rpcRes.error) {
+      const msg = rpcRes.error.message || '';
+      throw new Error(msg || 'Unable to place bid on the auction exchange.');
     }
 
-    // Guard: Auction must be live and within duration
-    if (currentAuction.status !== 'live' || new Date(currentAuction.end_time).getTime() <= Date.now()) {
-      throw new Error('This auction has ended and is no longer accepting bids.');
+    if (rpcRes.data?.success) {
+      const fresh = await getAuctionById(auctionId);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return fresh;
     }
 
-    // Guard: Prevent farmer from bidding on own produce
-    if (currentAuction.farmer_id && currentAuction.farmer_id === bidderId) {
-      throw new Error('Producers are not permitted to bid on their own auctions.');
-    }
-
-    // Guard: Prevent leading bidder from bidding against themselves
-    if (currentAuction.highest_bidder_id && currentAuction.highest_bidder_id === bidderId) {
-      throw new Error('You already hold the leading offer on this lot! You cannot bid against yourself.');
-    }
-
-    const mappedLot = mapAuctionFromDb(currentAuction);
-    const auctionType = mappedLot.auctionType || 'forward';
-    const bidStep = mappedLot.bidStep || 25;
-    const currentBidVal = Number(currentAuction.current_bid);
-
-    if (auctionType === 'reverse') {
-      if (numAmount <= 0) {
-        throw new Error('In a reverse auction, your bid must be greater than zero.');
-      }
-      if (numAmount >= currentBidVal) {
-        throw new Error(`In a reverse auction, your bid must be lower than the current leading offer of ₹${currentBidVal}/${currentAuction.unit}.`);
-      }
-
-      const dec = currentBidVal - numAmount;
-      if (dec < bidStep) {
-        throw new Error(`Your bid must be lower by at least the required step of ₹${bidStep}/${currentAuction.unit}.`);
-      }
-      // Strictly prevent arbitrary amounts (e.g., -1, -5) when step is ₹25
-      const remainder = Math.round((dec % bidStep) * 100) / 100;
-      if (remainder > 0.01 && remainder < (bidStep - 0.01)) {
-        throw new Error(`Bids must be in exact step decrements of ₹${bidStep}/${currentAuction.unit} (e.g. ₹${currentBidVal - bidStep}, ₹${currentBidVal - (bidStep * 2)}).`);
-      }
-    } else {
-      if (numAmount <= currentBidVal) {
-        throw new Error(`Your bid must be higher than the current bid of ₹${currentBidVal}/${currentAuction.unit}.`);
-      }
-      const inc = numAmount - currentBidVal;
-      if (inc < bidStep) {
-        throw new Error(`Your bid must increase by at least the required step of ₹${bidStep}/${currentAuction.unit}.`);
-      }
-      // Strictly prevent arbitrary amounts (e.g., +1, +5) when step is ₹25
-      const remainder = Math.round((inc % bidStep) * 100) / 100;
-      if (remainder > 0.01 && remainder < (bidStep - 0.01)) {
-        throw new Error(`Bids must be in exact step increments of ₹${bidStep}/${currentAuction.unit} (e.g. ₹${currentBidVal + bidStep}, ₹${currentBidVal + (bidStep * 2)}).`);
-      }
-    }
-
-    // Insert bid
-    const bidId = `bid_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    const { error: insertErr } = await supabase
-      .from('auction_bids')
-      .insert([
-        {
-          id: bidId,
-          auction_id: auctionId,
-          bidder_id: bidderId || '',
-          bidder_name: bidderName || 'Buyer Partner',
-          bid_amount: numAmount,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-
-    if (insertErr) throw insertErr;
-
-    // Update auction current bid & highest bidder
-    const { data: updatedAuction, error: updateErr } = await supabase
-      .from('auctions')
-      .update({
-        current_bid: numAmount,
-        highest_bidder_id: bidderId || null,
-        highest_bidder_name: bidderName || 'Buyer Partner',
-        total_bids: (currentAuction.total_bids || 0) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', auctionId)
-      .select()
-      .single();
-
-    if (updateErr) throw updateErr;
-
-    return mapAuctionFromDb(updatedAuction);
+    throw new Error('Bid placement was not acknowledged by the auction exchange.');
   } catch (err) {
     console.error('Error placing bid:', err);
     throw err;
