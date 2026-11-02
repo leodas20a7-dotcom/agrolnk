@@ -454,6 +454,47 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- ----------------------------------------------------------------------------
+-- 3B. BATCH AUTOMATED FINALIZATION FOR EXPIRED AUCTIONS
+-- Concurrency lock: FOR UPDATE SKIP LOCKED
+-- Settles all live auctions whose end_time has passed without blocking
+-- Safe for concurrent execution via pg_cron, serverless daemon, or client RPC
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.finalize_expired_auctions_batch()
+RETURNS JSONB AS $$
+DECLARE
+    v_rec RECORD;
+    v_finalized_count INT := 0;
+    v_errors_count INT := 0;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+    FOR v_rec IN 
+        SELECT id 
+        FROM public.auctions 
+        WHERE status = 'live' 
+          AND end_time <= v_now
+        ORDER BY end_time ASC
+        FOR UPDATE SKIP LOCKED
+    LOOP
+        BEGIN
+            PERFORM public.finalize_auction_atomic(v_rec.id);
+            v_finalized_count := v_finalized_count + 1;
+        EXCEPTION WHEN OTHERS THEN
+            v_errors_count := v_errors_count + 1;
+            RAISE WARNING 'Failed to finalize expired auction %: %', v_rec.id, SQLERRM;
+        END;
+    END LOOP;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'finalized_count', v_finalized_count,
+        'errors_count', v_errors_count,
+        'timestamp', v_now
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- ----------------------------------------------------------------------------
 -- 4. ATOMIC DIRECT MARKETPLACE PURCHASE & STOCK RESERVATION
 -- Concurrency lock: FOR UPDATE on listings row
 -- Enforces: stock availability check, atomic inventory reduction, duplicate prevention

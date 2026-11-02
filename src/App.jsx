@@ -62,6 +62,7 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 import { LoadingProvider, showGlobalLoader, hideGlobalLoader } from './context/LoadingContext';
 import { ToastProvider } from './context/ToastContext';
 import { getCurrentUser } from './utils/auth';
+import { checkAndFinalizeExpiredAuctions } from './utils/auctions';
 
 const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
 
@@ -242,6 +243,15 @@ export default function App() {
     };
   }, []);
 
+  // Background daemon: Settle expired auction lots automatically every 30 seconds
+  useEffect(() => {
+    checkAndFinalizeExpiredAuctions().catch(() => {});
+    const interval = setInterval(() => {
+      checkAndFinalizeExpiredAuctions().catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const triggerFlashTransition = useCallback((targetPage) => {
     const msg = PAGE_MESSAGES[targetPage] || 'Loading AgroLnk...';
     showGlobalLoader(msg, 'Fetching verified records from network...');
@@ -273,6 +283,7 @@ export default function App() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    checkAndFinalizeExpiredAuctions().catch(() => {});
     setTimeout(() => {
       isNavigatingRef.current = false;
     }, 150);

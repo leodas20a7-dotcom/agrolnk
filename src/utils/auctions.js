@@ -78,9 +78,27 @@ function mapAuctionFromDb(row) {
 
 /**
  * Automatically check and atomically finalize all expired live auctions
+ * Prioritizes the atomic PostgreSQL batch RPC finalize_expired_auctions_batch,
+ * falling back to client-side concurrent settlement if needed.
  */
 export async function checkAndFinalizeExpiredAuctions() {
   try {
+    // 1. Try server-side atomic batch RPC (Fastest, zero race conditions, row locked with SKIP LOCKED)
+    try {
+      const { data: batchRes, error: batchErr } = await supabase.rpc('finalize_expired_auctions_batch');
+      if (!batchErr && batchRes?.success) {
+        if (batchRes.finalized_count > 0 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated'));
+          window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+        return batchRes;
+      }
+    } catch (_rpcErr) {
+      // Fall through to client fallback
+    }
+
+    // 2. Client-side fallback batch iteration
     const nowIso = new Date().toISOString();
     const { data: expiredLots, error } = await supabase
       .from('auctions')
@@ -94,9 +112,17 @@ export async function checkAndFinalizeExpiredAuctions() {
       expiredLots.map((lot) => finalizeAuction(lot.id))
     );
 
-    return finalizedResults
+    const succeeded = finalizedResults
       .filter((r) => r.status === 'fulfilled' && r.value)
       .map((r) => r.value);
+
+    if (succeeded.length > 0 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated'));
+      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return succeeded;
   } catch (err) {
     console.warn('Auto-finalize expired auctions notice:', err);
     return [];
