@@ -368,23 +368,21 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
     const currentBidVal = Number(currentAuction.current_bid);
 
     if (auctionType === 'reverse') {
+      if (numAmount <= 0) {
+        throw new Error('In a reverse auction, your bid must be greater than zero.');
+      }
       if (numAmount >= currentBidVal) {
         throw new Error(`In a reverse auction, your bid must be lower than the current leading offer of ₹${currentBidVal}/${currentAuction.unit}.`);
       }
-      const effectiveReservePrice = mappedLot.reservePrice || Number(currentAuction.reserve_price);
-      const isAtReserveFloor = effectiveReservePrice && numAmount === Number(effectiveReservePrice);
 
       const dec = currentBidVal - numAmount;
-      if (dec < bidStep && !isAtReserveFloor) {
+      if (dec < bidStep) {
         throw new Error(`Your bid must be lower by at least the required step of ₹${bidStep}/${currentAuction.unit}.`);
       }
-      // Strictly prevent arbitrary amounts (e.g., -1, -5) when step is ₹25, unless bidding exact reserve floor
+      // Strictly prevent arbitrary amounts (e.g., -1, -5) when step is ₹25
       const remainder = Math.round((dec % bidStep) * 100) / 100;
-      if (!isAtReserveFloor && remainder > 0.01 && remainder < (bidStep - 0.01)) {
+      if (remainder > 0.01 && remainder < (bidStep - 0.01)) {
         throw new Error(`Bids must be in exact step decrements of ₹${bidStep}/${currentAuction.unit} (e.g. ₹${currentBidVal - bidStep}, ₹${currentBidVal - (bidStep * 2)}).`);
-      }
-      if (effectiveReservePrice && numAmount < Number(effectiveReservePrice)) {
-        throw new Error(`Bid cannot be lower than the farmer's reserve floor price of ₹${effectiveReservePrice}/${currentAuction.unit}.`);
       }
     } else {
       if (numAmount <= currentBidVal) {
@@ -663,9 +661,16 @@ export async function finalizeAuction(auctionId) {
     const currentLot = await getAuctionById(auctionId);
     if (!currentLot) return null;
 
-    // Evaluate reserve price
-    const isReserveMet = currentLot.highestBidderId && (Number(currentLot.currentBid) >= Number(currentLot.reservePrice || currentLot.startingBid));
-    const targetStatus = isReserveMet ? 'completed' : (currentLot.highestBidderId ? 'reserve_not_met' : 'completed');
+    // Evaluate reserve price based on auction type
+    const isReverse = currentLot.auctionType === 'reverse';
+    const effectiveReserve = Number(currentLot.reservePrice || currentLot.startingBid);
+    const leadingBid = Number(currentLot.currentBid);
+
+    const isReserveMet = Boolean(
+      currentLot.highestBidderId &&
+      (isReverse ? leadingBid <= effectiveReserve : leadingBid >= effectiveReserve)
+    );
+    const targetStatus = isReserveMet ? 'completed' : (currentLot.highestBidderId ? 'reserve_not_met' : 'ended_unsold');
 
     const { data, error } = await supabase
       .from('auctions')

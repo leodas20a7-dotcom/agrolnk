@@ -20,7 +20,7 @@ export default function BidForm({
   const numericReservePrice = Number(reservePrice) || 0;
 
   const defaultSuggestedAmount = isReverse
-    ? Math.max(numericReservePrice, numericCurrentBid - step)
+    ? Math.max(1, numericCurrentBid - step)
     : numericCurrentBid + step;
 
   const [bidAmount, setBidAmount] = useState(defaultSuggestedAmount);
@@ -29,7 +29,7 @@ export default function BidForm({
   // Keep suggested bid updated when currentBid shifts in real-time
   useEffect(() => {
     if (isReverse) {
-      setBidAmount(Math.max(numericReservePrice, numericCurrentBid - step));
+      setBidAmount(Math.max(1, numericCurrentBid - step));
     } else {
       setBidAmount(numericCurrentBid + step);
     }
@@ -46,9 +46,9 @@ export default function BidForm({
       ? numericCurrentBid - delta
       : numericCurrentBid + delta;
 
-    if (isReverse && numericReservePrice > 0 && target < numericReservePrice) {
-      setError(`Cannot bid below the farmer's reserve floor of ₹${numericReservePrice}/${unit}.`);
-      setBidAmount(numericReservePrice);
+    if (isReverse && target <= 0) {
+      setError('Bid must be greater than zero.');
+      setBidAmount(Math.max(1, numericCurrentBid - step));
       return;
     }
 
@@ -81,23 +81,22 @@ export default function BidForm({
 
     if (isReverse) {
       // Reverse auction validation
+      if (amount <= 0) {
+        setError('Bid amount must be greater than zero.');
+        return;
+      }
       if (amount >= numericCurrentBid) {
         setError(`In a reverse auction, your bid must be lower than the current leading offer of ₹${numericCurrentBid}/${unit}.`);
         return;
       }
-      const isAtReserveFloor = numericReservePrice > 0 && amount === numericReservePrice;
       const dec = numericCurrentBid - amount;
-      if (dec < step && !isAtReserveFloor) {
+      if (dec < step) {
         setError(`Your bid must be lower by at least the required step of ₹${step}/${unit}.`);
         return;
       }
       const remainder = Math.round((dec % step) * 100) / 100;
-      if (!isAtReserveFloor && remainder > 0.01 && remainder < (step - 0.01)) {
+      if (remainder > 0.01 && remainder < (step - 0.01)) {
         setError(`Bids must be in exact step decrements of ₹${step}/${unit} (e.g. ₹${numericCurrentBid - step}, ₹${numericCurrentBid - (step * 2)}).`);
-        return;
-      }
-      if (numericReservePrice > 0 && amount < numericReservePrice) {
-        setError(`Bid cannot be lower than the farmer's reserve floor price of ₹${numericReservePrice}/${unit}.`);
         return;
       }
     } else {

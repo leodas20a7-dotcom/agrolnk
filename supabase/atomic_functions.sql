@@ -96,8 +96,8 @@ BEGIN
             END IF;
         END IF;
 
-        IF v_auction.reserve_price IS NOT NULL AND p_bid_amount < v_auction.reserve_price THEN
-            RAISE EXCEPTION 'Bid of ₹% cannot be lower than the reserve floor price of ₹%.', p_bid_amount, v_auction.reserve_price;
+        IF p_bid_amount <= 0 THEN
+            RAISE EXCEPTION 'In a reverse auction, your bid must be greater than zero.';
         END IF;
     ELSE
         -- FORWARD AUCTION (Ascending Bids: Buyers bid upwards)
@@ -328,16 +328,35 @@ BEGIN
         );
     END IF;
 
-    -- 2. Evaluate Reserve Price
-    IF v_auction.highest_bidder_id IS NULL OR v_auction.current_bid < v_auction.reserve_price THEN
-        -- Reserve not met
+    -- 2. Evaluate Reserve Price based on Auction Type (Forward vs Reverse)
+    IF v_auction.highest_bidder_id IS NULL THEN
+        -- No bids placed at all
         v_final_status := 'reserve_not_met';
+    ELSIF COALESCE(v_auction.auction_type, 'forward') = 'reverse' THEN
+        -- REVERSE AUCTION (Procurement Tender): Prices descend towards buyer's target ceiling
+        -- Reserve is unmet if the lowest bid remained HIGHER than the buyer's reserve target budget
+        IF v_auction.reserve_price IS NOT NULL AND v_auction.reserve_price > 0 AND v_auction.current_bid > v_auction.reserve_price THEN
+            v_final_status := 'reserve_not_met';
+        ELSE
+            v_final_status := 'completed';
+        END IF;
+    ELSE
+        -- FORWARD AUCTION (Farmer Selling): Prices ascend towards seller's reserve floor
+        -- Reserve is unmet if the highest bid remained LOWER than the seller's reserve floor
+        IF v_auction.reserve_price IS NOT NULL AND v_auction.reserve_price > 0 AND v_auction.current_bid < v_auction.reserve_price THEN
+            v_final_status := 'reserve_not_met';
+        ELSE
+            v_final_status := 'completed';
+        END IF;
+    END IF;
+
+    IF v_final_status = 'reserve_not_met' THEN
         UPDATE public.auctions SET
             status = v_final_status,
             updated_at = v_now
         WHERE id = p_auction_id;
 
-        -- Notify farmer
+        -- Notify auction creator
         IF v_auction.farmer_id IS NOT NULL THEN
             INSERT INTO public.notifications (
                 id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
@@ -346,7 +365,12 @@ BEGIN
                 v_auction.farmer_id,
                 'farmer',
                 'Auction Ended (Reserve Not Met)',
-                'The bidding for ' || v_auction.commodity || ' concluded below your reserve price of ₹' || v_auction.reserve_price || '. No order was generated.',
+                CASE 
+                    WHEN COALESCE(v_auction.auction_type, 'forward') = 'reverse' THEN
+                        'The reverse bidding for ' || v_auction.commodity || ' concluded at ₹' || v_auction.current_bid || '/' || v_auction.unit || ', which did not reach your reserve target budget of ₹' || v_auction.reserve_price || '. No order was generated.'
+                    ELSE
+                        'The bidding for ' || v_auction.commodity || ' concluded below your reserve price of ₹' || v_auction.reserve_price || '/' || v_auction.unit || '. No order was generated.'
+                END,
                 'order',
                 '/farmer-my-auctions',
                 false,

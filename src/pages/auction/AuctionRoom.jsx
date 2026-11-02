@@ -453,11 +453,19 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
               <XCircle className="w-6 h-6 text-[#D97706] shrink-0 mt-0.5" />
               <div className="space-y-1 text-left">
                 <h3 className="text-base font-bold font-heading text-[#92400E]">
-                  Auction Ended — Reserve Price Was Not Met
+                  {auction.auctionType === 'reverse'
+                    ? 'Reverse Auction Ended — Reserve Target Price Not Reached'
+                    : 'Auction Ended — Reserve Price Was Not Met'}
                 </h3>
-                <p className="text-xs text-[#92400E]/90">
-                  Highest bid: <strong>₹{auction.currentBid}/{auction.unit}</strong> | Reserve floor: <strong>₹{auction.reservePrice}/{auction.unit}</strong>. No order was created.
-                </p>
+                {auction.auctionType === 'reverse' ? (
+                  <p className="text-xs text-[#92400E]/90">
+                    Lowest offer: <strong>₹{auction.currentBid}/{auction.unit}</strong> | Target reserve budget: <strong>₹{auction.reservePrice}/{auction.unit}</strong>. Competitive offers did not descend to the target budget ceiling. No order was generated.
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#92400E]/90">
+                    Highest bid: <strong>₹{auction.currentBid}/{auction.unit}</strong> | Reserve floor: <strong>₹{auction.reservePrice}/{auction.unit}</strong>. No order was created.
+                  </p>
+                )}
               </div>
             </div>
 
