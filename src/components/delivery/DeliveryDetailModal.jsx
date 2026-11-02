@@ -26,7 +26,8 @@ import {
   confirmBuyerReceipt,
   confirmTransporterDropoffWithOtp,
   acceptTransportPrice,
-  declineTransportPrice
+  declineTransportPrice,
+  getDeliverySecretPins
 } from '../../utils/deliveries';
 import { initiateRazorpayTransportCheckout } from '../../utils/razorpayRouteClient';
 
@@ -41,10 +42,18 @@ export default function DeliveryDetailModal({
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [enteredOtp, setEnteredOtp] = useState('');
+  const [buyerPin, setBuyerPin] = useState(delivery?.deliveryOtp || null);
 
   useEffect(() => {
     setCurrentDelivery(delivery);
-  }, [delivery]);
+    if (delivery?.id && viewerRole === 'buyer') {
+      getDeliverySecretPins(delivery.id).then((pins) => {
+        if (pins?.delivery_otp) {
+          setBuyerPin(pins.delivery_otp);
+        }
+      });
+    }
+  }, [delivery, viewerRole]);
 
   if (!currentDelivery) return null;
 
@@ -486,7 +495,7 @@ export default function DeliveryDetailModal({
             </div>
             <div className="px-4 py-2 rounded-xl bg-white border border-[#10B981] shadow-xs shrink-0">
               <span className="font-mono text-xl font-extrabold text-[#0B3326] tracking-widest block">
-                {currentDelivery.deliveryOtp || '4921'}
+                {buyerPin || currentDelivery.deliveryOtp || '••••'}
               </span>
             </div>
           </div>

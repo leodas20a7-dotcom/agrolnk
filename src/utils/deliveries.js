@@ -653,25 +653,50 @@ export async function confirmPickup(deliveryId) {
 }
 
 /**
+ * Fetch secret handover PINs securely (Masked from Transporters by Database RPC)
+ * Returns delivery_otp only for the verified Buyer or Admin.
+ * Returns pickup_otp only for the verified Farmer or Admin.
+ */
+export async function getDeliverySecretPins(deliveryId) {
+  try {
+    if (!deliveryId) return null;
+    const { data, error } = await supabase.rpc('get_delivery_secret_pins', {
+      p_delivery_id: deliveryId,
+    });
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.warn('getDeliverySecretPins note:', err);
+    return null;
+  }
+}
+
+/**
  * Transporter verifies recipient PIN before drop-off is marked delivered
+ * Handled strictly via server-side SECURITY DEFINER atomic procedure.
+ * Transporter NEVER has direct read access to delivery_otp in database.
  */
 export async function confirmTransporterDropoffWithOtp(deliveryId, inputOtp) {
   try {
-    const { data: current, error: fetchErr } = await supabase
-      .from('deliveries')
-      .select('id, delivery_otp, order_id, order_number')
-      .or(`id.eq.${deliveryId},delivery_number.eq.${deliveryId}`)
-      .single();
-
-    if (fetchErr || !current) {
-      throw new Error('Delivery consignment not found.');
+    const cleanPin = String(inputOtp || '').trim();
+    if (!cleanPin || cleanPin.length < 4) {
+      throw new Error('Please enter the 4-digit Delivery Handover PIN provided by the recipient buyer.');
     }
 
-    if (current.delivery_otp && String(current.delivery_otp).trim() !== String(inputOtp).trim()) {
-      throw new Error('Invalid Delivery PIN. Please confirm the 4-digit code provided by the recipient buyer.');
+    // Call atomic database procedure that performs server-side hash/PIN comparison
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc('verify_transporter_delivery_dropoff_atomic', {
+      p_delivery_id: deliveryId,
+      p_input_otp: cleanPin,
+    });
+
+    if (rpcErr) {
+      console.error('RPC verify_transporter_delivery_dropoff_atomic error:', rpcErr);
+      throw new Error(rpcErr.message || 'Invalid Delivery Handover PIN. Please confirm the code with the recipient buyer.');
     }
 
-    return await confirmBuyerReceipt(deliveryId);
+    // Refresh updated delivery record
+    const updated = await getDeliveryById(deliveryId);
+    return updated || { id: deliveryId, status: 'delivered' };
   } catch (err) {
     console.error('Error in confirmTransporterDropoffWithOtp:', err);
     throw err;
