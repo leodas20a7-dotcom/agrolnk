@@ -601,6 +601,8 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
               isFarmer={isFarmer}
               isAuctionEnded={isAuctionEnded}
               isLeading={isCurrentUserLeading}
+              isVerified={isVerified}
+              onVerify={() => setIsVerificationModalOpen(true)}
               onInitiateBid={handleInitiateBid}
             />
 

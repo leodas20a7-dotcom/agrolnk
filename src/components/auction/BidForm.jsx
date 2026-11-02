@@ -12,6 +12,8 @@ export default function BidForm({
   isFarmer = false,
   isAuctionEnded = false,
   isLeading = false,
+  isVerified = true,
+  onVerify,
   onInitiateBid,
 }) {
   const isReverse = auctionType === 'reverse';
@@ -41,6 +43,11 @@ export default function BidForm({
 
   const handleQuickSelect = (multiplier) => {
     if (isLeading) return;
+    if (!isVerified) {
+      setError('KYC verification is mandatory to unlock live bidding.');
+      onVerify?.();
+      return;
+    }
     const delta = multiplier * step;
     const target = isReverse
       ? numericCurrentBid - delta
@@ -59,6 +66,12 @@ export default function BidForm({
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
+
+    if (!isVerified) {
+      setError('KYC verification is mandatory before placing live bids.');
+      onVerify?.();
+      return;
+    }
 
     if (isLeading) {
       setError('You already hold the leading offer! You cannot bid against yourself.');
@@ -248,7 +261,7 @@ export default function BidForm({
               </div>
               {isReverse && numericReservePrice > 0 && (
                 <span className="text-[11px] text-[#566861] block pt-1">
-                  🛡️ Reserve floor protection: ₹{numericReservePrice}/{unit} minimum.
+                  🎯 Target budget ceiling: ₹{numericReservePrice}/{unit} maximum.
                 </span>
               )}
             </div>
@@ -263,23 +276,35 @@ export default function BidForm({
           )}
 
           {/* Action Button */}
-          <Button
-            type="submit"
-            variant={isReverse ? 'warning' : 'accent'}
-            size="lg"
-            disabled={isLeading}
-            icon={isLeading ? ShieldCheck : (isReverse ? ArrowDownRight : ArrowUpRight)}
-            iconPosition="right"
-            className={`w-full justify-center py-3.5 font-bold text-sm shadow-xs ${
-              isLeading ? 'opacity-60 cursor-not-allowed bg-[#E5EDE8] text-[#566861]' : 'cursor-pointer'
-            }`}
-          >
-            {isLeading
-              ? `You Hold Leading Offer: ₹${numericCurrentBid}/${unit}`
-              : (isReverse
-                  ? `Submit Reverse Bid: ₹${bidAmount}/${unit}`
-                  : `Place Bid: ₹${bidAmount}/${unit}`)}
-          </Button>
+          {!isVerified ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={onVerify}
+              className="w-full justify-center py-3.5 font-bold text-sm shadow-xs bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
+            >
+              Verify KYC to Unlock Live Bidding
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              variant={isReverse ? 'warning' : 'accent'}
+              size="lg"
+              disabled={isLeading}
+              icon={isLeading ? ShieldCheck : (isReverse ? ArrowDownRight : ArrowUpRight)}
+              iconPosition="right"
+              className={`w-full justify-center py-3.5 font-bold text-sm shadow-xs ${
+                isLeading ? 'opacity-60 cursor-not-allowed bg-[#E5EDE8] text-[#566861]' : 'cursor-pointer'
+              }`}
+            >
+              {isLeading
+                ? `You Hold Leading Offer: ₹${numericCurrentBid}/${unit}`
+                : (isReverse
+                    ? `Submit Reverse Bid: ₹${bidAmount}/${unit}`
+                    : `Place Bid: ₹${bidAmount}/${unit}`)}
+            </Button>
+          )}
         </form>
       )}
     </div>

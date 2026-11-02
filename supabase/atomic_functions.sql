@@ -26,6 +26,8 @@ DECLARE
     v_now TIMESTAMP WITH TIME ZONE := NOW();
     v_bidder_id TEXT;
     v_bidder_name TEXT;
+    v_kyc_status TEXT;
+    v_role TEXT;
     v_step NUMERIC;
     v_new_end_time TIMESTAMP WITH TIME ZONE;
     v_extended BOOLEAN := false;
@@ -41,14 +43,22 @@ BEGIN
         RAISE EXCEPTION 'Authentication required: You must be logged in to place a bid.';
     END IF;
 
-    -- Resolve authoritative bidder name from profiles if available
-    SELECT COALESCE(NULLIF(TRIM(full_name), ''), NULLIF(TRIM(name), ''), p_bidder_name, 'Verified Buyer')
-    INTO v_bidder_name
+    -- 2. Resolve authoritative bidder identity & KYC status from profiles
+    SELECT 
+        COALESCE(NULLIF(TRIM(full_name), ''), NULLIF(TRIM(name), ''), p_bidder_name, 'Verified Trader'),
+        COALESCE(kyc_status, 'pending'),
+        COALESCE(role, 'buyer')
+    INTO v_bidder_name, v_kyc_status, v_role
     FROM public.profiles
     WHERE id = v_bidder_id;
 
     IF v_bidder_name IS NULL THEN
-        v_bidder_name := COALESCE(NULLIF(TRIM(p_bidder_name), ''), 'Verified Buyer');
+        v_bidder_name := COALESCE(NULLIF(TRIM(p_bidder_name), ''), 'Verified Trader');
+    END IF;
+
+    -- Enforce server-side KYC verification: Only verified traders or administrators can bid
+    IF COALESCE(v_kyc_status, 'pending') NOT IN ('verified', 'approved') AND COALESCE(v_role, '') != 'admin' THEN
+        RAISE EXCEPTION 'KYC verification required: Your account KYC must be approved by AgroLnk Operations before participating in live bidding.';
     END IF;
 
     -- 2. Acquire exclusive row lock on the auction to eliminate race conditions

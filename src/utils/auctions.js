@@ -322,10 +322,10 @@ export async function placeBid(arg1, arg2, arg3, arg4) {
       throw new Error('Please enter a valid positive bid amount.');
     }
 
-    // Verify Buyer KYC Status before placing bid
+    // Verify Trader KYC Status before placing bid (enforced for both buyers and reverse auction suppliers)
     const activeUser = getCurrentUser();
-    if (activeUser && activeUser.role === 'buyer' && !isUserKycVerified(activeUser)) {
-      throw new Error('Buyer KYC verification is mandatory before participating in auctions.');
+    if (activeUser && activeUser.role !== 'admin' && !isUserKycVerified(activeUser)) {
+      throw new Error('KYC verification is mandatory before participating in live auctions.');
     }
 
     // 1. Authoritative Atomic Database RPC with Row Locking
