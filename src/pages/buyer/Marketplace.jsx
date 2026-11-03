@@ -235,86 +235,52 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
           </Button>
         </div>
 
-        {/* Conditional Content: KYC Compliance Gate vs Active Listings */}
-        {!isVerified ? (
-          <Card className="p-8 sm:p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl bg-gradient-to-b from-[#F8FAF8] to-[#F2FBF6] space-y-6 shadow-xs max-w-3xl mx-auto animate-in fade-in duration-200">
-            <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto shadow-xs ${
-              currentKycStatus === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-[#EBF5F0] text-[#0B3326]'
-            }`}>
-              {currentKycStatus === 'pending' ? (
-                <Clock className="w-8 h-8 text-amber-700" />
-              ) : (
-                <ShieldCheck className="w-8 h-8 text-[#10B981]" />
-              )}
+        {/* Verification Status Alert Banner (Allows full browsing, reminds to verify for purchasing) */}
+        {!isVerified && (
+          <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs ${
+            currentKycStatus === 'pending'
+              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+              : 'bg-[#F2FBF6] border-[#A7F3D0] text-[#0B3326]'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                currentKycStatus === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-[#EBF5F0] text-[#10B981]'
+              }`}>
+                {currentKycStatus === 'pending' ? (
+                  <Clock className="w-5 h-5 text-amber-600" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+                )}
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                  <span>{currentKycStatus === 'pending' ? 'KYC Verification Under Review' : 'Browsing Mode Active (KYC Required to Purchase)'}</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                    View Only
+                  </span>
+                </p>
+                <p className="text-[11px] text-[#566861] mt-0.5">
+                  {currentKycStatus === 'pending'
+                    ? 'You can freely browse all active produce lots. Escrow checkout and instant buying will unlock once your documents are approved.'
+                    : 'You can explore all farm harvests and warehouse lots. Complete your buyer identity verification to unlock purchase orders and escrow checkout.'}
+                </p>
+              </div>
             </div>
+            <Button
+              variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
+              size="sm"
+              onClick={() => setIsVerificationModalOpen(true)}
+              icon={ShieldCheck}
+              iconPosition="left"
+              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-2 px-4"
+            >
+              {currentKycStatus === 'pending' ? 'View Submitted Docs' : 'Verify Identity to Buy'}
+            </Button>
+          </div>
+        )}
 
-            <div className="space-y-2 max-w-lg mx-auto">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-xs font-semibold text-amber-800 border border-amber-200">
-                <Lock className="w-3.5 h-3.5" />
-                <span>{currentKycStatus === 'pending' ? 'KYC Verification In Progress' : 'Identity Verification Required'}</span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-[#0B3326] font-heading">
-                {currentKycStatus === 'pending'
-                  ? 'Your Verification Documents Are Under Review'
-                  : 'Verify Your Identity to Unlock Produce Marketplace'}
-              </h3>
-              <p className="text-xs sm:text-sm text-[#566861] leading-relaxed">
-                {currentKycStatus === 'pending'
-                  ? 'We have received your verification documents. Once approved by the administrator, direct produce lots, wholesale pricing, and escrow purchasing will unlock automatically.'
-                  : 'AgroLnk enforces mandatory KYC for all buyers to safeguard farmers against unauthorized orders, secure digital escrow payments, and ensure verified GST/Tax compliance.'}
-              </p>
-            </div>
-
-            {/* 3 Step Trust Guarantees */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-2">
-              <div className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
-                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                  <span>Verified Farmgates</span>
-                </div>
-                <p className="text-[11px] text-[#566861]">Direct produce sourced from authenticated farmer clusters.</p>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
-                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                  <span>100% Escrow Safety</span>
-                </div>
-                <p className="text-[11px] text-[#566861]">Funds held in certified institutional escrow until physical delivery.</p>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B3326]">
-                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                  <span>Certified Assays</span>
-                </div>
-                <p className="text-[11px] text-[#566861]">Quality lab assays and moisture parameters on every harvest lot.</p>
-              </div>
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={() => setIsVerificationModalOpen(true)}
-                icon={ShieldCheck}
-                iconPosition="left"
-                className="w-full sm:w-auto font-bold text-xs py-3 px-8 shadow-sm cursor-pointer"
-              >
-                {currentKycStatus === 'pending' ? 'View / Update Submitted Documents' : 'Complete Buyer KYC Verification'}
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => onNavigate(dashboardTarget)}
-                className="w-full sm:w-auto text-xs py-3 px-6 cursor-pointer"
-              >
-                Back to Dashboard
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <>
-            {/* Search & Filter Bar */}
-            <Card className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4">
+        {/* Search & Filter Bar */}
+        <Card className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4">
               
               {/* Main Search Input */}
               <div className="relative">
@@ -541,8 +507,6 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
                 </div>
               </Card>
             )}
-          </>
-        )}
 
       </div>
 
@@ -551,7 +515,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
         <VerificationRequiredModal
           isOpen={isVerificationModalOpen}
           currentUser={user}
-          actionName="browse marketplace produce lots and place orders"
+          actionName="place escrow purchase orders and request certified assays"
           onClose={() => setIsVerificationModalOpen(false)}
           onSuccess={() => {
             setIsVerificationModalOpen(false);

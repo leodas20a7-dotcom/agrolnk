@@ -428,13 +428,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => {
-              if (!isVerified) {
-                setIsVerificationModalOpen(true);
-              } else {
-                onNavigate('buyer-marketplace');
-              }
-            }}
+            onClick={() => onNavigate('buyer-marketplace')}
             icon={ArrowRight}
             iconPosition="right"
             className="text-xs font-bold cursor-pointer"
@@ -521,45 +515,17 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
             <h2 className="text-lg font-bold text-[#0B3326] font-heading flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#10B981]" /> Recommended Direct Lots
             </h2>
-            {isVerified && (
-              <button
-                onClick={() => onNavigate('buyer-marketplace')}
-                className="text-xs font-bold text-[#0B3326] hover:text-[#10B981] transition-colors cursor-pointer"
-              >
-                View All →
-              </button>
-            )}
+            <button
+              onClick={() => onNavigate('buyer-marketplace')}
+              className="text-xs font-bold text-[#0B3326] hover:text-[#10B981] transition-colors cursor-pointer"
+            >
+              View All →
+            </button>
           </div>
 
-          {!isVerified ? (
-            <Card className="p-8 sm:p-10 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl bg-gradient-to-b from-[#F8FAF8] to-[#F2FBF6] space-y-4 shadow-xs">
-              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
-                <ShieldCheck className="w-7 h-7 text-amber-700" />
-              </div>
-              <div className="space-y-1.5 max-w-md mx-auto">
-                <h3 className="text-lg font-bold text-[#0B3326] font-heading">
-                  Direct Produce Catalog Locked
-                </h3>
-                <p className="text-xs sm:text-sm text-[#566861] leading-relaxed">
-                  To protect verified farmers, prevent trade fraud, and access farmgate wholesale pricing with escrow settlement, buyer identity verification is mandatory.
-                </p>
-              </div>
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={handleOpenKycAction}
-                  icon={ShieldCheck}
-                  iconPosition="left"
-                  className="font-bold text-xs py-3 px-6 shadow-xs cursor-pointer"
-                >
-                  {currentKycStatus === 'pending' ? 'View Submitted Verification' : 'Complete KYC Verification to Unlock Produce'}
-                </Button>
-              </div>
-            </Card>
-          ) : (
+          {safeListings.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {listings.slice(0, 3).map((item) => (
+              {safeListings.slice(0, 3).map((item) => (
                 <MarketplaceCard
                   key={item.id}
                   listing={item}
@@ -567,6 +533,10 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                 />
               ))}
             </div>
+          ) : (
+            <Card className="p-8 text-center border border-[#E5EDE8] rounded-2xl bg-[#F8FAF8]">
+              <p className="text-xs text-[#566861]">No direct lots available currently. Check back shortly!</p>
+            </Card>
           )}
         </div>
 

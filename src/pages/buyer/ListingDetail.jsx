@@ -535,7 +535,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                         </div>
                       )}
                       <Button
-                        variant="accent"
+                        variant={!isVerified ? "secondary" : "accent"}
                         size="lg"
                         onClick={() => {
                           if (!isVerified) {
@@ -544,12 +544,20 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                             setIsModalOpen(true);
                           }
                         }}
-                        icon={ShoppingBag}
+                        icon={!isVerified ? ShieldCheck : ShoppingBag}
                         iconPosition="left"
-                        className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
+                        className={`w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer ${
+                          !isVerified ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100' : ''
+                        }`}
                       >
-                        Buy Now &bull; Escrow Secured
+                        {!isVerified ? 'Verify KYC to Purchase • Escrow Secured' : 'Buy Now • Escrow Secured'}
                       </Button>
+                      {!isVerified && (
+                        <p className="text-[11px] text-amber-800 text-center font-medium mt-1.5 flex items-center justify-center gap-1">
+                          <Lock className="w-3 h-3 text-amber-600" />
+                          <span>Identity verification required before placing purchase orders</span>
+                        </p>
+                      )}
                     </div>
                   )
                 )}
