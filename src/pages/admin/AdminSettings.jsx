@@ -810,7 +810,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
                     </h3>
                   </div>
                   <p className="text-xs text-[#566861] max-w-2xl">
-                    Deletes all test products, listings, orders, deliveries, financing applications, warehouse deposits, auctions, bids, and test user accounts. <strong>The Master Admin login (<span className="font-mono text-red-900 font-bold">admin@agrolnk.com</span>) will be preserved.</strong>
+                    Deletes all test products, listings, orders, deliveries, financing applications, warehouse deposits, auctions, bids, and test user accounts. <strong>The Master Admin login (<span className="font-mono text-red-900 font-bold">agrolnkadmin@gmail.com</span>) will be preserved.</strong>
                   </p>
                 </div>
 

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 export const ADMIN_USER = {
   id: 'usr_admin_master',
   name: 'AgroLnk Administrator',
-  email: 'admin@agrolnk.com',
+  email: 'agrolnkadmin@gmail.com',
   role: 'admin',
   kyc_status: 'verified',
   state: 'Tamil Nadu',
@@ -56,7 +56,8 @@ export async function resetAllTestingData() {
           .from('profiles')
           .delete()
           .neq('role', 'admin')
-          .neq('email', 'admin@agrolnk.com');
+          .neq('email', 'admin@agrolnk.com')
+          .neq('email', 'agrolnkadmin@gmail.com');
       } catch (profErr) {
         console.warn('Could not clear non-admin profiles from Supabase:', profErr);
       }
@@ -137,7 +138,7 @@ export async function resetAllTestingData() {
       if (currentUserRaw) {
         const parsedUser = JSON.parse(currentUserRaw);
         // If not admin, logout
-        if (parsedUser.role !== 'admin' && parsedUser.email !== 'admin@agrolnk.com') {
+        if (parsedUser.role !== 'admin' && parsedUser.email !== 'admin@agrolnk.com' && parsedUser.email !== 'agrolnkadmin@gmail.com') {
           localStorage.removeItem('agrolnkUser');
           localStorage.removeItem('isAuthenticated');
         }
