@@ -36,13 +36,10 @@ import { getListings, checkListingBookings, deleteListing, COMMODITY_IMAGES } fr
 import ProduceDetailModal from '../../components/farmer/ProduceDetailModal';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { toast } from '../../context/ToastContext';
+import { getCurrentUser } from '../../utils/auth';
 
 export default function AdminDashboard({ currentUser, onNavigate }) {
-  const user = currentUser || {
-    name: 'Platform Admin',
-    role: 'admin',
-    email: 'admin@agrolnk.com',
-  };
+  const user = currentUser || getCurrentUser() || {};
 
   const [metrics, setMetrics] = useState({
     totalGMV: 0,

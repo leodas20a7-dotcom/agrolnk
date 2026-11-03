@@ -50,7 +50,7 @@ import { Sprout } from 'lucide-react';
 import CommoditiesManager from './CommoditiesManager';
 
 export default function AdminSettings({ currentUser, onNavigate, navState }) {
-  const user = currentUser || { name: 'Platform Admin', role: 'admin' };
+  const user = currentUser || {};
 
   const [activeTab, setActiveTab] = useState(() => navState?.initialTab || 'users'); // 'users' | 'chat_reset' | 'platform' | 'commodities'
   const [usersList, setUsersList] = useState([]);

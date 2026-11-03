@@ -84,6 +84,12 @@ export async function registerUser({ name, phone, email, password, role, state, 
   const normalizedPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
   const trimmedPassword = (password || '').trim();
 
+  // Security: Block unauthorized self-registration as platform administrator
+  const requestedRole = (role || 'farmer').toLowerCase().trim();
+  if (requestedRole === 'admin') {
+    throw new Error('Self-registration as platform administrator is strictly prohibited.');
+  }
+
   if (!trimmedPassword || trimmedPassword.length < 6) {
     throw new Error('Password is required and must be at least 6 characters.');
   }
@@ -334,28 +340,6 @@ export async function loginUser({ email, password }) {
     throw new Error('Please enter your password to sign in.');
   }
 
-  // 2. Built-in Admin account authentication (Password protected)
-  if (normalizedEmail === 'admin@agrolnk.com' || normalizedEmail === 'admin') {
-    const validAdminPasswords = ['admin123', 'admin@agrolnk2026', 'admin'];
-    if (!validAdminPasswords.includes(trimmedPassword)) {
-      throw new Error('Invalid administrator password. Access denied.');
-    }
-    const adminUser = {
-      id: 'usr_admin_master',
-      name: 'System Administrator',
-      email: 'admin@agrolnk.com',
-      phone: '9876500000',
-      role: 'admin',
-      state: 'Central Command',
-      district: 'HQ Operations',
-      companyName: 'AgroLnk Platform Ombudsman',
-      kycStatus: 'verified',
-      createdAt: new Date().toISOString(),
-    };
-    setCurrentUser(adminUser);
-    return adminUser;
-  }
-
   try {
     let profile = null;
 
@@ -445,6 +429,11 @@ export async function loginUser({ email, password }) {
     }
 
     if (!authenticatedBySupabaseAuth) {
+      // Critical Security: Administrator role strictly requires authentic Supabase server session
+      if (profile.role === 'admin') {
+        throw new Error('Administrator access requires valid server-side Supabase authentication credentials.');
+      }
+
       // Check stored password hash in profile.meta
       const meta = (typeof profile.meta === 'object' && profile.meta) ? profile.meta : {};
       const storedHash = meta.password_hash;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { getCurrentUser, isAuthenticated, getUserRole } from '../utils/auth';
+import { getCurrentUser, isAuthenticated, getUserRole, logoutUser } from '../utils/auth';
+import { supabase } from '../lib/supabase';
 
 export default function ProtectedRoute({ children, requiredRole, allowedRoles, onNavigate }) {
   const authenticated = isAuthenticated();
@@ -26,6 +27,8 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     if (!authenticated || !user) {
       if (!hasRedirectedRef.current) {
         hasRedirectedRef.current = true;
@@ -43,7 +46,55 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
           : (effectiveRole ? `${effectiveRole}-dashboard` : 'role-selection');
         onNavigate(targetDashboard, { user }, true);
       }
+      return;
     }
+
+    // Critical Security: For Admin routes, verify active Supabase Auth session with the server
+    if (requiredRole === 'admin' || (allowedRoles && allowedRoles.includes('admin'))) {
+      const verifyServerAdmin = async () => {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error || !session) {
+            console.warn('Unauthorized admin access attempt: No active Supabase server session.');
+            if (isMounted && !hasRedirectedRef.current) {
+              hasRedirectedRef.current = true;
+              logoutUser();
+              onNavigate('login', { user: null }, true);
+            }
+            return;
+          }
+
+          // Verify authoritative role from profiles table
+          const { data: profile, error: profErr } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (profErr || profile?.role !== 'admin') {
+            console.warn('Unauthorized admin access attempt: User does not hold server admin role.');
+            if (isMounted && !hasRedirectedRef.current) {
+              hasRedirectedRef.current = true;
+              logoutUser();
+              onNavigate('login', { user: null }, true);
+            }
+          }
+        } catch (err) {
+          console.warn('Admin session validation failed:', err);
+          if (isMounted && !hasRedirectedRef.current) {
+            hasRedirectedRef.current = true;
+            logoutUser();
+            onNavigate('login', { user: null }, true);
+          }
+        }
+      };
+
+      verifyServerAdmin();
+    }
+
+    return () => {
+      isMounted = false;
+    };
   }, [authenticated, user?.id, effectiveRole, requiredRole, onNavigate]);
 
   if (!authenticated || !user) {

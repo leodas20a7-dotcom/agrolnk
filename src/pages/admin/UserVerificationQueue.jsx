@@ -35,11 +35,7 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 import { supabase } from '../../lib/supabase';
 
 export default function UserVerificationQueue({ currentUser, onNavigate }) {
-  const user = currentUser || {
-    name: 'Platform Admin',
-    role: 'admin',
-    email: 'admin@agrolnk.com',
-  };
+  const user = currentUser || {};
 
   const [kycUsers, setKycUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'verified' | 'all'

@@ -12,11 +12,7 @@ import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function InspectionDisputes({ currentUser, onNavigate }) {
-  const user = currentUser || {
-    name: 'Platform Admin',
-    role: 'admin',
-    email: 'admin@agrolnk.com',
-  };
+  const user = currentUser || {};
 
   const [inspections, setInspections] = useState([]);
   const [isLoading, setIsLoading] = useState(false);

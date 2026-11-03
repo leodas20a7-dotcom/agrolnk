@@ -25,11 +25,7 @@ import { Zap, PhoneCall, Phone, UserCheck, ShieldAlert } from 'lucide-react';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
-  const user = currentUser || {
-    name: 'AgroLnk Operations Board',
-    role: 'admin',
-    email: 'admin@agrolnk.com',
-  };
+  const user = currentUser || {};
 
   const [orders, setOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
