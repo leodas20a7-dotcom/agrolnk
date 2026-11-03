@@ -10,7 +10,12 @@
 
 -- Helper to check if the executing user has admin ombudsman role
 CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public, auth
+AS $$
 BEGIN
     RETURN (
         (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
@@ -21,7 +26,7 @@ BEGIN
         )
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$;
 
 -- Helper to check if current user is a verified financier
 CREATE OR REPLACE FUNCTION public.is_verified_financier()
@@ -37,26 +42,85 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- ----------------------------------------------------------------------------
--- 1. PROFILES TABLE RLS
+-- 1. PROFILES TABLE RLS & ANTI-TAMPERING TRIGGERS
 -- ----------------------------------------------------------------------------
+ALTER TABLE IF EXISTS public.profiles 
+  ALTER COLUMN kyc_status SET DEFAULT 'pending';
+
 ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Anti-tampering trigger: strictly blocks users from altering their role or self-verifying KYC
+CREATE OR REPLACE FUNCTION public.protect_profile_privileged_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+    IF public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role' THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.role IS DISTINCT FROM OLD.role THEN
+        RAISE EXCEPTION 'Security Policy Violation: You cannot alter your account role. Role escalation is forbidden.';
+    END IF;
+
+    IF NEW.kyc_status IS DISTINCT FROM OLD.kyc_status THEN
+        IF NEW.kyc_status = 'verified' THEN
+            RAISE EXCEPTION 'Security Policy Violation: Self-approval of KYC verification is strictly forbidden.';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_profile_privileged_fields ON public.profiles;
+CREATE TRIGGER trg_protect_profile_privileged_fields
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.protect_profile_privileged_fields();
+
+-- Registration trigger: blocks self-registration as admin & forces initial kyc_status = 'pending'
+CREATE OR REPLACE FUNCTION public.protect_profile_registration()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+    IF LOWER(COALESCE(NEW.role, '')) = 'admin' THEN
+        IF NOT (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role') THEN
+            RAISE EXCEPTION 'Security Policy Violation: Self-registration as platform administrator is strictly prohibited.';
+        END IF;
+    END IF;
+
+    IF NOT (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role') THEN
+        NEW.kyc_status := 'pending';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_profile_registration ON public.profiles;
+CREATE TRIGGER trg_protect_profile_registration
+    BEFORE INSERT ON public.profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.protect_profile_registration();
 
 DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
 CREATE POLICY "profiles_select_policy" ON public.profiles
     FOR SELECT USING (
         auth.uid()::text = id OR
-        public.is_admin() OR
-        -- Allow trading participants to view counterpart profile summary (name, company, rating)
-        auth.role() = 'authenticated'
+        public.is_admin()
     );
 
 DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
 CREATE POLICY "profiles_insert_policy" ON public.profiles
     FOR INSERT WITH CHECK (
-        auth.uid()::text = id OR
-        public.is_admin() OR
-        -- Allow registration flow
-        auth.role() IN ('authenticated', 'anon')
+        (auth.uid()::text = id OR auth.role() IN ('authenticated', 'anon')) AND
+        (role <> 'admin' OR public.is_admin())
     );
 
 DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;

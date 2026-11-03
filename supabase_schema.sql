@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     address TEXT,
     pincode TEXT,
     landmark TEXT,
-    kyc_status TEXT DEFAULT 'verified' CHECK (kyc_status IN ('pending', 'verified', 'rejected')),
+    kyc_status TEXT DEFAULT 'pending' CHECK (kyc_status IN ('pending', 'verified', 'rejected')),
     route_account_id TEXT,
     bank_account_number TEXT,
     bank_ifsc TEXT,
