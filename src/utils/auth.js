@@ -114,27 +114,22 @@ export async function registerUser({ name, phone, email, password, role, state, 
       }
     }
 
-    // 2. Check if mobile number already exists in Supabase
+    // 2. Check if mobile number already exists via Secure RPC (no profile data leaked)
     if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-      const { data: phoneMatches, error: phoneErr } = await supabase
-        .from('profiles')
-        .select('id, phone, email')
-        .ilike('phone', `%${normalizedPhoneDigits}%`);
-
-      if (!phoneErr) {
-        supabasePhoneChecked = true;
-        if (phoneMatches && phoneMatches.length > 0) {
-          const duplicatePhone = phoneMatches.find((p) => {
-            const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
-            return pDigits === normalizedPhoneDigits;
-          });
-          if (duplicatePhone) {
-            throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
-          }
+      try {
+        const { data: phoneExists } = await supabase.rpc('check_phone_exists', {
+          p_phone: normalizedPhoneDigits,
+        });
+        if (phoneExists) {
+          supabasePhoneChecked = true;
+          throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
+        }
+      } catch (phoneErr) {
+        if (phoneErr.message && phoneErr.message.includes('already registered')) {
+          throw phoneErr;
         }
       }
     }
-
     // 3. Sync & Clean up local KYC registry
     try {
       const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
@@ -236,15 +231,12 @@ export async function registerUser({ name, phone, email, password, role, state, 
       name: (name || '').trim(),
       phone: rawPhone,
       email: normalizedEmail,
-      role: role || 'farmer',
+      role: requestedRole,
       state: (state || '').trim(),
       district: (district || '').trim(),
       company_name: companyName || '',
       kyc_status: 'pending',
-      meta: {
-        password_hash: passwordHash,
-        password_salt: passwordSalt,
-      },
+      meta: {}, // Zero password hashes stored in public profiles
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -341,156 +333,100 @@ export async function loginUser({ email, password }) {
   }
 
   try {
-    let profile = null;
+    let targetEmail = normalizedEmail;
 
-    // 3. Query Supabase by phone or email (case-insensitive)
+    // 2. If phone number entered, resolve to authoritative email via Secure RPC
     if (isPhone) {
-      const { data: byPhone, error: phoneErr } = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('phone', `%${phoneDigits}%`)
-        .maybeSingle();
-
-      if (!phoneErr && byPhone) {
-        profile = byPhone;
-      }
-    }
-
-    if (!profile) {
-      const { data: byEmail, error: emailErr } = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('email', normalizedEmail)
-        .maybeSingle();
-
-      if (!emailErr && byEmail) {
-        profile = byEmail;
-      }
-    }
-
-    // 4. Offline / local resilience fallback
-    if (!profile) {
       try {
-        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-        if (storedRaw) {
-          const registry = JSON.parse(storedRaw);
-          if (Array.isArray(registry)) {
-            const match = registry.find((u) => {
-              const uEmail = (u.email || '').trim().toLowerCase();
-              const uPhone = (u.phone || '').replace(/\D/g, '').slice(-10);
-              return (
-                (normalizedEmail && uEmail === normalizedEmail) ||
-                (isPhone && uPhone === phoneDigits)
-              );
-            });
-
-            if (match) {
-              profile = {
-                id: match.id,
-                name: match.name,
-                email: match.email,
-                phone: match.phone,
-                role: match.role,
-                state: match.state,
-                district: match.district,
-                company_name: match.orgName || match.companyName,
-                kyc_status: match.verificationStatus || 'pending',
-                created_at: match.submittedAt || new Date().toISOString(),
-                meta: match.meta || {},
-              };
-            }
-          }
-        }
-      } catch {}
-    }
-
-    if (!profile) {
-      throw new Error(
-        isPhone
-          ? "We couldn't find an account registered with this mobile number. Please check the number or register."
-          : "We couldn't find an account with this email. Please check your spelling or register a new account."
-      );
-    }
-
-    // 5. Authenticate Password with Supabase Auth or WebCrypto PBKDF2
-    let authenticatedBySupabaseAuth = false;
-    if (profile.email) {
-      try {
-        const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
-          email: profile.email,
-          password: trimmedPassword,
+        const { data: resolvedEmail } = await supabase.rpc('get_auth_email_for_phone', {
+          p_phone: phoneDigits,
         });
-        if (!authErr && authData?.session) {
-          authenticatedBySupabaseAuth = true;
+        if (resolvedEmail) {
+          targetEmail = resolvedEmail.toLowerCase();
+        } else {
+          // Fallback: check local KYC registry if offline/mock
+          try {
+            const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+            if (storedRaw) {
+              const registry = JSON.parse(storedRaw);
+              if (Array.isArray(registry)) {
+                const match = registry.find(
+                  (u) => (u.phone || '').replace(/\D/g, '').slice(-10) === phoneDigits
+                );
+                if (match?.email) targetEmail = match.email.toLowerCase();
+              }
+            }
+          } catch {}
         }
-      } catch (authException) {
-        console.warn('Supabase Auth signIn attempt notice:', authException?.message || authException);
+      } catch (rpcErr) {
+        console.warn('Phone resolution notice:', rpcErr);
+      }
+
+      if (!targetEmail || targetEmail === normalizedEmail) {
+        throw new Error(
+          "We couldn't find an account registered with this mobile number. Please check the number or register."
+        );
       }
     }
 
-    if (!authenticatedBySupabaseAuth) {
-      // Critical Security: Administrator role strictly requires authentic Supabase server session
-      if (profile.role === 'admin') {
-        throw new Error('Administrator access requires valid server-side Supabase authentication credentials.');
+    // 3. Authenticate with Supabase Auth (authoritative server-side bcrypt verification)
+    let sessionUser = null;
+    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+      email: targetEmail,
+      password: trimmedPassword,
+    });
+
+    if (authErr) {
+      const errMsg = authErr.message?.toLowerCase() || '';
+      if (
+        errMsg.includes('invalid login credentials') ||
+        errMsg.includes('invalid credentials') ||
+        errMsg.includes('invalid grant')
+      ) {
+        throw new Error('Incorrect email or password. Please verify your credentials and try again.');
       }
+      if (errMsg.includes('email not confirmed')) {
+        throw new Error('Please confirm your email address or contact support.');
+      }
+      throw new Error(authErr.message || 'Login failed. Please check your credentials.');
+    }
 
-      // Check stored password hash in profile.meta
-      const meta = (typeof profile.meta === 'object' && profile.meta) ? profile.meta : {};
-      const storedHash = meta.password_hash;
-      const storedSalt = meta.password_salt;
+    sessionUser = authData?.user;
+    if (!sessionUser) {
+      throw new Error('Authentication succeeded but session could not be established.');
+    }
 
-      if (storedHash && storedSalt) {
-        const isValid = await verifyPassword(trimmedPassword, storedHash, storedSalt);
-        if (!isValid) {
-          throw new Error('Incorrect password. Please verify your credentials and try again.');
-        }
-      } else {
-        // Legacy account created before password enforcement:
-        // Set this provided password as their permanent credentials going forward
-        if (trimmedPassword.length < 6) {
-          throw new Error('Password must be at least 6 characters.');
-        }
-        const { hash: newHash, salt: newSalt } = await hashPassword(trimmedPassword);
-        const updatedMeta = { ...meta, password_hash: newHash, password_salt: newSalt };
-        profile.meta = updatedMeta;
+    // 4. Session established: Fetch authorized profile row (allowed by RLS: auth.uid() = id)
+    const { data: profile, error: profErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', sessionUser.id)
+      .maybeSingle();
 
-        try {
-          await supabase
-            .from('profiles')
-            .update({ meta: updatedMeta, updated_at: new Date().toISOString() })
-            .eq('id', profile.id);
-        } catch (updateErr) {
-          console.warn('Failed to persist legacy account password to profile meta:', updateErr);
-        }
+    if (profErr) {
+      console.warn('Profile retrieval notice after login:', profErr);
+    }
 
-        // Also attempt background sync to Supabase Auth
-        try {
-          await supabase.auth.signUp({
-            email: profile.email,
-            password: trimmedPassword,
-            options: {
-              data: {
-                name: profile.name,
-                phone: profile.phone,
-                role: profile.role,
-              },
-            },
-          });
-        } catch {}
+    // Critical Security: Administrator role strictly requires authentic Supabase server session
+    const resolvedRole = profile?.role || sessionUser.app_metadata?.role || sessionUser.user_metadata?.role || 'farmer';
+    if (resolvedRole === 'admin') {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Administrator access requires a valid, verified Supabase server session.');
       }
     }
 
     const userObj = {
-      id: profile.id,
-      name: profile.name,
-      email: profile.email,
-      phone: profile.phone,
-      role: profile.role,
-      state: profile.state,
-      district: profile.district,
-      companyName: profile.company_name,
-      kycStatus: profile.kyc_status,
-      createdAt: profile.created_at,
+      id: profile?.id || sessionUser.id,
+      name: profile?.name || sessionUser.user_metadata?.name || 'AgroLnk Participant',
+      email: profile?.email || sessionUser.email,
+      phone: profile?.phone || sessionUser.user_metadata?.phone || '',
+      role: resolvedRole,
+      state: profile?.state || '',
+      district: profile?.district || '',
+      companyName: profile?.company_name || '',
+      kycStatus: profile?.kyc_status || 'pending',
+      createdAt: profile?.created_at || sessionUser.created_at,
     };
 
     setCurrentUser(userObj);
@@ -508,8 +444,22 @@ export async function loginUser({ email, password }) {
 }
 
 /**
- * Set active user session (localStorage session cache)
+ * Send password reset email via native Supabase Auth
  */
+export async function sendPasswordResetEmail(email) {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    throw new Error('Please enter your email address to receive password reset instructions.');
+  }
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+    redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#/login` : undefined,
+  });
+  if (error) {
+    throw new Error(error.message || 'Failed to send password reset email.');
+  }
+  return true;
+}
+
 export function setCurrentUser(user) {
   try {
     localStorage.setItem(AGROLNK_USER_KEY, JSON.stringify(user));
