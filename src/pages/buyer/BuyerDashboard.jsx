@@ -185,7 +185,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
       <div className="space-y-8 text-left">
         
         {/* Welcome Header with 2-in-1 Smart Search Bar */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md space-y-6">
+        <div className="p-4 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md space-y-4 sm:space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-1 max-w-2xl">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
@@ -245,9 +245,10 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
 
           {/* 2-in-1 Smart Search (Crop Name + District/State Filter) */}
           <div className="space-y-3 pt-1">
+            {/* Desktop View: Full Expanded Search Bar (Unchanged for Desktop) */}
             <form
               onSubmit={handleSearchSubmit}
-              className="bg-white p-2 rounded-2xl sm:rounded-3xl shadow-lg border border-[#E5EDE8] flex flex-col md:flex-row items-stretch md:items-center gap-2"
+              className="hidden md:flex bg-white p-2 rounded-3xl shadow-lg border border-[#E5EDE8] items-center gap-2"
             >
               {/* Part 1: Crop Name Input */}
               <div className="flex-1 flex items-center gap-3 px-3 py-1.5">
@@ -262,10 +263,10 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
               </div>
 
               {/* Vertical Divider */}
-              <div className="hidden md:block w-px h-8 bg-[#E5EDE8]" />
+              <div className="w-px h-8 bg-[#E5EDE8]" />
 
               {/* Part 2: Location Dropdown */}
-              <div className="flex items-center gap-2 px-3 py-1.5 border-t md:border-t-0 border-[#E5EDE8]/60 md:w-60 shrink-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 w-60 shrink-0">
                 <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
                 <select
                   value={selectedLocation}
@@ -285,10 +286,52 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
               {/* Part 3: Search Button */}
               <button
                 type="submit"
-                className="px-6 py-3 bg-[#0B3326] hover:bg-[#10B981] text-white text-xs font-bold rounded-xl sm:rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-xs cursor-pointer shrink-0"
+                className="px-6 py-3 bg-[#0B3326] hover:bg-[#10B981] text-white text-xs font-bold rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-xs cursor-pointer shrink-0"
               >
                 <span>Find Lots</span>
                 <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+
+            {/* Mobile View: Sleek Single-Line Search Bar (Idea 2) */}
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex md:hidden bg-white p-1.5 pl-3 rounded-2xl shadow-md border border-[#E5EDE8] items-center gap-2"
+            >
+              <Search className="w-4 h-4 text-[#10B981] shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search produce, region..."
+                className="flex-1 min-w-0 text-xs text-[#14211D] placeholder:text-[#566861]/70 font-medium focus:outline-none bg-transparent py-1.5"
+              />
+
+              {/* Compact Mobile Location Chip */}
+              <div className="flex items-center gap-1 bg-[#F2FBF6] border border-[#A7F3D0]/60 rounded-xl px-2 py-1 shrink-0">
+                <MapPin className="w-3 h-3 text-[#10B981] shrink-0" />
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="text-[11px] font-bold text-[#0B3326] bg-transparent focus:outline-none cursor-pointer max-w-[85px] truncate"
+                >
+                  <option value="All">All States</option>
+                  <option value="Tamil Nadu">Tamil Nadu</option>
+                  <option value="Maharashtra">Maharashtra</option>
+                  <option value="Madhya Pradesh">MP</option>
+                  <option value="Himachal Pradesh">HP</option>
+                  <option value="Punjab">Punjab</option>
+                  <option value="Karnataka">Karnataka</option>
+                </select>
+              </div>
+
+              {/* Compact Submit Button */}
+              <button
+                type="submit"
+                aria-label="Search"
+                className="w-8 h-8 rounded-xl bg-[#0B3326] hover:bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-transform"
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </form>
           </div>
@@ -437,13 +480,14 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
           </Button>
         </Card>
 
-        {/* Browse by Commodity Slider */}
+        {/* Browse by Commodity Slider (Mobile App-Style Circular Tray vs Desktop Slider) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#0B3326] font-heading">
+            <h2 className="text-base sm:text-lg font-bold text-[#0B3326] font-heading">
               Browse by commodity
             </h2>
-            <div className="flex items-center gap-2">
+            {/* Desktop Navigation Arrows (Hidden on mobile) */}
+            <div className="hidden md:flex items-center gap-2">
               <button
                 type="button"
                 onClick={scrollLeft}
@@ -463,7 +507,27 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
             </div>
           </div>
 
-          <div className="relative group">
+          {/* Mobile View: App-Style Circular Story Tray (Idea 3 - Fits 5+ items, 0 vertical clutter) */}
+          <div className="flex md:hidden items-center gap-2.5 overflow-x-auto pb-1 pt-1 no-scrollbar -mx-4 px-4">
+            {commodities.map((item) => (
+              <button
+                key={item.name}
+                type="button"
+                onClick={() => handleCommodityClick(item.name)}
+                className="flex flex-col items-center gap-1.5 shrink-0 group active:scale-95 transition-transform cursor-pointer"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs flex items-center justify-center text-2xl group-hover:border-[#10B981] group-hover:bg-[#F2FBF6] transition-all">
+                  {item.emoji}
+                </div>
+                <span className="text-[11px] font-bold text-[#14211D] group-hover:text-[#0B3326] block truncate max-w-[62px] text-center">
+                  {item.name}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop View: Full Card Slider (Unchanged for Desktop) */}
+          <div className="hidden md:block relative group">
             {/* Left Inline Floating Arrow */}
             <button
               type="button"
