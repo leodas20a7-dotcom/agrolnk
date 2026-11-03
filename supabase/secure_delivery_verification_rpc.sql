@@ -276,3 +276,4 @@ CREATE POLICY "deliveries_update_policy" ON public.deliveries
         (transporter_id = auth.uid()::text AND status IN ('assigned', 'transport_requested')) OR
         public.is_admin()
     );
+

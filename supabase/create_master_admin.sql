@@ -75,9 +75,8 @@ BEGIN
     ELSE
         v_admin_id := v_existing_auth_id;
         
-        -- Update password and metadata for existing admin
+        -- Preserve existing admin password! Only update metadata and role
         UPDATE auth.users SET
-            encrypted_password = v_encrypted_pw,
             raw_app_meta_data = jsonb_build_object('provider', 'email', 'providers', ARRAY['email'], 'role', 'admin'),
             email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
             updated_at = NOW()

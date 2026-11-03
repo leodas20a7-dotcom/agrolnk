@@ -46,13 +46,30 @@ USING (
   )
 );
 
--- 5. Policy: Authenticated File Uploads
+-- 5. Policy: Authenticated File Uploads (Strict isolation for KYC and Proof documents)
 DROP POLICY IF EXISTS "AgroLnk Authenticated Document Upload" ON storage.objects;
 CREATE POLICY "AgroLnk Authenticated Document Upload"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
-  bucket_id IN ('listings', 'proof', 'kyc')
+  -- Marketplace listings: Any authenticated participant can upload produce photos/videos
+  bucket_id = 'listings'
+  OR
+  -- Private proof and KYC buckets: Caller must be admin or upload only to their own user path
+  (
+    bucket_id IN ('proof', 'kyc')
+    AND (
+      (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+      OR (auth.jwt() ->> 'email') = 'admin@agrolnk.com'
+      OR EXISTS (
+          SELECT 1 FROM public.profiles 
+          WHERE id = auth.uid()::text AND role = 'admin'
+      )
+      OR owner::text = auth.uid()::text
+      OR (storage.foldername(name))[1] = auth.uid()::text
+      OR name LIKE ('%' || auth.uid()::text || '%')
+    )
+  )
 );
 
 -- 6. Policy: Owners and Admins can Update their objects
@@ -68,6 +85,7 @@ USING (
       WHERE id = auth.uid()::text AND role = 'admin'
   )
   OR owner::text = auth.uid()::text
+  OR name LIKE ('%' || auth.uid()::text || '%')
 );
 
 -- 7. Policy: Owners and Admins can Delete their objects
@@ -83,4 +101,5 @@ USING (
       WHERE id = auth.uid()::text AND role = 'admin'
   )
   OR owner::text = auth.uid()::text
+  OR name LIKE ('%' || auth.uid()::text || '%')
 );

@@ -1,708 +1,695 @@
-// AgroLnk Supabase Authentication & Profile Management Layer
-import { supabase } from '../lib/supabase';
-
-const AGROLNK_USER_KEY = 'agrolnkUser';
-const IS_AUTH_KEY = 'isAuthenticated';
-
-export const DEFAULT_DEMO_USERS = [];
-
-/**
- * Cryptographic Password Hashing using Web Crypto PBKDF2 (SHA-256)
- */
-export async function hashPassword(password, saltHex = null) {
-  if (!password || typeof password !== 'string') return { hash: '', salt: '' };
-  try {
-    const enc = new TextEncoder();
-    let salt;
-    if (saltHex && typeof saltHex === 'string' && saltHex.length === 32) {
-      salt = new Uint8Array(saltHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
-    } else {
-      salt = (typeof window !== 'undefined' && window.crypto?.getRandomValues)
-        ? window.crypto.getRandomValues(new Uint8Array(16))
-        : (typeof crypto !== 'undefined' && crypto.getRandomValues)
-        ? crypto.getRandomValues(new Uint8Array(16))
-        : new Uint8Array(16).fill(7);
-    }
-
-    const subtle = (typeof window !== 'undefined' && window.crypto?.subtle)
-      || (typeof crypto !== 'undefined' && crypto.subtle);
-
-    if (subtle) {
-      const keyMaterial = await subtle.importKey(
-        'raw',
-        enc.encode(password),
-        { name: 'PBKDF2' },
-        false,
-        ['deriveBits']
-      );
-      const derivedBits = await subtle.deriveBits(
-        {
-          name: 'PBKDF2',
-          salt,
-          iterations: 100000,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        256
-      );
-      const hash = Array.from(new Uint8Array(derivedBits))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-      const finalSalt = Array.from(salt)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-      return { hash, salt: finalSalt };
-    }
-  } catch (err) {
-    console.warn('WebCrypto PBKDF2 fallback:', err);
-  }
-
-  // Fallback deterministic salt & hash if subtle is unavailable
-  const fallbackSalt = saltHex || 'agrolnk_sec_salt_v1';
-  let hashVal = 0;
-  const combined = `${password}:${fallbackSalt}`;
-  for (let i = 0; i < combined.length; i++) {
-    const char = combined.charCodeAt(i);
-    hashVal = (hashVal << 5) - hashVal + char;
-    hashVal |= 0;
-  }
-  return { hash: Math.abs(hashVal).toString(16), salt: fallbackSalt };
-}
-
-export async function verifyPassword(password, expectedHash, saltHex) {
-  if (!password || !expectedHash) return false;
-  const { hash } = await hashPassword(password, saltHex);
-  return hash === expectedHash;
-}
-
-/**
- * Register a new user in Supabase Profiles & Supabase Auth
- */
-export async function registerUser({ name, phone, email, password, role, state, district, companyName }) {
-  const normalizedEmail = (email || '').trim().toLowerCase();
-  const rawPhone = (phone || '').trim();
-  const normalizedPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
-  const trimmedPassword = (password || '').trim();
-
-  // Security: Block unauthorized self-registration as platform administrator
-  const requestedRole = (role || 'farmer').toLowerCase().trim();
-  if (requestedRole === 'admin') {
-    throw new Error('Self-registration as platform administrator is strictly prohibited.');
-  }
-
-  if (!trimmedPassword || trimmedPassword.length < 6) {
-    throw new Error('Password is required and must be at least 6 characters.');
-  }
-
-  try {
-    let supabaseEmailChecked = false;
-    let supabasePhoneChecked = false;
-
-    // 1. Check if email already exists in Supabase
-    if (normalizedEmail) {
-      const { data: existing, error: checkError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('email', normalizedEmail)
-        .maybeSingle();
-
-      if (!checkError) {
-        supabaseEmailChecked = true;
-        if (existing) {
-          throw new Error('An account with this email already exists. Please sign in instead.');
-        }
-      }
-    }
-
-    // 2. Check if mobile number already exists via Secure RPC (no profile data leaked)
-    if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-      try {
-        const { data: phoneExists } = await supabase.rpc('check_phone_exists', {
-          p_phone: normalizedPhoneDigits,
-        });
-        if (phoneExists) {
-          supabasePhoneChecked = true;
-          throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
-        }
-      } catch (phoneErr) {
-        if (phoneErr.message && phoneErr.message.includes('already registered')) {
-          throw phoneErr;
-        }
-      }
-    }
-    // 3. Sync & Clean up local KYC registry
-    try {
-      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-      if (storedRaw) {
-        let registry = JSON.parse(storedRaw);
-        if (Array.isArray(registry)) {
-          // If Supabase checked and confirmed the email is NOT in the database,
-          // purge any orphaned/stale entry from local registry so it doesn't falsely block registration.
-          if (supabaseEmailChecked && normalizedEmail) {
-            registry = registry.filter(
-              (u) => (u.email || '').trim().toLowerCase() !== normalizedEmail
-            );
-            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-          } else if (!supabaseEmailChecked && normalizedEmail) {
-            // Offline fallback check only if Supabase could not be contacted
-            const dupEmail = registry.find((u) => (u.email || '').trim().toLowerCase() === normalizedEmail);
-            if (dupEmail) {
-              throw new Error('An account with this email already exists. Please sign in instead.');
-            }
-          }
-
-          if (supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-            registry = registry.filter((u) => {
-              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-              return uDigits !== normalizedPhoneDigits;
-            });
-            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-          } else if (!supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-            const dupPhone = registry.find((u) => {
-              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-              return uDigits === normalizedPhoneDigits;
-            });
-            if (dupPhone) {
-              throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
-            }
-          }
-        }
-      }
-    } catch (regErr) {
-      if (regErr.message && (regErr.message.includes('already exists') || regErr.message.includes('already registered'))) {
-        throw regErr;
-      }
-    }
-
-    const generateId = () => {
-      try {
-        return crypto.randomUUID();
-      } catch {
-        return `usr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      }
-    };
-
-    const { hash: passwordHash, salt: passwordSalt } = await hashPassword(trimmedPassword);
-
-    // Attempt native Supabase Auth user registration and capture authoritative auth UID
-    let authUserId = null;
-    try {
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: trimmedPassword,
-        options: {
-          data: {
-            name: (name || '').trim(),
-            phone: rawPhone,
-            role: role || 'farmer',
-          },
-        },
-      });
-
-      if (authErr) {
-        if (
-          authErr.message &&
-          (authErr.message.toLowerCase().includes('already registered') ||
-            authErr.message.toLowerCase().includes('already exists'))
-        ) {
-          throw new Error('An account with this email already exists. Please sign in instead.');
-        }
-        console.warn('Supabase auth.signUp notice:', authErr?.message || authErr);
-      } else if (authData?.user?.id) {
-        authUserId = authData.user.id;
-      }
-    } catch (authErr) {
-      if (
-        authErr.message &&
-        (authErr.message.toLowerCase().includes('already registered') ||
-          authErr.message.toLowerCase().includes('already exists'))
-      ) {
-        throw authErr;
-      }
-      console.warn('Supabase auth.signUp notice:', authErr?.message || authErr);
-    }
-
-    // Unify Profile ID with Supabase Auth UID (profiles.id = auth.users.id)
-    // Fall back to generated UUID only in offline/disconnected scenarios
-    const profileId = authUserId || generateId();
-
-    const newProfile = {
-      id: profileId,
-      name: (name || '').trim(),
-      phone: rawPhone,
-      email: normalizedEmail,
-      role: requestedRole,
-      state: (state || '').trim(),
-      district: (district || '').trim(),
-      company_name: companyName || '',
-      kyc_status: 'pending',
-      meta: {}, // Zero password hashes stored in public profiles
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // Sync into local Admin KYC Registry
-    try {
-      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-      const registry = storedRaw ? JSON.parse(storedRaw) : [];
-      if (!registry.find(u => u.email === normalizedEmail || u.id === newProfile.id)) {
-        registry.unshift({
-          id: newProfile.id,
-          name: newProfile.name,
-          role: newProfile.role,
-          email: newProfile.email,
-          phone: newProfile.phone,
-          state: newProfile.state,
-          district: newProfile.district,
-          orgName: newProfile.company_name || '',
-          verificationStatus: 'pending',
-          submittedAt: new Date().toISOString(),
-          verifiedAt: null,
-          verifiedBy: null,
-          documents: [],
-          auditNotes: 'Newly registered participant. Awaiting document submission & admin verification.',
-        });
-        localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-      }
-    } catch (regErr) {
-      console.warn('Could not sync to admin registry:', regErr);
-    }
-
-    // 4. Insert into Supabase (with fallback if offline)
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert([newProfile])
-        .select()
-        .single();
-
-      if (!error && data) {
-        const userObj = {
-          id: data.id,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          role: data.role,
-          state: data.state,
-          district: data.district,
-          companyName: data.company_name,
-          kycStatus: data.kyc_status || 'pending',
-          createdAt: data.created_at,
-        };
-        setCurrentUser(userObj);
-        return userObj;
-      }
-    } catch (sbErr) {
-      console.warn('Supabase insert failed, continuing with local session:', sbErr);
-    }
-
-    const fallbackUserObj = {
-      id: newProfile.id,
-      name: newProfile.name,
-      email: newProfile.email,
-      phone: newProfile.phone,
-      role: newProfile.role,
-      state: newProfile.state,
-      district: newProfile.district,
-      companyName: newProfile.company_name,
-      kycStatus: 'pending',
-      createdAt: newProfile.created_at,
-    };
-
-    setCurrentUser(fallbackUserObj);
-    return fallbackUserObj;
-  } catch (err) {
-    console.error('Registration failed:', err);
-    throw err;
-  }
-}
-
-/**
- * Login user by email or mobile number from Supabase Profiles (with resilient fallback)
- */
-export async function loginUser({ email, password }) {
-  const rawInput = (email || '').trim();
-  const normalizedEmail = rawInput.toLowerCase();
-  const phoneDigits = rawInput.replace(/\D/g, '').slice(-10);
-  const isPhone = phoneDigits.length >= 10 && !rawInput.includes('@');
-  const trimmedPassword = (password || '').trim();
-
-  // 1. Password must be mandatory
-  if (!trimmedPassword) {
-    throw new Error('Please enter your password to sign in.');
-  }
-
-  try {
-    let targetEmail = normalizedEmail;
-
-    // 2. If phone number entered, resolve to authoritative email via Secure RPC
-    if (isPhone) {
-      try {
-        const { data: resolvedEmail } = await supabase.rpc('get_auth_email_for_phone', {
-          p_phone: phoneDigits,
-        });
-        if (resolvedEmail) {
-          targetEmail = resolvedEmail.toLowerCase();
-        } else {
-          // Fallback: check local KYC registry if offline/mock
-          try {
-            const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-            if (storedRaw) {
-              const registry = JSON.parse(storedRaw);
-              if (Array.isArray(registry)) {
-                const match = registry.find(
-                  (u) => (u.phone || '').replace(/\D/g, '').slice(-10) === phoneDigits
-                );
-                if (match?.email) targetEmail = match.email.toLowerCase();
-              }
-            }
-          } catch {}
-        }
-      } catch (rpcErr) {
-        console.warn('Phone resolution notice:', rpcErr);
-      }
-
-      if (!targetEmail || targetEmail === normalizedEmail) {
-        throw new Error(
-          "We couldn't find an account registered with this mobile number. Please check the number or register."
-        );
-      }
-    }
-
-    // 3. Authenticate with Supabase Auth (authoritative server-side bcrypt verification)
-    let sessionUser = null;
-    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
-      email: targetEmail,
-      password: trimmedPassword,
-    });
-
-    if (authErr) {
-      const errMsg = authErr.message?.toLowerCase() || '';
-      if (
-        errMsg.includes('invalid login credentials') ||
-        errMsg.includes('invalid credentials') ||
-        errMsg.includes('invalid grant')
-      ) {
-        throw new Error('Incorrect email or password. Please verify your credentials and try again.');
-      }
-      if (errMsg.includes('email not confirmed')) {
-        throw new Error('Please confirm your email address or contact support.');
-      }
-      throw new Error(authErr.message || 'Login failed. Please check your credentials.');
-    }
-
-    sessionUser = authData?.user;
-    if (!sessionUser) {
-      throw new Error('Authentication succeeded but session could not be established.');
-    }
-
-    // 4. Session established: Fetch authorized profile row (allowed by RLS: auth.uid() = id)
-    const { data: profile, error: profErr } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', sessionUser.id)
-      .maybeSingle();
-
-    if (profErr) {
-      console.warn('Profile retrieval notice after login:', profErr);
-    }
-
-    // Critical Security: Administrator role strictly requires authentic Supabase server session
-    const resolvedRole = profile?.role || sessionUser.app_metadata?.role || sessionUser.user_metadata?.role || 'farmer';
-    if (resolvedRole === 'admin') {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData?.session) {
-        throw new Error('Administrator access requires a valid, verified Supabase server session.');
-      }
-    }
-
-    const userObj = {
-      id: profile?.id || sessionUser.id,
-      name: profile?.name || sessionUser.user_metadata?.name || 'AgroLnk Participant',
-      email: profile?.email || sessionUser.email,
-      phone: profile?.phone || sessionUser.user_metadata?.phone || '',
-      role: resolvedRole,
-      state: profile?.state || '',
-      district: profile?.district || '',
-      companyName: profile?.company_name || '',
-      kycStatus: profile?.kyc_status || 'pending',
-      createdAt: profile?.created_at || sessionUser.created_at,
-    };
-
-    setCurrentUser(userObj);
-
-    try {
-      window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: userObj }));
-      window.dispatchEvent(new Event('storage'));
-    } catch {}
-
-    return userObj;
-  } catch (err) {
-    console.error('Login failed:', err);
-    throw err;
-  }
-}
-
-/**
- * Send password reset email via native Supabase Auth
- */
-export async function sendPasswordResetEmail(email) {
-  const normalizedEmail = (email || '').trim().toLowerCase();
-  if (!normalizedEmail) {
-    throw new Error('Please enter your email address to receive password reset instructions.');
-  }
-  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-    redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#/login` : undefined,
-  });
-  if (error) {
-    throw new Error(error.message || 'Failed to send password reset email.');
-  }
-  return true;
-}
-
-export function setCurrentUser(user) {
-  try {
-    localStorage.setItem(AGROLNK_USER_KEY, JSON.stringify(user));
-    localStorage.setItem(IS_AUTH_KEY, 'true');
-    if (user?.role) {
-      localStorage.setItem('selectedRole', user.role);
-    }
-  } catch (err) {
-    console.error('Failed to set session:', err);
-  }
-}
-
-/**
- * Get current cached authenticated user
- */
-export function getCurrentUser() {
-  try {
-    const session = localStorage.getItem(AGROLNK_USER_KEY);
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Resolve latest KYC verification status from local registry or cached session
- */
-export function getResolvedUserKycStatus(user) {
-  if (!user) return 'pending';
-  if (user.role === 'admin') return 'verified';
-
-  // 1. Direct status check on user object if already verified
-  if (user.kycStatus === 'verified' || user.verificationStatus === 'verified' || user.kyc_status === 'verified') {
-    return 'verified';
-  }
-
-  // 2. Check local KYC registry (updated by Admin approvals)
-  try {
-    const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-    if (storedRaw) {
-      const registry = JSON.parse(storedRaw);
-      if (Array.isArray(registry)) {
-        const regUser = registry.find(
-          (u) =>
-            (user.id && u.id === user.id) ||
-            (user.email && (u.email || '').toLowerCase() === (user.email || '').toLowerCase())
-        );
-        if (regUser?.verificationStatus) {
-          return regUser.verificationStatus;
-        }
-      }
-    }
-  } catch {}
-
-  // 3. Check warehouse profiles cache for warehouse users
-  if (user.role === 'warehouse' && typeof localStorage !== 'undefined') {
-    try {
-      const rawWp = localStorage.getItem('agrolnk_warehouse_profiles');
-      const wpProfiles = rawWp ? JSON.parse(rawWp) : {};
-      const found = (user.id && wpProfiles[user.id]) || (user.email && wpProfiles[user.email]);
-      if (found?.verificationStatus) {
-        return found.verificationStatus;
-      }
-    } catch {}
-  }
-
-  // 4. Check cached user in session
-  try {
-    const raw = localStorage.getItem(AGROLNK_USER_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (
-        (user.id && parsed.id === user.id) ||
-        (user.email && (parsed.email || '').toLowerCase() === (user.email || '').toLowerCase())
-      ) {
-        if (parsed.kycStatus) return parsed.kycStatus;
-        if (parsed.verificationStatus) return parsed.verificationStatus;
-        if (parsed.kyc_status) return parsed.kyc_status;
-      }
-    }
-  } catch {}
-
-  return user.kycStatus || user.verificationStatus || user.kyc_status || 'pending';
-}
-
-/**
- * Check if user's KYC verification is approved
- */
-export function isUserKycVerified(user) {
-  if (!user) return false;
-  return getResolvedUserKycStatus(user) === 'verified';
-}
-
-/**
- * Fetch latest profile for current user from Supabase & KYC Registry
- */
-export async function fetchCurrentProfile() {
-  const current = getCurrentUser();
-  if (!current?.id && !current?.email) return null;
-
-  let kycStatus = getResolvedUserKycStatus(current);
-
-  try {
-    const filter = current.id
-      ? `id.eq.${current.id}${current.email ? `,email.eq.${current.email}` : ''}`
-      : `email.eq.${current.email}`;
-
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .or(filter)
-      .maybeSingle();
-
-    if (profile && !error) {
-      const resolvedKyc = profile.kyc_status || kycStatus;
-      const userObj = {
-        ...current,
-        id: profile.id || current.id,
-        name: profile.name || current.name,
-        email: profile.email || current.email,
-        phone: profile.phone || current.phone,
-        role: profile.role || current.role,
-        state: profile.state || current.state,
-        district: profile.district || current.district,
-        companyName: profile.company_name || current.companyName,
-        kycStatus: resolvedKyc,
-        verificationStatus: resolvedKyc,
-        createdAt: profile.created_at,
-      };
-      setCurrentUser(userObj);
-      return userObj;
-    }
-  } catch (err) {
-    console.warn('fetchCurrentProfile notice:', err);
-  }
-
-  // Update session if status has changed
-  if (current && (current.kycStatus !== kycStatus || current.verificationStatus !== kycStatus)) {
-    current.kycStatus = kycStatus;
-    current.verificationStatus = kycStatus;
-    setCurrentUser(current);
-  }
-
-  return current;
-}
-
-/**
- * Update current user profile (address, district, state, phone, pincode, etc.)
- * Saves to localStorage and Supabase, and broadcasts event to the whole app.
- */
-export async function updateUserProfile(updatedFields) {
-  const current = getCurrentUser() || {};
-  const merged = {
-    ...current,
-    ...updatedFields,
-    // Ensure nested or aliased fields are kept in sync
-    address: updatedFields.address !== undefined ? updatedFields.address : current.address,
-    district: updatedFields.district !== undefined ? updatedFields.district : current.district,
-    state: updatedFields.state !== undefined ? updatedFields.state : current.state,
-    pincode: updatedFields.pincode !== undefined ? updatedFields.pincode : current.pincode,
-    phone: updatedFields.phone !== undefined ? updatedFields.phone : current.phone,
-    name: updatedFields.name !== undefined ? updatedFields.name : current.name,
-    orgName: updatedFields.orgName !== undefined ? updatedFields.orgName : (updatedFields.farmName || current.orgName || current.farmName),
-    farmName: updatedFields.farmName !== undefined ? updatedFields.farmName : (updatedFields.orgName || current.farmName || current.orgName),
-  };
-
-  setCurrentUser(merged);
-
-  // Sync to Supabase profiles if possible
-  try {
-    if (merged.id) {
-      await supabase
-        .from('profiles')
-        .update({
-          name: merged.name,
-          phone: merged.phone,
-          state: merged.state,
-          district: merged.district,
-          address: merged.address,
-          pincode: merged.pincode,
-          landmark: merged.landmark,
-          company_name: merged.orgName || merged.farmName || merged.companyName,
-        })
-        .eq('id', merged.id);
-    }
-  } catch (err) {
-    console.warn('Supabase profile sync skipped / error:', err);
-  }
-
-  // Broadcast event across windows and listeners
-  try {
-    window.dispatchEvent(
-      new CustomEvent('agrolnk_user_profile_updated', {
-        detail: merged,
-      })
-    );
-  } catch {}
-
-  return merged;
-}
-
-/**
- * Get current user role
- */
-export function getUserRole() {
-  const user = getCurrentUser();
-  return user?.role || null;
-}
-
-/**
- * Logout current user
- */
-export function logoutUser() {
-  try {
-    localStorage.removeItem(AGROLNK_USER_KEY);
-    localStorage.removeItem(IS_AUTH_KEY);
-    try {
-      supabase.auth.signOut().catch(() => {});
-    } catch {}
-  } catch (err) {
-    console.error('Failed to logout:', err);
-  }
-}
-
-// Synchronize Supabase server-side session termination with client state
-if (typeof window !== 'undefined') {
-  try {
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
-        localStorage.removeItem(AGROLNK_USER_KEY);
-        localStorage.removeItem(IS_AUTH_KEY);
-      }
-    });
-  } catch {}
-}
-
-/**
- * Check if user is authenticated
- */
-export function isAuthenticated() {
-  try {
-    return localStorage.getItem(IS_AUTH_KEY) === 'true' && getCurrentUser() !== null;
-  } catch {
-    return false;
-  }
-}
+// AgroLnk Supabase Authentication & Profile Management Layer
+import { supabase } from '../lib/supabase';
+
+const AGROLNK_USER_KEY = 'agrolnkUser';
+const IS_AUTH_KEY = 'isAuthenticated';
+
+export const DEFAULT_DEMO_USERS = [];
+
+/**
+ * Cryptographic Password Hashing using Web Crypto PBKDF2 (SHA-256)
+ */
+export async function hashPassword(password, saltHex = null) {
+  if (!password || typeof password !== 'string') return { hash: '', salt: '' };
+  try {
+    const enc = new TextEncoder();
+    let salt;
+    if (saltHex && typeof saltHex === 'string' && saltHex.length === 32) {
+      salt = new Uint8Array(saltHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
+    } else {
+      salt = (typeof window !== 'undefined' && window.crypto?.getRandomValues)
+        ? window.crypto.getRandomValues(new Uint8Array(16))
+        : (typeof crypto !== 'undefined' && crypto.getRandomValues)
+        ? crypto.getRandomValues(new Uint8Array(16))
+        : new Uint8Array(16).fill(7);
+    }
+
+    const subtle = (typeof window !== 'undefined' && window.crypto?.subtle)
+      || (typeof crypto !== 'undefined' && crypto.subtle);
+
+    if (subtle) {
+      const keyMaterial = await subtle.importKey(
+        'raw',
+        enc.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+      );
+      const derivedBits = await subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt,
+          iterations: 100000,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        256
+      );
+      const hash = Array.from(new Uint8Array(derivedBits))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      const finalSalt = Array.from(salt)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      return { hash, salt: finalSalt };
+    }
+  } catch (err) {
+    console.warn('WebCrypto PBKDF2 fallback:', err);
+  }
+
+  // Fallback deterministic salt & hash if subtle is unavailable
+  const fallbackSalt = saltHex || 'agrolnk_sec_salt_v1';
+  let hashVal = 0;
+  const combined = `${password}:${fallbackSalt}`;
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    hashVal = (hashVal << 5) - hashVal + char;
+    hashVal |= 0;
+  }
+  return { hash: Math.abs(hashVal).toString(16), salt: fallbackSalt };
+}
+
+export async function verifyPassword(password, expectedHash, saltHex) {
+  if (!password || !expectedHash) return false;
+  const { hash } = await hashPassword(password, saltHex);
+  return hash === expectedHash;
+}
+
+/**
+ * Register a new user in Supabase Profiles & Supabase Auth
+ */
+export async function registerUser({ name, phone, email, password, role, state, district, companyName }) {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const rawPhone = (phone || '').trim();
+  const normalizedPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
+  const trimmedPassword = (password || '').trim();
+
+  // Security: Block unauthorized self-registration as platform administrator
+  const requestedRole = (role || 'farmer').toLowerCase().trim();
+  if (requestedRole === 'admin') {
+    throw new Error('Self-registration as platform administrator is strictly prohibited.');
+  }
+
+  if (!trimmedPassword || trimmedPassword.length < 6) {
+    throw new Error('Password is required and must be at least 6 characters.');
+  }
+
+  try {
+    let supabaseEmailChecked = false;
+    let supabasePhoneChecked = false;
+
+    // 1. Check if email already exists in Supabase
+    if (normalizedEmail) {
+      const { data: existing, error: checkError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (!checkError) {
+        supabaseEmailChecked = true;
+        if (existing) {
+          throw new Error('An account with this email already exists. Please sign in instead.');
+        }
+      }
+    }
+
+    // 2. Check if mobile number already exists via Secure RPC (no profile data leaked)
+    if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+      try {
+        const { data: phoneExists } = await supabase.rpc('check_phone_exists', {
+          p_phone: normalizedPhoneDigits,
+        });
+        if (phoneExists) {
+          supabasePhoneChecked = true;
+          throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
+        }
+      } catch (phoneErr) {
+        if (phoneErr.message && phoneErr.message.includes('already registered')) {
+          throw phoneErr;
+        }
+      }
+    }
+    // 3. Sync & Clean up local KYC registry
+    try {
+      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+      if (storedRaw) {
+        let registry = JSON.parse(storedRaw);
+        if (Array.isArray(registry)) {
+          // If Supabase checked and confirmed the email is NOT in the database,
+          // purge any orphaned/stale entry from local registry so it doesn't falsely block registration.
+          if (supabaseEmailChecked && normalizedEmail) {
+            registry = registry.filter(
+              (u) => (u.email || '').trim().toLowerCase() !== normalizedEmail
+            );
+            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
+          } else if (!supabaseEmailChecked && normalizedEmail) {
+            // Offline fallback check only if Supabase could not be contacted
+            const dupEmail = registry.find((u) => (u.email || '').trim().toLowerCase() === normalizedEmail);
+            if (dupEmail) {
+              throw new Error('An account with this email already exists. Please sign in instead.');
+            }
+          }
+
+          if (supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+            registry = registry.filter((u) => {
+              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+              return uDigits !== normalizedPhoneDigits;
+            });
+            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
+          } else if (!supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+            const dupPhone = registry.find((u) => {
+              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+              return uDigits === normalizedPhoneDigits;
+            });
+            if (dupPhone) {
+              throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
+            }
+          }
+        }
+      }
+    } catch (regErr) {
+      if (regErr.message && (regErr.message.includes('already exists') || regErr.message.includes('already registered'))) {
+        throw regErr;
+      }
+    }
+
+    // 3. Attempt native Supabase Auth user registration and capture authoritative auth UID (Fail Closed)
+    const { data: authData, error: authErr } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: trimmedPassword,
+      options: {
+        data: {
+          name: (name || '').trim(),
+          phone: rawPhone,
+          role: requestedRole,
+        },
+      },
+    });
+
+    if (authErr) {
+      if (
+        authErr.message &&
+        (authErr.message.toLowerCase().includes('already registered') ||
+          authErr.message.toLowerCase().includes('already exists'))
+      ) {
+        throw new Error('An account with this email already exists. Please sign in instead.');
+      }
+      throw new Error(authErr.message || 'Registration failed. Could not create account in authentication service.');
+    }
+
+    const authUserId = authData?.user?.id;
+    if (!authUserId) {
+      throw new Error('Registration failed: no valid user identity was returned by the authentication service.');
+    }
+
+    // Unify Profile ID strictly with authentic Supabase Auth UID (profiles.id = auth.users.id)
+    const newProfile = {
+      id: authUserId,
+      name: (name || '').trim(),
+      phone: rawPhone,
+      email: normalizedEmail,
+      role: requestedRole,
+      state: (state || '').trim(),
+      district: (district || '').trim(),
+      company_name: companyName || '',
+      kyc_status: 'pending',
+      meta: {}, // Zero password hashes stored in public profiles
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Sync into local Admin KYC Registry cache
+    try {
+      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+      const registry = storedRaw ? JSON.parse(storedRaw) : [];
+      if (!registry.find(u => u.email === normalizedEmail || u.id === newProfile.id)) {
+        registry.unshift({
+          id: newProfile.id,
+          name: newProfile.name,
+          role: newProfile.role,
+          email: newProfile.email,
+          phone: newProfile.phone,
+          state: newProfile.state,
+          district: newProfile.district,
+          orgName: newProfile.company_name || '',
+          verificationStatus: 'pending',
+          submittedAt: new Date().toISOString(),
+          verifiedAt: null,
+          verifiedBy: null,
+          documents: [],
+          auditNotes: 'Newly registered participant. Awaiting document submission & admin verification.',
+        });
+        localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
+      }
+    } catch (regErr) {
+      console.warn('Could not sync to admin registry cache:', regErr);
+    }
+
+    // 4. Insert into Supabase Profiles table (Fail Closed - strictly verified)
+    const { data, error: insertError } = await supabase
+      .from('profiles')
+      .insert([newProfile])
+      .select()
+      .maybeSingle();
+
+    if (insertError) {
+      // Check if profile was inserted by trigger or already exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUserId)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        console.error('Profile insertion error:', insertError);
+        throw new Error(`Authentication succeeded, but profile creation failed: ${insertError.message}`);
+      }
+
+      const userObj = {
+        id: existingProfile.id,
+        name: existingProfile.name,
+        email: existingProfile.email,
+        phone: existingProfile.phone,
+        role: existingProfile.role,
+        state: existingProfile.state,
+        district: existingProfile.district,
+        companyName: existingProfile.company_name,
+        kycStatus: existingProfile.kyc_status || 'pending',
+        createdAt: existingProfile.created_at,
+      };
+      setCurrentUser(userObj);
+      return userObj;
+    }
+
+    const createdRecord = data || newProfile;
+    const userObj = {
+      id: createdRecord.id,
+      name: createdRecord.name,
+      email: createdRecord.email,
+      phone: createdRecord.phone,
+      role: createdRecord.role,
+      state: createdRecord.state,
+      district: createdRecord.district,
+      companyName: createdRecord.company_name,
+      kycStatus: createdRecord.kyc_status || 'pending',
+      createdAt: createdRecord.created_at,
+    };
+
+    setCurrentUser(userObj);
+    return userObj;
+  } catch (err) {
+    console.error('Registration failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Login user by email or mobile number from Supabase Profiles (with resilient fallback)
+ */
+export async function loginUser({ email, password }) {
+  const rawInput = (email || '').trim();
+  const normalizedEmail = rawInput.toLowerCase();
+  const phoneDigits = rawInput.replace(/\D/g, '').slice(-10);
+  const isPhone = phoneDigits.length >= 10 && !rawInput.includes('@');
+  const trimmedPassword = (password || '').trim();
+
+  // 1. Password must be mandatory
+  if (!trimmedPassword) {
+    throw new Error('Please enter your password to sign in.');
+  }
+
+  try {
+    let targetEmail = normalizedEmail;
+
+    // 2. If phone number entered, resolve to authoritative email via Secure RPC
+    if (isPhone) {
+      try {
+        const { data: resolvedEmail } = await supabase.rpc('get_auth_email_for_phone', {
+          p_phone: phoneDigits,
+        });
+        if (resolvedEmail) {
+          targetEmail = resolvedEmail.toLowerCase();
+        } else {
+          // Fallback: check local KYC registry if offline/mock
+          try {
+            const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+            if (storedRaw) {
+              const registry = JSON.parse(storedRaw);
+              if (Array.isArray(registry)) {
+                const match = registry.find(
+                  (u) => (u.phone || '').replace(/\D/g, '').slice(-10) === phoneDigits
+                );
+                if (match?.email) targetEmail = match.email.toLowerCase();
+              }
+            }
+          } catch {}
+        }
+      } catch (rpcErr) {
+        console.warn('Phone resolution notice:', rpcErr);
+      }
+
+      if (!targetEmail || targetEmail === normalizedEmail) {
+        throw new Error(
+          "We couldn't find an account registered with this mobile number. Please check the number or register."
+        );
+      }
+    }
+
+    // 3. Authenticate with Supabase Auth (authoritative server-side bcrypt verification)
+    let sessionUser = null;
+    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+      email: targetEmail,
+      password: trimmedPassword,
+    });
+
+    if (authErr) {
+      const errMsg = authErr.message?.toLowerCase() || '';
+      if (
+        errMsg.includes('invalid login credentials') ||
+        errMsg.includes('invalid credentials') ||
+        errMsg.includes('invalid grant')
+      ) {
+        throw new Error('Incorrect email or password. Please verify your credentials and try again.');
+      }
+      if (errMsg.includes('email not confirmed')) {
+        throw new Error('Please confirm your email address or contact support.');
+      }
+      throw new Error(authErr.message || 'Login failed. Please check your credentials.');
+    }
+
+    sessionUser = authData?.user;
+    if (!sessionUser) {
+      throw new Error('Authentication succeeded but session could not be established.');
+    }
+
+    // 4. Session established: Fetch authorized profile row (allowed by RLS: auth.uid() = id)
+    const { data: profile, error: profErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', sessionUser.id)
+      .maybeSingle();
+
+    if (profErr) {
+      console.warn('Profile retrieval notice after login:', profErr);
+    }
+
+    // Critical Security: Administrator role strictly requires authentic Supabase server session
+    const resolvedRole = profile?.role || sessionUser.app_metadata?.role || sessionUser.user_metadata?.role || 'farmer';
+    if (resolvedRole === 'admin') {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Administrator access requires a valid, verified Supabase server session.');
+      }
+    }
+
+    const userObj = {
+      id: profile?.id || sessionUser.id,
+      name: profile?.name || sessionUser.user_metadata?.name || 'AgroLnk Participant',
+      email: profile?.email || sessionUser.email,
+      phone: profile?.phone || sessionUser.user_metadata?.phone || '',
+      role: resolvedRole,
+      state: profile?.state || '',
+      district: profile?.district || '',
+      companyName: profile?.company_name || '',
+      kycStatus: profile?.kyc_status || 'pending',
+      createdAt: profile?.created_at || sessionUser.created_at,
+    };
+
+    setCurrentUser(userObj);
+
+    try {
+      window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: userObj }));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+
+    return userObj;
+  } catch (err) {
+    console.error('Login failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Send password reset email via native Supabase Auth
+ */
+export async function sendPasswordResetEmail(email) {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    throw new Error('Please enter your email address to receive password reset instructions.');
+  }
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+    redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#/login` : undefined,
+  });
+  if (error) {
+    throw new Error(error.message || 'Failed to send password reset email.');
+  }
+  return true;
+}
+
+export function setCurrentUser(user) {
+  try {
+    localStorage.setItem(AGROLNK_USER_KEY, JSON.stringify(user));
+    localStorage.setItem(IS_AUTH_KEY, 'true');
+    if (user?.role) {
+      localStorage.setItem('selectedRole', user.role);
+    }
+  } catch (err) {
+    console.error('Failed to set session:', err);
+  }
+}
+
+/**
+ * Get current cached authenticated user
+ */
+export function getCurrentUser() {
+  try {
+    const session = localStorage.getItem(AGROLNK_USER_KEY);
+    return session ? JSON.parse(session) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve latest KYC verification status from local registry or cached session
+ */
+export function getResolvedUserKycStatus(user) {
+  if (!user) return 'pending';
+  if (user.role === 'admin') return 'verified';
+
+  // 1. Direct status check on user object if already verified
+  if (user.kycStatus === 'verified' || user.verificationStatus === 'verified' || user.kyc_status === 'verified') {
+    return 'verified';
+  }
+
+  // 2. Check local KYC registry (updated by Admin approvals)
+  try {
+    const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
+    if (storedRaw) {
+      const registry = JSON.parse(storedRaw);
+      if (Array.isArray(registry)) {
+        const regUser = registry.find(
+          (u) =>
+            (user.id && u.id === user.id) ||
+            (user.email && (u.email || '').toLowerCase() === (user.email || '').toLowerCase())
+        );
+        if (regUser?.verificationStatus) {
+          return regUser.verificationStatus;
+        }
+      }
+    }
+  } catch {}
+
+  // 3. Check warehouse profiles cache for warehouse users
+  if (user.role === 'warehouse' && typeof localStorage !== 'undefined') {
+    try {
+      const rawWp = localStorage.getItem('agrolnk_warehouse_profiles');
+      const wpProfiles = rawWp ? JSON.parse(rawWp) : {};
+      const found = (user.id && wpProfiles[user.id]) || (user.email && wpProfiles[user.email]);
+      if (found?.verificationStatus) {
+        return found.verificationStatus;
+      }
+    } catch {}
+  }
+
+  // 4. Check cached user in session
+  try {
+    const raw = localStorage.getItem(AGROLNK_USER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (
+        (user.id && parsed.id === user.id) ||
+        (user.email && (parsed.email || '').toLowerCase() === (user.email || '').toLowerCase())
+      ) {
+        if (parsed.kycStatus) return parsed.kycStatus;
+        if (parsed.verificationStatus) return parsed.verificationStatus;
+        if (parsed.kyc_status) return parsed.kyc_status;
+      }
+    }
+  } catch {}
+
+  return user.kycStatus || user.verificationStatus || user.kyc_status || 'pending';
+}
+
+/**
+ * Check if user's KYC verification is approved
+ */
+export function isUserKycVerified(user) {
+  if (!user) return false;
+  return getResolvedUserKycStatus(user) === 'verified';
+}
+
+/**
+ * Fetch latest profile for current user from Supabase & KYC Registry
+ */
+export async function fetchCurrentProfile() {
+  const current = getCurrentUser();
+  if (!current?.id && !current?.email) return null;
+
+  let kycStatus = getResolvedUserKycStatus(current);
+
+  try {
+    const filter = current.id
+      ? `id.eq.${current.id}${current.email ? `,email.eq.${current.email}` : ''}`
+      : `email.eq.${current.email}`;
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .or(filter)
+      .maybeSingle();
+
+    if (profile && !error) {
+      const resolvedKyc = profile.kyc_status || kycStatus;
+      const userObj = {
+        ...current,
+        id: profile.id || current.id,
+        name: profile.name || current.name,
+        email: profile.email || current.email,
+        phone: profile.phone || current.phone,
+        role: profile.role || current.role,
+        state: profile.state || current.state,
+        district: profile.district || current.district,
+        companyName: profile.company_name || current.companyName,
+        kycStatus: resolvedKyc,
+        verificationStatus: resolvedKyc,
+        createdAt: profile.created_at,
+      };
+      setCurrentUser(userObj);
+      return userObj;
+    }
+  } catch (err) {
+    console.warn('fetchCurrentProfile notice:', err);
+  }
+
+  // Update session if status has changed
+  if (current && (current.kycStatus !== kycStatus || current.verificationStatus !== kycStatus)) {
+    current.kycStatus = kycStatus;
+    current.verificationStatus = kycStatus;
+    setCurrentUser(current);
+  }
+
+  return current;
+}
+
+/**
+ * Update current user profile (address, district, state, phone, pincode, etc.)
+ * Saves to localStorage and Supabase, and broadcasts event to the whole app.
+ */
+export async function updateUserProfile(updatedFields) {
+  const current = getCurrentUser() || {};
+  const merged = {
+    ...current,
+    ...updatedFields,
+    // Ensure nested or aliased fields are kept in sync
+    address: updatedFields.address !== undefined ? updatedFields.address : current.address,
+    district: updatedFields.district !== undefined ? updatedFields.district : current.district,
+    state: updatedFields.state !== undefined ? updatedFields.state : current.state,
+    pincode: updatedFields.pincode !== undefined ? updatedFields.pincode : current.pincode,
+    phone: updatedFields.phone !== undefined ? updatedFields.phone : current.phone,
+    name: updatedFields.name !== undefined ? updatedFields.name : current.name,
+    orgName: updatedFields.orgName !== undefined ? updatedFields.orgName : (updatedFields.farmName || current.orgName || current.farmName),
+    farmName: updatedFields.farmName !== undefined ? updatedFields.farmName : (updatedFields.orgName || current.farmName || current.orgName),
+  };
+
+  setCurrentUser(merged);
+
+  // Sync to Supabase profiles if possible
+  try {
+    if (merged.id) {
+      await supabase
+        .from('profiles')
+        .update({
+          name: merged.name,
+          phone: merged.phone,
+          state: merged.state,
+          district: merged.district,
+          address: merged.address,
+          pincode: merged.pincode,
+          landmark: merged.landmark,
+          company_name: merged.orgName || merged.farmName || merged.companyName,
+        })
+        .eq('id', merged.id);
+    }
+  } catch (err) {
+    console.warn('Supabase profile sync skipped / error:', err);
+  }
+
+  // Broadcast event across windows and listeners
+  try {
+    window.dispatchEvent(
+      new CustomEvent('agrolnk_user_profile_updated', {
+        detail: merged,
+      })
+    );
+  } catch {}
+
+  return merged;
+}
+
+/**
+ * Get current user role
+ */
+export function getUserRole() {
+  const user = getCurrentUser();
+  return user?.role || null;
+}
+
+/**
+ * Logout current user
+ */
+export function logoutUser() {
+  try {
+    localStorage.removeItem(AGROLNK_USER_KEY);
+    localStorage.removeItem(IS_AUTH_KEY);
+    try {
+      supabase.auth.signOut().catch(() => {});
+    } catch {}
+  } catch (err) {
+    console.error('Failed to logout:', err);
+  }
+}
+
+// Synchronize Supabase server-side session termination with client state
+if (typeof window !== 'undefined') {
+  try {
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem(AGROLNK_USER_KEY);
+        localStorage.removeItem(IS_AUTH_KEY);
+      }
+    });
+  } catch {}
+}
+
+/**
+ * Check if user is authenticated
+ */
+export function isAuthenticated() {
+  try {
+    return localStorage.getItem(IS_AUTH_KEY) === 'true' && getCurrentUser() !== null;
+  } catch {
+    return false;
+  }
+}
