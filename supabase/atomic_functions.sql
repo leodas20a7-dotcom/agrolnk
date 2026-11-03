@@ -194,12 +194,26 @@ CREATE OR REPLACE FUNCTION public.release_escrow_atomic(
     p_account_number TEXT DEFAULT NULL,
     p_ifsc TEXT DEFAULT NULL,
     p_utr TEXT DEFAULT NULL
-) RETURNS JSONB AS $$
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 DECLARE
     v_order RECORD;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
     v_utr TEXT;
+    v_caller_id TEXT := auth.uid()::TEXT;
 BEGIN
+    -- 0. CRITICAL AUTHORIZATION CHECK: Caller MUST be a verified platform administrator
+    IF v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.';
+    END IF;
+
+    IF NOT (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role') THEN
+        RAISE EXCEPTION 'Forbidden: Only authorized platform administrators can execute escrow releases.';
+    END IF;
+
     -- 1. Acquire exclusive lock on the target order row
     SELECT * INTO v_order 
     FROM public.orders 
