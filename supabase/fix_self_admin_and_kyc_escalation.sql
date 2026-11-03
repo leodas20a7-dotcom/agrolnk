@@ -152,3 +152,4 @@ CREATE POLICY "profiles_delete_policy" ON public.profiles
     FOR DELETE USING (
         public.is_admin()
     );
+
