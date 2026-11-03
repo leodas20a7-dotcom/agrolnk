@@ -25,3 +25,4 @@ WHERE
   OR phone_change IS NULL
   OR phone_change_token IS NULL
   OR reauthentication_token IS NULL;
+
