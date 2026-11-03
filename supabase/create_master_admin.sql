@@ -7,7 +7,7 @@
 --   with server-side role verification in public.profiles.
 -- ============================================================================
 
--- Ensure pgcrypto extension is installed for bcrypt hashing
+-- Ensure pgcrypto extension is active for bcrypt hashing
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DO $$
@@ -17,7 +17,7 @@ DECLARE
     v_existing_auth_id UUID;
 BEGIN
     -- Encrypt the initial strong admin password using bcrypt (Blowfish)
-    -- Default secure password: AgroLnk@Admin2026!Secure (Change to your secret password)
+    -- Default secure password: AgroLnk@Admin2026!Secure (Change to your secret password if needed)
     v_encrypted_pw := crypt('AgroLnk@Admin2026!Secure', gen_salt('bf'));
 
     -- 1. Check if admin user already exists in auth.users
@@ -55,7 +55,7 @@ BEGIN
         );
 
         INSERT INTO auth.identities (
-            id,
+            provider_id,
             user_id,
             identity_data,
             provider,
@@ -63,14 +63,15 @@ BEGIN
             created_at,
             updated_at
         ) VALUES (
-            gen_random_uuid(),
+            v_admin_id::text,
             v_admin_id,
             jsonb_build_object('sub', v_admin_id::text, 'email', 'admin@agrolnk.com'),
             'email',
             NOW(),
             NOW(),
             NOW()
-        );
+        )
+        ON CONFLICT (provider, provider_id) DO NOTHING;
     ELSE
         v_admin_id := v_existing_auth_id;
         
@@ -81,6 +82,26 @@ BEGIN
             email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
             updated_at = NOW()
         WHERE id = v_admin_id;
+
+        -- Ensure identity exists
+        INSERT INTO auth.identities (
+            provider_id,
+            user_id,
+            identity_data,
+            provider,
+            last_sign_in_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            v_admin_id::text,
+            v_admin_id,
+            jsonb_build_object('sub', v_admin_id::text, 'email', 'admin@agrolnk.com'),
+            'email',
+            NOW(),
+            NOW(),
+            NOW()
+        )
+        ON CONFLICT (provider, provider_id) DO NOTHING;
     END IF;
 
     -- 2. Clean up legacy dummy admin profiles to prevent email collision
