@@ -135,3 +135,4 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.check_phone_exists(text) TO anon, authenticated;
+
