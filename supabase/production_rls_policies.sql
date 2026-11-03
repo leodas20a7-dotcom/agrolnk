@@ -219,7 +219,7 @@ CREATE POLICY "deliveries_select_policy" ON public.deliveries
         (status = 'transport_requested' AND (
             EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid()::text AND role = 'transporter') OR
             (auth.jwt() -> 'app_metadata' ->> 'role') = 'transporter' OR
-            (auth.jwt() ->> 'role') = 'authenticated'
+            public.is_admin()
         )) OR
         public.is_admin()
     );
@@ -238,13 +238,16 @@ CREATE POLICY "deliveries_update_policy" ON public.deliveries
         auth.uid()::text = transporter_id OR
         auth.uid()::text = farmer_id OR
         auth.uid()::text = buyer_id OR
-        (transporter_id IS NULL AND status = 'transport_requested') OR
+        (transporter_id IS NULL AND status = 'transport_requested' AND (
+            EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid()::text AND role = 'transporter') OR
+            public.is_admin()
+        )) OR
         public.is_admin()
     ) WITH CHECK (
         auth.uid()::text = transporter_id OR
         auth.uid()::text = farmer_id OR
         auth.uid()::text = buyer_id OR
-        (status IN ('assigned', 'transport_requested')) OR
+        (transporter_id = auth.uid()::text AND status IN ('assigned', 'transport_requested')) OR
         public.is_admin()
     );
 
