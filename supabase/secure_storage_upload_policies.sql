@@ -76,3 +76,4 @@ USING (
   OR owner::text = auth.uid()::text
   OR name LIKE ('%' || auth.uid()::text || '%')
 );
+
