@@ -128,3 +128,4 @@ BEGIN
 
     RAISE NOTICE 'Kanikho updated to % successfully! All 250 listings intact under UID: %', v_email, v_profile_id;
 END $$;
+
