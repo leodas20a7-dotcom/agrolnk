@@ -199,7 +199,8 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto shrink-0">
+            {/* Quick Actions (Hidden on Mobile as all options exist in sidebar menu; Visible on Desktop) */}
+            <div className="hidden md:flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto shrink-0">
               <Button
                 variant="white"
                 size="md"
@@ -480,14 +481,14 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
           </Button>
         </Card>
 
-        {/* Browse by Commodity Slider (Mobile App-Style Circular Tray vs Desktop Slider) */}
-        <div className="space-y-3">
+        {/* Browse by Commodity Slider (Desktop Only — Hidden on mobile to avoid clutter; accessible via search) */}
+        <div className="hidden md:block space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-base sm:text-lg font-bold text-[#0B3326] font-heading">
+            <h2 className="text-lg font-bold text-[#0B3326] font-heading">
               Browse by commodity
             </h2>
-            {/* Desktop Navigation Arrows (Hidden on mobile) */}
-            <div className="hidden md:flex items-center gap-2">
+            {/* Desktop Navigation Arrows */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={scrollLeft}
@@ -507,27 +508,8 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
             </div>
           </div>
 
-          {/* Mobile View: App-Style Circular Story Tray (Idea 3 - Fits 5+ items, 0 vertical clutter) */}
-          <div className="flex md:hidden items-center gap-2.5 overflow-x-auto pb-1 pt-1 no-scrollbar -mx-4 px-4">
-            {commodities.map((item) => (
-              <button
-                key={item.name}
-                type="button"
-                onClick={() => handleCommodityClick(item.name)}
-                className="flex flex-col items-center gap-1.5 shrink-0 group active:scale-95 transition-transform cursor-pointer"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs flex items-center justify-center text-2xl group-hover:border-[#10B981] group-hover:bg-[#F2FBF6] transition-all">
-                  {item.emoji}
-                </div>
-                <span className="text-[11px] font-bold text-[#14211D] group-hover:text-[#0B3326] block truncate max-w-[62px] text-center">
-                  {item.name}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Desktop View: Full Card Slider (Unchanged for Desktop) */}
-          <div className="hidden md:block relative group">
+          {/* Desktop View: Full Card Slider */}
+          <div className="relative group">
             {/* Left Inline Floating Arrow */}
             <button
               type="button"
