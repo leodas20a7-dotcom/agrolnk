@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { copyToClipboard } from '../../context/ToastContext';
+import { getSecureDocumentUrl } from '../../utils/documentSecurity';
 
 export default function DocumentViewerModal({
   isOpen,
@@ -47,7 +48,36 @@ export default function DocumentViewerModal({
     'AGR-KYC-' + Math.floor(100000 + Math.random() * 900000)
   );
 
-  const fileUrl = doc.fileUrl || '';
+  const [resolvedFileUrl, setResolvedFileUrl] = useState(doc.fileUrl || '');
+  const [isLoadingFile, setIsLoadingFile] = useState(false);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function resolveSignedUrl() {
+      const initial = doc?.fileUrl || '';
+      if (!initial) {
+        setResolvedFileUrl('');
+        return;
+      }
+      if (initial.startsWith('data:') || initial.startsWith('blob:')) {
+        setResolvedFileUrl(initial);
+        return;
+      }
+      setIsLoadingFile(true);
+      try {
+        const signed = await getSecureDocumentUrl(initial, 900);
+        if (isMounted) setResolvedFileUrl(signed || initial);
+      } catch {
+        if (isMounted) setResolvedFileUrl(initial);
+      } finally {
+        if (isMounted) setIsLoadingFile(false);
+      }
+    }
+    resolveSignedUrl();
+    return () => { isMounted = false; };
+  }, [doc?.fileUrl]);
+
+  const fileUrl = resolvedFileUrl;
   const isPdf = Boolean(
     doc.format === 'PDF' ||
     doc.fileName?.toLowerCase().endsWith('.pdf') ||
