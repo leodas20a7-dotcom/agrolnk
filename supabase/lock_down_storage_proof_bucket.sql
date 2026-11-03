@@ -1,18 +1,9 @@
 -- ============================================================================
 -- AGROLNK SECURITY FIX #3: MAKE PROOF & KYC STORAGE BUCKETS STRICTLY PRIVATE
 -- File: supabase/lock_down_storage_proof_bucket.sql
--- Description:
---   1. Converts 'proof' and 'kyc' storage buckets to private (public = false).
---      Prevents anonymous visitors from listing or downloading KYC IDs (Aadhaar/PAN)
---      and warehouse compliance documents (GST, WDRA, Insurance).
---   2. Keeps 'listings' bucket public (public = true) for crop produce lot photos.
---   3. Enforces strict Storage Row-Level Security on storage.objects:
---      - Public users can only read from 'listings'.
---      - Authenticated account owners and platform administrators can access
---        their respective documents in 'proof' and 'kyc' via signed URLs.
 -- ============================================================================
 
--- 1. Ensure 'proof' and 'kyc' buckets are strictly private
+-- 1. Ensure 'proof' and 'kyc' buckets are strictly private (Blocks anonymous listing & downloads)
 UPDATE storage.buckets 
 SET public = false 
 WHERE id IN ('proof', 'kyc');
@@ -50,7 +41,7 @@ USING (
         SELECT 1 FROM public.profiles 
         WHERE id = auth.uid()::text AND role = 'admin'
     )
-    OR auth.uid()::text = owner
+    OR owner::text = auth.uid()::text
     OR name LIKE ('%' || auth.uid()::text || '%')
   )
 );
@@ -76,7 +67,7 @@ USING (
       SELECT 1 FROM public.profiles 
       WHERE id = auth.uid()::text AND role = 'admin'
   )
-  OR auth.uid()::text = owner
+  OR owner::text = auth.uid()::text
 );
 
 -- 7. Policy: Owners and Admins can Delete their objects
@@ -91,5 +82,5 @@ USING (
       SELECT 1 FROM public.profiles 
       WHERE id = auth.uid()::text AND role = 'admin'
   )
-  OR auth.uid()::text = owner
+  OR owner::text = auth.uid()::text
 );
