@@ -179,7 +179,7 @@ export async function initiateRazorpayRouteCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || serverOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_verified',
+          razorpay_signature: response.razorpay_signature,
           tradeValue: fin.tradeValue,
           buyerFee: fin.buyerFee,
           totalPaid: fin.totalBuyerPayable,
@@ -277,7 +277,7 @@ export async function initiateRazorpayTransportCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_verified',
+          razorpay_signature: response.razorpay_signature,
           freightAmount: freightAmount,
           verified: true,
         });
@@ -366,7 +366,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_verified',
+          razorpay_signature: response.razorpay_signature,
           amount: payAmount,
           rentAmount: payAmount,
           extendedDays: extendedDays,
@@ -456,7 +456,7 @@ export async function initiateRazorpayInspectionFeeCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_verified',
+          razorpay_signature: response.razorpay_signature,
           feeAmount: feeAmount,
           verified: true,
         });
@@ -530,6 +530,19 @@ export async function initiateFinancierEscrowDisbursement({
     },
     handler: async function (response) {
       try {
+        if (!response?.razorpay_payment_id) {
+          throw new Error('Payment gateway response did not return a valid payment ID.');
+        }
+
+        await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          expectedAmountPaise: totalAmountInPaise,
+          expectedCurrency: 'INR',
+          paymentContext: 'institution_disbursement',
+        });
+
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
@@ -539,6 +552,7 @@ export async function initiateFinancierEscrowDisbursement({
           verified: true,
         });
       } catch (err) {
+        console.error('Institutional disbursement payment verification failed:', err);
         onFailure?.(err);
       }
     },
@@ -622,7 +636,7 @@ export async function initiateBuyerMarginDepositCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_verified',
+          razorpay_signature: response.razorpay_signature,
           marginAmount: payMargin,
           verified: true,
         });
@@ -712,7 +726,7 @@ export async function initiateRazorpayLoanRepaymentCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_verified',
+          razorpay_signature: response.razorpay_signature,
           repaymentAmount: repayAmount,
           verified: true,
         });

@@ -118,8 +118,9 @@ CREATE POLICY "profiles_select_policy" ON public.profiles
 
 DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
 CREATE POLICY "profiles_insert_policy" ON public.profiles
-    FOR INSERT WITH CHECK (
-        (auth.uid()::text = id OR auth.role() IN ('authenticated', 'anon')) AND
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        auth.uid()::text = id AND
         (role <> 'admin' OR public.is_admin())
     );
 
