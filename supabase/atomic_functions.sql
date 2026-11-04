@@ -242,7 +242,7 @@ BEGIN
     END IF;
 
     -- Generate bank UTR if not supplied
-    v_utr := COALESCE(p_utr, v_order.bank_utr, 'CMSICICI' || to_char(v_now, 'YYYYMMDD') || floor(1000 + random() * 9000)::text);
+    v_utr := COALESCE(p_utr, v_order.bank_utr);
 
     -- 4. Update Order atomically
     UPDATE public.orders SET

@@ -190,7 +190,7 @@ export default function InstitutionalUnderwriteModal({
           });
 
           setActionSuccess(
-            `₹${Number(approvedAmount).toLocaleString('en-IN')} disbursed into Escrow via Razorpay Route! (UTR: ${paymentData?.bankUtr})`
+            `₹${Number(approvedAmount).toLocaleString('en-IN')} disbursed into Escrow via Razorpay Route!${paymentData?.bankUtr ? ` (UTR: ${paymentData.bankUtr})` : ` (Payment ID: ${paymentData?.razorpay_payment_id || 'Captured'})`}`
           );
 
           setTimeout(() => {

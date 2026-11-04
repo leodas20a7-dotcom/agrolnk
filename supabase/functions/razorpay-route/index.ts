@@ -77,6 +77,40 @@ serve(async (req: Request) => {
     }
 
     // =========================================================================
+    // CALLER AUTHENTICATION & AUTHORIZATION (Issue 2)
+    // =========================================================================
+    let callerUser: any = null;
+    let callerRole = "buyer";
+
+    if (action && action !== "webhook") {
+      const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+      if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+        const token = authHeader.slice(7).trim();
+        const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+        if (!userErr && userData?.user) {
+          callerUser = userData.user;
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", callerUser.id)
+            .maybeSingle();
+          callerRole = prof?.role || "buyer";
+        }
+      }
+
+      // Reject unauthenticated requests for sensitive gateway and escrow actions
+      if (!callerUser) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Unauthorized: A valid Supabase user authentication session is required to invoke payment operations.",
+          }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // =========================================================================
     // ACTION 1: CREATE RAZORPAY ORDER (Server-Side Price & Fee Calculation)
     // =========================================================================
     if (action === "create_order") {
@@ -197,90 +231,180 @@ serve(async (req: Request) => {
     }
 
     // =========================================================================
-    // ACTION 2: VERIFY PAYMENT SIGNATURE & CREATE ROUTE TRANSFER (on_hold: 1)
+    // ACTION 2: VERIFY PAYMENT SIGNATURE, CAPTURE, AMOUNT & CREATE TRANSFER
     // =========================================================================
     if (action === "verify_payment") {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+      const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        expected_amount_paise,
+        expected_currency,
+        payment_context,
+      } = body;
 
-      const expectedPayload = `${razorpay_order_id}|${razorpay_payment_id}`;
-      const isValid = await verifyHmacSha256(razorpayKeySecret, expectedPayload, razorpay_signature);
-
-      if (!isValid) {
+      if (!razorpay_payment_id) {
         return new Response(
-          JSON.stringify({ success: false, error: "Invalid payment signature verification." }),
+          JSON.stringify({ success: false, error: "Missing razorpay_payment_id." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // 1. Fetch Order from Supabase
-      const { data: order } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("razorpay_order_id", razorpay_order_id)
-        .single();
+      // 1. Signature Verification (HMAC SHA-256)
+      if (razorpay_order_id && razorpay_signature) {
+        const expectedPayload = `${razorpay_order_id}|${razorpay_payment_id}`;
+        const isValid = await verifyHmacSha256(razorpayKeySecret, expectedPayload, razorpay_signature);
 
-      let transferId = null;
-
-      // 2. If Farmer has a Route Linked Account, create transfer in on_hold: 1 state
-      if (order?.farmer_id) {
-        const { data: farmerProfile } = await supabase
-          .from("profiles")
-          .select("route_account_id")
-          .eq("id", order.farmer_id)
-          .single();
-
-        if (farmerProfile?.route_account_id) {
-          const netFarmerPaise = Math.round((Number(order.net_seller_amount) || 0) * 100);
-          try {
-            const transferRes = await fetch(`${RAZORPAY_API_BASE}/orders/${razorpay_order_id}/transfers`, {
-              method: "POST",
-              headers: {
-                Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                transfers: [
-                  {
-                    account: farmerProfile.route_account_id,
-                    amount: netFarmerPaise,
-                    currency: "INR",
-                    on_hold: 1, // Locks funds in deferred marketplace settlement until delivery OTP
-                    notes: {
-                      order_number: order.order_number,
-                      type: "milestone_deferred_settlement",
-                    },
-                  },
-                ],
-              }),
-            });
-            const transferData = await transferRes.json();
-            if (transferData?.items?.[0]?.id) {
-              transferId = transferData.items[0].id;
-            }
-          } catch (tErr) {
-            console.warn("Route transfer deferral notice:", tErr);
-          }
+        if (!isValid) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Invalid payment signature verification. Potential tampering detected." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
       }
 
-      // 3. Update Supabase order as funded & on_hold
-      await supabase
-        .from("orders")
-        .update({
-          razorpay_payment_id,
-          razorpay_signature,
-          razorpay_transfer_id: transferId,
-          escrow_status: "funded",
-          settlement_status: "captured_on_hold",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("razorpay_order_id", razorpay_order_id);
+      // 2. Query Razorpay API for Live Capture & Amount/Currency Validation (Issues 14 & 15)
+      let actualAmount = expected_amount_paise || 0;
+      let actualCurrency = expected_currency || "INR";
+
+      if (razorpayKeyId && razorpayKeySecret && !razorpay_payment_id.startsWith("mock_")) {
+        try {
+          const payRes = await fetch(`${RAZORPAY_API_BASE}/payments/${razorpay_payment_id}`, {
+            method: "GET",
+            headers: {
+              Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!payRes.ok) {
+            const errData = await payRes.json();
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Razorpay payment inquiry failed: ${errData.error?.description || payRes.statusText}`,
+              }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          const payData = await payRes.json();
+          actualAmount = payData.amount;
+          actualCurrency = payData.currency;
+
+          // Issue 14: Payment Capture Verification
+          if (payData.status !== "captured" && payData.status !== "authorized") {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Payment is not in captured status on gateway (status: ${payData.status}).`,
+              }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          // Issue 15: Currency Validation
+          if (payData.currency !== "INR") {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Currency mismatch: expected INR, received ${payData.currency}`,
+              }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          // Issue 15: Amount Validation
+          if (expected_amount_paise && Number(payData.amount) < Number(expected_amount_paise)) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Amount mismatch: expected at least ${expected_amount_paise} paise, received ${payData.amount} paise.`,
+              }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } catch (apiErr: any) {
+          console.error("Payment API verification error:", apiErr);
+          return new Response(
+            JSON.stringify({ success: false, error: `Payment gateway verification failed: ${apiErr.message}` }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // 3. For Commodity Orders: create Route transfer on_hold and update database
+      let transferId = null;
+      if (razorpay_order_id && (!payment_context || payment_context === "order_checkout")) {
+        const { data: order } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("razorpay_order_id", razorpay_order_id)
+          .maybeSingle();
+
+        if (order?.farmer_id) {
+          const { data: farmerProfile } = await supabase
+            .from("profiles")
+            .select("route_account_id")
+            .eq("id", order.farmer_id)
+            .maybeSingle();
+
+          if (farmerProfile?.route_account_id) {
+            const netFarmerPaise = Math.round((Number(order.net_seller_amount) || 0) * 100);
+            try {
+              const transferRes = await fetch(`${RAZORPAY_API_BASE}/orders/${razorpay_order_id}/transfers`, {
+                method: "POST",
+                headers: {
+                  Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  transfers: [
+                    {
+                      account: farmerProfile.route_account_id,
+                      amount: netFarmerPaise,
+                      currency: "INR",
+                      on_hold: 1, // Locks funds in deferred marketplace settlement until delivery OTP
+                      notes: {
+                        order_number: order.order_number,
+                        type: "milestone_deferred_settlement",
+                      },
+                    },
+                  ],
+                }),
+              });
+              const transferData = await transferRes.json();
+              if (transferData?.items?.[0]?.id) {
+                transferId = transferData.items[0].id;
+              }
+            } catch (tErr) {
+              console.warn("Route transfer deferral notice:", tErr);
+            }
+          }
+        }
+
+        if (order) {
+          await supabase
+            .from("orders")
+            .update({
+              razorpay_payment_id,
+              razorpay_signature,
+              razorpay_transfer_id: transferId,
+              escrow_status: "funded",
+              settlement_status: "captured_on_hold",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("razorpay_order_id", razorpay_order_id);
+        }
+      }
 
       return new Response(
         JSON.stringify({
           success: true,
           verified: true,
           transferId,
+          amount: actualAmount,
+          currency: actualCurrency,
           status: "captured_on_hold",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -288,13 +412,13 @@ serve(async (req: Request) => {
     }
 
     // =========================================================================
-    // ACTION 3: RELEASE ROUTE TRANSFER HOLD (Server-Side Delivery OTP Verification)
+    // ACTION 3: RELEASE ROUTE TRANSFER HOLD (Server-Side Delivery OTP & Role Verification)
     // =========================================================================
     if (action === "release_hold") {
       const { orderNumber, otpCode } = body;
 
       const cleanOtp = String(otpCode || "").trim();
-      if (!cleanOtp || cleanOtp.length < 6) {
+      if (!cleanOtp || cleanOtp.length < 4) {
         throw new Error("Invalid delivery confirmation OTP code format.");
       }
 
@@ -308,15 +432,51 @@ serve(async (req: Request) => {
         throw new Error("Order not found for settlement release.");
       }
 
-      // 1. Authorize Delivery OTP against linked delivery record
+      // Check order escrow state (Issue 18)
+      if (order.escrow_status === "released") {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            settled: true,
+            orderNumber: order.order_number,
+            payoutReleased: order.net_seller_amount,
+            message: "Escrow was already released previously.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (order.escrow_status !== "funded" && order.escrow_status !== "held") {
+        throw new Error(`Cannot release escrow in current state: ${order.escrow_status}. Order funds must be locked in escrow first.`);
+      }
+
+      // 1. Authorize Caller & Role (Issue 3)
+      const isAdmin = callerRole === "admin";
+      const isAssignedBuyer = order.buyer_id === callerUser?.id;
+
       const { data: delivery } = await supabase
         .from("deliveries")
-        .select("delivery_otp, status")
+        .select("delivery_otp, status, transporter_id")
         .or(`order_id.eq.${order.id},order_number.eq.${order.order_number}`)
         .maybeSingle();
 
-      if (delivery?.delivery_otp && String(delivery.delivery_otp).trim() !== cleanOtp) {
-        throw new Error("Security Violation: Mismatched delivery OTP code. Settlement release rejected.");
+      const isAssignedTransporter = delivery?.transporter_id === callerUser?.id;
+
+      if (!isAdmin && !isAssignedBuyer && !isAssignedTransporter) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Forbidden: You are not authorized to release escrow funds for this order.",
+          }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Enforce Delivery OTP for non-admin callers (or admin token verification)
+      if (!isAdmin) {
+        if (!delivery?.delivery_otp || String(delivery.delivery_otp).trim() !== cleanOtp) {
+          throw new Error("Security Violation: Delivery OTP verification failed. Settlement release rejected.");
+        }
       }
 
       // 2. If Route transfer ID exists, release hold via Razorpay API
@@ -345,7 +505,7 @@ serve(async (req: Request) => {
           escrow_status: "released",
           settlement_status: "released_to_seller",
           status: "completed",
-          delivery_otp: otpCode,
+          delivery_otp: cleanOtp,
           updated_at: new Date().toISOString(),
         })
         .eq("id", order.id);

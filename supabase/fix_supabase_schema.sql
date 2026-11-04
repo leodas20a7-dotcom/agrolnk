@@ -234,41 +234,13 @@ ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS storage
 ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS farmer_phone TEXT;
 ALTER TABLE IF EXISTS public.warehouse_receipts ADD COLUMN IF NOT EXISTS warehouse_notes TEXT;
 
--- 6. ROW LEVEL SECURITY (RLS) POLICIES: Allow Read/Write for App Operation
--- Orders
-DROP POLICY IF EXISTS "Allow public read orders" ON public.orders;
-CREATE POLICY "Allow public read orders" ON public.orders FOR SELECT USING (true);
-
+-- 6. ROW LEVEL SECURITY (RLS) POLICIES: Cleaned & Secured
+-- Explicitly drop insecure legacy public-write policies
 DROP POLICY IF EXISTS "Allow public write orders" ON public.orders;
-CREATE POLICY "Allow public write orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);
-
--- Deliveries
-DROP POLICY IF EXISTS "Allow public read deliveries" ON public.deliveries;
-CREATE POLICY "Allow public read deliveries" ON public.deliveries FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Allow public write deliveries" ON public.deliveries;
-CREATE POLICY "Allow public write deliveries" ON public.deliveries FOR ALL USING (true) WITH CHECK (true);
-
--- Financing Requests
-DROP POLICY IF EXISTS "Allow public read financing" ON public.financing_requests;
-CREATE POLICY "Allow public read financing" ON public.financing_requests FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Allow public write financing" ON public.financing_requests;
-CREATE POLICY "Allow public write financing" ON public.financing_requests FOR ALL USING (true) WITH CHECK (true);
-
--- Inspections
-DROP POLICY IF EXISTS "Allow public read inspections" ON public.inspections;
-CREATE POLICY "Allow public read inspections" ON public.inspections FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Allow public write inspections" ON public.inspections;
-CREATE POLICY "Allow public write inspections" ON public.inspections FOR ALL USING (true) WITH CHECK (true);
-
--- Warehouse Receipts
-DROP POLICY IF EXISTS "Allow public read warehouse_receipts" ON public.warehouse_receipts;
-CREATE POLICY "Allow public read warehouse_receipts" ON public.warehouse_receipts FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Allow public write warehouse_receipts" ON public.warehouse_receipts;
-CREATE POLICY "Allow public write warehouse_receipts" ON public.warehouse_receipts FOR ALL USING (true) WITH CHECK (true);
 
 -- 7. CHAT MESSAGES TABLE: Create table & ensure RLS
 CREATE TABLE IF NOT EXISTS public.chat_messages (
@@ -286,11 +258,7 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Allow public read chat_messages" ON public.chat_messages;
-CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Allow public write chat_messages" ON public.chat_messages;
-CREATE POLICY "Allow public write chat_messages" ON public.chat_messages FOR ALL USING (true) WITH CHECK (true);
 
 -- 8. DUPLICATE ORDER PREVENTION & DEDUPLICATION
 -- Safely deduplicate any legacy test orders sharing the same auction_id before creating the unique index
@@ -449,15 +417,8 @@ CREATE INDEX IF NOT EXISTS idx_demand_offers_farmer ON public.demand_offers(farm
 ALTER TABLE IF EXISTS public.buyer_demands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.demand_offers ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Allow public read buyer_demands" ON public.buyer_demands;
-CREATE POLICY "Allow public read buyer_demands" ON public.buyer_demands FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Allow public write buyer_demands" ON public.buyer_demands;
-CREATE POLICY "Allow public write buyer_demands" ON public.buyer_demands FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow public read demand_offers" ON public.demand_offers;
-CREATE POLICY "Allow public read demand_offers" ON public.demand_offers FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Allow public write demand_offers" ON public.demand_offers;
-CREATE POLICY "Allow public write demand_offers" ON public.demand_offers FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
 -- 10. AUCTIONS TABLE: Harmonize Constraints For Reverse & Forward Auctions

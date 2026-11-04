@@ -878,9 +878,11 @@ export async function disburseAcceptedLoan(requestId, paymentData = {}) {
   return underwriteFinancingRequest(requestId, {
     status: 'disbursed',
     disbursedAt: new Date().toISOString(),
-    bankUtr: paymentData.bankUtr || `UTR${Date.now()}`,
+    bankUtr: paymentData.bankUtr || null,
     paymentId: paymentData.razorpayPaymentId || paymentData.paymentId || null,
-    reviewNotes: `Escrow funded and capital disbursed via Razorpay Route. UTR: ${paymentData.bankUtr || 'UTR-ESCROW-PAID'}`,
+    reviewNotes: paymentData.bankUtr
+      ? `Escrow funded and capital disbursed via Razorpay Route. UTR: ${paymentData.bankUtr}`
+      : `Escrow funded and capital disbursed via Razorpay Route (Payment ID: ${paymentData.razorpayPaymentId || paymentData.paymentId || 'Captured'}). Pending bank settlement.`,
     financierId: paymentData.financierId,
     financierName: paymentData.financierName,
     financierEmail: paymentData.financierEmail,
@@ -1063,7 +1065,7 @@ export async function getDisbursements(financierUserOrId, maybeEmail) {
         const principal = Number(r.approvedAmount) || Number(r.requestedAmount) || 0;
         const estInterest = Math.round(principal * (monthlyRate / 100) * (tenorDays / 30));
         const expectedReturn = principal + estInterest;
-        const utrNum = r.bankUtr || r.repaymentTransactionId || `UTR${202600000000 + (i + 1) * 9481 + 107}`;
+        const utrNum = r.bankUtr || r.repaymentTransactionId || null;
         const isSettled = r.status === 'repaid' || r.status === 'settled';
 
         return {

@@ -55,10 +55,10 @@ function mapOrderFromDb(row) {
     totalAmount: Number(row.total_amount),
     state: row.state,
     district: row.district,
-    escrowStatus: (row.status === 'completed' || row.escrow_status === 'released' || row.admin_verification_status === 'approved' || Boolean(row.disbursed_at) || Boolean(row.bank_utr)) ? 'released' : (row.escrow_status || 'funded'),
-    status: (row.status === 'completed' || row.admin_verification_status === 'approved' || Boolean(row.disbursed_at) || Boolean(row.bank_utr)) ? 'completed' : row.status,
+    escrowStatus: row.escrow_status || (row.status === 'completed' ? 'released' : 'funded'),
+    status: row.status || 'placed',
     adminVerifiedBy: row.admin_verified_by || null,
-    adminVerificationStatus: (row.status === 'completed' || row.admin_verification_status === 'approved' || Boolean(row.disbursed_at) || Boolean(row.bank_utr)) ? 'approved' : (row.admin_verification_status || 'pending'),
+    adminVerificationStatus: row.admin_verification_status || (row.status === 'completed' ? 'approved' : 'pending'),
     adminCallNotes: row.admin_call_notes || null,
     adminVerifiedAt: row.admin_verified_at || null,
     buyerConfirmedArrival: row.buyer_confirmed_arrival ?? (row.buyer_arrival_verified || !!row.buyer_verified_at || false),
@@ -1176,10 +1176,8 @@ export async function adminVerifyAndReleaseOrderEscrow({
       accountHolderName: currentOrder?.farmerName || 'Producer',
     };
 
-    // 2. Generate Real-time Banking UTR
-    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const generatedUtr = `CMSICICI${todayStr}${randomSuffix}`;
+    // 2. Authentic Banking Settlement Reference (if supplied by bank webhook, admin, or gateway)
+    const verifiedUtr = verificationChecks?.bankUtr || verificationChecks?.utr || farmerBank?.bankUtr || null;
 
     const adminName = adminUser?.name || 'AgroLnk Operations Ombudsman';
     const notes = adminNotes || 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.';
@@ -1194,7 +1192,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
         p_bank_name: farmerBank.bankName,
         p_account_number: farmerBank.accountNumber,
         p_ifsc: farmerBank.ifscCode,
-        p_utr: generatedUtr,
+        p_utr: verifiedUtr,
       });
 
       if (!rpcErr && rpcData?.success) {
@@ -1213,7 +1211,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
       payout_bank_name: farmerBank.bankName,
       payout_account_number: farmerBank.accountNumber,
       payout_ifsc: farmerBank.ifscCode,
-      bank_utr: generatedUtr,
+      bank_utr: verifiedUtr,
       disbursed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -1271,7 +1269,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
 
     // 4. Trigger Live Escrow Nodal Engine Release
     try {
-      await processLiveEscrowRelease(orderKey, 'ADMIN_CALL_VERIFIED_RELEASE');
+      await processLiveEscrowRelease(orderKey, 'ADMIN_CALL_VERIFIED_RELEASE', { bankUtr: verifiedUtr });
     } catch (escrowErr) {
       console.warn('Escrow nodal release notice:', escrowErr);
     }
@@ -1289,7 +1287,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
       payoutBankName: farmerBank.bankName,
       payoutAccountNumber: farmerBank.accountNumber,
       payoutIfsc: farmerBank.ifscCode,
-      bankUtr: generatedUtr,
+      bankUtr: verifiedUtr,
       disbursedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...(data ? mapOrderFromDb(data) : {}),

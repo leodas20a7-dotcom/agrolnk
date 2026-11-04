@@ -65,8 +65,8 @@ BEGIN
         RAISE EXCEPTION 'Cannot release escrow in current state: %', v_order.escrow_status;
     END IF;
 
-    -- Generate bank UTR if not supplied
-    v_utr := COALESCE(p_utr, v_order.bank_utr, 'CMSICICI' || to_char(v_now, 'YYYYMMDD') || floor(1000 + random() * 9000)::text);
+    -- Set bank UTR if supplied by gateway/admin, otherwise leave NULL until bank settlement confirms
+    v_utr := COALESCE(p_utr, v_order.bank_utr);
 
     -- 4. Update Order atomically
     UPDATE public.orders SET

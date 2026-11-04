@@ -277,7 +277,7 @@ export default function AdminCallVerificationModal({
                   Escrow Funds Disbursed to Producer Bank Account!
                 </h4>
                 <p className="text-xs text-[#566861] mt-0.5">
-                  Real-time ICICI Nodal IMPS Settlement Executed • UTR Generated & Logged
+                  Real-time Escrow Release Verified • Milestone Logged in Ledger
                 </p>
               </div>
             </div>
@@ -285,7 +285,7 @@ export default function AdminCallVerificationModal({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-white border border-[#E5EDE8]">
               <div>
                 <span className="text-[10px] text-[#566861] uppercase font-bold block">Banking UTR</span>
-                <span className="font-mono text-xs font-extrabold text-[#0B3326]">{successData.bankUtr}</span>
+                <span className="font-mono text-xs font-extrabold text-[#0B3326]">{successData.bankUtr || 'Pending Gateway Settlement'}</span>
               </div>
               <div>
                 <span className="text-[10px] text-[#566861] uppercase font-bold block">Net Credited</span>

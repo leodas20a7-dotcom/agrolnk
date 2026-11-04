@@ -54,9 +54,6 @@ DROP POLICY IF EXISTS "Allow public insert/update financing_requests" ON public.
 DROP POLICY IF EXISTS "Allow public read financing" ON public.financing_requests;
 DROP POLICY IF EXISTS "Allow public write financing" ON public.financing_requests;
 
-CREATE POLICY "Allow public read financing_requests" ON public.financing_requests FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update financing_requests" ON public.financing_requests FOR ALL USING (true) WITH CHECK (true);
-
 -- 4. Enable Supabase Realtime broadcast for financing_requests
 DO $$
 BEGIN

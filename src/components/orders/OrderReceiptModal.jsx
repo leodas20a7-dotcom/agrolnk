@@ -33,7 +33,7 @@ export default function OrderReceiptModal({
   const receiptNumber = order.receiptNumber || `RCP-AGM-${(order.orderNumber || order.id || '0000').toString().replace(/\D/g, '').slice(-4) || '8092'}`;
   const settlementDate = order.disbursedAt || order.adminVerifiedAt || order.updatedAt || new Date().toISOString();
   const orderDate = order.createdAt || order.orderDate || new Date().toISOString();
-  const utrNumber = order.bankUtr || order.bank_utr || 'CMSICICI202609174092';
+  const utrNumber = order.bankUtr || order.bank_utr || null;
   const adminVerifier = order.adminVerifiedBy || order.admin_verified_by || 'AgroLnk Operations Ombudsman';
 
   const handlePrint = () => {
@@ -212,11 +212,17 @@ export default function OrderReceiptModal({
                   <span className="text-[#566861]">Settlement Status:</span>
                   <strong className="text-emerald-700">✓ 100% Disbursed to Bank</strong>
                 </div>
-                <div className="flex justify-between items-center font-mono">
-                  <span className="text-[#566861]">Bank UTR No:</span>
-                  <div className="flex items-center gap-1">
-                    <strong className="font-bold">{utrNumber}</strong>
-                    <CopyButton text={utrNumber} label="Bank UTR" title="Copy Bank UTR" />
+                <div className="flex justify-between items-center">
+                  <span className="text-[#566861]">Bank Settlement Reference:</span>
+                  <div className="flex items-center gap-1 font-mono">
+                    {utrNumber ? (
+                      <>
+                        <strong className="font-bold">{utrNumber}</strong>
+                        <CopyButton text={utrNumber} label="Bank UTR" title="Copy Bank UTR" />
+                      </>
+                    ) : (
+                      <span className="text-[#566861] italic font-sans text-[11px]">Pending Settlement Clearance</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-between">

@@ -132,10 +132,12 @@ export async function processLiveEscrowDeposit({
   buyerName = 'Buyer',
   farmerName = 'Producer',
   paymentMode = 'UPI / Instant Virtual Account',
+  paymentId = null,
+  bankUtr = null,
 }) {
   const fin = calculateOrderFinancials(tradeAmount);
-  const utr = `CMSICICI${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${Math.floor(1000 + Math.random() * 9000)}`;
-  const txnId = `TXN_ESC_${Math.floor(1000 + Math.random() * 9000)}`;
+  const authenticUtr = bankUtr || null;
+  const txnId = paymentId ? `TXN_${paymentId}` : `TXN_ESC_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
   const newTxn = {
     id: txnId,
@@ -151,7 +153,7 @@ export async function processLiveEscrowDeposit({
     netFarmerPayout: fin.netSellerReceivable,
     platformRevenue: fin.totalPlatformCommission,
     status: 'LOCKED_IN_ESCROW',
-    utrNumber: utr,
+    utrNumber: authenticUtr,
     paymentMode,
     timestamp: new Date().toISOString(),
     milestone: 'Inward Deposit Confirmed — 100% Locked in Tripartite Escrow',
@@ -167,7 +169,7 @@ export async function processLiveEscrowDeposit({
     source: 'ICICI Bank Agri-Nodal Gateway',
     orderNumber,
     amount: formatINR(fin.totalBuyerPayable),
-    utr,
+    utr: authenticUtr || 'Pending Gateway Settlement',
     details: `100% Escrow deposit captured from ${buyerName}. 0.25% buyer fee (₹${fin.buyerFee}) added. Funds secured in Nodal Vault.`,
   });
 
@@ -177,45 +179,43 @@ export async function processLiveEscrowDeposit({
 /**
  * Process a Live Escrow Payout Release (Delivery Confirmed via OTP)
  */
-export async function processLiveEscrowRelease(orderNumber, otpCode = '749102') {
+export async function processLiveEscrowRelease(orderNumber, otpCode, options = {}) {
+  if (!otpCode || typeof otpCode !== 'string' || !otpCode.trim()) {
+    throw new Error('A verified delivery OTP or authorized admin token is required to authorize escrow release.');
+  }
+
   const currentLedger = getStoredLedger();
+  const cleanOrderKey = String(orderNumber || '').trim().toLowerCase();
   let found = false;
   let targetTxn = null;
 
+  const authenticUtr = options?.bankUtr || options?.disbursementUtr || null;
+
   const updated = currentLedger.map(txn => {
-    if ((txn.orderNumber === orderNumber || txn.id === orderNumber) && txn.status === 'LOCKED_IN_ESCROW') {
+    const txnOrderNumber = String(txn.orderNumber || '').trim().toLowerCase();
+    const txnId = String(txn.id || '').trim().toLowerCase();
+    if ((txnOrderNumber === cleanOrderKey || txnId === cleanOrderKey) && txn.status === 'LOCKED_IN_ESCROW') {
       found = true;
       targetTxn = {
         ...txn,
-        status: 'SETTLED_TO_FARMER',
-        disbursementUtr: `DISBICICI${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${Math.floor(1000 + Math.random() * 9000)}`,
+        status: authenticUtr ? 'SETTLED_TO_FARMER' : 'RELEASED_PENDING_SETTLEMENT',
+        disbursementUtr: authenticUtr,
         settledAt: new Date().toISOString(),
-        verifiedOtp: otpCode,
-        milestone: 'Delivery OTP Verified — Disbursed to Producer Bank A/C',
+        verifiedOtp: otpCode.trim(),
+        milestone: authenticUtr
+          ? 'Delivery Verified — Payout Settled to Farmer Bank A/C'
+          : 'Delivery OTP Verified — Escrow Released, Pending Bank Settlement',
       };
       return targetTxn;
     }
     return txn;
   });
 
-  if (!found && currentLedger.length > 0) {
-    // If specific order not found locked, release the first active locked transaction
-    const firstLockedIndex = currentLedger.findIndex(t => t.status === 'LOCKED_IN_ESCROW');
-    if (firstLockedIndex !== -1) {
-      targetTxn = {
-        ...currentLedger[firstLockedIndex],
-        status: 'SETTLED_TO_FARMER',
-        disbursementUtr: `DISBICICI${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${Math.floor(1000 + Math.random() * 9000)}`,
-        settledAt: new Date().toISOString(),
-        verifiedOtp: otpCode,
-        milestone: 'Delivery OTP Verified — Disbursed to Producer Bank A/C',
-      };
-      updated[firstLockedIndex] = targetTxn;
-      found = true;
-    }
+  if (!found) {
+    throw new Error(`Escrow contract for order "${orderNumber}" not found or not in locked escrow status.`);
   }
 
-  if (found && targetTxn) {
+  if (targetTxn) {
     saveStoredLedger(updated);
 
     // Sync corresponding order in local cache so Buyer and Farmer terminals immediately show 'completed'
@@ -236,7 +236,7 @@ export async function processLiveEscrowRelease(orderNumber, otpCode = '749102') 
                   escrow_status: 'released',
                   adminVerificationStatus: 'approved',
                   admin_verification_status: 'approved',
-                  bankUtr: targetTxn.disbursementUtr,
+                  bankUtr: targetTxn.disbursementUtr || null,
                   disbursedAt: targetTxn.settledAt,
                   updatedAt: new Date().toISOString(),
                 };
@@ -263,8 +263,8 @@ export async function processLiveEscrowRelease(orderNumber, otpCode = '749102') 
       source: 'ICICI Bank Agri-Nodal Gateway',
       orderNumber: targetTxn.orderNumber,
       amount: formatINR(targetTxn.netFarmerPayout),
-      utr: targetTxn.disbursementUtr,
-      details: `Escrow release triggered via OTP ${otpCode}. Disbursed ${formatINR(targetTxn.netFarmerPayout)} to ${targetTxn.farmerName}. AgroLnk 0.50% commission (${formatINR(targetTxn.platformRevenue)}) realized.`,
+      utr: targetTxn.disbursementUtr || 'Pending Gateway Settlement',
+      details: `Escrow release triggered via verification token ${otpCode}. Disbursed ${formatINR(targetTxn.netFarmerPayout)} to ${targetTxn.farmerName}.${authenticUtr ? ` UTR: ${authenticUtr}.` : ' Settlement clearing via nodal gateway.'} AgroLnk 0.50% commission (${formatINR(targetTxn.platformRevenue)}) realized.`,
     });
 
     return targetTxn;
@@ -302,7 +302,7 @@ export function isOrderSettledInEscrow(orderKey) {
     return list.some(
       (t) =>
         t &&
-        t.status === 'SETTLED_TO_FARMER' &&
+        (t.status === 'SETTLED_TO_FARMER' || t.status === 'RELEASED_PENDING_SETTLEMENT') &&
         (String(t.orderNumber || '').trim().toLowerCase() === cleanKey ||
          String(t.id || '').trim().toLowerCase() === cleanKey)
     );

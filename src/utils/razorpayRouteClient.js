@@ -30,6 +30,45 @@ export function loadRazorpaySDK() {
 }
 
 /**
+ * Authoritative Server-Side Payment Verification (Fail-Closed)
+ * Strictly verifies signature, captured status, currency, and amount on Edge Function
+ */
+export async function verifyPaymentOnServer({
+  razorpay_order_id,
+  razorpay_payment_id,
+  razorpay_signature,
+  expectedAmountPaise,
+  expectedCurrency = 'INR',
+  paymentContext = 'order',
+}) {
+  if (!razorpay_payment_id) {
+    throw new Error('Payment gateway response did not return a valid payment ID.');
+  }
+
+  const { data: verifyRes, error: verifyErr } = await supabase.functions.invoke('razorpay-route', {
+    body: {
+      action: 'verify_payment',
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      expected_amount_paise: expectedAmountPaise,
+      expected_currency: expectedCurrency,
+      payment_context: paymentContext,
+    },
+  });
+
+  if (verifyErr) {
+    throw new Error(verifyErr.message || 'Payment verification request failed on server.');
+  }
+
+  if (!verifyRes || verifyRes.verified !== true) {
+    throw new Error(verifyRes?.error || 'Payment signature verification failed. Possible tampering or unauthorized callback.');
+  }
+
+  return verifyRes;
+}
+
+/**
  * Launch Razorpay Test Mode Checkout for an Order
  * @param {object} params - { listing, quantity, buyerUser, onSuccess, onFailure }
  */
@@ -122,55 +161,35 @@ export async function initiateRazorpayRouteCheckout({
       },
     },
     handler: async function (response) {
-      // Payment Successful -> Send for server-side HMAC SHA256 signature verification
+      // Payment Successful -> Send for authoritative server-side HMAC SHA256 signature verification & capture validation
       try {
         if (!response?.razorpay_payment_id) {
           throw new Error('Payment gateway response did not return a valid payment ID.');
         }
 
-        let isVerified = false;
-        try {
-          const { data: verifyRes, error: verifyErr } = await supabase.functions.invoke('razorpay-route', {
-            body: {
-              action: 'verify_payment',
-              razorpay_order_id: response.razorpay_order_id || testOrderId,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            },
-          });
-
-          if (verifyErr || (verifyRes && verifyRes.verified === false)) {
-            throw new Error('Payment signature verification failed. Possible tampering or unauthorized callback.');
-          }
-
-          if (verifyRes?.verified === true) {
-            isVerified = true;
-          }
-        } catch (vErr) {
-          if (vErr.message && vErr.message.includes('signature verification failed')) {
-            throw vErr;
-          }
-          // Only fallback in offline development if legitimate Razorpay test signature exists
-          if (response.razorpay_signature && !response.razorpay_signature.includes('fake')) {
-            isVerified = true;
-          } else {
-            throw new Error('Payment signature verification failed.');
-          }
-        }
+        const verifyRes = await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          expectedAmountPaise: totalAmountInPaise,
+          expectedCurrency: 'INR',
+          paymentContext: 'order_checkout',
+        });
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_signature: response.razorpay_signature || 'sig_verified',
           tradeValue: fin.tradeValue,
           buyerFee: fin.buyerFee,
           totalPaid: fin.totalBuyerPayable,
           netFarmerReceivable: fin.netSellerReceivable,
           platformRevenue: fin.totalPlatformCommission,
-          verified: isVerified,
+          verified: true,
+          transferId: verifyRes?.transferId || null,
         });
       } catch (err) {
-        console.error('Payment checkout failed:', err);
+        console.error('Payment checkout verification failed:', err);
         onFailure?.(err);
       }
     },
@@ -242,6 +261,19 @@ export async function initiateRazorpayTransportCheckout({
     },
     handler: async function (response) {
       try {
+        if (!response?.razorpay_payment_id) {
+          throw new Error('Payment gateway response did not return a valid payment ID.');
+        }
+
+        await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          expectedAmountPaise: totalAmountInPaise,
+          expectedCurrency: 'INR',
+          paymentContext: 'transport_escrow',
+        });
+
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
@@ -250,6 +282,7 @@ export async function initiateRazorpayTransportCheckout({
           verified: true,
         });
       } catch (err) {
+        console.error('Transport payment verification failed:', err);
         onFailure?.(err);
       }
     },
@@ -317,6 +350,19 @@ export async function initiateRazorpayWarehouseRentCheckout({
     },
     handler: async function (response) {
       try {
+        if (!response?.razorpay_payment_id) {
+          throw new Error('Payment gateway response did not return a valid payment ID.');
+        }
+
+        await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          expectedAmountPaise: totalAmountInPaise,
+          expectedCurrency: 'INR',
+          paymentContext: 'warehouse_rent',
+        });
+
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
@@ -327,6 +373,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
           verified: true,
         });
       } catch (err) {
+        console.error('Warehouse rent payment verification failed:', err);
         onFailure?.(err);
       }
     },
@@ -393,6 +440,19 @@ export async function initiateRazorpayInspectionFeeCheckout({
     },
     handler: async function (response) {
       try {
+        if (!response?.razorpay_payment_id) {
+          throw new Error('Payment gateway response did not return a valid payment ID.');
+        }
+
+        await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          expectedAmountPaise: totalAmountInPaise,
+          expectedCurrency: 'INR',
+          paymentContext: 'inspection_fee',
+        });
+
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
@@ -401,6 +461,7 @@ export async function initiateRazorpayInspectionFeeCheckout({
           verified: true,
         });
       } catch (err) {
+        console.error('Inspection fee payment verification failed:', err);
         onFailure?.(err);
       }
     },
@@ -469,12 +530,11 @@ export async function initiateFinancierEscrowDisbursement({
     },
     handler: async function (response) {
       try {
-        const utrNum = `UTR${202600000000 + Math.floor(Math.random() * 90000000 + 10000000)}`;
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_verified',
-          bankUtr: utrNum,
+          razorpay_signature: response.razorpay_signature || null,
+          bankUtr: null,
           disbursedAmount: disburseAmount,
           verified: true,
         });
@@ -546,6 +606,19 @@ export async function initiateBuyerMarginDepositCheckout({
     },
     handler: async function (response) {
       try {
+        if (!response?.razorpay_payment_id) {
+          throw new Error('Payment gateway response did not return a valid payment ID.');
+        }
+
+        await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          expectedAmountPaise: totalAmountInPaise,
+          expectedCurrency: 'INR',
+          paymentContext: 'margin_deposit',
+        });
+
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
@@ -554,6 +627,7 @@ export async function initiateBuyerMarginDepositCheckout({
           verified: true,
         });
       } catch (err) {
+        console.error('Buyer margin deposit payment verification failed:', err);
         onFailure?.(err);
       }
     },
@@ -622,6 +696,19 @@ export async function initiateRazorpayLoanRepaymentCheckout({
     },
     handler: async function (response) {
       try {
+        if (!response?.razorpay_payment_id) {
+          throw new Error('Payment gateway response did not return a valid payment ID.');
+        }
+
+        await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          expectedAmountPaise: totalAmountInPaise,
+          expectedCurrency: 'INR',
+          paymentContext: 'loan_repayment',
+        });
+
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
@@ -630,6 +717,7 @@ export async function initiateRazorpayLoanRepaymentCheckout({
           verified: true,
         });
       } catch (err) {
+        console.error('Loan repayment payment verification failed:', err);
         onFailure?.(err);
       }
     },
