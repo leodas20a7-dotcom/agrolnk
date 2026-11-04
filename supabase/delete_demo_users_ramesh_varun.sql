@@ -28,3 +28,4 @@ BEGIN
 
     RAISE NOTICE 'Demo accounts ramesh@gmail.com and varun@gmail.com deleted safely!';
 END $$;
+

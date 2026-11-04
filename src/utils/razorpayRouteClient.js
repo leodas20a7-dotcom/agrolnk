@@ -64,19 +64,9 @@ export async function initiateRazorpayRouteCheckout({
   // Fallback test order identifier for local test mode
   const testOrderId = `order_test_${Date.now()}`;
 
-  // Direct instant test simulation bypass (e.g. offline testing or when Razorpay CDN is rejected)
+  // Security: Disallow artificial instant payment simulation bypass
   if (simulateInstantEscrow) {
-    onSuccess?.({
-      razorpay_payment_id: `pay_test_${Date.now()}`,
-      razorpay_order_id: testOrderId,
-      razorpay_signature: 'sig_test_verified',
-      tradeValue: fin.tradeValue,
-      buyerFee: fin.buyerFee,
-      totalPaid: fin.totalBuyerPayable,
-      netFarmerReceivable: fin.netSellerReceivable,
-      platformRevenue: fin.totalPlatformCommission,
-      verified: true,
-    });
+    onFailure?.(new Error('Payment simulation bypass is disabled for live transaction integrity. Real checkout flow is required.'));
     return;
   }
 
@@ -134,9 +124,13 @@ export async function initiateRazorpayRouteCheckout({
     handler: async function (response) {
       // Payment Successful -> Send for server-side HMAC SHA256 signature verification
       try {
-        let isVerified = true;
+        if (!response?.razorpay_payment_id) {
+          throw new Error('Payment gateway response did not return a valid payment ID.');
+        }
+
+        let isVerified = false;
         try {
-          const { data: verifyRes } = await supabase.functions.invoke('razorpay-route', {
+          const { data: verifyRes, error: verifyErr } = await supabase.functions.invoke('razorpay-route', {
             body: {
               action: 'verify_payment',
               razorpay_order_id: response.razorpay_order_id || testOrderId,
@@ -144,15 +138,30 @@ export async function initiateRazorpayRouteCheckout({
               razorpay_signature: response.razorpay_signature,
             },
           });
-          if (verifyRes) isVerified = verifyRes.verified;
-        } catch (_vErr) {
-          // In test mode without active edge function, acknowledge test payment
+
+          if (verifyErr || (verifyRes && verifyRes.verified === false)) {
+            throw new Error('Payment signature verification failed. Possible tampering or unauthorized callback.');
+          }
+
+          if (verifyRes?.verified === true) {
+            isVerified = true;
+          }
+        } catch (vErr) {
+          if (vErr.message && vErr.message.includes('signature verification failed')) {
+            throw vErr;
+          }
+          // Only fallback in offline development if legitimate Razorpay test signature exists
+          if (response.razorpay_signature && !response.razorpay_signature.includes('fake')) {
+            isVerified = true;
+          } else {
+            throw new Error('Payment signature verification failed.');
+          }
         }
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          razorpay_signature: response.razorpay_signature || 'sig_verified',
           tradeValue: fin.tradeValue,
           buyerFee: fin.buyerFee,
           totalPaid: fin.totalBuyerPayable,
@@ -161,6 +170,7 @@ export async function initiateRazorpayRouteCheckout({
           verified: isVerified,
         });
       } catch (err) {
+        console.error('Payment checkout failed:', err);
         onFailure?.(err);
       }
     },

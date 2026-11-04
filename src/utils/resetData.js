@@ -19,51 +19,19 @@ export const ADMIN_USER = {
 export async function resetAllTestingData() {
   console.log('🔄 Starting complete AgroLnk testing data reset...');
 
-  // 1. Wipe Supabase Tables (if connected)
+  // 1. Wipe Supabase Tables via Secure Server-Side Admin RPC
   try {
     if (supabase) {
-      // Child-to-parent deletion order to respect foreign key constraints
-      const tablesToClear = [
-        'auction_bids',
-        'inspections',
-        'deliveries',
-        'financing_requests',
-        'orders',
-        'warehouse_receipts',
-        'warehouses',
-        'auctions',
-        'listings',
-        'commodities',
-        'user_bank_accounts',
-        'chat_messages',
-        'notifications',
-      ];
-
-      for (const table of tablesToClear) {
-        try {
-          const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
-          if (error) {
-            console.warn(`Supabase wipe ${table} notice:`, error.message);
-          }
-        } catch (tableErr) {
-          console.warn(`Could not clear table ${table}:`, tableErr);
-        }
-      }
-
-      // Delete non-admin profiles from Supabase
-      try {
-        await supabase
-          .from('profiles')
-          .delete()
-          .neq('role', 'admin')
-          .neq('email', 'admin@agrolnk.com')
-          .neq('email', 'agrolnkadmin@gmail.com');
-      } catch (profErr) {
-        console.warn('Could not clear non-admin profiles from Supabase:', profErr);
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_reset_testing_data_atomic');
+      if (rpcErr) {
+        console.warn('Admin RPC reset notice:', rpcErr.message);
+        throw new Error(rpcErr.message);
+      } else {
+        console.log('Server-side testing reset successful:', rpcRes);
       }
     }
   } catch (dbErr) {
-    console.warn('Remote Supabase reset failed or offline:', dbErr);
+    console.warn('Remote Supabase reset notice:', dbErr);
   }
 
   // 2. Wipe Local Storage Data Keys

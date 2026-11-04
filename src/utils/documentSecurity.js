@@ -41,12 +41,29 @@ export async function getSecureDocumentUrl(pathOrUrl, expiresIn = 900) {
       bucket = 'proof';
     }
 
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(cleanPath, expiresIn);
+    const bucketsToTry = bucket === 'kyc' ? ['kyc', 'proof'] : ['proof', 'kyc'];
+    
+    for (const b of bucketsToTry) {
+      // 1. Try exact cleanPath
+      const { data, error } = await supabase.storage
+        .from(b)
+        .createSignedUrl(cleanPath, expiresIn);
 
-    if (!error && data?.signedUrl) {
-      return data.signedUrl;
+      if (!error && data?.signedUrl) {
+        return data.signedUrl;
+      }
+
+      // 2. If cleanPath had a redundant prefix like 'kyc/' or 'proof/' while in bucket 'kyc', try stripping it
+      if (cleanPath.startsWith(`${b}/`)) {
+        const stripped = cleanPath.slice(b.length + 1);
+        const { data: sData, error: sErr } = await supabase.storage
+          .from(b)
+          .createSignedUrl(stripped, expiresIn);
+
+        if (!sErr && sData?.signedUrl) {
+          return sData.signedUrl;
+        }
+      }
     }
   } catch (err) {
     console.warn('getSecureDocumentUrl notice:', err);

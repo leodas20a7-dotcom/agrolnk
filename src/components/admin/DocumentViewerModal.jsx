@@ -29,11 +29,14 @@ import { getSecureDocumentUrl } from '../../utils/documentSecurity';
 export default function DocumentViewerModal({
   isOpen,
   onClose,
-  document: doc,
+  document: docProp,
+  docUrl,
+  docName,
   user,
   onApprove,
   onReject
 }) {
+  const doc = docProp || (docUrl ? { fileUrl: docUrl, type: docName, fileName: docName } : null);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);

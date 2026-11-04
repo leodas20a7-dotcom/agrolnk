@@ -280,7 +280,8 @@ export default function WarehouseSetupModal({
       const safeUserId = (user.id || 'wh').replace(/[^a-zA-Z0-9_-]/g, '_');
       const timestamp = Date.now();
       const safeName = fileObj.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `${folder}/${safeUserId}_${timestamp}_${safeName}`;
+      // Store documents inside user's designated tenant folder: ${safeUserId}/*
+      const path = `${safeUserId}/${folder}_${timestamp}_${safeName}`;
 
       const { error } = await supabase.storage.from('proof').upload(path, fileObj, {
         cacheControl: '3600',
@@ -292,8 +293,9 @@ export default function WarehouseSetupModal({
         return await readFileAsDataURL(fileObj);
       }
 
-      const { data: publicUrlData } = supabase.storage.from('proof').getPublicUrl(path);
-      return publicUrlData?.publicUrl || (await readFileAsDataURL(fileObj));
+      // Generate short-lived signed link (15 minutes) for private documents
+      const { data: signedData } = await supabase.storage.from('proof').createSignedUrl(path, 900);
+      return signedData?.signedUrl || path;
     } catch {
       return await readFileAsDataURL(fileObj);
     }

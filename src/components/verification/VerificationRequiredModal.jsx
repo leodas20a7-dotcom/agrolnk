@@ -177,7 +177,8 @@ export default function VerificationRequiredModal({
         const safeUserId = (currentUser?.id || 'usr').replace(/[^a-zA-Z0-9_-]/g, '_');
         const timestamp = Date.now();
         const safeDocName = selectedFileObj.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const storagePath = `kyc/${safeUserId}_${timestamp}_${safeDocName}`;
+        // Isolate each user's compliance documents into their own folder: ${safeUserId}/*
+        const storagePath = `${safeUserId}/kyc_${timestamp}_${safeDocName}`;
 
         const sizeInMb = (selectedFileObj.size / (1024 * 1024)).toFixed(1);
         formattedFileSize = `${sizeInMb} MB`;
@@ -192,10 +193,11 @@ export default function VerificationRequiredModal({
             });
 
           if (!uploadErr && uploadData) {
-            const { data: urlData } = supabase.storage
+            // Generate a secure, short-lived signed URL (15 minutes) instead of permanent public URL
+            const { data: signedData } = await supabase.storage
               .from('proof')
-              .getPublicUrl(storagePath);
-            publicFileUrl = urlData?.publicUrl || '';
+              .createSignedUrl(storagePath, 900);
+            publicFileUrl = signedData?.signedUrl || storagePath;
           }
         } catch (storageEx) {
           console.warn('Storage service upload notice:', storageEx);
