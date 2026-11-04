@@ -41,7 +41,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
     ? currentUser
     : (getCurrentUser() || { name: 'Farmer', id: '', role: 'farmer' });
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const effectiveRole = user?.role || 'farmer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
   const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'farmer-dashboard';
   const [orders, setOrders] = useState([]);

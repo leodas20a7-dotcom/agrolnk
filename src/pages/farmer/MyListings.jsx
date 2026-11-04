@@ -43,7 +43,7 @@ import { toast } from '../../context/ToastContext';
 
 export default function MyListings({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const effectiveRole = user?.role || 'farmer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
   const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'farmer-dashboard';
   const [listings, setListings] = useState([]);

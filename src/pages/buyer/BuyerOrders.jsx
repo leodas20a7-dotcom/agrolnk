@@ -39,7 +39,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
     ? currentUser
     : (getCurrentUser() || { name: 'Buyer', id: '', role: 'buyer' });
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'buyer';
+  const effectiveRole = user?.role || 'buyer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
   const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'buyer-dashboard';
   const [orders, setOrders] = useState([]);

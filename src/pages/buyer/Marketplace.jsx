@@ -31,7 +31,7 @@ import VerificationRequiredModal from '../../components/verification/Verificatio
 
 export default function Marketplace({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'buyer';
+  const effectiveRole = user?.role || 'buyer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
   const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'buyer-dashboard';
   const [allListings, setAllListings] = useState([]);

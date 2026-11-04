@@ -32,7 +32,7 @@ import { computePricingBreakdown, PRICING_UNIT_OPTIONS, formatDualPriceRate } fr
 export default function CreateAuction({ currentUser, onNavigate }) {
   const activeSessionUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
   const user = currentUser || activeSessionUser || { name: 'Farmer', id: '', role: 'farmer' };
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const effectiveRole = user?.role || 'farmer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
 
   const defaultOrgName = user?.companyName || user?.orgName || user?.businessName || (isFoodProcessor ? 'Food Processing Enterprise' : '');

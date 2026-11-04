@@ -36,7 +36,7 @@ import { toast } from '../../context/ToastContext';
 
 export default function MyAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Farmer', id: '', role: 'farmer' };
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const effectiveRole = user?.role || 'farmer';
   const dashboardTarget = (effectiveRole === 'food_processor' || effectiveRole === 'processor') ? 'food-processor-dashboard' : 'farmer-dashboard';
   const [auctions, setAuctions] = useState([]);
   const [activeTab, setActiveTab] = useState('all');

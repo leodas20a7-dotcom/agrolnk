@@ -61,7 +61,8 @@ import FlashLoadingScreen from './components/ui/FlashLoadingScreen';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { LoadingProvider, showGlobalLoader, hideGlobalLoader } from './context/LoadingContext';
 import { ToastProvider } from './context/ToastContext';
-import { getCurrentUser } from './utils/auth';
+import { getCurrentUser, syncAuthenticatedUserWithServer } from './utils/auth';
+import { supabase } from './lib/supabase';
 import { checkAndFinalizeExpiredAuctions } from './utils/auctions';
 
 const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
@@ -230,6 +231,33 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(() => getInitialPage());
   const [navState, setNavState] = useState({});
   const isNavigatingRef = useRef(false);
+
+  // Live Server-Side Authentication & Session Hydration
+  useEffect(() => {
+    syncAuthenticatedUserWithServer()
+      .then((authoritativeUser) => {
+        if (authoritativeUser) {
+          setCurrentUser(authoritativeUser);
+        } else {
+          setCurrentUser(null);
+        }
+      })
+      .catch(() => {});
+
+    if (supabase?.auth?.onAuthStateChange) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+          setCurrentUser(null);
+          localStorage.removeItem('agrolnkUser');
+          localStorage.removeItem('isAuthenticated');
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          const synced = await syncAuthenticatedUserWithServer();
+          if (synced) setCurrentUser(synced);
+        }
+      });
+      return () => subscription?.unsubscribe();
+    }
+  }, []);
 
   // Initial app load flash curtain to hide blank flashes
   useEffect(() => {

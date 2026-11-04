@@ -38,7 +38,7 @@ import { computePricingBreakdown, PRICING_UNIT_OPTIONS, PROCESSOR_PRICING_OPTION
 export default function CreateListing({ currentUser, onNavigate, navState }) {
   const activeSessionUser = getCurrentUser();
   const user = currentUser || activeSessionUser || { name: 'Farmer', id: '', role: 'farmer' };
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'farmer';
+  const effectiveRole = user?.role || 'farmer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
 
   const initialSource = navState?.editListing || navState?.editAuction || navState?.initialData;

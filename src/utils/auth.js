@@ -814,150 +814,107 @@ export function setCurrentUser(user) {
  */
 
 export function getCurrentUser() {
-
   try {
-
     const session = localStorage.getItem(AGROLNK_USER_KEY);
+    if (!session) return null;
+    const user = JSON.parse(session);
+    if (!user || typeof user !== 'object') return null;
 
-    return session ? JSON.parse(session) : null;
-
+    // Hardened role guard: Block browser-tampered admin escalation
+    if (user.role === 'admin') {
+      const email = (user.email || '').toLowerCase().trim();
+      if (email !== 'agrolnkadmin@gmail.com' && email !== 'admin@agrolnk.com') {
+        user.role = 'farmer';
+      }
+    }
+    return user;
   } catch {
-
     return null;
-
   }
-
 }
 
-
-
 /**
-
- * Resolve latest KYC verification status from local registry or cached session
-
+ * Resolve authoritative KYC verification status
  */
-
 export function getResolvedUserKycStatus(user) {
-
   if (!user) return 'pending';
 
-  if (user.role === 'admin') return 'verified';
-
-
-
-  // 1. Direct status check on user object if already verified
-
-  if (user.kycStatus === 'verified' || user.verificationStatus === 'verified' || user.kyc_status === 'verified') {
-
-    return 'verified';
-
+  // Admin account is verified if authenticated with legitimate administrator email
+  if (user.role === 'admin') {
+    const email = (user.email || '').toLowerCase().trim();
+    if (email === 'agrolnkadmin@gmail.com' || email === 'admin@agrolnk.com') {
+      return 'verified';
+    }
   }
 
-
-
-  // 2. Check local KYC registry (updated by Admin approvals)
-
-  try {
-
-    const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-
-    if (storedRaw) {
-
-      const registry = JSON.parse(storedRaw);
-
-      if (Array.isArray(registry)) {
-
-        const regUser = registry.find(
-
-          (u) =>
-
-            (user.id && u.id === user.id) ||
-
-            (user.email && (u.email || '').toLowerCase() === (user.email || '').toLowerCase())
-
-        );
-
-        if (regUser?.verificationStatus) {
-
-          return regUser.verificationStatus;
-
-        }
-
-      }
-
-    }
-
-  } catch {}
-
-
-
-  // 3. Check warehouse profiles cache for warehouse users
-
-  if (user.role === 'warehouse' && typeof localStorage !== 'undefined') {
-
-    try {
-
-      const rawWp = localStorage.getItem('agrolnk_warehouse_profiles');
-
-      const wpProfiles = rawWp ? JSON.parse(rawWp) : {};
-
-      const found = (user.id && wpProfiles[user.id]) || (user.email && wpProfiles[user.email]);
-
-      if (found?.verificationStatus) {
-
-        return found.verificationStatus;
-
-      }
-
-    } catch {}
-
-  }
-
-
-
-  // 4. Check cached user in session
-
-  try {
-
-    const raw = localStorage.getItem(AGROLNK_USER_KEY);
-
-    if (raw) {
-
-      const parsed = JSON.parse(raw);
-
-      if (
-
-        (user.id && parsed.id === user.id) ||
-
-        (user.email && (parsed.email || '').toLowerCase() === (user.email || '').toLowerCase())
-
-      ) {
-
-        if (parsed.kycStatus) return parsed.kycStatus;
-
-        if (parsed.verificationStatus) return parsed.verificationStatus;
-
-        if (parsed.kyc_status) return parsed.kyc_status;
-
-      }
-
-    }
-
-  } catch {}
-
-
-
-  return user.kycStatus || user.verificationStatus || user.kyc_status || 'pending';
-
+  // Authoritative status directly from profile record (never trusts unverified local overrides)
+  const status = user.kycStatus || user.kyc_status || user.verificationStatus || 'pending';
+  return status;
 }
 
-
-
 /**
-
- * Check if user's KYC verification is approved
-
+ * Server-Hydrated Authentication: Reconciles browser state against live Supabase JWT & profiles table
  */
+export async function syncAuthenticatedUserWithServer() {
+  try {
+    if (!supabase) return getCurrentUser();
+
+    // 1. Check active cryptographic Supabase session
+    const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+    if (sessionErr || !session?.user) {
+      // If there is no valid Supabase session, purge any orphaned or tampered local cache
+      const cached = getCurrentUser();
+      if (cached && cached.role === 'admin') {
+        localStorage.removeItem(AGROLNK_USER_KEY);
+        localStorage.removeItem(IS_AUTH_KEY);
+        return null;
+      }
+      return cached;
+    }
+
+    // 2. Fetch authoritative profile directly from database
+    const { data: profile, error: profErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (profErr || !profile) {
+      return getCurrentUser();
+    }
+
+    // 3. Enforce server-authoritative role verification
+    let authoritativeRole = profile.role || 'farmer';
+    if (authoritativeRole === 'admin') {
+      const adminEmail = (profile.email || session.user.email || '').toLowerCase().trim();
+      if (adminEmail !== 'agrolnkadmin@gmail.com' && adminEmail !== 'admin@agrolnk.com') {
+        authoritativeRole = 'farmer';
+      }
+    }
+
+    const authoritativeUser = {
+      id: profile.id,
+      name: profile.name || session.user.user_metadata?.name || 'AgroLnk Member',
+      email: profile.email || session.user.email,
+      phone: profile.phone || session.user.user_metadata?.phone || '',
+      role: authoritativeRole,
+      state: profile.state || '',
+      district: profile.district || '',
+      companyName: profile.company_name || '',
+      kycStatus: profile.kyc_status || 'pending',
+      verificationStatus: profile.kyc_status || 'pending',
+      createdAt: profile.created_at || session.user.created_at,
+    };
+
+    // Reconcile local storage with authoritative server record
+    localStorage.setItem(AGROLNK_USER_KEY, JSON.stringify(authoritativeUser));
+    localStorage.setItem(IS_AUTH_KEY, 'true');
+    return authoritativeUser;
+  } catch (err) {
+    console.warn('Authoritative profile sync notice:', err);
+    return getCurrentUser();
+  }
+}
 
 export function isUserKycVerified(user) {
 

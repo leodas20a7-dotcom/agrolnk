@@ -32,7 +32,7 @@ import VerificationRequiredModal from '../../components/verification/Verificatio
 
 export default function LiveAuctions({ currentUser, onNavigate }) {
   const user = currentUser || { id: '', name: 'Buyer', role: 'buyer' };
-  const effectiveRole = user?.role || localStorage.getItem('selectedRole') || 'buyer';
+  const effectiveRole = user?.role || 'buyer';
   const isFoodProcessor = effectiveRole === 'food_processor' || effectiveRole === 'processor';
   const dashboardTarget = isFoodProcessor ? 'food-processor-dashboard' : 'buyer-dashboard';
   const [auctions, setAuctions] = useState([]);
