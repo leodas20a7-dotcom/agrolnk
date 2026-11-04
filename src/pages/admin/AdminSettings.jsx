@@ -44,7 +44,6 @@ import {
   clearAllChatHistory,
   clearThreadHistory
 } from '../../utils/chat';
-import { resetAllTestingData } from '../../utils/resetData';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { Sprout } from 'lucide-react';
 import CommoditiesManager from './CommoditiesManager';
@@ -73,8 +72,6 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
   const [isDeleteUserModalOpen, setIsDeleteUserModalOpen] = useState(false);
   const [isResetChatModalOpen, setIsResetChatModalOpen] = useState(false);
   const [isResetDraftsModalOpen, setIsResetDraftsModalOpen] = useState(false);
-  const [isResetTestingModalOpen, setIsResetTestingModalOpen] = useState(false);
-  const [isResettingTesting, setIsResettingTesting] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
@@ -303,29 +300,6 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
       setChatDiag(updatedDiag);
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  const handleConfirmResetTestingData = async () => {
-    setIsResettingTesting(true);
-    showGlobalLoader('Wiping All Testing Data...', 'Deleting test listings, orders, deliveries, financing, and test users...');
-    try {
-      await resetAllTestingData();
-      setIsResetTestingModalOpen(false);
-      setActionSuccess('All test products, transactions, and non-admin users have been successfully wiped! System is ready for fresh testing.');
-      await loadData();
-      setTimeout(() => {
-        window.location.reload();
-      }, 1200);
-    } catch (err) {
-      console.error('Reset error:', err);
-      setActionError('Notice: Testing data reset executed.');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1200);
-    } finally {
-      hideGlobalLoader();
-      setIsResettingTesting(false);
     }
   };
 
@@ -797,53 +771,6 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
         {activeTab === 'platform' && (
           <div className="space-y-6">
             
-            {/* DANGER ZONE: Complete Fresh Start Testing Data Wipe */}
-            {import.meta.env.DEV && (
-            <Card className="p-6 bg-red-50/40 border-2 border-red-200 text-left space-y-4 shadow-xs rounded-2xl">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
-                      <Trash2 className="w-4 h-4" />
-                    </div>
-                    <h3 className="text-base font-bold text-red-950 font-heading">
-                      Fresh Start: Wipe All Testing Data
-                    </h3>
-                  </div>
-                  <p className="text-xs text-[#566861] max-w-2xl">
-                    Deletes all test products, listings, orders, deliveries, financing applications, warehouse deposits, auctions, bids, and test user accounts. <strong>The Master Admin login (<span className="font-mono text-red-900 font-bold">agrolnkadmin@gmail.com</span>) will be preserved.</strong>
-                  </p>
-                </div>
-
-                <Button
-                  variant="danger"
-                  size="md"
-                  onClick={() => setIsResetTestingModalOpen(true)}
-                  icon={RotateCcw}
-                  iconPosition="left"
-                  className="cursor-pointer shrink-0 font-bold shadow-md shadow-red-600/20"
-                >
-                  Reset All Testing Data
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-red-200/80 text-xs">
-                <div className="p-3 rounded-xl bg-white border border-red-100">
-                  <span className="font-bold text-red-900 block">Products & Lots</span>
-                  <span className="text-[11px] text-[#566861]">All marketplace listings & active auctions</span>
-                </div>
-                <div className="p-3 rounded-xl bg-white border border-red-100">
-                  <span className="font-bold text-red-900 block">Orders & Escrow</span>
-                  <span className="text-[11px] text-[#566861]">All purchase agreements & trade credits</span>
-                </div>
-                <div className="p-3 rounded-xl bg-white border border-red-100">
-                  <span className="font-bold text-red-900 block">Test Users</span>
-                  <span className="text-[11px] text-[#566861]">All non-admin logins (Admin preserved)</span>
-                </div>
-              </div>
-            </Card>
-            )}
-
             {/* Unpublished Drafts & Local Storage Cache */}
             <Card className="p-6 bg-white border border-[#E5EDE8] text-left space-y-4 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -1263,57 +1190,6 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
         </div>
       </Modal>
 
-      {/* MODAL 5: Fresh Start Data Reset Confirmation */}
-      {import.meta.env.DEV && (
-      <Modal
-        isOpen={isResetTestingModalOpen}
-        onClose={() => setIsResetTestingModalOpen(false)}
-        title="Wipe All Testing Data & Reset"
-        subtitle="This action will permanently delete all test products, transactions, and test users."
-        icon={Trash2}
-        iconColor="text-red-600"
-        iconBg="bg-red-100"
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-4 text-left">
-          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-2">
-            <p className="font-semibold">
-              ⚠️ Are you sure you want to perform a full factory testing data wipe?
-            </p>
-            <ul className="list-disc pl-4 space-y-1 text-[11px] text-red-800">
-              <li>All marketplace listings & produce lots will be deleted</li>
-              <li>All orders, deliveries & escrow records will be cleared</li>
-              <li>All financing applications & deposits will be wiped</li>
-              <li>All non-admin user logins will be removed</li>
-              <li><strong>Master Admin account will remain intact</strong></li>
-            </ul>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={isResettingTesting}
-              onClick={() => setIsResetTestingModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isResettingTesting}
-              onClick={handleConfirmResetTestingData}
-              icon={RotateCcw}
-              iconPosition="left"
-              className="bg-red-600 text-white hover:bg-red-700 font-bold border-red-600 cursor-pointer shadow-sm"
-            >
-              {isResettingTesting ? 'Wiping Data...' : 'Yes, Wipe Everything'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-      )}
-
-    </DashboardLayout>
+      </DashboardLayout>
   );
 }
