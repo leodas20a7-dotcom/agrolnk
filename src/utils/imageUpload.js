@@ -205,26 +205,24 @@ export async function uploadProduceImage(file, folder = 'listings', options = {}
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
       const filePath = `${fileName}`;
 
-      // Try designated folder/bucket, with fallbacks to other common agrolnk buckets
-      const bucketsToTry = Array.from(new Set([folder, 'listings', 'produce', 'proof']));
+      // Upload produce media exclusively to public listings bucket
+      const targetBucket = 'listings';
 
-      for (const bucket of bucketsToTry) {
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, compressedFile, {
-            contentType: compressedFile.type,
-            cacheControl: '31536000', // 1 year cache
-            upsert: true,
-          });
+      const { data, error } = await supabase.storage
+        .from(targetBucket)
+        .upload(filePath, compressedFile, {
+          contentType: compressedFile.type,
+          cacheControl: '31536000', // 1 year cache
+          upsert: true,
+        });
 
-        if (!error && data) {
-          const { data: publicUrlData } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(filePath);
+      if (!error && data) {
+        const { data: publicUrlData } = supabase.storage
+          .from(targetBucket)
+          .getPublicUrl(filePath);
 
-          if (publicUrlData?.publicUrl) {
-            return publicUrlData.publicUrl;
-          }
+        if (publicUrlData?.publicUrl) {
+          return publicUrlData.publicUrl;
         }
       }
     } catch (storageErr) {

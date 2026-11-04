@@ -11,7 +11,7 @@ import { convertVolume, getRateInUnit } from '../../utils/pricingUnits';
 export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
   const [purchaseUnit, setPurchaseUnit] = useState(listing?.unit === 'MT' ? 'Quintal' : (listing?.unit || 'Quintal'));
   const [purchaseQty, setPurchaseQty] = useState(1);
-  const [paymentMode, setPaymentMode] = useState('direct_test'); // 'direct_test' | 'direct_razorpay' | 'trade_credit'
+  const [paymentMode, setPaymentMode] = useState('direct_razorpay'); // 'direct_razorpay' | 'trade_credit'
   const [financePct, setFinancePct] = useState(0.8); // 80% financing by default
   const [deliveryState, setDeliveryState] = useState(currentUser?.state || 'Tamil Nadu');
   const [deliveryDistrict, setDeliveryDistrict] = useState(currentUser?.district || 'Chennai');
@@ -31,7 +31,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       const initialQty = defaultUnit === 'MT' ? Math.min(1, maxInUnit) : (defaultUnit === 'Quintal' ? Math.min(10, maxInUnit) : Math.min(100, maxInUnit));
       setPurchaseQty(initialQty > 0 ? initialQty : maxInUnit);
     }
-    setPaymentMode('direct_test');
+    setPaymentMode('direct_razorpay');
     setCreditSuccessMsg(null);
     setError('');
 
@@ -135,15 +135,6 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       return;
     }
 
-    if (paymentMode === 'direct_test') {
-      executeOrderPlacement({
-        razorpay_payment_id: `pay_test_${Date.now()}`,
-        razorpay_order_id: `ord_test_${Date.now()}`,
-        razorpay_signature: 'sig_test_verified_escrow',
-      });
-      return;
-    }
-
     setIsSubmitting(true);
 
     // Launch Razorpay Route Checkout for direct payment
@@ -159,12 +150,18 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       },
       onFailure: (err) => {
         setIsSubmitting(false);
-        setError(err.message || 'Payment was not completed. You can complete your deposit instantly using Instant Test Escrow.');
+        setError(err.message || 'Payment checkout was cancelled or failed. Please try again.');
       },
     });
   };
 
   const executeOrderPlacement = (paymentData) => {
+    if (paymentMode !== 'trade_credit' && !paymentData?.razorpay_payment_id) {
+      setError('A verified payment confirmation from the gateway is required to place this order.');
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(false);
     onConfirm({
       listingId: listing.id,
@@ -197,9 +194,9 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       paymentMode: 'direct',
       state: listing.state,
       district: listing.district,
-      razorpay_payment_id: paymentData?.razorpay_payment_id || `pay_test_${Date.now()}`,
-      razorpay_order_id: paymentData?.razorpay_order_id || `ord_test_${Date.now()}`,
-      razorpay_signature: paymentData?.razorpay_signature || 'sig_test_verified_escrow',
+      razorpay_payment_id: paymentData?.razorpay_payment_id || null,
+      razorpay_order_id: paymentData?.razorpay_order_id || null,
+      razorpay_signature: paymentData?.razorpay_signature || null,
     });
   };
 
@@ -390,31 +387,11 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
             {/* Modal Body */}
             <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
-              {/* Error Alert with Quick Resolution Fallback */}
+              {/* Error Alert */}
               {error && (
-                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs space-y-2">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                    <span className="font-medium">{error}</span>
-                  </div>
-                  <div className="pt-1 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError('');
-                        setPaymentMode('direct_test');
-                        executeOrderPlacement({
-                          razorpay_payment_id: `pay_test_${Date.now()}`,
-                          razorpay_order_id: `ord_test_${Date.now()}`,
-                          razorpay_signature: 'sig_test_verified_escrow',
-                        });
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-[#0B3326] text-white hover:bg-[#14624A] font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                    >
-                      <Zap className="w-3.5 h-3.5 text-[#34D399]" />
-                      Complete via Instant Test Escrow Now
-                    </button>
-                  </div>
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span className="font-medium">{error}</span>
                 </div>
               )}
 
@@ -602,38 +579,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
             <label className="block text-xs font-bold text-[#0B3326] uppercase tracking-wider">
               Select Payment &amp; Settlement Method
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              
-              {/* Option 1: Instant Test Escrow */}
-              <button
-                type="button"
-                onClick={() => setPaymentMode('direct_test')}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMode === 'direct_test'
-                    ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
-                    : 'border-[#E5EDE8] bg-white hover:border-[#CBD5E1]'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
-                    <Zap className={`w-3.5 h-3.5 ${paymentMode === 'direct_test' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
-                    Instant Escrow
-                  </span>
-                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${paymentMode === 'direct_test' ? 'border-[#10B981] bg-[#10B981]' : 'border-gray-300'}`}>
-                    {paymentMode === 'direct_test' && <Check className="w-2.5 h-2.5 text-white" />}
-                  </span>
-                </div>
-                <div className="mt-1.5 space-y-1">
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 inline-block">
-                    Test Mode (Instant)
-                  </span>
-                  <p className="text-[10px] text-[#566861] leading-snug">
-                    Instant 1-click escrow deposit simulation without external gateway.
-                  </p>
-                </div>
-              </button>
-
-              {/* Option 2: Razorpay Route Gateway */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Option 1: Razorpay Route Gateway */}
               <button
                 type="button"
                 onClick={() => setPaymentMode('direct_razorpay')}
@@ -646,7 +593,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
                     <ShieldCheck className={`w-3.5 h-3.5 ${paymentMode === 'direct_razorpay' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
-                    Razorpay Route
+                    Razorpay Route Gateway
                   </span>
                   <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${paymentMode === 'direct_razorpay' ? 'border-[#10B981] bg-[#10B981]' : 'border-gray-300'}`}>
                     {paymentMode === 'direct_razorpay' && <Check className="w-2.5 h-2.5 text-white" />}
@@ -654,15 +601,15 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                 </div>
                 <div className="mt-1.5 space-y-1">
                   <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 inline-block">
-                    Cards / UPI Gateway
+                    UPI / Cards / NetBanking
                   </span>
                   <p className="text-[10px] text-[#566861] leading-snug">
-                    Online checkout via Razorpay test/live gateway.
+                    Real-time payment gateway checkout with automated nodal escrow split.
                   </p>
                 </div>
               </button>
 
-              {/* Option 3: Trade Credit / NBFC Financing */}
+              {/* Option 2: Trade Credit / NBFC Financing */}
               <button
                 type="button"
                 onClick={() => setPaymentMode('trade_credit')}
@@ -822,8 +769,6 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
               ? existingCreditReq
                 ? `Application Under Review (${existingCreditReq.requestNumber})`
                 : `Apply for Trade Credit (${formatINR(financedLoanAmount)})`
-              : paymentMode === 'direct_test'
-              ? `⚡ Deposit ${formatINR(financials.totalBuyerPayable)} in Escrow`
               : `Pay ${formatINR(financials.totalBuyerPayable)} via Razorpay`}
           </Button>
         </div>

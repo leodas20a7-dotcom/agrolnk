@@ -572,100 +572,20 @@ export const getBidsForAuction = getAuctionBids;
  */
 export async function finalizeAuction(auctionId) {
   try {
-    // 1. Try atomic PostgreSQL RPC (Enforces row lock, reserve price check, and duplicate order prevention)
-    try {
-      const { data: rpcData, error: rpcErr } = await supabase.rpc('finalize_auction_atomic', {
-        p_auction_id: auctionId,
-      });
-      if (!rpcErr && rpcData?.success) {
-        return await getAuctionById(auctionId);
-      }
-    } catch (_rpcErr) {
-      // Fall through to client fallback
+    // Authoritative Server-Side Atomic Finalization:
+    // Enforces PostgreSQL row lock, reserve price verification, and idempotent order creation
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('finalize_auction_atomic', {
+      p_auction_id: auctionId,
+    });
+
+    if (rpcErr) {
+      console.warn('Auction finalization server RPC notice:', rpcErr.message);
     }
 
-    // 2. Client-side Fallback
-    const currentLot = await getAuctionById(auctionId);
-    if (!currentLot) return null;
-
-    // Evaluate reserve price based on auction type
-    const isReverse = currentLot.auctionType === 'reverse';
-    const effectiveReserve = Number(currentLot.reservePrice || currentLot.startingBid);
-    const leadingBid = Number(currentLot.currentBid);
-
-    const isReserveMet = Boolean(
-      currentLot.highestBidderId &&
-      (isReverse ? leadingBid <= effectiveReserve : leadingBid >= effectiveReserve)
-    );
-    const targetStatus = isReserveMet ? 'completed' : (currentLot.highestBidderId ? 'reserve_not_met' : 'ended_unsold');
-
-    const { data, error } = await supabase
-      .from('auctions')
-      .update({
-        status: targetStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', auctionId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // If reserve met and there was a winning bidder, automatically spawn an order if one doesn't exist yet
-    if (data && data.highest_bidder_id && isReserveMet) {
-      try {
-        const { data: existingOrders } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('auction_id', auctionId);
-
-        if (!existingOrders || existingOrders.length === 0) {
-          const orderNum = `#AGM-${Math.floor(1000 + Math.random() * 9000)}`;
-          const totalAmt = Number(data.quantity) * Number(data.current_bid);
-          const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-          const { data: createdOrder } = await supabase
-            .from('orders')
-            .insert([
-              {
-                id: orderId,
-                order_number: orderNum,
-                auction_id: data.id,
-                listing_id: null,
-                buyer_id: data.highest_bidder_id,
-                buyer_name: data.highest_bidder_name || 'Buyer Partner',
-                farmer_id: data.farmer_id,
-                farmer_name: data.farmer_name || 'Farmer Partner',
-                commodity: data.commodity,
-                variety: data.variety,
-                grade: data.grade,
-                quantity: Number(data.quantity),
-                unit: data.unit,
-                price_per_unit: Number(data.current_bid),
-                total_amount: totalAmt,
-                state: data.state,
-                district: data.district,
-                escrow_status: 'pending',
-                status: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            ])
-            .select()
-            .single();
-
-          // Note: Deliveries are NOT scheduled until the winning bidder completes escrow funding.
-          // This prevents premature logistics dispatches for unpaid auction orders.
-        }
-      } catch (orderErr) {
-        console.warn('Auto auction order creation notice:', orderErr);
-      }
-    }
-
-    return mapAuctionFromDb(data);
+    return await getAuctionById(auctionId);
   } catch (err) {
-    console.error('Error finalizing auction:', err);
-    return null;
+    console.warn('Finalize auction execution error:', err);
+    return await getAuctionById(auctionId);
   }
 }
 

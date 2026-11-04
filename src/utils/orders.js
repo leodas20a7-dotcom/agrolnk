@@ -579,7 +579,9 @@ export async function createOrder(orderData) {
       total_amount: verifiedTotalAmount,
       state: orderData.state || '',
       district: orderData.district || '',
-      escrow_status: isTradeCredit ? 'pending' : 'funded',
+      payment_id: orderData.razorpay_payment_id || orderData.paymentId || null,
+      payment_mode: orderData.paymentMode || (isTradeCredit ? 'trade_credit' : 'direct'),
+      escrow_status: isTradeCredit ? 'pending' : ((orderData.razorpay_payment_id || orderData.paymentId) ? 'funded' : 'pending'),
       status: 'order_placed',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -997,6 +999,11 @@ export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
       throw new Error('Order not found for deposit: ' + (fetchErr?.message || orderId));
     }
 
+    const paymentId = paymentMetadata?.paymentId || paymentMetadata?.razorpay_payment_id;
+    if (!paymentId) {
+      throw new Error('A valid payment identifier from the gateway is required to transition escrow to funded.');
+    }
+
     const nowIso = new Date().toISOString();
 
     const { data: updatedOrder, error: updateErr } = await supabase
@@ -1004,6 +1011,8 @@ export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
       .update({
         escrow_status: 'funded',
         status: 'order_placed',
+        payment_id: paymentId,
+        payment_mode: paymentMetadata.paymentMode || 'Razorpay Route Gateway',
         updated_at: nowIso,
       })
       .eq('id', order.id)

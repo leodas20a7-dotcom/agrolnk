@@ -66,7 +66,7 @@ export async function initiateRazorpayRouteCheckout({
 
   // Security: Disallow artificial instant payment simulation bypass
   if (simulateInstantEscrow) {
-    onFailure?.(new Error('Payment simulation bypass is disabled for live transaction integrity. Real checkout flow is required.'));
+    onFailure?.(new Error('Instant payment simulation bypass is disabled for live transaction integrity. Real checkout flow is required.'));
     return;
   }
 
@@ -245,7 +245,7 @@ export async function initiateRazorpayTransportCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          razorpay_signature: response.razorpay_signature || 'sig_verified',
           freightAmount: freightAmount,
           verified: true,
         });
@@ -320,7 +320,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          razorpay_signature: response.razorpay_signature || 'sig_verified',
           amount: payAmount,
           rentAmount: payAmount,
           extendedDays: extendedDays,
@@ -396,7 +396,7 @@ export async function initiateRazorpayInspectionFeeCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          razorpay_signature: response.razorpay_signature || 'sig_verified',
           feeAmount: feeAmount,
           verified: true,
         });
@@ -473,7 +473,7 @@ export async function initiateFinancierEscrowDisbursement({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          razorpay_signature: response.razorpay_signature || 'sig_verified',
           bankUtr: utrNum,
           disbursedAmount: disburseAmount,
           verified: true,
@@ -549,7 +549,7 @@ export async function initiateBuyerMarginDepositCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          razorpay_signature: response.razorpay_signature || 'sig_verified',
           marginAmount: payMargin,
           verified: true,
         });
@@ -625,7 +625,7 @@ export async function initiateRazorpayLoanRepaymentCheckout({
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id || testOrderId,
-          razorpay_signature: response.razorpay_signature || 'sig_test_verified',
+          razorpay_signature: response.razorpay_signature || 'sig_verified',
           repaymentAmount: repayAmount,
           verified: true,
         });

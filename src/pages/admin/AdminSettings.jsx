@@ -438,7 +438,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
             }`}
           >
             <Database className="w-4 h-4" />
-            <span>System Data & Testing Reset</span>
+            <span>System Data & Cache</span>
           </button>
 
           <button
@@ -798,6 +798,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
           <div className="space-y-6">
             
             {/* DANGER ZONE: Complete Fresh Start Testing Data Wipe */}
+            {import.meta.env.DEV && (
             <Card className="p-6 bg-red-50/40 border-2 border-red-200 text-left space-y-4 shadow-xs rounded-2xl">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="space-y-1">
@@ -841,6 +842,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
                 </div>
               </div>
             </Card>
+            )}
 
             {/* Unpublished Drafts & Local Storage Cache */}
             <Card className="p-6 bg-white border border-[#E5EDE8] text-left space-y-4 shadow-xs">
@@ -1262,6 +1264,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
       </Modal>
 
       {/* MODAL 5: Fresh Start Data Reset Confirmation */}
+      {import.meta.env.DEV && (
       <Modal
         isOpen={isResetTestingModalOpen}
         onClose={() => setIsResetTestingModalOpen(false)}
@@ -1309,6 +1312,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
           </div>
         </div>
       </Modal>
+      )}
 
     </DashboardLayout>
   );

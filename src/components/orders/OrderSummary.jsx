@@ -156,13 +156,15 @@ export default function OrderSummary({
         customTradeValue: Number(order.totalAmount || order.total_amount || 0),
         purchaseUnit: order.unit || 'kg',
         buyerUser: currentUser || { name: order.buyerName || 'Buyer Partner', id: order.buyerId },
-        simulateInstantEscrow: true,
         onSuccess: async (payRes) => {
           try {
             await depositOrderEscrow(order.id, {
-              paymentMode: payRes?.razorpay_payment_id ? `Razorpay Route (${payRes.razorpay_payment_id})` : 'Instant Escrow Deposit',
+              paymentMode: `Razorpay Route (${payRes?.razorpay_payment_id || 'Gateway'})`,
+              paymentId: payRes?.razorpay_payment_id,
+              orderId: payRes?.razorpay_order_id,
+              signature: payRes?.razorpay_signature,
             });
-            toast.success('Escrow deposit secured! Transport dispatch is now authorized.');
+            toast.success('Escrow deposit secured via Razorpay! Transport dispatch is now authorized.');
           } catch (err) {
             console.error('Error settling order escrow deposit:', err);
             toast.error('Payment captured, updating order failed. Please refresh.');

@@ -188,172 +188,62 @@ export async function registerUser({ name, phone, email, password, role, state, 
 
   }
 
-
-
   try {
-
     let supabaseEmailChecked = false;
 
-    let supabasePhoneChecked = false;
-
-
-
     // 1. Check if email already exists in Supabase
-
     if (normalizedEmail) {
-
       const { data: existing, error: checkError } = await supabase
-
         .from('profiles')
-
         .select('id, email')
-
         .eq('email', normalizedEmail)
-
         .maybeSingle();
 
-
-
       if (!checkError) {
-
         supabaseEmailChecked = true;
-
         if (existing) {
-
           throw new Error('An account with this email already exists. Please sign in instead.');
-
         }
-
       }
-
     }
 
-
-
-    // 2. Check if mobile number already exists via Secure RPC (no profile data leaked)
-
-    if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-
-      try {
-
-        const { data: phoneExists } = await supabase.rpc('check_phone_exists', {
-
-          p_phone: normalizedPhoneDigits,
-
-
-
-        if (phoneExists) {
-
-          supabasePhoneChecked = true;
-
-          throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
-
-        }
-
-      } catch (phoneErr) {
-
-        if (phoneErr.message && phoneErr.message.includes('already registered')) {
-
-          throw phoneErr;
-
-        }
-
-      }
-
-    }
+    // 2. Mobile number enumeration check removed for privacy
 
     // 3. Sync & Clean up local KYC registry
-
     try {
-
       const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-
       if (storedRaw) {
-
         let registry = JSON.parse(storedRaw);
-
         if (Array.isArray(registry)) {
-
-          // If Supabase checked and confirmed the email is NOT in the database,
-
-          // purge any orphaned/stale entry from local registry so it doesn't falsely block registration.
-
           if (supabaseEmailChecked && normalizedEmail) {
-
             registry = registry.filter(
-
               (u) => (u.email || '').trim().toLowerCase() !== normalizedEmail
-
             );
-
             localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-
           } else if (!supabaseEmailChecked && normalizedEmail) {
-
-            // Offline fallback check only if Supabase could not be contacted
-
             const dupEmail = registry.find((u) => (u.email || '').trim().toLowerCase() === normalizedEmail);
-
             if (dupEmail) {
-
               throw new Error('An account with this email already exists. Please sign in instead.');
-
             }
-
           }
 
-
-
-          if (supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-
+          if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
             registry = registry.filter((u) => {
-
               const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-
               return uDigits !== normalizedPhoneDigits;
-
-    
-
+            });
             localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-
-          } else if (!supabasePhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-
-            const dupPhone = registry.find((u) => {
-
-              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-
-              return uDigits === normalizedPhoneDigits;
-
-    
-
-            if (dupPhone) {
-
-              throw new Error('This mobile number is already registered with another account. Please sign in or use a different mobile number.');
-
-            }
-
           }
-
         }
-
       }
-
     } catch (regErr) {
-
       if (regErr.message && (regErr.message.includes('already exists') || regErr.message.includes('already registered'))) {
-
         throw regErr;
-
       }
-
     }
 
-
-
-    // 3. Attempt native Supabase Auth user registration and capture authoritative auth UID (Fail Closed)
-
+    // 4. Attempt native Supabase Auth user registration (Fail Closed)
     const { data: authData, error: authErr } = await supabase.auth.signUp({
-
       email: normalizedEmail,
 
       password: trimmedPassword,
@@ -479,9 +369,7 @@ export async function registerUser({ name, phone, email, password, role, state, 
           documents: [],
 
           auditNotes: 'Newly registered participant. Awaiting document submission & admin verification.',
-
-
-
+        });
         localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
 
       }
@@ -653,13 +541,9 @@ export async function loginUser({ email, password }) {
       try {
 
         const { data: resolvedEmail } = await supabase.rpc('authenticate_phone_credentials', {
-
+          p_phone: phoneDigits,
           p_password: password,
-
-
-
-
-
+        });
 
         if (resolvedEmail) {
 
