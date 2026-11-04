@@ -82,3 +82,4 @@ SELECT
     CASE WHEN COUNT(*) >= 1 THEN 'SECURE (Ownership check auth.uid() = id Active)' ELSE 'INSECURE' END AS status
 FROM pg_policies
 WHERE tablename = 'profiles' AND policyname = 'profiles_insert_policy';
+
