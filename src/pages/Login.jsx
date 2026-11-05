@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -7,15 +7,18 @@ import {
   EyeOff,
   ShieldCheck,
   Check,
+  CheckCircle2,
   Lock,
   Mail,
   User,
   Phone,
-  Sparkles
+  Sparkles,
+  X,
+  KeyRound
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { loginUser, registerUser } from '../utils/auth';
+import { loginUser, registerUser, sendPasswordResetEmail } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 
 export default function Login({ onNavigate, navState }) {
@@ -28,6 +31,79 @@ export default function Login({ onNavigate, navState }) {
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [signInError, setSignInError] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  // --- Forgot Password Modal State ---
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  // Live countdown timer for email rate limit cooldown (60 seconds)
+  useEffect(() => {
+    let timer;
+    if (resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
+
+  const handleOpenForgotModal = () => {
+    setForgotError('');
+    setForgotSuccess(false);
+    if (signInEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signInEmail.trim())) {
+      setForgotEmail(signInEmail.trim());
+    } else {
+      setForgotEmail('');
+    }
+    setShowForgotModal(true);
+  };
+
+  const handleSendPasswordReset = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setForgotError('');
+
+    if (resendCountdown > 0) {
+      setForgotError(`Security cooldown active. Please wait ${resendCountdown} seconds before requesting another email.`);
+      return;
+    }
+
+    const emailToReset = forgotEmail.trim();
+    if (!emailToReset) {
+      setForgotError('Please enter your email address.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToReset)) {
+      setForgotError('Please enter a valid email address.');
+      return;
+    }
+
+    setIsSendingReset(true);
+    try {
+      await sendPasswordResetEmail(emailToReset);
+      setForgotSuccess(true);
+      setResendCountdown(60);
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('rate limit')) {
+        setForgotError('Security cooldown active. Please wait 60 seconds before requesting another email.');
+        setResendCountdown(60);
+      } else {
+        setForgotError(msg || 'Unable to send reset email. Please try again.');
+      }
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
 
   // --- Register State ---
   const [selectedRole, setSelectedRole] = useState(navState?.role || 'farmer');
@@ -256,7 +332,7 @@ export default function Login({ onNavigate, navState }) {
                       </label>
                       <button
                         type="button"
-                        onClick={() => setSignInError('Please contact support or register a new verified account.')}
+                        onClick={handleOpenForgotModal}
                         className="text-[11px] font-semibold text-[#10B981] hover:underline cursor-pointer"
                       >
                         Forgot password?
@@ -599,6 +675,137 @@ export default function Login({ onNavigate, navState }) {
         </div>
 
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-[#E5EDE8] shadow-2xl w-full max-w-md p-6 sm:p-7 relative">
+            <button
+              onClick={() => setShowForgotModal(false)}
+              className="absolute top-5 right-5 text-[#566861] hover:text-[#14211D] p-1.5 rounded-full hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-[#ECFDF5] text-[#10B981] flex items-center justify-center shrink-0">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#14211D]">Reset your password</h3>
+                <p className="text-xs text-[#566861]">We'll send a secure password recovery link</p>
+              </div>
+            </div>
+
+            {forgotSuccess ? (
+              <div className="py-2 space-y-4 text-center">
+                <div className="p-4 rounded-2xl bg-[#ECFDF5] border border-[#A7F3D0] text-left">
+                  <div className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-[#065F46]">Recovery link sent!</h4>
+                      <p className="text-xs text-[#047857] mt-1 leading-relaxed">
+                        We have sent password reset instructions to <strong className="font-semibold">{forgotEmail}</strong>. Please check your inbox (and spam folder) and click the link.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {resendCountdown > 0 ? (
+                  <div className="text-[11px] text-[#566861] flex items-center justify-center gap-1.5 py-1">
+                    <span>Didn't get the email? Resend available in</span>
+                    <span className="font-bold text-[#0B3326] bg-[#F0FDF4] px-2 py-0.5 rounded-md border border-[#DCFCE7]">{resendCountdown}s</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSendPasswordReset}
+                    disabled={isSendingReset}
+                    className="text-xs font-semibold text-[#10B981] hover:underline cursor-pointer py-1 block mx-auto"
+                  >
+                    Didn't receive email? Click here to resend
+                  </button>
+                )}
+
+                <Button
+                  variant="accent"
+                  size="md"
+                  onClick={() => setShowForgotModal(false)}
+                  className="w-full font-bold py-2.5 px-4 shadow-xs cursor-pointer text-xs"
+                >
+                  Close & Return to Sign In
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleSendPasswordReset} className="space-y-4">
+                <p className="text-xs text-[#566861] leading-relaxed">
+                  Enter the email address associated with your AgroLnk account and we'll send you a password recovery link.
+                </p>
+
+                {forgotError && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-[#FEF2F2] border border-[#FEE2E2] text-xs text-[#991B1B]">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#EF4444]" />
+                    <span className="font-medium">{forgotError}</span>
+                  </div>
+                )}
+
+                {resendCountdown > 0 && !forgotError && (
+                  <div className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-[#F0FDF4] border border-[#DCFCE7] text-[11px] text-[#166534] font-medium">
+                    <span>⏱️ Please wait</span>
+                    <span className="font-bold text-[#15803D]">{resendCountdown}s</span>
+                    <span>before requesting another link</span>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#14211D] block">
+                    Registered Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-[#566861] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="e.g. user@example.com"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="md"
+                    onClick={() => setShowForgotModal(false)}
+                    className="flex-1 font-semibold py-2.5 text-xs border border-[#E5EDE8] cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="accent"
+                    size="md"
+                    disabled={isSendingReset || resendCountdown > 0}
+                    icon={resendCountdown > 0 ? null : ArrowRight}
+                    iconPosition="right"
+                    className="flex-1 font-bold py-2.5 text-xs shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isSendingReset
+                      ? 'Sending...'
+                      : resendCountdown > 0
+                      ? `Wait ${resendCountdown}s`
+                      : 'Send Link'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

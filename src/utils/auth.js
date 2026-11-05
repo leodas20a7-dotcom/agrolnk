@@ -767,7 +767,7 @@ export async function sendPasswordResetEmail(email) {
 
   const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
 
-    redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#/login` : undefined,
+    redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#/reset-password` : undefined,
 
   });
 
@@ -778,6 +778,38 @@ export async function sendPasswordResetEmail(email) {
   }
 
   return true;
+
+}
+
+/**
+
+ * Update password for current authenticated/recovered session
+
+ */
+
+export async function updateUserPassword(newPassword) {
+
+  const trimmed = (newPassword || '').trim();
+
+  if (!trimmed || trimmed.length < 6) {
+
+    throw new Error('New password must be at least 6 characters.');
+
+  }
+
+  const { data, error } = await supabase.auth.updateUser({
+
+    password: trimmed,
+
+  });
+
+  if (error) {
+
+    throw new Error(error.message || 'Failed to update password. Please try requesting a new reset link.');
+
+  }
+
+  return data;
 
 }
 

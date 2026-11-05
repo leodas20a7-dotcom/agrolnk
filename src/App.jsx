@@ -3,6 +3,7 @@ import Landing from './pages/Landing';
 import RoleSelection from './pages/RoleSelection';
 import Register from './pages/Register';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 
 // Farmer Experience Module Pages (Code-Split)
 const FarmerDashboard = lazy(() => import('./pages/farmer/FarmerDashboard'));
@@ -65,13 +66,14 @@ import { getCurrentUser, syncAuthenticatedUserWithServer } from './utils/auth';
 import { supabase } from './lib/supabase';
 import { checkAndFinalizeExpiredAuctions } from './utils/auctions';
 
-const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login']);
+const PUBLIC_PAGES = new Set(['landing', 'role-selection', 'register', 'login', 'reset-password']);
 
 const VALID_ROUTES = new Set([
   'landing',
   'role-selection',
   'register',
   'login',
+  'reset-password',
   // Admin
   'admin-dashboard',
   'admin-verification',
@@ -126,6 +128,9 @@ const VALID_ROUTES = new Set([
  */
 export function sanitizeRoute(rawHash) {
   if (!rawHash) return '';
+  if (rawHash.includes('type=recovery') || rawHash.includes('reset-password')) {
+    return 'reset-password';
+  }
   let clean = rawHash.replace(/^#+\/?/, '').trim();
   clean = clean.split('?')[0].split('#')[0].replace(/\/+$/, '').trim();
   return clean;
@@ -246,7 +251,9 @@ export default function App() {
 
     if (supabase?.auth?.onAuthStateChange) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
+        if (event === 'PASSWORD_RECOVERY') {
+          setCurrentPage('reset-password');
+        } else if (event === 'SIGNED_OUT' || !session) {
           setCurrentUser(null);
           localStorage.removeItem('agrolnkUser');
           localStorage.removeItem('isAuthenticated');
@@ -389,6 +396,11 @@ export default function App() {
       {/* 4. Login Page */}
       {currentPage === 'login' && (
         <Login onNavigate={handleNavigate} navState={navState} />
+      )}
+
+      {/* 4b. Password Reset Route */}
+      {currentPage === 'reset-password' && (
+        <ResetPassword onNavigate={handleNavigate} navState={navState} />
       )}
 
       {/* 5. Farmer & FPO Experience Module Routes */}
