@@ -268,22 +268,32 @@ export default function PayStorageRentModal({
               </div>
 
               {/* Total Calculation Summary */}
-              <div className="p-4 rounded-2xl bg-[#0B3326] text-white flex items-center justify-between shadow-xs">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-[#34D399] block tracking-wider">
-                    Total Storage Rent to Settle
-                  </span>
-                  <span className="text-2xl font-extrabold font-heading">
-                    ₹{calculatedPayAmount.toLocaleString('en-IN')}
-                  </span>
+              <div className="p-4 rounded-2xl bg-[#0B3326] text-white space-y-2 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-white/80 pb-2 border-b border-white/10">
+                  <span>Base Storage Rent:</span>
+                  <span className="font-semibold text-white">₹{calculatedPayAmount.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="text-right">
-                  <Badge variant="emerald" size="sm">
-                    +{extendedDays} Days Added
-                  </Badge>
-                  <span className="text-[10px] text-[#DCFCE7]/80 block mt-1">
-                    Safe & Insured Storage
-                  </span>
+                <div className="flex items-center justify-between text-xs text-white/80 pb-2 border-b border-white/10">
+                  <span>AgroLnk Platform Fee (0.25%):</span>
+                  <span className="font-semibold text-[#34D399]">+₹{(Math.round(calculatedPayAmount * 0.0025 * 100) / 100).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#34D399] block tracking-wider">
+                      Total Depositor Payable
+                    </span>
+                    <span className="text-2xl font-extrabold font-heading">
+                      ₹{(Math.round((calculatedPayAmount + (calculatedPayAmount * 0.0025)) * 100) / 100).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant="emerald" size="sm">
+                      +{extendedDays} Days Added
+                    </Badge>
+                    <span className="text-[10px] text-[#DCFCE7]/80 block mt-1">
+                      Direct Warehouse Settlement
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

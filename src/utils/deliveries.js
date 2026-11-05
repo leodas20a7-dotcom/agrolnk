@@ -32,6 +32,22 @@ function mapDeliveryFromDb(row) {
     notes: row.notes,
     pickupOtp: row.pickup_otp,
     deliveryOtp: row.delivery_otp,
+    // Transport Escrow & Take-Rate fields
+    freightEscrowStatus: row.freight_escrow_status || (row.status === 'completed' ? 'released' : (row.freight_amount ? 'unfunded' : null)),
+    freightPayerId: row.freight_payer_id || null,
+    freightPayerRole: row.freight_payer_role || 'farmer',
+    freightBaseAmount: Number(row.freight_base_amount || row.freight_amount || 0),
+    consignorFreightFee: Number(row.consignor_freight_fee || 0),
+    totalFreightPayable: Number(row.total_freight_payable || row.freight_amount || 0),
+    transporterCommissionFee: Number(row.transporter_commission_fee || 0),
+    transporterNetPayout: Number(row.transporter_net_payout || 0),
+    freightPaymentMode: row.freight_payment_mode || 'direct_razorpay',
+    freightBankUtr: row.freight_bank_utr || null,
+    freightDepositedAt: row.freight_deposited_at || null,
+    freightAdminVerifiedBy: row.freight_admin_verified_by || null,
+    freightAdminVerifiedAt: row.freight_admin_verified_at || null,
+    freightDisbursedAt: row.freight_disbursed_at || null,
+    freightDisbursalUtr: row.freight_disbursal_utr || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -539,6 +555,139 @@ export async function submitTransportQuote(deliveryId, quoteData) {
     return mapDeliveryFromDb(data);
   } catch (err) {
     console.error('Error in submitTransportQuote:', err);
+    throw err;
+  }
+}
+
+/**
+ * Farmer/Buyer accepts transporter quote and deposits freight into AgroLnk Escrow
+ * Handles both Instant Gateway (< 50k) and Escrow Virtual Account (NEFT/RTGS)
+ */
+export async function depositFreightEscrow({
+  deliveryId,
+  paymentMode = 'direct_razorpay',
+  bankUtr = null,
+  payerUser = null,
+  freightBreakdown = null
+}) {
+  try {
+    const isBankTransfer = paymentMode === 'escrow_van';
+    const nowIso = new Date().toISOString();
+
+    const updatePayload = {
+      freight_escrow_status: isBankTransfer ? 'pending_bank_check' : 'escrow_locked',
+      freight_payer_id: payerUser?.id || null,
+      freight_payer_role: payerUser?.role || 'farmer',
+      freight_base_amount: freightBreakdown?.baseFare || 0,
+      consignor_freight_fee: freightBreakdown?.consignorFee || 0,
+      total_freight_payable: freightBreakdown?.totalFreightDeposit || 0,
+      transporter_commission_fee: freightBreakdown?.transporterFee || 0,
+      transporter_net_payout: freightBreakdown?.netTransporterPayout || 0,
+      freight_payment_mode: paymentMode,
+      freight_bank_utr: bankUtr || null,
+      freight_deposited_at: nowIso,
+      status: isBankTransfer ? 'price_offered' : 'assigned', // Only assign if funds verified/locked
+      updated_at: nowIso,
+    };
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update(updatePayload)
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error depositing freight escrow:', error);
+      throw error;
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('agrolnk_deliveries_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('depositFreightEscrow error:', err);
+    throw err;
+  }
+}
+
+/**
+ * Admin verifies real-world bank credit for freight quote (Escrow VAN / NEFT/RTGS)
+ * Moves freight_escrow_status to 'escrow_locked' and status to 'assigned', unlocking driver dispatch
+ */
+export async function verifyFreightBankDeposit(deliveryId, adminName = 'AgroLnk Admin') {
+  try {
+    const nowIso = new Date().toISOString();
+    const updatePayload = {
+      freight_escrow_status: 'escrow_locked',
+      status: 'assigned', // Unlocks driver dispatch
+      freight_admin_verified_by: adminName,
+      freight_admin_verified_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update(updatePayload)
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('agrolnk_deliveries_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('verifyFreightBankDeposit error:', err);
+    throw err;
+  }
+}
+
+/**
+ * Admin releases freight payment from AgroLnk Escrow to Transporter upon Delivery OTP
+ * Deducts 0.25% platform fee and remits net fare
+ */
+export async function adminReleaseFreightEscrow({
+  deliveryId,
+  adminUser = null,
+  disbursalUtr = null,
+}) {
+  try {
+    const nowIso = new Date().toISOString();
+    const adminName = adminUser?.name || 'AgroLnk Logistics Ombudsman';
+
+    const updatePayload = {
+      freight_escrow_status: 'released',
+      status: 'completed',
+      freight_disbursed_at: nowIso,
+      freight_disbursal_utr: disbursalUtr || `UTR-LOG-${Date.now().toString().slice(-8)}`,
+      updated_at: nowIso,
+    };
+
+    const { data, error } = await supabase
+      .from('deliveries')
+      .update(updatePayload)
+      .eq('id', deliveryId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('agrolnk_deliveries_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return mapDeliveryFromDb(data);
+  } catch (err) {
+    console.error('adminReleaseFreightEscrow error:', err);
     throw err;
   }
 }

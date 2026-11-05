@@ -29,7 +29,7 @@ import {
   declineTransportPrice,
   getDeliverySecretPins
 } from '../../utils/deliveries';
-import { initiateRazorpayTransportCheckout } from '../../utils/razorpayRouteClient';
+import FreightEscrowModal from './FreightEscrowModal';
 
 export default function DeliveryDetailModal({
   delivery,
@@ -43,6 +43,7 @@ export default function DeliveryDetailModal({
   const [errorMessage, setErrorMessage] = useState('');
   const [enteredOtp, setEnteredOtp] = useState('');
   const [buyerPin, setBuyerPin] = useState(delivery?.deliveryOtp || null);
+  const [isFreightEscrowModalOpen, setIsFreightEscrowModalOpen] = useState(false);
 
   useEffect(() => {
     setCurrentDelivery(delivery);
@@ -74,32 +75,9 @@ export default function DeliveryDetailModal({
     ? `${currentDelivery.deliveryLocation?.address || ''}, ${currentDelivery.deliveryLocation?.district || 'Chennai'}, ${currentDelivery.deliveryLocation?.state || 'Tamil Nadu'}`
     : currentDelivery.deliveryLocation;
 
-  const handleFarmerAcceptPrice = async () => {
-    setIsUpdating(true);
-    setErrorMessage('');
-    try {
-      // Immediately open Razorpay Checkout for the farmer
-      await initiateRazorpayTransportCheckout({
-        delivery: currentDelivery,
-        farmerUser: currentUser || { name: currentDelivery.farmerName, role: 'farmer' },
-        onSuccess: async (rzpRes) => {
-          const updated = await acceptTransportPrice(currentDelivery.id);
-          if (updated) {
-            setCurrentDelivery(updated);
-            if (onStatusUpdated) await onStatusUpdated(updated);
-          }
-          setIsUpdating(false);
-        },
-        onFailure: (err) => {
-          console.warn('Transport payment notice / dismissed:', err);
-          setIsUpdating(false);
-        },
-      });
-    } catch (err) {
-      console.error('Failed to initiate transport checkout:', err);
-      setErrorMessage('Failed to open Razorpay payment gateway.');
-      setIsUpdating(false);
-    }
+  const handleFarmerAcceptPrice = () => {
+    // Open Freight Escrow Modal for farmer to deposit freight under dual-tier model
+    setIsFreightEscrowModalOpen(true);
   };
 
   const handleFarmerDeclinePrice = async () => {
@@ -526,6 +504,19 @@ export default function DeliveryDetailModal({
             </Button>
           </div>
         )}
+
+        {/* Freight Escrow Deposit Modal */}
+        <FreightEscrowModal
+          isOpen={isFreightEscrowModalOpen}
+          onClose={() => setIsFreightEscrowModalOpen(false)}
+          delivery={currentDelivery}
+          currentUser={currentUser || { name: currentDelivery.farmerName, role: 'farmer' }}
+          onSuccess={async () => {
+            setIsFreightEscrowModalOpen(false);
+            if (onStatusUpdated) await onStatusUpdated();
+            onClose();
+          }}
+        />
 
       </div>
     </div>

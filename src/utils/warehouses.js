@@ -45,6 +45,8 @@ export function mapReceiptFromDb(row) {
     initialPaymentAmount: Number(row.initial_payment_amount || 0),
     rentPaymentHistory: Array.isArray(row.rent_payment_history) ? row.rent_payment_history : [],
     warehouseNotes: row.warehouse_notes || '',
+    totalCommissionEarned: Number(row.total_commission_earned || 0),
+    netSettledToWarehouse: Number(row.net_settled_to_warehouse || 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -455,19 +457,32 @@ export async function recordWarehouseRentPayment(receiptId, paymentDetails = {})
     const safePrevValid = isNaN(prevValid.getTime()) ? new Date() : prevValid;
     const newValidUntil = new Date(Math.max(Date.now(), safePrevValid.getTime()) + (extendedDays * 86400000)).toISOString();
 
+    const paymentAmount = Number(paymentDetails.amount || receipt.storage_fee_monthly || 0);
+    // 0.25% Depositor booking fee + 0.25% Warehouse facilitation fee = 0.50% total platform revenue
+    const depositorFee = Math.round(paymentAmount * 0.0025 * 100) / 100;
+    const warehouseFee = Math.round(paymentAmount * 0.0025 * 100) / 100;
+    const totalCommission = Math.round((depositorFee + warehouseFee) * 100) / 100;
+    const netWarehouseSettled = Math.round((paymentAmount - warehouseFee) * 100) / 100;
+
     const paymentRecord = {
       id: `rent_rec_${Date.now()}`,
       receiptId,
-      amount: Number(paymentDetails.amount || receipt.storage_fee_monthly || 0),
+      amount: paymentAmount,
+      depositorFee,
+      warehouseFee,
+      totalCommission,
+      netWarehouseSettled,
       paymentMethod: paymentDetails.method || 'Razorpay Gateway',
       transactionRef: paymentDetails.transactionRef || `WH-RCPT-${Math.floor(100000 + Math.random() * 900000)}`,
       paidAt,
       extendedDays,
       paidBy: paymentDetails.paidBy || receipt.farmer_name || 'Farmer Depositor',
-      notes: paymentDetails.notes || 'Razorpay online settlement',
+      notes: paymentDetails.notes || 'Direct payment with 0.25% AgroLnk platform facilitation fee',
     };
 
     const existingHistory = Array.isArray(receipt.rent_payment_history) ? receipt.rent_payment_history : [];
+    const prevCommission = Number(receipt.total_commission_earned || 0);
+    const prevSettled = Number(receipt.net_settled_to_warehouse || 0);
 
     const { data: updated, error: updateErr } = await supabase
       .from('warehouse_receipts')
@@ -475,6 +490,8 @@ export async function recordWarehouseRentPayment(receiptId, paymentDetails = {})
         last_rent_paid_at: paidAt,
         valid_until: newValidUntil,
         initial_payment_status: 'paid',
+        total_commission_earned: Math.round((prevCommission + totalCommission) * 100) / 100,
+        net_settled_to_warehouse: Math.round((prevSettled + netWarehouseSettled) * 100) / 100,
         rent_payment_history: [paymentRecord, ...existingHistory],
         updated_at: paidAt,
       })

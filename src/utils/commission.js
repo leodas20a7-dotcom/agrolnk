@@ -39,6 +39,107 @@ export function calculateOrderFinancials(rawAmount) {
 }
 
 /**
+ * Calculate complete financial breakdown for Transport / Freight Escrow
+ * Platform take-rate: 0.25% Consignor fee + 0.25% Transporter commission = 0.50% total
+ * @param {number} freightAmount - Agreed base freight quote
+ * @returns {object} Full freight breakdown
+ */
+export function calculateFreightFinancials(freightAmount) {
+  const baseFare = Math.max(0, Number(freightAmount) || 0);
+
+  // 0.25% Consignor fee added to payer
+  const consignorFee = Math.round(baseFare * BUYER_COMMISSION_RATE * 100) / 100;
+
+  // 0.25% Transporter fee deducted from payout
+  const transporterFee = Math.round(baseFare * SELLER_COMMISSION_RATE * 100) / 100;
+
+  // Total AgroLnk commission
+  const totalAgroLnkFreightRevenue = Math.round((consignorFee + transporterFee) * 100) / 100;
+
+  // Gross amount deposited by consignor into Escrow
+  const totalFreightDeposit = Math.round((baseFare + consignorFee) * 100) / 100;
+
+  // Net payout released to transporter bank account upon OTP delivery
+  const netTransporterPayout = Math.round((baseFare - transporterFee) * 100) / 100;
+
+  return {
+    baseFare,
+    consignorFee,
+    consignorFeePercentage: 0.25,
+    transporterFee,
+    transporterFeePercentage: 0.25,
+    totalAgroLnkFreightRevenue,
+    totalFreightDeposit,
+    netTransporterPayout,
+  };
+}
+
+/**
+ * Calculate financial breakdown for Warehouse Storage Rent (0.25% Direct Commission Model)
+ * Pure commission model: Direct settlement without intermediate escrow hold.
+ * Platform take-rate: 0.25% Depositor booking fee + 0.25% Warehouse facilitation fee = 0.50% total take-rate.
+ * @param {number} rentAmount - Quoted warehouse rent amount
+ * @returns {object} Full rent breakdown
+ */
+export function calculateWarehouseRentFinancials(rentAmount) {
+  const baseRent = Math.max(0, Number(rentAmount) || 0);
+
+  // 0.25% Depositor platform fee
+  const depositorFee = Math.round(baseRent * BUYER_COMMISSION_RATE * 100) / 100;
+
+  // 0.25% Warehouse operator service fee
+  const warehouseFee = Math.round(baseRent * SELLER_COMMISSION_RATE * 100) / 100;
+
+  // Total AgroLnk commission
+  const totalAgroLnkWarehouseRevenue = Math.round((depositorFee + warehouseFee) * 100) / 100;
+
+  // Gross rent paid by farmer
+  const totalRentPayable = Math.round((baseRent + depositorFee) * 100) / 100;
+
+  // Net payout settled to warehouse operator
+  const netWarehouseReceivable = Math.round((baseRent - warehouseFee) * 100) / 100;
+
+  return {
+    baseRent,
+    depositorFee,
+    depositorFeePercentage: 0.25,
+    warehouseFee,
+    warehouseFeePercentage: 0.25,
+    totalAgroLnkWarehouseRevenue,
+    totalRentPayable,
+    totalRentDeposit: totalRentPayable,
+    netWarehouseReceivable,
+    netWarehousePayout: netWarehouseReceivable,
+  };
+}
+
+/**
+ * Calculate financial breakdown for Trade Financing / Credit Line (0.25% Direct LSP Sourcing Fee)
+ * Compliant with RBI Digital Lending Guidelines for Lending Service Providers (LSPs).
+ * Financial Institutions disburse capital directly to borrower bank accounts.
+ * AgroLnk earns a direct 0.25% technology origination / sourcing fee without holding loan principal.
+ * @param {number} loanAmount - Principal loan amount sanctioned
+ * @returns {object} Full financing breakdown
+ */
+export function calculateFinancingFinancials(loanAmount) {
+  const principal = Math.max(0, Number(loanAmount) || 0);
+
+  // 0.25% Origination / Technology Facilitation Fee
+  const originationFee = Math.round(principal * BUYER_COMMISSION_RATE * 100) / 100;
+
+  // Net Disbursed directly from NBFC / Bank to Borrower
+  const netDisbursedToBorrower = Math.round((principal - originationFee) * 100) / 100;
+
+  return {
+    principal,
+    originationFee,
+    originationFeePercentage: 0.25,
+    totalAgroLnkFinancingRevenue: originationFee,
+    netDisbursedToBorrower,
+  };
+}
+
+/**
  * Format currency in Indian format (₹)
  */
 export function formatINR(amount) {

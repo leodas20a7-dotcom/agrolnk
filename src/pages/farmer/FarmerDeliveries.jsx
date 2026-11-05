@@ -30,7 +30,7 @@ import {
   acceptTransportPrice,
   declineTransportPrice,
 } from '../../utils/deliveries';
-import { initiateRazorpayTransportCheckout } from '../../utils/razorpayRouteClient';
+import FreightEscrowModal from '../../components/delivery/FreightEscrowModal';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function FarmerDeliveries({ currentUser, onNavigate, navState }) {
@@ -60,6 +60,7 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
     navState?.orderForDelivery || null
   );
   const [selectedDeliveryForDetail, setSelectedDeliveryForDetail] = useState(null);
+  const [deliveryForFreightEscrow, setDeliveryForFreightEscrow] = useState(null);
 
   const ITEMS_PER_PAGE = 6;
 
@@ -104,23 +105,9 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
     };
   }, [user.id, user.email, user.name]);
 
-  const handleAcceptPrice = async (delivery) => {
-    try {
-      // Immediately open Razorpay Checkout for the farmer to fund the transport escrow
-      await initiateRazorpayTransportCheckout({
-        delivery,
-        farmerUser: user,
-        onSuccess: async (rzpPayment) => {
-          await acceptTransportPrice(delivery.id);
-          await loadData();
-        },
-        onFailure: (err) => {
-          console.warn('Transport payment notice / cancelled:', err);
-        },
-      });
-    } catch (err) {
-      console.error('Failed to initiate transport checkout:', err);
-    }
+  const handleAcceptPrice = (delivery) => {
+    // Open Freight Escrow Modal for farmer to deposit freight under dual-tier model
+    setDeliveryForFreightEscrow(delivery);
   };
 
   const handleDeclinePrice = async (delivery) => {
@@ -479,6 +466,18 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
           onStatusUpdated={() => loadData()}
         />
       )}
+
+      {/* Freight Escrow Deposit Modal */}
+      <FreightEscrowModal
+        isOpen={!!deliveryForFreightEscrow}
+        onClose={() => setDeliveryForFreightEscrow(null)}
+        delivery={deliveryForFreightEscrow}
+        currentUser={user}
+        onSuccess={() => {
+          loadData();
+          setDeliveryForFreightEscrow(null);
+        }}
+      />
     </DashboardLayout>
   );
 }
