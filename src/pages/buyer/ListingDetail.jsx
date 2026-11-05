@@ -538,29 +538,50 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                           <span>Quality Assayed & Fee Paid • Ready for Purchase</span>
                         </div>
                       )}
-                      <Button
-                        variant={!isVerified ? "secondary" : "accent"}
-                        size="lg"
-                        onClick={() => {
-                          if (!isVerified) {
-                            setIsVerificationModalOpen(true);
-                          } else {
-                            setIsModalOpen(true);
-                          }
-                        }}
-                        icon={!isVerified ? ShieldCheck : ShoppingBag}
-                        iconPosition="left"
-                        className={`w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer ${
-                          !isVerified ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100' : ''
-                        }`}
-                      >
-                        {!isVerified ? 'Verify KYC to Purchase • Escrow Secured' : 'Buy Now • Escrow Secured'}
-                      </Button>
-                      {!isVerified && (
-                        <p className="text-[11px] text-amber-800 text-center font-medium mt-1.5 flex items-center justify-center gap-1">
-                          <Lock className="w-3 h-3 text-amber-600" />
-                          <span>Identity verification required before placing purchase orders</span>
-                        </p>
+                      {!isVerified ? (
+                        <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-4 space-y-3 shadow-xs text-left">
+                          <div className="flex items-start gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200">
+                              <ShieldCheck className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <h4 className="text-xs font-bold text-amber-950">KYC Verification Required</h4>
+                                <span className="text-[10px] font-semibold text-amber-700 bg-amber-200/60 px-2 py-0.5 rounded-md">Action Needed</span>
+                              </div>
+                              <p className="text-[11px] text-amber-800 mt-1 leading-snug">
+                                Complete quick identity verification to unlock escrow purchases and place trade orders.
+                              </p>
+                            </div>
+                          </div>
+
+                          <Button
+                            variant="amber"
+                            size="md"
+                            onClick={() => setIsVerificationModalOpen(true)}
+                            icon={ShieldCheck}
+                            iconPosition="left"
+                            className="w-full justify-center py-2.5 font-bold text-xs shadow-xs cursor-pointer"
+                          >
+                            Verify Identity to Purchase
+                          </Button>
+
+                          <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-700/90 pt-0.5">
+                            <Lock className="w-3 h-3 text-amber-600 shrink-0" />
+                            <span>100% Escrow & WDRA Protected Exchange</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="accent"
+                          size="lg"
+                          onClick={() => setIsModalOpen(true)}
+                          icon={ShoppingBag}
+                          iconPosition="left"
+                          className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
+                        >
+                          Buy Now • Escrow Secured
+                        </Button>
                       )}
                     </div>
                   )
