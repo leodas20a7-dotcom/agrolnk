@@ -349,7 +349,7 @@ export default function DeliveryDetailModal({
                 iconPosition="left"
                 className="font-bold py-2.5 px-6 shadow-xs cursor-pointer"
               >
-                {isUpdating ? 'Opening Payment...' : `Pay ₹${Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} via Razorpay & Confirm`}
+                {isUpdating ? 'Opening Escrow Deposit...' : `Deposit ₹${Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} in AgroLnk Escrow`}
               </Button>
             </div>
           </div>
