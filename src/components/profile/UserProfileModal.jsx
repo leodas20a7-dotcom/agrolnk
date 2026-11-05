@@ -23,7 +23,7 @@ import {
   POPULAR_BANKS,
   maskAccountNumber
 } from '../../utils/bankDetails';
-import { Landmark, CreditCard, Lock } from 'lucide-react';
+import { Landmark, CreditCard, Lock, Copy, Check, Clock } from 'lucide-react';
 
 export default function UserProfileModal({
   isOpen,
@@ -62,6 +62,7 @@ export default function UserProfileModal({
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [copiedVan, setCopiedVan] = useState(false);
 
   useEffect(() => {
     if (isOpen && currentUser) {
@@ -401,6 +402,64 @@ export default function UserProfileModal({
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Dedicated Virtual Account Number (VAN) for Escrow Collections */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-[#F8FAF8] border border-emerald-200/90 space-y-2.5 text-left">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5 uppercase tracking-wide">
+                <Landmark className="w-4 h-4 text-emerald-700" />
+                Dedicated Virtual Escrow Account (VAN)
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                user.vanStatus === 'active'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  : user.vanStatus === 'rejected'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-amber-100 text-amber-800 border-amber-300'
+              }`}>
+                {user.vanStatus === 'active'
+                  ? '● VAN Active'
+                  : user.vanStatus === 'rejected'
+                  ? '✕ Bank Rejected'
+                  : '⏳ Bank Approval Pending'}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-[#566861] leading-relaxed">
+              Your business is linked to a dedicated virtual collection account on the AgroLnk Escrow Nodal Ledger. High-value trade payments (≥ ₹50,000) clear directly through this number.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
+                <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Virtual Account No. (VAN)</span>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="font-mono font-extrabold text-[#0B3326] text-xs">
+                    {user.virtualAccountNumber || 'Awaiting Bank Issuance'}
+                  </span>
+                  {user.virtualAccountNumber && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(user.virtualAccountNumber);
+                        setCopiedVan(true);
+                        setTimeout(() => setCopiedVan(false), 2000);
+                      }}
+                      className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                    >
+                      {copiedVan ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
+                <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Dedicated Branch IFSC</span>
+                <span className="font-mono font-extrabold text-[#0B3326] text-xs block mt-0.5">
+                  {user.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104'}
+                </span>
               </div>
             </div>
           </div>

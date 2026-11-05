@@ -17,11 +17,11 @@ import {
   Clock,
   FileSpreadsheet
 } from 'lucide-react';
-import { getOrders } from '../../utils/orders';
+import { getOrders, verifyAndLockEscrowDeposit } from '../../utils/orders';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import AdminCallVerificationModal from '../../components/admin/AdminCallVerificationModal';
 import Pagination from '../../components/ui/Pagination';
-import { Zap, PhoneCall, Phone, UserCheck, ShieldAlert } from 'lucide-react';
+import { Zap, PhoneCall, Phone, UserCheck, ShieldAlert, X } from 'lucide-react';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
 export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
@@ -29,9 +29,11 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
   const [orders, setOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending_call' | 'locked' | 'released'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending_verification' | 'locked' | 'released'
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [orderForVerification, setOrderForVerification] = useState(null);
+  const [confirmingDepositOrder, setConfirmingDepositOrder] = useState(null);
+  const [isVerifyingDeposit, setIsVerifyingDeposit] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
@@ -78,10 +80,16 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
   const ledgerItems = safeOrders.map((ord) => {
     const fin = calculateOrderFinancials(ord.totalAmount);
     const isSettled = ord.status === 'completed';
+    const isPendingVerification = 
+      ord.escrowStatus === 'pending' || 
+      ord.escrowStatus === 'pending_verification' || 
+      ord.status === 'pending' || 
+      ord.status === 'payment_verification_pending';
+
     return {
       ...ord,
       ...fin,
-      escrowState: isSettled ? 'released' : 'locked',
+      escrowState: isPendingVerification ? 'pending_verification' : (isSettled ? 'released' : 'locked'),
     };
   });
 
@@ -284,18 +292,25 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
         {/* Filter Controls Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {['all', 'locked', 'released'].map((st) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: 'all', label: 'All Transactions' },
+              { id: 'pending_verification', label: `Pending Bank UTR (${ledgerItems.filter(i => i.escrowState === 'pending_verification').length})`, highlight: true },
+              { id: 'locked', label: 'Locked Escrow' },
+              { id: 'released', label: 'Settled (Released)' },
+            ].map((tab) => (
               <button
-                key={st}
-                onClick={() => { setStatusFilter(st); setCurrentPage(1); }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
-                  statusFilter === st
+                key={tab.id}
+                onClick={() => { setStatusFilter(tab.id); setCurrentPage(1); }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  statusFilter === tab.id
                     ? 'bg-[#0B3326] text-white shadow-xs'
+                    : tab.highlight && ledgerItems.filter(i => i.escrowState === 'pending_verification').length > 0
+                    ? 'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100'
                     : 'bg-white text-[#566861] hover:bg-[#F2FBF6] border border-[#E5EDE8]'
                 }`}
               >
-                {st === 'all' ? 'All Transactions' : `Escrow ${st}`}
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
@@ -319,13 +334,13 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
-                    <th className="py-3.5 px-4">Order ID & Commodity</th>
+                    <th className="py-3.5 px-4">Order ID &amp; Commodity</th>
                     <th className="py-3.5 px-4">Gross Trade Value</th>
                     <th className="py-3.5 px-4 text-[#1E40AF]">Buyer Paid (+0.25%)</th>
                     <th className="py-3.5 px-4 text-[#10B981]">Seller Received (-0.25%)</th>
                     <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
                     <th className="py-3.5 px-4">Escrow Status</th>
-                    <th className="py-3.5 px-4 text-center">Admin Verification & Payout</th>
+                    <th className="py-3.5 px-4 text-center">Admin Verification &amp; Payout</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5EDE8]">
@@ -361,17 +376,41 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <Badge
-                          variant={item.escrowState === 'released' ? 'emerald' : 'amber'}
-                          size="sm"
-                          dot={item.escrowState === 'locked'}
-                        >
-                          <span className="capitalize">{item.escrowState === 'released' ? 'Settled (Released)' : 'Locked in Escrow'}</span>
-                        </Badge>
+                        {item.escrowState === 'pending_verification' ? (
+                          <div className="space-y-1">
+                            <Badge variant="amber" size="sm" dot={true}>
+                              Bank UTR Pending
+                            </Badge>
+                            {item.bankUtr && (
+                              <span className="font-mono text-[10px] text-amber-950 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 block truncate max-w-[140px]">
+                                UTR: {item.bankUtr}
+                              </span>
+                            )}
+                          </div>
+                        ) : item.escrowState === 'released' ? (
+                          <Badge variant="emerald" size="sm">
+                            Settled (Released)
+                          </Badge>
+                        ) : (
+                          <Badge variant="teal" size="sm" dot={true}>
+                            Locked in Escrow
+                          </Badge>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 text-center">
-                        {item.escrowState === 'released' ? (
+                        {item.escrowState === 'pending_verification' ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={ShieldCheck}
+                            iconPosition="left"
+                            onClick={() => setConfirmingDepositOrder(item)}
+                            className="text-xs font-bold py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
+                          >
+                            Verify Deposit
+                          </Button>
+                        ) : item.escrowState === 'released' ? (
                           <div className="space-y-0.5">
                             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
                               <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
@@ -391,7 +430,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             onClick={() => setOrderForVerification(item)}
                             className="text-xs font-bold py-1.5 px-3 cursor-pointer"
                           >
-                            Call Buyer & Release
+                            Call Buyer &amp; Release
                           </Button>
                         )}
                       </td>
@@ -422,6 +461,88 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             loadData();
           }}
         />
+
+        {/* Real-World Bank Statement UTR Verification & Escrow Lock Modal */}
+        {confirmingDepositOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-emerald-300 shadow-xl space-y-4 text-left">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <span className="text-sm font-bold text-[#0B3326] flex items-center gap-1.5">
+                  <Landmark className="w-5 h-5 text-emerald-700" />
+                  Verify Bank Statement Deposit
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDepositOrder(null)}
+                  className="p-1 rounded-xl text-gray-400 hover:text-gray-700 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Order Number:</span>
+                  <span className="font-bold text-[#0B3326]">{confirmingDepositOrder.orderNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Buyer Enterprise:</span>
+                  <span className="font-semibold text-[#0B3326]">{confirmingDepositOrder.buyerName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Producer / Farmer:</span>
+                  <span className="font-semibold text-[#0B3326]">{confirmingDepositOrder.farmerName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Claimed Bank UTR:</span>
+                  <span className="font-mono font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {confirmingDepositOrder.bankUtr || 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
+                  <span className="text-xs font-bold text-[#0B3326]">Amount to Confirm:</span>
+                  <span className="text-base font-extrabold text-emerald-700">
+                    {formatINR(confirmingDepositOrder.totalBuyerPayable)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/90 text-[11px] text-amber-900 leading-relaxed">
+                ⚠️ <strong>Admin Checkpoint:</strong> Please confirm you have opened AgroLnk's corporate NetBanking portal and verified that <strong>{formatINR(confirmingDepositOrder.totalBuyerPayable)}</strong> with reference <strong>{confirmingDepositOrder.bankUtr}</strong> is credited into the bank statement. Confirming this will unlock produce dispatch for the farmer.
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDepositOrder(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isVerifyingDeposit}
+                  onClick={async () => {
+                    setIsVerifyingDeposit(true);
+                    try {
+                      await verifyAndLockEscrowDeposit(confirmingDepositOrder.id, user?.name || 'AgroLnk Admin');
+                      setConfirmingDepositOrder(null);
+                      loadData();
+                    } catch (e) {
+                      console.error('Error locking escrow deposit:', e);
+                    } finally {
+                      setIsVerifyingDeposit(false);
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                  <span>{isVerifyingDeposit ? 'Confirming...' : 'Yes, Credit Verified — Lock Escrow'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </DashboardLayout>

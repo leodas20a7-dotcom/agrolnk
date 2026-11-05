@@ -148,7 +148,8 @@ export default function OrderReceiptModal({
                 Delivery Facility: {order.destinationState || order.state || 'Tamil Nadu'}, {order.destinationDistrict || order.district || 'Chennai'}
               </div>
               <div className="text-[11px] text-[#566861]">
-                Payment Method: 100% Escrow Direct Transfer
+                Payment Method: {order.paymentMode === 'escrow_van' ? 'Escrow Virtual Account (NEFT/RTGS)' : '100% Escrow Direct Gateway'}
+                {order.bankUtr ? ` • UTR: ${order.bankUtr}` : ''}
               </div>
             </div>
           </div>

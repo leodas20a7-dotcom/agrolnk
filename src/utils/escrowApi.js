@@ -8,14 +8,15 @@ import { supabase } from '../lib/supabase';
 const ESCROW_STORAGE_KEY = 'agrolnk_live_escrow_ledger_v2';
 const ESCROW_EVENTS_KEY = 'agrolnk_live_escrow_events_v2';
 
-// Standard Virtual Nodal Escrow Account Configuration
+// Standard Virtual Nodal Escrow Account Configuration (Read dynamically from .env)
 export const ESCROW_NODAL_ACCOUNT = {
-  accountName: 'AgroLnk Escrow Settlement Trust A/C',
-  accountNumber: '992010884210982',
-  virtualAccountPrefix: 'AGROESC',
-  bankName: 'ICICI Bank Ltd. (Institutional Agri-Nodal Branch)',
-  ifscCode: 'ICIC0000104',
-  trusteePartner: 'Vistra / Axis Trustee Services Ltd. (SEBI Reg. IND000000523)',
+  accountName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NAME) || 'AGROLNK PRIVATE LIMITED',
+  accountNumber: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER) || '992010884210982',
+  virtualAccountPrefix: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_VAN_PREFIX) || 'AGRO',
+  bankName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+  ifscCode: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+  branch: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BRANCH) || 'CMS Institutional Agri Branch',
+  trusteePartner: 'RBI Scheduled Commercial Banking Partner',
   escrowType: 'Tripartite Milestone-Protected Agri-Commerce Escrow',
   nodalStatus: 'ACTIVE_REALTIME',
   settlementSpeed: 'Instant IMPS / NEFT 24x7',

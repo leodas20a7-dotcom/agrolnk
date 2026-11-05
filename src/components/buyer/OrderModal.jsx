@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShieldCheck, Check, AlertCircle, ShoppingBag, Zap, Landmark, ArrowRight, Sparkles, Percent, CheckCircle2, Clock, MapPin } from 'lucide-react';
+import { X, ShieldCheck, Check, AlertCircle, ShoppingBag, Zap, Landmark, ArrowRight, Sparkles, Percent, CheckCircle2, Clock, MapPin, Copy } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
@@ -7,11 +7,14 @@ import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 import { createFinancingRequest, getFinancingRequests } from '../../utils/financing';
 import { getResolvedUserKycStatus } from '../../utils/auth';
 import { convertVolume, getRateInUnit } from '../../utils/pricingUnits';
+import { ESCROW_NODAL_ACCOUNT } from '../../utils/escrowApi';
 
 export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
   const [purchaseUnit, setPurchaseUnit] = useState(listing?.unit === 'MT' ? 'Quintal' : (listing?.unit || 'Quintal'));
   const [purchaseQty, setPurchaseQty] = useState(1);
-  const [paymentMode, setPaymentMode] = useState('direct_razorpay'); // 'direct_razorpay' | 'trade_credit'
+  const [paymentMode, setPaymentMode] = useState('direct_razorpay'); // 'direct_razorpay' | 'escrow_van' | 'trade_credit'
+  const [bankUtr, setBankUtr] = useState('');
+  const [copiedEscrowField, setCopiedEscrowField] = useState(null);
   const [financePct, setFinancePct] = useState(0.8); // 80% financing by default
   const [deliveryState, setDeliveryState] = useState(currentUser?.state || 'Tamil Nadu');
   const [deliveryDistrict, setDeliveryDistrict] = useState(currentUser?.district || 'Chennai');
@@ -29,9 +32,16 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       setPurchaseUnit(defaultUnit);
       const maxInUnit = convertVolume(listing.quantity, listing.unit, defaultUnit);
       const initialQty = defaultUnit === 'MT' ? Math.min(1, maxInUnit) : (defaultUnit === 'Quintal' ? Math.min(10, maxInUnit) : Math.min(100, maxInUnit));
-      setPurchaseQty(initialQty > 0 ? initialQty : maxInUnit);
+      const targetQty = initialQty > 0 ? initialQty : maxInUnit;
+      setPurchaseQty(targetQty);
+      const estRate = getRateInUnit(listing.price, listing.unit, defaultUnit);
+      const estTotal = Math.round(targetQty * estRate);
+      const estFin = calculateOrderFinancials(estTotal);
+      setPaymentMode(estFin.totalBuyerPayable >= 50000 ? 'escrow_van' : 'direct_razorpay');
+    } else {
+      setPaymentMode('direct_razorpay');
     }
-    setPaymentMode('direct_razorpay');
+    setBankUtr('');
     setCreditSuccessMsg(null);
     setError('');
 
@@ -87,6 +97,22 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   const financedLoanAmount = Math.round(financials.totalBuyerPayable * financePct);
   const buyerMarginDeposit = financials.totalBuyerPayable - financedLoanAmount;
 
+  // Dual-Tier Rule: Bulk orders >= 50,000 must use Escrow Virtual Account to eliminate gateway fees
+  const isBulkOrder = (financials?.totalBuyerPayable || 0) >= 50000;
+
+  useEffect(() => {
+    if (isBulkOrder && paymentMode === 'direct_razorpay') {
+      setPaymentMode('escrow_van');
+    }
+  }, [isBulkOrder, paymentMode]);
+
+  const handleCopyEscrow = (text, fieldKey) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(String(text));
+    setCopiedEscrowField(fieldKey);
+    setTimeout(() => setCopiedEscrowField(null), 2000);
+  };
+
   const handleUnitSwitch = (newUnit) => {
     if (newUnit === purchaseUnit) return;
     const currentQtyNum = Number(purchaseQty) || 0;
@@ -135,6 +161,17 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       return;
     }
 
+    if (paymentMode === 'escrow_van') {
+      const cleanUtr = (bankUtr || '').trim().toUpperCase();
+      if (!cleanUtr || cleanUtr.length < 6) {
+        setError('Please enter your 12 to 16 digit Bank UTR / Reference Number from your transfer receipt.');
+        return;
+      }
+      setIsSubmitting(true);
+      executeOrderPlacement({ bankUtr: cleanUtr });
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Launch Razorpay Route Checkout for direct payment
@@ -156,7 +193,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   };
 
   const executeOrderPlacement = (paymentData) => {
-    if (paymentMode !== 'trade_credit' && !paymentData?.razorpay_payment_id) {
+    if (paymentMode !== 'trade_credit' && paymentMode !== 'escrow_van' && !paymentData?.razorpay_payment_id) {
       setError('A verified payment confirmation from the gateway is required to place this order.');
       setIsSubmitting(false);
       return;
@@ -191,7 +228,11 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       sellerFee: financials.sellerFee,
       platformRevenue: financials.totalPlatformCommission,
       netFarmerPayout: financials.netSellerReceivable,
-      paymentMode: 'direct',
+      paymentMode: paymentMode,
+      paymentMethod: paymentMode,
+      bankUtr: paymentData?.bankUtr || paymentData?.razorpay_payment_id || null,
+      escrowStatus: paymentMode === 'escrow_van' ? 'pending' : 'funded',
+      status: paymentMode === 'escrow_van' ? 'pending' : 'order_placed',
       state: listing.state,
       district: listing.district,
       razorpay_payment_id: paymentData?.razorpay_payment_id || null,
@@ -576,72 +617,236 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
           {/* Payment & Funding Mode Selector */}
           <div className="space-y-2 pt-1">
-            <label className="block text-xs font-bold text-[#0B3326] uppercase tracking-wider">
-              Select Payment &amp; Settlement Method
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-[#0B3326] uppercase tracking-wider">
+                Select Payment &amp; Settlement Method
+              </label>
+              {isBulkOrder && (
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Bulk Order (≥ ₹50,000)
+                </span>
+              )}
+            </div>
+
+            {/* High-Value Routing Banner */}
+            {isBulkOrder && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/90 text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-amber-950">
+                  <span className="flex items-center gap-1.5">
+                    <Landmark className="w-4 h-4 text-amber-700" />
+                    High-Value Direct Escrow Policy
+                  </span>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    0% Gateway Fee
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-snug">
+                  In compliance with bulk B2B trade policy, orders of ₹50,000 and above are routed via Escrow Virtual Bank Account (NEFT/RTGS/IMPS) to protect margins and eliminate gateway limits.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* Option 1: Razorpay Route Gateway */}
+              {/* Option 1: Razorpay Route Gateway (Only for retail lots < ₹50,000) */}
+              {!isBulkOrder && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode('direct_razorpay')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    paymentMode === 'direct_razorpay'
+                      ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
+                      : 'border-[#E5EDE8] bg-white hover:border-[#CBD5E1]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
+                      <ShieldCheck className={`w-3.5 h-3.5 ${paymentMode === 'direct_razorpay' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
+                      Razorpay Instant
+                    </span>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${paymentMode === 'direct_razorpay' ? 'border-[#10B981] bg-[#10B981]' : 'border-gray-300'}`}>
+                      {paymentMode === 'direct_razorpay' && <Check className="w-2.5 h-2.5 text-white" />}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 space-y-1">
+                    <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 inline-block">
+                      UPI / Cards / NetBanking
+                    </span>
+                    <p className="text-[10px] text-[#566861] leading-snug">
+                      Instant checkout for orders under ₹50,000.
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {/* Option 2: Escrow Virtual Account (NEFT / RTGS) */}
               <button
                 type="button"
-                onClick={() => setPaymentMode('direct_razorpay')}
+                onClick={() => setPaymentMode('escrow_van')}
                 className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMode === 'direct_razorpay'
-                    ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
+                  isBulkOrder ? 'sm:col-span-2' : ''
+                } ${
+                  paymentMode === 'escrow_van'
+                    ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500/20'
                     : 'border-[#E5EDE8] bg-white hover:border-[#CBD5E1]'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
-                    <ShieldCheck className={`w-3.5 h-3.5 ${paymentMode === 'direct_razorpay' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
-                    Razorpay Route Gateway
+                    <Landmark className={`w-3.5 h-3.5 ${paymentMode === 'escrow_van' ? 'text-emerald-700' : 'text-[#566861]'}`} />
+                    Escrow Virtual Account (VAN)
                   </span>
-                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${paymentMode === 'direct_razorpay' ? 'border-[#10B981] bg-[#10B981]' : 'border-gray-300'}`}>
-                    {paymentMode === 'direct_razorpay' && <Check className="w-2.5 h-2.5 text-white" />}
+                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${paymentMode === 'escrow_van' ? 'border-emerald-600 bg-emerald-600' : 'border-gray-300'}`}>
+                    {paymentMode === 'escrow_van' && <Check className="w-2.5 h-2.5 text-white" />}
                   </span>
                 </div>
                 <div className="mt-1.5 space-y-1">
-                  <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 inline-block">
-                    UPI / Cards / NetBanking
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 inline-block">
+                    NEFT / RTGS / IMPS • 0% Fee
                   </span>
                   <p className="text-[10px] text-[#566861] leading-snug">
-                    Real-time payment gateway checkout with automated nodal escrow split.
+                    Direct bank transfer to AgroLnk Escrow Trust Account.
                   </p>
                 </div>
               </button>
 
-              {/* Option 2: Trade Credit / NBFC Financing */}
-              <button
-                type="button"
-                onClick={() => setPaymentMode('trade_credit')}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMode === 'trade_credit'
-                    ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
-                    : 'border-[#E5EDE8] bg-white hover:border-[#CBD5E1]'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
-                    <Landmark className={`w-3.5 h-3.5 ${paymentMode === 'trade_credit' ? 'text-[#10B981]' : 'text-blue-600'}`} />
-                    Trade Credit
-                  </span>
-                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${paymentMode === 'trade_credit' ? 'border-[#10B981] bg-[#10B981]' : 'border-gray-300'}`}>
-                    {paymentMode === 'trade_credit' && <Check className="w-2.5 h-2.5 text-white" />}
-                  </span>
-                </div>
-                <div className="mt-1.5 space-y-1">
-                  <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 inline-block">
-                    NBFC Financed
-                  </span>
-                  <p className="text-[10px] text-[#566861] leading-snug">
-                    {existingCreditReq
-                      ? `Application ${existingCreditReq.requestNumber} is under review.`
-                      : 'Get up to 80% NBFC institutional financing.'}
-                  </p>
-                </div>
-              </button>
-
+              {/* Option 3: Trade Credit / NBFC Financing */}
+              {!isBulkOrder && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode('trade_credit')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    paymentMode === 'trade_credit'
+                      ? 'border-[#10B981] bg-[#F2FBF6] ring-2 ring-[#10B981]/20'
+                      : 'border-[#E5EDE8] bg-white hover:border-[#CBD5E1]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#0B3326] flex items-center gap-1.5">
+                      <Landmark className={`w-3.5 h-3.5 ${paymentMode === 'trade_credit' ? 'text-[#10B981]' : 'text-blue-600'}`} />
+                      Trade Credit
+                    </span>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${paymentMode === 'trade_credit' ? 'border-[#10B981] bg-[#10B981]' : 'border-gray-300'}`}>
+                      {paymentMode === 'trade_credit' && <Check className="w-2.5 h-2.5 text-white" />}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 space-y-1">
+                    <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 inline-block">
+                      NBFC Financed
+                    </span>
+                    <p className="text-[10px] text-[#566861] leading-snug">
+                      {existingCreditReq
+                        ? `Application ${existingCreditReq.requestNumber} is under review.`
+                        : 'Get up to 80% NBFC institutional financing.'}
+                    </p>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Escrow Virtual Account Banking Details (Rendered when escrow_van is selected) */}
+          {paymentMode === 'escrow_van' && (
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-[#F8FAF8] border-2 border-emerald-300 space-y-3.5 text-left animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5 uppercase tracking-wide">
+                  <Landmark className="w-4 h-4 text-emerald-700" />
+                  Official AgroLnk Escrow Account Details
+                </span>
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  0% Gateway Fee • NEFT / RTGS / IMPS
+                </span>
+              </div>
+
+              <p className="text-[11px] text-[#566861] leading-relaxed">
+                Transfer the exact total amount from your bank's mobile app or netbanking to AgroLnk's Escrow Account:
+              </p>
+
+              {/* Account Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-white border border-emerald-200">
+                  <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Beneficiary Name</span>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="font-bold text-[#0B3326] text-xs block truncate">
+                      {ESCROW_NODAL_ACCOUNT.accountName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyEscrow(ESCROW_NODAL_ACCOUNT.accountName, 'name')}
+                      className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                    >
+                      {copiedEscrowField === 'name' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white border border-emerald-200">
+                  <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Account / Virtual No.</span>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="font-mono font-extrabold text-[#0B3326] text-xs">
+                      {ESCROW_NODAL_ACCOUNT.accountNumber}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyEscrow(ESCROW_NODAL_ACCOUNT.accountNumber, 'acc')}
+                      className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                    >
+                      {copiedEscrowField === 'acc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white border border-emerald-200">
+                  <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Branch IFSC Code</span>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="font-mono font-extrabold text-[#0B3326] text-xs">
+                      {ESCROW_NODAL_ACCOUNT.ifscCode}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyEscrow(ESCROW_NODAL_ACCOUNT.ifscCode, 'ifsc')}
+                      className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                    >
+                      {copiedEscrowField === 'ifsc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white border border-emerald-200">
+                  <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Bank Name &amp; Branch</span>
+                  <span className="font-bold text-[#0B3326] text-xs block truncate mt-0.5">
+                    {ESCROW_NODAL_ACCOUNT.bankName} ({ESCROW_NODAL_ACCOUNT.branch})
+                  </span>
+                </div>
+              </div>
+
+              {/* UTR Input Field */}
+              <div className="p-3.5 rounded-xl bg-white border-2 border-emerald-400 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wide flex items-center gap-1.5">
+                    <span>Enter Bank UTR / Reference Number</span>
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-700 font-semibold">From your bank receipt / SMS</span>
+                </div>
+                <input
+                  type="text"
+                  value={bankUtr}
+                  onChange={(e) => setBankUtr(e.target.value.toUpperCase())}
+                  placeholder="e.g. SBIN420261105991823 or ICICR241009821"
+                  className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-gray-300 font-mono text-sm uppercase tracking-wider text-[#0B3326] font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <div className="p-2 rounded-lg bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed space-y-1">
+                  <div className="font-bold flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    Mandatory Escrow Verification Sequence:
+                  </div>
+                  <p>
+                    Submitting your UTR registers your payment claim. AgroLnk Admin verifies the credit directly against the official bank statement. <strong>Produce dispatch is locked until the Admin confirms receipt.</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* If an active credit application is already pending for this lot */}
           {paymentMode === 'trade_credit' && existingCreditReq && (
@@ -753,22 +958,26 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
             size="md"
             onClick={handleConfirmOrder}
             disabled={isSubmitting || Boolean(creditSuccessMsg) || (paymentMode === 'trade_credit' && Boolean(existingCreditReq))}
-            icon={paymentMode === 'trade_credit' ? Landmark : Zap}
+            icon={paymentMode === 'direct_razorpay' ? Zap : Landmark}
             iconPosition="left"
             className={`flex-1 justify-center font-bold text-xs py-2.5 sm:py-3 shadow-xs cursor-pointer w-full sm:w-auto text-white ${
               paymentMode === 'trade_credit'
                 ? existingCreditReq
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-[#2563EB] hover:bg-[#1D4ED8]'
+                : paymentMode === 'escrow_van'
+                ? 'bg-emerald-800 hover:bg-emerald-900'
                 : 'bg-[#0B3326] hover:bg-[#0A261D]'
             }`}
           >
             {isSubmitting
-              ? 'Processing Payment...'
+              ? 'Processing Order...'
               : paymentMode === 'trade_credit'
               ? existingCreditReq
                 ? `Application Under Review (${existingCreditReq.requestNumber})`
                 : `Apply for Trade Credit (${formatINR(financedLoanAmount)})`
+              : paymentMode === 'escrow_van'
+              ? `Submit UTR & Place Escrow Order (${formatINR(financials.totalBuyerPayable)})`
               : `Pay ${formatINR(financials.totalBuyerPayable)} via Razorpay`}
           </Button>
         </div>

@@ -26,9 +26,15 @@ import {
   MapPin,
   Calendar,
   CalendarDays,
-  Filter
+  Filter,
+  Copy,
+  Check,
+  CreditCard,
+  Edit3,
+  Save,
+  Building
 } from 'lucide-react';
-import { getAllKYCUsers, updateKYCStatus, extractUserDocuments } from '../../utils/admin';
+import { getAllKYCUsers, updateKYCStatus, extractUserDocuments, updateUserVANProvision } from '../../utils/admin';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
@@ -55,6 +61,68 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedUserForDocs, setSelectedUserForDocs] = useState(null);
   const [inspectingDoc, setInspectingDoc] = useState(null); // { doc, user }
+
+  // Virtual Account Number (VAN) Provision State
+  const [isEditingVan, setIsEditingVan] = useState(false);
+  const [vanFormData, setVanFormData] = useState({
+    vanStatus: 'pending_bank_approval',
+    virtualAccountNumber: '',
+    virtualAccountIfsc: '',
+    vanBankName: '',
+    vanNotes: '',
+  });
+  const [vanSaving, setVanSaving] = useState(false);
+  const [copiedVanField, setCopiedVanField] = useState(null);
+
+  useEffect(() => {
+    if (selectedUserForDocs) {
+      setIsEditingVan(false);
+      setVanFormData({
+        vanStatus: selectedUserForDocs.vanStatus || 'pending_bank_approval',
+        virtualAccountNumber: selectedUserForDocs.virtualAccountNumber || '',
+        virtualAccountIfsc: selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+        vanBankName: selectedUserForDocs.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+        vanNotes: selectedUserForDocs.vanNotes || '',
+      });
+    }
+  }, [selectedUserForDocs]);
+
+  const handleSaveVan = async () => {
+    if (!selectedUserForDocs) return;
+    setVanSaving(true);
+    try {
+      const updated = await updateUserVANProvision(selectedUserForDocs.id, vanFormData);
+      setSelectedUserForDocs((prev) => ({ ...prev, ...updated }));
+      setFeedbackMessage(`Virtual account provision saved for ${selectedUserForDocs.name}.`);
+      setIsEditingVan(false);
+      await loadKYC(false);
+    } catch (err) {
+      console.error('Failed to save VAN:', err);
+    } finally {
+      setVanSaving(false);
+    }
+  };
+
+  const handleGenerateDefaultVan = () => {
+    const prefix = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_VAN_PREFIX) || 'AGRO';
+    const cleanId = (selectedUserForDocs?.id || 'USER').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase();
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const generatedVan = `${prefix}${cleanId}${randomSuffix}`;
+    setVanFormData((prev) => ({
+      ...prev,
+      virtualAccountNumber: generatedVan,
+      vanStatus: 'active',
+      virtualAccountIfsc: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+      vanBankName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+    }));
+  };
+
+  const handleCopyVan = (text, fieldName) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedVanField(fieldName);
+    setTimeout(() => setCopiedVanField(null), 2000);
+  };
 
   const handleSetViewMode = (mode) => {
     setViewMode(mode);
@@ -438,6 +506,15 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                                   Pending
                                 </span>
                               ) : null}
+                              {item.virtualAccountNumber ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  VAN: {item.virtualAccountNumber}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                  VAN Pending
+                                </span>
+                              )}
                             </div>
                             <span className="text-xs text-[#566861] block">
                               {item.orgName || item.email} &bull; <span className="capitalize font-semibold text-[#0B3326]">{item.role}</span>
@@ -595,6 +672,15 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                                 ✕ Revoked
                               </span>
                             ) : null}
+                            {item.virtualAccountNumber ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                VAN: {item.virtualAccountNumber}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                VAN Pending
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
                             <span className="font-semibold text-[#0B3326]">{item.orgName || item.email}</span>
@@ -778,6 +864,192 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                   </p>
                 </div>
               )}
+
+              {/* Virtual Account Number (VAN) Banking Provision Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-[#F8FAF8] border border-emerald-200/80 space-y-3.5 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#0B3326] flex items-center gap-2 uppercase tracking-wide">
+                    <Landmark className="w-4 h-4 text-emerald-700" />
+                    Virtual Account Number (VAN) Banking Provision
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                      selectedUserForDocs.vanStatus === 'active'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : selectedUserForDocs.vanStatus === 'rejected'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                    }`}>
+                      {selectedUserForDocs.vanStatus === 'active'
+                        ? '● VAN Active'
+                        : selectedUserForDocs.vanStatus === 'rejected'
+                        ? '✕ Bank Rejected'
+                        : '⏳ Pending Bank Review'}
+                    </span>
+                    {!isEditingVan && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingVan(true)}
+                        className="p-1 rounded-lg text-emerald-800 hover:bg-emerald-100 transition-colors text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="Edit or Assign Bank Virtual Account"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {!isEditingVan ? (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
+                        <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Virtual Account No. (VAN)</span>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className="font-mono font-extrabold text-[#0B3326] text-xs">
+                            {selectedUserForDocs.virtualAccountNumber || 'Awaiting Bank Issuance'}
+                          </span>
+                          {selectedUserForDocs.virtualAccountNumber && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyVan(selectedUserForDocs.virtualAccountNumber, 'van')}
+                              className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                            >
+                              {copiedVanField === 'van' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
+                        <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Dedicated Branch IFSC</span>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className="font-mono font-extrabold text-[#0B3326] text-xs">
+                            {selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyVan(selectedUserForDocs.virtualAccountIfsc || 'ICIC0000104', 'ifsc')}
+                            className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                          >
+                            {copiedVanField === 'ifsc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-white border border-emerald-100 sm:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Banking Clearing Partner</span>
+                            <span className="font-bold text-[#0B3326] text-xs block">
+                              {selectedUserForDocs.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.'}
+                            </span>
+                          </div>
+                          {selectedUserForDocs.vanNotes && (
+                            <span className="text-[11px] text-[#566861] italic max-w-[200px] truncate">
+                              Ref: {selectedUserForDocs.vanNotes}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-[#566861] leading-relaxed">
+                      💡 Users receive incoming B2B transfers directly into their dedicated escrow sub-ledger via NEFT/RTGS.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-white border border-emerald-300 space-y-3">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <span className="text-xs font-bold text-[#0B3326]">Provision Bank Virtual Account</span>
+                      <button
+                        type="button"
+                        onClick={handleGenerateDefaultVan}
+                        className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                      >
+                        Auto-Generate AgroLnk Nodal VAN
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Virtual Account No.</label>
+                        <input
+                          type="text"
+                          value={vanFormData.virtualAccountNumber}
+                          onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountNumber: e.target.value }))}
+                          placeholder="e.g. AGROESC982104"
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 font-mono text-xs uppercase"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank IFSC Code</label>
+                        <input
+                          type="text"
+                          value={vanFormData.virtualAccountIfsc}
+                          onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountIfsc: e.target.value }))}
+                          placeholder="e.g. ICIC0000104"
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 font-mono text-xs uppercase"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank Name</label>
+                        <input
+                          type="text"
+                          value={vanFormData.vanBankName}
+                          onChange={(e) => setVanFormData((prev) => ({ ...prev, vanBankName: e.target.value }))}
+                          placeholder="e.g. ICICI Bank Ltd."
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank Approval Status</label>
+                        <select
+                          value={vanFormData.vanStatus}
+                          onChange={(e) => setVanFormData((prev) => ({ ...prev, vanStatus: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold"
+                        >
+                          <option value="pending_bank_approval">⏳ Pending Bank Review</option>
+                          <option value="active">● Active & Verified</option>
+                          <option value="rejected">✕ Rejected by Bank</option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank Application Notes / Ticket Reference</label>
+                        <input
+                          type="text"
+                          value={vanFormData.vanNotes}
+                          onChange={(e) => setVanFormData((prev) => ({ ...prev, vanNotes: e.target.value }))}
+                          placeholder="e.g. ICICI Corporate Desk Application #49281"
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingVan(false)}
+                        className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={vanSaving}
+                        onClick={handleSaveVan}
+                        className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{vanSaving ? 'Saving...' : 'Save Provision'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Submitted Credentials & Certificate Previews */}
               <div className="space-y-3">

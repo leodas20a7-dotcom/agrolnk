@@ -183,7 +183,11 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
         await deductListingQuantity(listing.id, deductQty);
       }
 
-      toast.success('Order placed successfully! Escrow deposit held in security.');
+      toast.success(
+        orderPayload.paymentMode === 'escrow_van'
+          ? 'Order placed! UTR submitted for admin bank statement check.'
+          : 'Order placed successfully! Escrow deposit held in security.'
+      );
       setIsModalOpen(false);
       onNavigate('buyer-orders', { newOrder: order });
     } catch (err) {

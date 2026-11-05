@@ -1,7 +1,15 @@
 import React from 'react';
 import Badge from '../ui/Badge';
 
-export default function OrderStatus({ status = 'pending', escrowStatus, adminVerificationStatus, isAuction, size = 'sm' }) {
+export default function OrderStatus({ 
+  status = 'pending', 
+  escrowStatus, 
+  adminVerificationStatus, 
+  isAuction, 
+  size = 'sm',
+  paymentMode,
+  hasUtr,
+}) {
   // If completed, admin approved, or escrow already released:
   if (status === 'completed' || escrowStatus === 'released' || escrowStatus === 'settled' || adminVerificationStatus === 'approved') {
     return (
@@ -13,10 +21,11 @@ export default function OrderStatus({ status = 'pending', escrowStatus, adminVer
 
   // If newly placed, pending, or confirmed:
   if (status === 'order_placed' || status === 'pending' || status === 'confirmed') {
-    if (escrowStatus === 'pending' || status === 'pending') {
+    if (escrowStatus === 'pending' || status === 'pending' || escrowStatus === 'pending_verification') {
+      const isBankUtrPending = hasUtr || paymentMode === 'escrow_van';
       return (
         <Badge variant="amber" size={size} dot={true}>
-          <span>Awaiting Escrow Deposit</span>
+          <span>{isBankUtrPending ? 'Bank UTR Verifying' : 'Awaiting Escrow Deposit'}</span>
         </Badge>
       );
     }

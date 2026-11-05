@@ -212,6 +212,16 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   const handleAdvanceStatus = async (nextStatus) => {
     if (!selectedOrder) return;
+    const isAwaitingEscrow = 
+      selectedOrder.escrowStatus === 'pending' || 
+      selectedOrder.escrowStatus === 'pending_verification' || 
+      selectedOrder.status === 'pending' ||
+      selectedOrder.status === 'payment_verification_pending';
+
+    if (isAwaitingEscrow) {
+      alert('Produce dispatch is locked. You cannot advance order status until AgroLnk Admin confirms receipt of the bank deposit.');
+      return;
+    }
     setIsUpdating(true);
     try {
       await updateOrderStatus(selectedOrder.id, nextStatus);
@@ -422,18 +432,40 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             />
 
             {/* Order Fulfillment & Logistics Actions (Only for active / non-completed states) */}
-            {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (
+            {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (() => {
+              const isAwaitingEscrow = 
+                selectedOrder.escrowStatus === 'pending' || 
+                selectedOrder.escrowStatus === 'pending_verification' || 
+                selectedOrder.status === 'pending' ||
+                selectedOrder.status === 'payment_verification_pending';
+
+              return (
               <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3.5 text-left">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
                     <Truck className="w-3.5 h-3.5 text-[#10B981]" />
                     Delivery & Fulfillment Setup
                   </span>
-                  <Badge variant="teal" size="sm">
-                    Escrow Locked
+                  <Badge variant={isAwaitingEscrow ? "amber" : "teal"} size="sm">
+                    {isAwaitingEscrow ? "Awaiting Escrow Verification" : "Escrow Locked"}
                   </Badge>
                 </div>
 
+                {isAwaitingEscrow ? (
+                  <div className="p-4 rounded-xl bg-amber-50 border-2 border-amber-300 space-y-2 text-left">
+                    <div className="flex items-center gap-2 font-bold text-amber-950 text-xs">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Dispatch Locked — Payment Deposit Under Bank Verification</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      The buyer submitted bank transfer UTR: <strong className="font-mono text-amber-950">{selectedOrder.bankUtr || 'Pending Submission'}</strong>. AgroLnk Admin is currently verifying the funds against the official bank account statement.
+                    </p>
+                    <div className="p-2.5 rounded-lg bg-amber-100/80 border border-amber-300 text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                      <span>⚠️ Sequence Protection: Do not harvest, pack, or dispatch produce until Admin confirms the credited deposit.</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 {/* Case A: Transporter Requested */}
                 {linkedDelivery && linkedDelivery.status === 'transport_requested' && (
                   <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
@@ -520,8 +552,11 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     </div>
                   </div>
                 )}
+                  </>
+                )}
               </div>
-            )}
+              );
+            })()}
 
             {/* In Transit Action Card */}
             {selectedOrder.status === 'in_transit' && (

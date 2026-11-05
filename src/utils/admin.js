@@ -216,6 +216,13 @@ export async function getAllKYCUsers() {
           verifiedBy: dbKycStatus === 'verified' ? (localMatch?.verifiedBy || 'Admin') : null,
           documents: resolvedDocs.length > 0 ? resolvedDocs : (Array.isArray(localDocs) && localDocs.length > 0 ? localDocs : []),
           auditNotes: meta.auditNotes || localMatch?.auditNotes || `Registered ${p.role || 'user'}.`,
+          // VAN (Virtual Account Number) Banking Provision fields
+          vanStatus: p.van_status || meta.van_status || localMatch?.vanStatus || (dbKycStatus === 'verified' ? 'active' : 'pending_bank_approval'),
+          virtualAccountNumber: p.virtual_account_number || meta.virtual_account_number || localMatch?.virtualAccountNumber || '',
+          virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || localMatch?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+          vanBankName: p.van_bank_name || meta.van_bank_name || localMatch?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+          vanNotes: meta.van_notes || localMatch?.vanNotes || '',
+          bankDetails: meta.bankDetails || localMatch?.bankDetails || p.bank_details || null,
         };
       });
 
@@ -325,6 +332,67 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
 
   window.dispatchEvent(new Event('agrolnk_kyc_updated'));
   return targetUser;
+}
+
+/**
+ * Update User Virtual Account Number (VAN) Banking Provision (Admin Action)
+ */
+export async function updateUserVANProvision(userId, {
+  vanStatus = 'active',
+  virtualAccountNumber = '',
+  virtualAccountIfsc = '',
+  vanBankName = '',
+  vanNotes = '',
+}) {
+  const all = getStoredKYC();
+  const index = all.findIndex((u) => u.id === userId || u.email === userId);
+  
+  const updatedData = {
+    vanStatus,
+    virtualAccountNumber: (virtualAccountNumber || '').trim().toUpperCase(),
+    virtualAccountIfsc: (virtualAccountIfsc || '').trim().toUpperCase(),
+    vanBankName: (vanBankName || '').trim(),
+    vanNotes: (vanNotes || '').trim(),
+    vanAssignedAt: new Date().toISOString(),
+  };
+
+  if (index !== -1) {
+    all[index] = { ...all[index], ...updatedData };
+    saveStoredKYC(all);
+  }
+
+  // Sync to database profile meta
+  try {
+    const { data: currentProf } = await supabase
+      .from('profiles')
+      .select('meta')
+      .or(`id.eq.${userId},email.eq.${userId}`)
+      .single();
+
+    const existingMeta = currentProf?.meta || {};
+    const mergedMeta = {
+      ...existingMeta,
+      van_status: vanStatus,
+      virtual_account_number: updatedData.virtualAccountNumber,
+      virtual_account_ifsc: updatedData.virtualAccountIfsc,
+      van_bank_name: updatedData.vanBankName,
+      van_notes: updatedData.vanNotes,
+      van_assigned_at: updatedData.vanAssignedAt,
+    };
+
+    await supabase
+      .from('profiles')
+      .update({
+        meta: mergedMeta,
+        updated_at: new Date().toISOString(),
+      })
+      .or(`id.eq.${userId},email.eq.${userId}`);
+  } catch (err) {
+    console.warn('Could not sync VAN provision to Supabase DB:', err);
+  }
+
+  window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+  return { id: userId, ...updatedData };
 }
 
 /**

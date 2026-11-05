@@ -326,13 +326,27 @@ export default function OrderSummary({
           {/* Payment & Security Mode */}
           <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-0.5">
             <span className="text-[10px] text-[#566861] font-bold uppercase tracking-wider block">
-              Payment Mode
+              Payment Mode &amp; Security
             </span>
-            <span className={`font-extrabold text-sm block ${isBuyer && isBuyerFinanced ? 'text-blue-700' : 'text-emerald-700'}`}>
-              {isBuyer && isBuyerFinanced ? 'Trade Credit (NBFC)' : '100% Escrow Protected'}
+            <span className={`font-extrabold text-sm block ${
+              isBuyer && isBuyerFinanced 
+                ? 'text-blue-700' 
+                : (order.paymentMode === 'escrow_van' || order.paymentMethod === 'escrow_van')
+                ? 'text-emerald-800'
+                : 'text-emerald-700'
+            }`}>
+              {isBuyer && isBuyerFinanced 
+                ? 'Trade Credit (NBFC)' 
+                : (order.paymentMode === 'escrow_van' || order.paymentMethod === 'escrow_van')
+                ? 'Escrow Bank Transfer (VAN)'
+                : '100% Escrow Protected'}
             </span>
-            <span className="text-[11px] text-[#566861] block">
-              {isBuyer && isBuyerFinanced ? '30 Days Net Repayment' : 'Held safely until delivery'}
+            <span className="text-[11px] text-[#566861] block font-mono">
+              {order.bankUtr 
+                ? `UTR: ${order.bankUtr} • ${order.escrowStatus === 'funded' ? 'Verified ✓' : 'Verifying ⏳'}`
+                : isBuyer && isBuyerFinanced 
+                ? '30 Days Net Repayment' 
+                : 'Held safely in AgroLnk Escrow'}
             </span>
           </div>
         </div>

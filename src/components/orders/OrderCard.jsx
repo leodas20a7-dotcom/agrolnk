@@ -61,6 +61,8 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
             escrowStatus={order.escrowStatus || order.escrow_status}
             adminVerificationStatus={order.adminVerificationStatus || order.admin_verification_status}
             isAuction={Boolean(order.auctionId || order.auction_id)}
+            hasUtr={Boolean(order.bankUtr || order.bank_utr)}
+            paymentMode={order.paymentMode || order.payment_mode}
             size="sm"
           />
         </div>

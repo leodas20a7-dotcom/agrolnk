@@ -67,7 +67,9 @@ function mapOrderFromDb(row) {
     payoutBankName: row.payout_bank_name || null,
     payoutAccountNumber: row.payout_account_number || null,
     payoutIfsc: row.payout_ifsc || null,
-    bankUtr: row.bank_utr || null,
+    bankUtr: row.bank_utr || row.payment_id || null,
+    paymentMode: row.payment_mode || 'direct',
+    paymentMethod: row.payment_method || row.payment_mode || 'direct',
     disbursedAt: row.disbursed_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -398,9 +400,11 @@ export async function createOrder(orderData) {
       totalAmount: Number(orderData.totalAmount),
       state: orderData.state || '',
       district: orderData.district || '',
-      escrowStatus: isTradeCredit ? 'financing_pending' : 'funded',
-      status: 'order_placed',
-      paymentMode: isTradeCredit ? 'trade_credit' : 'direct',
+      escrowStatus: isTradeCredit ? 'financing_pending' : (orderData.escrowStatus || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'funded')),
+      status: orderData.status || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'order_placed'),
+      paymentMode: orderData.paymentMode || (isTradeCredit ? 'trade_credit' : 'direct'),
+      paymentMethod: orderData.paymentMethod || (orderData.paymentMode === 'escrow_van' ? 'escrow_van' : 'razorpay_route'),
+      bankUtr: orderData.bankUtr || orderData.razorpay_payment_id || null,
       financingAmount: orderData.financingAmount,
       buyerMarginDeposit: orderData.buyerMarginDeposit,
       financingRequestId: orderData.financingRequestId,
@@ -579,10 +583,10 @@ export async function createOrder(orderData) {
       total_amount: verifiedTotalAmount,
       state: orderData.state || '',
       district: orderData.district || '',
-      payment_id: orderData.razorpay_payment_id || orderData.paymentId || null,
+      payment_id: orderData.razorpay_payment_id || orderData.paymentId || orderData.bankUtr || null,
       payment_mode: orderData.paymentMode || (isTradeCredit ? 'trade_credit' : 'direct'),
-      escrow_status: isTradeCredit ? 'pending' : ((orderData.razorpay_payment_id || orderData.paymentId) ? 'funded' : 'pending'),
-      status: 'order_placed',
+      escrow_status: isTradeCredit ? 'pending' : (orderData.paymentMode === 'escrow_van' ? 'pending' : ((orderData.razorpay_payment_id || orderData.paymentId) ? 'funded' : 'pending')),
+      status: orderData.status || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'order_placed'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -978,6 +982,61 @@ export async function updateOrderStatus(orderId, newStatus) {
     return mapped;
   } catch (err) {
     console.error('Error updating order status:', err);
+    throw err;
+  }
+}
+
+/**
+ * Verify and Lock Escrow Deposit (Admin Bank Statement Verification)
+ * Strictly unlocks produce dispatch only after real-world credit verification.
+ */
+export async function verifyAndLockEscrowDeposit(orderId, adminName = 'AgroLnk Admin') {
+  try {
+    const updatePayload = {
+      escrow_status: 'funded',
+      status: 'order_placed',
+      admin_verified_by: adminName,
+      admin_verification_status: 'approved',
+      admin_verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // 1. Update in Supabase
+    try {
+      await supabase
+        .from('orders')
+        .update(updatePayload)
+        .or(`id.eq.${orderId},order_number.eq.${orderId}`);
+    } catch (e) {
+      console.warn('Supabase escrow lock sync notice:', e);
+    }
+
+    // 2. Update local storage cache
+    const stored = getLocalOrders();
+    const idx = stored.findIndex((o) => o.id === orderId || o.orderNumber === orderId);
+    if (idx !== -1) {
+      stored[idx] = {
+        ...stored[idx],
+        escrowStatus: 'funded',
+        status: 'order_placed',
+        adminVerifiedBy: adminName,
+        adminVerificationStatus: 'approved',
+        adminVerifiedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      saveLocalOrder(stored[idx]);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('agrolnk_orders_updated'));
+      window.dispatchEvent(new Event('agrolnk_order_updated'));
+      window.dispatchEvent(new Event('agrolnk_escrow_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Failed to verify & lock escrow deposit:', err);
     throw err;
   }
 }

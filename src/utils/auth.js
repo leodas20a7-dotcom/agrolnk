@@ -903,6 +903,11 @@ export async function syncAuthenticatedUserWithServer() {
       companyName: profile.company_name || '',
       kycStatus: profile.kyc_status || 'pending',
       verificationStatus: profile.kyc_status || 'pending',
+      vanStatus: profile.van_status || profile.meta?.van_status || 'pending_bank_approval',
+      virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || '',
+      virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+      vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      vanNotes: profile.van_notes || profile.meta?.van_notes || '',
       createdAt: profile.created_at || session.user.created_at,
     };
 
@@ -993,6 +998,16 @@ export async function fetchCurrentProfile() {
         kycStatus: resolvedKyc,
 
         verificationStatus: resolvedKyc,
+
+        vanStatus: profile.van_status || profile.meta?.van_status || current.vanStatus || 'pending_bank_approval',
+
+        virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || current.virtualAccountNumber || '',
+
+        virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || current.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+
+        vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || current.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+
+        vanNotes: profile.van_notes || profile.meta?.van_notes || current.vanNotes || '',
 
         createdAt: profile.created_at,
 
