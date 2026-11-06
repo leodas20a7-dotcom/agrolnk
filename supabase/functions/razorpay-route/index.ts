@@ -631,9 +631,50 @@ serve(async (req: Request) => {
             .update({
               escrow_status: "funded",
               settlement_status: "captured_on_hold",
+              bank_utr: paymentEntity?.acquirer_data?.bank_transaction_id || paymentEntity?.acquirer_data?.rrn || paymentEntity?.id || null,
               updated_at: new Date().toISOString(),
             })
             .eq("razorpay_order_id", rzpOrderId);
+        }
+      } else if (event === "virtual_account.credited") {
+        // Smart Collect VAN Bank Transfer Credit (NEFT / RTGS / IMPS)
+        const vaEntity = body.payload?.virtual_account?.entity;
+        const paymentEntity = body.payload?.payment?.entity;
+        const vaNotes = vaEntity?.notes || paymentEntity?.notes || {};
+        const targetOrderId = vaNotes.orderId || vaNotes.order_id;
+        const targetOrderNumber = vaNotes.orderNumber || vaNotes.order_number;
+        
+        // Extract authentic bank UTR from acquirer data
+        const bankUtr = paymentEntity?.acquirer_data?.bank_transaction_id || 
+                        paymentEntity?.acquirer_data?.rrn || 
+                        paymentEntity?.acquirer_data?.bank_reference || 
+                        paymentEntity?.id || 
+                        `UTR_${Date.now()}`;
+
+        if (targetOrderId) {
+          await supabase
+            .from("orders")
+            .update({
+              escrow_status: "held",
+              settlement_status: "captured_on_hold",
+              bank_utr: bankUtr,
+              payment_method: "escrow_van",
+              status: "order_placed",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", targetOrderId);
+        } else if (targetOrderNumber) {
+          await supabase
+            .from("orders")
+            .update({
+              escrow_status: "held",
+              settlement_status: "captured_on_hold",
+              bank_utr: bankUtr,
+              payment_method: "escrow_van",
+              status: "order_placed",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("order_number", targetOrderNumber);
         }
       } else if (event === "transfer.processed") {
         const transferEntity = body.payload?.transfer?.entity;
