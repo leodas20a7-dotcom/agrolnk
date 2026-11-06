@@ -7,7 +7,7 @@ import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 import { createFinancingRequest, getFinancingRequests } from '../../utils/financing';
 import { getResolvedUserKycStatus } from '../../utils/auth';
 import { convertVolume, getRateInUnit } from '../../utils/pricingUnits';
-import { ESCROW_NODAL_ACCOUNT } from '../../utils/escrowApi';
+import { ESCROW_NODAL_ACCOUNT, generateOrderSmartVAN, processSmartVanWebhookCredit } from '../../utils/escrowApi';
 import { supabase } from '../../lib/supabase';
 
 export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
@@ -243,18 +243,22 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
   const handleGenerateSmartVan = () => {
     setIsSubmitting(false);
-    // Generate order-specific Smart Virtual Account Number
-    const rawDigits = (currentUser?.phone || '9829824928').replace(/\D/g, '').slice(-6);
     const orderSalt = Math.floor(1000 + Math.random() * 9000);
-    const dynamicVan = `${ESCROW_NODAL_ACCOUNT.virtualAccountPrefix || 'AGRO'}${rawDigits}${orderSalt}`;
     const generatedOrderNum = `#AGM-${orderSalt}`;
+    
+    // Utilize centralized Smart VAN generator
+    const smartVanData = generateOrderSmartVAN({
+      orderNumber: generatedOrderNum,
+      buyerPhone: currentUser?.phone,
+      orderAmount: financials.totalBuyerPayable
+    });
 
     setVanSession({
       orderNumber: generatedOrderNum,
-      vanNumber: dynamicVan,
-      ifsc: ESCROW_NODAL_ACCOUNT.ifscCode || 'ICIC0000104',
-      bankName: ESCROW_NODAL_ACCOUNT.bankName || 'ICICI Bank Ltd.',
-      beneficiary: `${ESCROW_NODAL_ACCOUNT.accountName} - ${generatedOrderNum}`,
+      vanNumber: smartVanData.accountNumber,
+      ifsc: smartVanData.ifscCode,
+      bankName: smartVanData.bankName,
+      beneficiary: smartVanData.beneficiaryName,
       amount: financials.totalBuyerPayable,
       status: 'awaiting_clearing',
       utr: null,
@@ -262,13 +266,21 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     setIsAwaitingWebhook(true);
   };
 
-  const handleSimulateBankCredit = () => {
+  const handleSimulateBankCredit = async () => {
     if (!vanSession) return;
     setIsSubmitting(true);
     // Generate authentic Indian Bank UTR format (e.g. ICICR2026110698124)
     const simulatedUtr = `ICICR${new Date().getFullYear()}${String(Date.now()).slice(-8)}`;
 
-    setTimeout(() => {
+    try {
+      // Process through real-time escrow webhook processor
+      await processSmartVanWebhookCredit({
+        orderNumber: vanSession.orderNumber,
+        bankUtr: simulatedUtr,
+        amount: vanSession.amount,
+        remitterName: currentUser?.name || 'Buyer Enterprise',
+      });
+
       setVanSession(prev => ({
         ...prev,
         status: 'credited',
@@ -276,14 +288,16 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       }));
       setIsSubmitting(false);
 
-      // Trigger automatic order confirmation with captured bank UTR
+      // Auto-confirm order with captured bank UTR
       setTimeout(() => {
         executeOrderPlacement({
           bankUtr: simulatedUtr,
           razorpay_payment_id: `pay_van_${Date.now()}`
         });
       }, 1600);
-    }, 1200);
+    } catch (_err) {
+      setIsSubmitting(false);
+    }
   };
 
   const handleTradeCreditFinancing = async () => {
