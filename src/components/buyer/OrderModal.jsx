@@ -80,12 +80,21 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     };
   }, [listing, currentUser, isOpen]);
 
-  if (!isOpen || !listing) return null;
-
   const qty = Math.max(0, Number(purchaseQty || 0));
-  const activeRate = getRateInUnit(listing.price, listing.unit, purchaseUnit);
+  const activeRate = listing ? getRateInUnit(listing.price, listing.unit, purchaseUnit) : 0;
   const subtotal = Math.round(qty * activeRate);
   const financials = calculateOrderFinancials(subtotal);
+
+  // Dual-Tier Rule: Bulk orders >= 50,000 must use Escrow Virtual Account to eliminate gateway fees
+  const isBulkOrder = (financials?.totalBuyerPayable || 0) >= 50000;
+
+  useEffect(() => {
+    if (isOpen && isBulkOrder && paymentMode === 'direct_razorpay') {
+      setPaymentMode('escrow_van');
+    }
+  }, [isOpen, isBulkOrder, paymentMode]);
+
+  if (!isOpen || !listing) return null;
 
   // Canonical cross-unit conversions
   const maxInSelectedUnit = convertVolume(listing.quantity, listing.unit, purchaseUnit);
@@ -96,15 +105,6 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
   const financedLoanAmount = Math.round(financials.totalBuyerPayable * financePct);
   const buyerMarginDeposit = financials.totalBuyerPayable - financedLoanAmount;
-
-  // Dual-Tier Rule: Bulk orders >= 50,000 must use Escrow Virtual Account to eliminate gateway fees
-  const isBulkOrder = (financials?.totalBuyerPayable || 0) >= 50000;
-
-  useEffect(() => {
-    if (isBulkOrder && paymentMode === 'direct_razorpay') {
-      setPaymentMode('escrow_van');
-    }
-  }, [isBulkOrder, paymentMode]);
 
   const handleCopyEscrow = (text, fieldKey) => {
     if (!text) return;
