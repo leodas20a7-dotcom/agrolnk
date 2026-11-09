@@ -55,6 +55,27 @@ export default function ResetPassword({ onNavigate }) {
         return;
       }
 
+      // Check if access_token is present anywhere in the URL (even after a double-hash '#/reset-password#access_token=...')
+      const tokenMatch = hash.match(/access_token=([^&]+)/);
+      const refreshMatch = hash.match(/refresh_token=([^&]+)/);
+
+      if (tokenMatch) {
+        const accessToken = decodeURIComponent(tokenMatch[1]);
+        const refreshToken = refreshMatch ? decodeURIComponent(refreshMatch[1]) : '';
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || accessToken,
+          });
+          if (!error && data?.session) {
+            setHasValidSession(true);
+            return;
+          }
+        } catch (err) {
+          console.warn('Manual token session hydration fallback:', err);
+        }
+      }
+
       // If tokens or recovery parameters are present, give Supabase a grace period to process
       if (hash.includes('access_token') || hash.includes('type=recovery') || search.includes('code=')) {
         setTimeout(async () => {
