@@ -29,6 +29,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   // Automated Smart Collect VAN State
   const [vanSession, setVanSession] = useState(null); // { orderId, orderNumber, vanNumber, ifsc, amount, status, utr }
   const [isAwaitingWebhook, setIsAwaitingWebhook] = useState(false);
+  const [vanVerificationMode, setVanVerificationMode] = useState('auto'); // 'auto' | 'manual'
+  const [manualUtrInput, setManualUtrInput] = useState('');
 
   useEffect(() => {
     if (listing?.quantity) {
@@ -231,8 +233,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       paymentMode: paymentMode,
       paymentMethod: paymentMode,
       bankUtr: paymentData?.bankUtr || paymentData?.razorpay_payment_id || null,
-      escrowStatus: paymentMode === 'escrow_van' ? 'pending' : 'funded',
-      status: paymentMode === 'escrow_van' ? 'pending' : 'order_placed',
+      escrowStatus: paymentData?.escrowStatus || (paymentMode === 'escrow_van' ? (paymentData?.autoVerified ? 'funded' : 'pending') : 'funded'),
+      status: paymentData?.status || (paymentMode === 'escrow_van' ? (paymentData?.autoVerified ? 'order_placed' : 'pending') : 'order_placed'),
       state: listing.state,
       district: listing.district,
       razorpay_payment_id: paymentData?.razorpay_payment_id || null,
@@ -292,12 +294,30 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       setTimeout(() => {
         executeOrderPlacement({
           bankUtr: simulatedUtr,
-          razorpay_payment_id: `pay_van_${Date.now()}`
+          razorpay_payment_id: `pay_van_${Date.now()}`,
+          autoVerified: true,
+          escrowStatus: 'funded',
+          status: 'order_placed',
         });
       }, 1600);
     } catch (_err) {
       setIsSubmitting(false);
     }
+  };
+
+  const handleManualUtrSubmit = () => {
+    setError('');
+    const cleanUtr = (manualUtrInput || '').trim().toUpperCase();
+    if (!cleanUtr || cleanUtr.length < 6) {
+      setError('Please enter a valid Bank UTR / NEFT reference number (at least 6 characters).');
+      return;
+    }
+    executeOrderPlacement({
+      bankUtr: cleanUtr,
+      autoVerified: false,
+      escrowStatus: 'pending',
+      status: 'pending',
+    });
   };
 
   const handleTradeCreditFinancing = async () => {
@@ -890,6 +910,34 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                     </div>
                   </div>
 
+                  {/* Mode Selector: Automated Webhook vs Manual UTR Fallback */}
+                  <div className="flex items-center gap-1.5 p-1 bg-white/70 border border-emerald-200 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setVanVerificationMode('auto')}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        vanVerificationMode === 'auto'
+                          ? 'bg-emerald-800 text-white shadow-xs'
+                          : 'text-[#566861] hover:text-[#0B3326]'
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>⚡ Auto Webhook (Recommended)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVanVerificationMode('manual')}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        vanVerificationMode === 'manual'
+                          ? 'bg-blue-800 text-white shadow-xs'
+                          : 'text-[#566861] hover:text-[#0B3326]'
+                      }`}
+                    >
+                      <Landmark className="w-3.5 h-3.5" />
+                      <span>📝 Manual UTR (Fallback)</span>
+                    </button>
+                  </div>
+
                   {vanSession?.status === 'credited' ? (
                     <div className="p-3.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 flex items-center gap-3 animate-in zoom-in-95">
                       <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
@@ -900,7 +948,38 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                         </span>
                       </div>
                     </div>
+                  ) : vanVerificationMode === 'manual' ? (
+                    /* Manual UTR Submission Fallback View */
+                    <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 space-y-3">
+                      <div>
+                        <span className="text-xs font-bold text-blue-950 block">Bank Transfer Reference (UTR Number)</span>
+                        <p className="text-[11px] text-blue-800 mt-0.5 leading-relaxed">
+                          Already transferred via your NetBanking/branch? Paste your 12–16 digit Bank UTR / RRN below. AgroLnk Admin will verify the deposit from the bank statement.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <input
+                          type="text"
+                          value={manualUtrInput}
+                          onChange={(e) => setManualUtrInput(e.target.value.toUpperCase())}
+                          placeholder="e.g. ICICR20261109123456 or UTRN9876543210"
+                          className="w-full px-3 py-2 text-xs font-mono font-bold bg-white border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleManualUtrSubmit}
+                        disabled={isSubmitting || !manualUtrInput.trim()}
+                        className="w-full py-2.5 px-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-blue-200" />
+                        <span>Confirm &amp; Submit UTR for Bank Verification</span>
+                      </button>
+                    </div>
                   ) : (
+                    /* Automated Bank Webhook Listener View */
                     <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
