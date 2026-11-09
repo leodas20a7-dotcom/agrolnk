@@ -28,3 +28,4 @@ CREATE INDEX IF NOT EXISTS idx_orders_escrow_status
 
 -- 3. Confirm installation
 SELECT 'AgroLnk automated VAN & Webhook UTR schema applied successfully!' AS status;
+

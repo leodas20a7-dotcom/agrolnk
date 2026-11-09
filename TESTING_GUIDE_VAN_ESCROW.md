@@ -113,32 +113,31 @@ This testing guide provides step-by-step instructions for the Quality Assurance 
 
 ---
 
-### TC-04: Buyer Bulk Checkout ≥ ₹50,000 (Exclusively Escrow VAN + UTR Submission)
-**Objective**: Verify bulk orders over ₹50,000 hide Razorpay and enforce Escrow VAN payment with UTR submission.
+### TC-04: Buyer Bulk Checkout ≥ ₹50,000 (100% Automated Escrow VAN Webhook Capture — Zero Manual Entry)
+**Objective**: Verify bulk orders over ₹50,000 enforce Escrow VAN, auto-listen for incoming bank credits, and prohibit manual buyer typing.
 
 1. **Action**: In the Marketplace, select a lot or adjust quantity so the total is **≥ ₹50,000** (e.g., 10 MT @ ₹40,000/MT = ₹4,00,000).
 2. **Action**: Click **"Buy Now"**.
 3. **Expected Result**:
    - The **Razorpay Instant UPI option is completely HIDDEN**.
    - Only **"AgroLnk Escrow Virtual Account (NEFT/RTGS)"** is visible and pre-selected.
-   - A blue/emerald callout card displays the official bank account details:
-     - Beneficiary Name: (from `.env`)
-     - Virtual / Collection Account Number: (from `.env` or user VAN)
-     - IFSC Code: (from `.env`)
-     - Bank & Branch: (from `.env`)
-   - Below the bank card, an input field appears: **"Bank Transfer Reference (UTR Number)"**.
-4. **Validation Test**:
-   - Try to click "Confirm & Submit Escrow Transfer" with empty UTR ➔ Should trigger error: *"Please enter valid bank reference/UTR number"*.
-   - Type fewer than 6 characters (e.g. `123`) ➔ Should trigger error: *"UTR must be at least 6 characters"*.
-5. **Action**: Enter a valid test UTR (e.g., `UTRN9876543210`) and click **"Confirm & Submit Escrow Transfer"**.
-6. **Expected Result**:
-   - Order confirmation modal or toast appears: `"Order placed! UTR submitted for admin bank statement check."`
-   - Navigate to **Buyer Orders** (`/buyer-orders`).
-   - The new order displays status badge: `⏳ Awaiting Bank Verification`.
-   - The status text reads: `"Bank UTR (UTRN9876543210) submitted. Awaiting Admin bank statement check."`
-   - Click **"View Invoice"** ➔ Verify the invoice specifies:
+   - Click **"Generate Escrow Bank Link"**.
+   - A dedicated **Order Virtual Account** card displays:
+     - Beneficiary Name: `AGROLNK PRIVATE LIMITED`
+     - Order Virtual A/C No: `AGRO-ORD-...`
+     - IFSC Code: `ICIC0000104`
+   - **Zero Manual Input Verification**:
+     - There is **NO text box** to type a UTR.
+     - An active status card displays: `Awaiting Bank Webhook Clearing... (⚡ Zero Manual Entry)`.
+4. **Action (Dev Sandbox Simulation)**:
+   - Click **"Simulate Bank Credit Webhook"**.
+5. **Expected Result**:
+   - The system simulates the inbound Core Banking credit notification.
+   - The card transitions to green: `Bank Payment Verified & Secured in Escrow! Auto-Captured Bank UTR: ICICR...`.
+   - The order auto-confirms and directs the buyer to **Buyer Orders** (`/buyer-orders`).
+   - The order invoice reflects:
      - Payment Method: `Escrow Virtual Account (NEFT/RTGS)`
-     - UTR: `UTRN9876543210`
+     - Auto-Captured UTR: `ICICR...`
 
 ---
 
