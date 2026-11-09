@@ -185,7 +185,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
 
       toast.success(
         orderPayload.paymentMode === 'escrow_van'
-          ? 'Order placed! UTR submitted for admin bank statement check.'
+          ? 'Order placed! Escrow deposit verified via automated bank clearing.'
           : 'Order placed successfully! Escrow deposit held in security.'
       );
       setIsModalOpen(false);

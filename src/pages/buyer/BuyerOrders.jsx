@@ -516,7 +516,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                   <span className="text-white/80">
                     {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') &&
                       (selectedOrder.paymentMode === 'escrow_van' && selectedOrder.escrowStatus !== 'funded'
-                        ? `Bank UTR (${selectedOrder.bankUtr || 'Pending'}) submitted. Awaiting Admin bank statement check.`
+                        ? `Bank UTR (${selectedOrder.bankUtr || 'Auto-Detecting'}) captured. Awaiting bank webhook clearing.`
                         : 'Escrow locked. Waiting for Farmer to confirm order.')}
                     {selectedOrder.status === 'confirmed' &&
                       'Order confirmed. Carrier dispatch is being scheduled.'}
@@ -527,7 +527,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
                 <Badge variant={selectedOrder.paymentMode === 'escrow_van' && selectedOrder.escrowStatus !== 'funded' ? "amber" : "accent"} size="sm">
                   {selectedOrder.paymentMode === 'escrow_van' && selectedOrder.escrowStatus !== 'funded'
-                    ? "⏳ Awaiting Bank Verification"
+                    ? "⏳ Bank Webhook Clearing"
                     : "100% Escrow Secured"}
                 </Badge>
               </div>
