@@ -346,7 +346,10 @@ export default function App() {
       setCurrentPage(resolved);
 
       const targetHash = `#/${resolved}`;
-      if (window.location.hash !== targetHash || window.location.pathname !== '/') {
+      const isAuthHash = window.location.hash.includes('access_token') ||
+                         window.location.hash.includes('type=recovery') ||
+                         window.location.hash.includes('error=');
+      if (!isAuthHash && (window.location.hash !== targetHash || window.location.pathname !== '/')) {
         window.history.replaceState(null, '', `/${targetHash}`);
       }
     };
@@ -354,7 +357,10 @@ export default function App() {
     // Ensure clean valid hash on initial mount
     const initial = getInitialPage();
     const expectedHash = `#/${initial}`;
-    if (window.location.hash !== expectedHash || window.location.pathname !== '/') {
+    const isAuthHash = window.location.hash.includes('access_token') ||
+                       window.location.hash.includes('type=recovery') ||
+                       window.location.hash.includes('error=');
+    if (!isAuthHash && (window.location.hash !== expectedHash || window.location.pathname !== '/')) {
       window.history.replaceState(null, '', `/${expectedHash}`);
     }
 

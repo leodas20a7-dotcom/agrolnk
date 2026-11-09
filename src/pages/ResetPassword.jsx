@@ -26,19 +26,57 @@ export default function ResetPassword({ onNavigate }) {
   const [hasValidSession, setHasValidSession] = useState(true);
 
   useEffect(() => {
-    // Check if session or recovery token is active
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // In recovery mode, Supabase automatically establishes a session from hash tokens
-      if (!session) {
-        // Give small grace period for hash parse
-        setTimeout(async () => {
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-          if (!retrySession && !window.location.hash.includes('access_token')) {
-            setHasValidSession(false);
-          }
-        }, 1200);
+    // 1. Listen for auth state change from Supabase recovery
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        setHasValidSession(true);
       }
     });
+
+    // 2. Check current session or recovery tokens in URL
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setHasValidSession(true);
+        return;
+      }
+
+      const hash = typeof window !== 'undefined' ? window.location.hash || '' : '';
+      const search = typeof window !== 'undefined' ? window.location.search || '' : '';
+
+      // Check if Supabase sent an explicit error in the hash or search params
+      if (hash.includes('error=') || search.includes('error=')) {
+        setHasValidSession(false);
+        const params = new URLSearchParams(hash.replace(/^#\/?/, '').replace(/^\?/, ''));
+        const desc = params.get('error_description');
+        if (desc) {
+          setErrorMessage(decodeURIComponent(desc.replace(/\+/g, ' ')));
+        }
+        return;
+      }
+
+      // If tokens or recovery parameters are present, give Supabase a grace period to process
+      if (hash.includes('access_token') || hash.includes('type=recovery') || search.includes('code=')) {
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          if (retrySession) {
+            setHasValidSession(true);
+          } else {
+            setHasValidSession(false);
+          }
+        }, 1500);
+        return;
+      }
+
+      // No tokens and no active session
+      setHasValidSession(false);
+    };
+
+    checkSession();
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e) => {
