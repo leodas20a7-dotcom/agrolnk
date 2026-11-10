@@ -523,11 +523,16 @@ export default function UserProfileModal({
                         ? 'bg-rose-100 text-rose-800 border-rose-300'
                         : 'bg-amber-100 text-amber-800 border-amber-300'
                     }`}>
-                      {user.vanStatus === 'active'
-                        ? '● Active'
-                        : user.vanStatus === 'rejected'
-                        ? '✕ Rejected'
-                        : '⏳ Approval Pending'}
+                      {user.vanStatus === 'active' ? (
+                        '● Active'
+                      ) : user.vanStatus === 'rejected' ? (
+                        '✕ Rejected'
+                      ) : (
+                        <>
+                          <span className="sm:hidden">⏳ Pending</span>
+                          <span className="hidden sm:inline">⏳ Approval Pending</span>
+                        </>
+                      )}
                     </span>
                   </div>
 
