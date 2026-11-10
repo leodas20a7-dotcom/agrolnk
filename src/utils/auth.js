@@ -12,142 +12,16 @@ const IS_AUTH_KEY = 'isAuthenticated';
 
 export const DEFAULT_DEMO_USERS = [];
 
-
-
 /**
-
- * Cryptographic Password Hashing using Web Crypto PBKDF2 (SHA-256)
-
+ * Helper to resolve consistent VAN status from profile record
  */
-
-export async function hashPassword(password, saltHex = null) {
-
-  if (!password || typeof password !== 'string') return { hash: '', salt: '' };
-
-  try {
-
-    const enc = new TextEncoder();
-
-    let salt;
-
-    if (saltHex && typeof saltHex === 'string' && saltHex.length === 32) {
-
-      salt = new Uint8Array(saltHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
-
-    } else {
-
-      salt = (typeof window !== 'undefined' && window.crypto?.getRandomValues)
-
-        ? window.crypto.getRandomValues(new Uint8Array(16))
-
-        : (typeof crypto !== 'undefined' && crypto.getRandomValues)
-
-        ? crypto.getRandomValues(new Uint8Array(16))
-
-        : new Uint8Array(16).fill(7);
-
-    }
-
-
-
-    const subtle = (typeof window !== 'undefined' && window.crypto?.subtle)
-
-      || (typeof crypto !== 'undefined' && crypto.subtle);
-
-
-
-    if (subtle) {
-
-      const keyMaterial = await subtle.importKey(
-
-        'raw',
-
-        enc.encode(password),
-
-        { name: 'PBKDF2' },
-
-        false,
-
-        ['deriveBits']
-
-      );
-
-      const derivedBits = await subtle.deriveBits(
-
-        {
-
-          name: 'PBKDF2',
-
-          salt,
-
-          iterations: 100000,
-
-          hash: 'SHA-256',
-
-        },
-
-        keyMaterial,
-
-        256
-
-      );
-
-      const hash = Array.from(new Uint8Array(derivedBits))
-
-        .map((b) => b.toString(16).padStart(2, '0'))
-
-        .join('');
-
-      const finalSalt = Array.from(salt)
-
-        .map((b) => b.toString(16).padStart(2, '0'))
-
-        .join('');
-
-      return { hash, salt: finalSalt };
-
-    }
-
-  } catch (err) {
-
-    console.warn('WebCrypto PBKDF2 fallback:', err);
-
-  }
-
-
-
-  // Fallback deterministic salt & hash if subtle is unavailable
-
-  const fallbackSalt = saltHex || 'agrolnk_sec_salt_v1';
-
-  let hashVal = 0;
-
-  const combined = `${password}:${fallbackSalt}`;
-
-  for (let i = 0; i < combined.length; i++) {
-
-    const char = combined.charCodeAt(i);
-
-    hashVal = (hashVal << 5) - hashVal + char;
-
-    hashVal |= 0;
-
-  }
-
-  return { hash: Math.abs(hashVal).toString(16), salt: fallbackSalt };
-
-}
-
-
-
-export async function verifyPassword(password, expectedHash, saltHex) {
-
-  if (!password || !expectedHash) return false;
-
-  const { hash } = await hashPassword(password, saltHex);
-
-  return hash === expectedHash;
-
+function resolveProfileVanStatus(profile) {
+  if (!profile) return 'pending_bank_approval';
+  const candidate = profile.van_status || profile.meta?.van_status;
+  if (candidate === 'rejected') return 'rejected';
+  if (candidate === 'active') return 'active';
+  if (profile.kyc_status === 'verified') return 'active';
+  return candidate || 'pending_bank_approval';
 }
 
 
@@ -423,61 +297,51 @@ export async function registerUser({ name, phone, email, password, role, state, 
 
 
       const userObj = {
-
         id: existingProfile.id,
-
         name: existingProfile.name,
-
         email: existingProfile.email,
-
         phone: existingProfile.phone,
-
         role: existingProfile.role,
-
-        state: existingProfile.state,
-
-        district: existingProfile.district,
-
-        companyName: existingProfile.company_name,
-
+        state: existingProfile.state || '',
+        district: existingProfile.district || '',
+        address: existingProfile.address || '',
+        pincode: existingProfile.pincode || '',
+        landmark: existingProfile.landmark || '',
+        companyName: existingProfile.company_name || '',
         kycStatus: existingProfile.kyc_status || 'pending',
-
+        verificationStatus: existingProfile.kyc_status || 'pending',
+        vanStatus: resolveProfileVanStatus(existingProfile),
+        virtualAccountNumber: existingProfile.virtual_account_number || existingProfile.meta?.virtual_account_number || '',
+        virtualAccountIfsc: existingProfile.virtual_account_ifsc || existingProfile.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+        vanBankName: existingProfile.van_bank_name || existingProfile.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+        vanNotes: existingProfile.van_notes || existingProfile.meta?.van_notes || '',
         createdAt: existingProfile.created_at,
-
       };
-
       setCurrentUser(userObj);
-
       return userObj;
-
     }
 
-
-
     const createdRecord = data || newProfile;
-
     const userObj = {
-
       id: createdRecord.id,
-
       name: createdRecord.name,
-
       email: createdRecord.email,
-
       phone: createdRecord.phone,
-
       role: createdRecord.role,
-
-      state: createdRecord.state,
-
-      district: createdRecord.district,
-
-      companyName: createdRecord.company_name,
-
+      state: createdRecord.state || '',
+      district: createdRecord.district || '',
+      address: createdRecord.address || '',
+      pincode: createdRecord.pincode || '',
+      landmark: createdRecord.landmark || '',
+      companyName: createdRecord.company_name || '',
       kycStatus: createdRecord.kyc_status || 'pending',
-
+      verificationStatus: createdRecord.kyc_status || 'pending',
+      vanStatus: resolveProfileVanStatus(createdRecord),
+      virtualAccountNumber: createdRecord.virtual_account_number || createdRecord.meta?.virtual_account_number || '',
+      virtualAccountIfsc: createdRecord.virtual_account_ifsc || createdRecord.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+      vanBankName: createdRecord.van_bank_name || createdRecord.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      vanNotes: createdRecord.van_notes || createdRecord.meta?.van_notes || '',
       createdAt: createdRecord.created_at,
-
     };
 
 
@@ -696,27 +560,25 @@ export async function loginUser({ email, password }) {
 
 
     const userObj = {
-
       id: profile?.id || sessionUser.id,
-
       name: profile?.name || sessionUser.user_metadata?.name || 'AgroLnk Participant',
-
       email: profile?.email || sessionUser.email,
-
       phone: profile?.phone || sessionUser.user_metadata?.phone || '',
-
       role: resolvedRole,
-
       state: profile?.state || '',
-
       district: profile?.district || '',
-
+      address: profile?.address || '',
+      pincode: profile?.pincode || '',
+      landmark: profile?.landmark || '',
       companyName: profile?.company_name || '',
-
       kycStatus: profile?.kyc_status || 'pending',
-
+      verificationStatus: profile?.kyc_status || 'pending',
+      vanStatus: resolveProfileVanStatus(profile),
+      virtualAccountNumber: profile?.virtual_account_number || profile?.meta?.virtual_account_number || '',
+      virtualAccountIfsc: profile?.virtual_account_ifsc || profile?.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+      vanBankName: profile?.van_bank_name || profile?.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      vanNotes: profile?.van_notes || profile?.meta?.van_notes || '',
       createdAt: profile?.created_at || sessionUser.created_at,
-
     };
 
 
@@ -1235,25 +1097,21 @@ export function getUserRole() {
  */
 
 export function logoutUser() {
-
   try {
-
     localStorage.removeItem(AGROLNK_USER_KEY);
-
     localStorage.removeItem(IS_AUTH_KEY);
-
+    localStorage.removeItem('selectedRole');
+    localStorage.removeItem('agrolnk_orders_local');
+    localStorage.removeItem('agrolnk_user_notifications');
+    localStorage.removeItem('agrolnk_chat_threads_v4');
+    localStorage.removeItem('agrolnk_financing_requests_local');
+    localStorage.removeItem('agrolnk_inspection_reports');
     try {
-
       supabase.auth.signOut().catch(() => {});
-
     } catch {}
-
   } catch (err) {
-
     console.error('Failed to logout:', err);
-
   }
-
 }
 
 

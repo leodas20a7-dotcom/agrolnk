@@ -499,12 +499,32 @@ export default function DashboardLayout({
     },
   ];
 
+  const transporterNavGroups = [
+    {
+      type: 'single',
+      label: 'Dashboard',
+      page: 'transporter-dashboard',
+      icon: LayoutDashboard,
+    },
+  ];
+
+  const warehouseNavGroups = [
+    {
+      type: 'single',
+      label: 'Dashboard',
+      page: 'warehouse-dashboard',
+      icon: LayoutDashboard,
+    },
+  ];
+
   const getNavGroups = () => {
     if (user.role === 'admin') return adminNavGroups;
     if (user.role === 'buyer') return buyerNavGroups;
     if (user.role === 'farmer' || user.role === 'fpo') return farmerNavGroups;
     if (user.role === 'food_processor') return foodProcessorNavGroups;
     if (user.role === 'financier') return financierNavGroups;
+    if (user.role === 'transporter') return transporterNavGroups;
+    if (user.role === 'warehouse') return warehouseNavGroups;
     return [];
   };
 
@@ -703,16 +723,15 @@ export default function DashboardLayout({
                 </Button>
               </div>
 
-              {/* Mobile Menu Toggle Button (only when subnav groups exist) */}
-              {navGroups.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="lg:hidden p-1.5 sm:p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] cursor-pointer"
-                >
-                  {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </button>
-              )}
+              {/* Mobile Menu Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-1.5 sm:p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] cursor-pointer"
+                aria-label="Toggle mobile menu"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             </div>
 
           </div>

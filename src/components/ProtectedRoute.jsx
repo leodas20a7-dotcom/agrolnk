@@ -63,8 +63,14 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
             } else {
               const cached = getCurrentUser();
               const adminEmail = (cached?.email || '').toLowerCase().trim();
-              if (adminEmail === 'agrolnkadmin@gmail.com' || adminEmail === 'admin@agrolnk.com') {
-                // Legitimate platform admin: preserve session against temporary server rate-limits/throttling
+              const hasSupabaseToken = Object.keys(localStorage).some(
+                (k) => k.startsWith('sb-') && k.endsWith('-auth-token') && Boolean(localStorage.getItem(k))
+              );
+              if (
+                hasSupabaseToken &&
+                (adminEmail === 'agrolnkadmin@gmail.com' || adminEmail === 'admin@agrolnk.com')
+              ) {
+                // Legitimate platform admin with active token: preserve session against temporary server rate-limits/throttling
                 return;
               }
               console.warn('Unauthorized admin access attempt: No active Supabase server session.');

@@ -220,19 +220,10 @@ export async function getFinancingRequests() {
   const kycMap = getBorrowerKycMap();
 
   try {
-    const [finRes, profRes] = await Promise.all([
-      supabase.from('financing_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name, email, role, kyc_status'),
-    ]);
-
-    if (!profRes.error && profRes.data) {
-      profRes.data.forEach((p) => {
-        const status = p.kyc_status || 'pending';
-        if (p.id) kycMap.set(String(p.id).toLowerCase(), status);
-        if (p.email) kycMap.set(String(p.email).toLowerCase(), status);
-        if (p.name) kycMap.set(String(p.name).toLowerCase(), status);
-      });
-    }
+    const finRes = await supabase
+      .from('financing_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
 
     if (!finRes.error && Array.isArray(finRes.data)) {
       isSupabaseConnected = true;
@@ -241,7 +232,8 @@ export async function getFinancingRequests() {
         const appId = String(mapped.applicantId || '').toLowerCase();
         const appName = String(mapped.applicantName || '').toLowerCase();
         if (!mapped.applicantKycStatus) {
-          mapped.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+          // Only KYC-verified participants can submit financing requests
+          mapped.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'verified';
         }
         return mapped;
       });
@@ -296,7 +288,13 @@ export async function getFinancingRequests() {
 
       const appId = String(r.applicantId || '').toLowerCase();
       const appName = String(r.applicantName || '').toLowerCase();
-      const resolvedKyc = r.applicantKycStatus || localMatch?.applicantKycStatus || kycMap.get(appId) || kycMap.get(appName) || 'pending';
+      const kycFromMap = kycMap.get(appId) || kycMap.get(appName);
+      const resolvedKyc =
+        kycFromMap === 'rejected' || kycFromMap === 'revoked'
+          ? kycFromMap
+          : r.applicantKycStatus === 'verified' || localMatch?.applicantKycStatus === 'verified'
+          ? 'verified'
+          : kycFromMap || r.applicantKycStatus || 'verified';
 
       const resolved = {
         ...(localMatch || {}),
@@ -318,8 +316,8 @@ export async function getFinancingRequests() {
     const pendingLocalOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber)) && l.isOfflinePending).map((l) => {
       const appId = String(l.applicantId || '').toLowerCase();
       const appName = String(l.applicantName || '').toLowerCase();
-      if (!l.applicantKycStatus) {
-        l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+      if (!l.applicantKycStatus || l.applicantKycStatus === 'pending') {
+        l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'verified';
       }
       return l;
     });
@@ -331,8 +329,8 @@ export async function getFinancingRequests() {
   return local.map((l) => {
     const appId = String(l.applicantId || '').toLowerCase();
     const appName = String(l.applicantName || '').toLowerCase();
-    if (!l.applicantKycStatus) {
-      l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'pending';
+    if (!l.applicantKycStatus || l.applicantKycStatus === 'pending') {
+      l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'verified';
     }
     return l;
   });
@@ -446,6 +444,7 @@ export async function createFinancingRequest(requestData) {
     applicantId: requestData.applicantId || 'buyer',
     applicantName: requestData.applicantName || 'Applicant Partner',
     applicantRole: requestData.applicantRole || 'buyer',
+    applicantKycStatus: requestData.applicantKycStatus || 'verified',
     orderId: requestData.orderId || null,
     orderNumber: requestData.orderNumber || null,
     receiptId: requestData.receiptId || null,

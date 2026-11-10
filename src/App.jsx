@@ -633,7 +633,10 @@ export default function App() {
 
       {/* 7. Shared Live Auction Room (Farmer Monitor or Buyer Bidding) */}
       {currentPage === 'auction-room' && (
-        <ProtectedRoute onNavigate={handleNavigate}>
+        <ProtectedRoute
+          allowedRoles={['farmer', 'fpo', 'buyer', 'food_processor', 'admin']}
+          onNavigate={handleNavigate}
+        >
           <AuctionRoom
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}

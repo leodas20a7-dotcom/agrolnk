@@ -198,7 +198,7 @@ export default function Login({ onNavigate, navState }) {
         role: selectedRole,
       });
 
-      onNavigate(`${user.role}-dashboard`, { user });
+      onNavigate(`${user.role}-dashboard`, { user, autoOpenKyc: true, isNewlyRegistered: true });
     } catch (err) {
       setRegisterError(err.message || 'Registration failed. Please try again.');
       setIsRegistering(false);
