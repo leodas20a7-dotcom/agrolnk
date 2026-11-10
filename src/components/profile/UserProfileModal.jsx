@@ -225,14 +225,14 @@ export default function UserProfileModal({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-bold text-[#0B3326] font-heading truncate">
-                  Profile &amp; Auto-Fill Defaults
+                  Profile Details
                 </h3>
                 <Badge variant="emerald" size="sm">
                   {user.role || 'Member'}
                 </Badge>
               </div>
               <p className="text-[11px] sm:text-xs text-[#566861] mt-0.5 truncate">
-                Address &amp; banking defaults for instant listing auto-fill
+                Manage your identity, farmgate address &amp; banking details
               </p>
             </div>
           </div>
@@ -401,9 +401,7 @@ export default function UserProfileModal({
                   <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-[#10B981]" /> Farmgate Address &amp; Location
                   </h4>
-                  <span className="text-[10px] text-[#10B981] font-bold bg-[#EBF5F0] px-2 py-0.5 rounded-full">
-                    ⚡ Auto-fills listings
-                  </span>
+                  <span className="text-[10px] text-[#566861]">Step 2 of 3</span>
                 </div>
 
                 <div className="space-y-3">
@@ -667,7 +665,7 @@ export default function UserProfileModal({
                 disabled={isSaving}
                 className="text-xs font-bold shadow-xs cursor-pointer px-5 py-2"
               >
-                {isSaving ? 'Saving...' : 'Save Profile Defaults'}
+                {isSaving ? 'Saving...' : 'Save Profile Details'}
               </Button>
             </div>
           </div>
