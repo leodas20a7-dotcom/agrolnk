@@ -935,7 +935,13 @@ export async function syncAuthenticatedUserWithServer() {
       companyName: profile.company_name || '',
       kycStatus: profile.kyc_status || 'pending',
       verificationStatus: profile.kyc_status || 'pending',
-      vanStatus: profile.van_status || profile.meta?.van_status || 'pending_bank_approval',
+      vanStatus: (() => {
+        const candidate = profile.van_status || profile.meta?.van_status;
+        if (candidate === 'rejected') return 'rejected';
+        if (candidate === 'active') return 'active';
+        if (profile.kyc_status === 'verified') return 'active';
+        return candidate || 'pending_bank_approval';
+      })(),
       virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || '',
       virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
       vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
@@ -1031,7 +1037,13 @@ export async function fetchCurrentProfile() {
 
         verificationStatus: resolvedKyc,
 
-        vanStatus: profile.van_status || profile.meta?.van_status || current.vanStatus || 'pending_bank_approval',
+        vanStatus: (() => {
+          const candidate = profile.van_status || profile.meta?.van_status || current.vanStatus;
+          if (candidate === 'rejected') return 'rejected';
+          if (candidate === 'active') return 'active';
+          if (resolvedKyc === 'verified') return 'active';
+          return candidate || 'pending_bank_approval';
+        })(),
 
         virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || current.virtualAccountNumber || '',
 

@@ -85,7 +85,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
         vanNotes: selectedUserForDocs.vanNotes || '',
       });
     }
-  }, [selectedUserForDocs]);
+  }, [selectedUserForDocs?.id]);
 
   const handleSaveVan = async () => {
     if (!selectedUserForDocs) return;
@@ -138,6 +138,11 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     try {
       const data = await getAllKYCUsers();
       setKycUsers(data || []);
+      setSelectedUserForDocs((current) => {
+        if (!current) return null;
+        const fresh = (data || []).find((u) => u.id === current.id || u.email === current.email);
+        return fresh ? { ...current, ...fresh } : current;
+      });
     } catch (err) {
       console.error('Failed to load KYC users:', err);
     } finally {

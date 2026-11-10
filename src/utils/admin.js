@@ -217,7 +217,24 @@ export async function getAllKYCUsers() {
           documents: resolvedDocs.length > 0 ? resolvedDocs : (Array.isArray(localDocs) && localDocs.length > 0 ? localDocs : []),
           auditNotes: meta.auditNotes || localMatch?.auditNotes || `Registered ${p.role || 'user'}.`,
           // VAN (Virtual Account Number) Banking Provision fields
-          vanStatus: p.van_status || meta.van_status || localMatch?.vanStatus || (dbKycStatus === 'verified' ? 'active' : 'pending_bank_approval'),
+          // Authoritative resolution:
+          // 1. Rejected if explicitly rejected
+          // 2. Active if localMatch is active (recent admin action), or meta is active, or DB is active
+          // 3. Auto-active if KYC status is verified (since verified participants are authorized for escrow)
+          // 4. Default to pending
+          vanStatus: (() => {
+            const candidate = localMatch?.vanStatus || meta.van_status || p.van_status;
+            if (candidate === 'rejected' || p.van_status === 'rejected' || meta.van_status === 'rejected') {
+              return 'rejected';
+            }
+            if (candidate === 'active' || meta.van_status === 'active' || p.van_status === 'active' || localMatch?.vanStatus === 'active') {
+              return 'active';
+            }
+            if (dbKycStatus === 'verified') {
+              return 'active';
+            }
+            return candidate || 'pending_bank_approval';
+          })(),
           virtualAccountNumber: p.virtual_account_number || meta.virtual_account_number || localMatch?.virtualAccountNumber || '',
           virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || localMatch?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
           vanBankName: p.van_bank_name || meta.van_bank_name || localMatch?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
@@ -261,6 +278,7 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
   const index = all.findIndex((u) => u.id === userId || u.email === userId);
   
   let targetUser = null;
+  const vanStatusUpdate = newStatus === 'verified' ? 'active' : (newStatus === 'rejected' ? 'rejected' : (all[index]?.vanStatus || 'pending_bank_approval'));
 
   if (index === -1) {
     // Create new entry
@@ -269,6 +287,7 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
       name: 'Registered Partner',
       role: 'farmer',
       verificationStatus: newStatus,
+      vanStatus: vanStatusUpdate,
       submittedAt: new Date().toISOString(),
       verifiedAt: newStatus === 'verified' ? new Date().toISOString() : null,
       verifiedBy: newStatus === 'verified' ? verifiedBy : null,
@@ -281,6 +300,7 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
     all[index] = {
       ...all[index],
       verificationStatus: newStatus,
+      vanStatus: newStatus === 'verified' ? 'active' : (newStatus === 'rejected' ? 'rejected' : all[index].vanStatus),
       verifiedAt: newStatus === 'verified' ? new Date().toISOString() : all[index].verifiedAt,
       verifiedBy: newStatus === 'verified' ? verifiedBy : all[index].verifiedBy,
       auditNotes: auditNotes || all[index].auditNotes,
@@ -305,15 +325,40 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
     }
   }
 
-  // Sync with Supabase Database
+  // Sync with Supabase Database (both direct columns & meta json)
   try {
-    await supabase
+    const { data: currentProf } = await supabase
       .from('profiles')
-      .update({
-        kyc_status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .or(`id.eq.${userId},email.eq.${userId}`);
+      .select('meta')
+      .or(`id.eq.${userId},email.eq.${userId}`)
+      .single();
+
+    const existingMeta = currentProf?.meta || {};
+    const mergedMeta = {
+      ...existingMeta,
+      van_status: targetUser.vanStatus,
+    };
+
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          kyc_status: newStatus,
+          van_status: targetUser.vanStatus,
+          meta: mergedMeta,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`id.eq.${userId},email.eq.${userId}`);
+    } catch (_colErr) {
+      await supabase
+        .from('profiles')
+        .update({
+          kyc_status: newStatus,
+          meta: mergedMeta,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`id.eq.${userId},email.eq.${userId}`);
+    }
   } catch (dbErr) {
     console.warn('Could not sync KYC status to Supabase DB:', dbErr);
   }
@@ -325,12 +370,15 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
       const parsed = JSON.parse(rawUser);
       if (parsed.id === userId || parsed.email === userId) {
         parsed.kycStatus = newStatus;
+        parsed.verificationStatus = newStatus;
+        parsed.vanStatus = targetUser.vanStatus;
         localStorage.setItem('agrolnkUser', JSON.stringify(parsed));
       }
     }
   } catch (_e) {}
 
   window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+  window.dispatchEvent(new Event('agrolnk_user_profile_updated'));
   return targetUser;
 }
 
@@ -361,7 +409,7 @@ export async function updateUserVANProvision(userId, {
     saveStoredKYC(all);
   }
 
-  // Sync to database profile meta
+  // Sync to database profile top-level columns AND meta
   try {
     const { data: currentProf } = await supabase
       .from('profiles')
@@ -380,18 +428,51 @@ export async function updateUserVANProvision(userId, {
       van_assigned_at: updatedData.vanAssignedAt,
     };
 
-    await supabase
-      .from('profiles')
-      .update({
-        meta: mergedMeta,
-        updated_at: new Date().toISOString(),
-      })
-      .or(`id.eq.${userId},email.eq.${userId}`);
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          van_status: vanStatus,
+          virtual_account_number: updatedData.virtualAccountNumber,
+          virtual_account_ifsc: updatedData.virtualAccountIfsc,
+          van_bank_name: updatedData.vanBankName,
+          van_notes: updatedData.vanNotes,
+          van_assigned_at: updatedData.vanAssignedAt,
+          meta: mergedMeta,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`id.eq.${userId},email.eq.${userId}`);
+    } catch (_colErr) {
+      await supabase
+        .from('profiles')
+        .update({
+          meta: mergedMeta,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`id.eq.${userId},email.eq.${userId}`);
+    }
   } catch (err) {
     console.warn('Could not sync VAN provision to Supabase DB:', err);
   }
 
+  // Also update active session cache if current logged-in user
+  try {
+    const rawUser = localStorage.getItem('agrolnkUser');
+    if (rawUser) {
+      const parsed = JSON.parse(rawUser);
+      if (parsed.id === userId || parsed.email === userId) {
+        parsed.vanStatus = vanStatus;
+        parsed.virtualAccountNumber = updatedData.virtualAccountNumber;
+        parsed.virtualAccountIfsc = updatedData.virtualAccountIfsc;
+        parsed.vanBankName = updatedData.vanBankName;
+        parsed.vanNotes = updatedData.vanNotes;
+        localStorage.setItem('agrolnkUser', JSON.stringify(parsed));
+      }
+    }
+  } catch (_e) {}
+
   window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+  window.dispatchEvent(new Event('agrolnk_user_profile_updated'));
   return { id: userId, ...updatedData };
 }
 
