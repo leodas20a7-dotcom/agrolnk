@@ -33,6 +33,7 @@ export default function ProduceDetailModal({
   onDelete,
 }) {
   const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
 
   if (!listing) return null;
 
@@ -42,9 +43,20 @@ export default function ProduceDetailModal({
     Number(listing.quantity || 0) * Number(listing.price || 0);
   const fallbackImg = COMMODITY_IMAGES[listing.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
 
+  const shortLotId = listing.id ? (listing.id.length > 12 ? listing.id.slice(0, 8) : listing.id) : '---';
+
+  const handleCopyId = async (e) => {
+    e?.stopPropagation?.();
+    const ok = await copyToClipboard(listing.id, `Lot #${shortLotId} ID`);
+    if (ok) {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
+
   const handleCopy = async () => {
     const text = `AgroLnk Produce Lot #${listing.id}: ${listing.commodity} (${listing.variety || 'Standard'}), ${listing.quantity} ${listing.unit} at ₹${listing.price}/${listing.unit} from ${listing.district || ''}, ${listing.state}. Grade ${listing.grade}.`;
-    const ok = await copyToClipboard(text, `Lot #${listing.id} Specifications`);
+    const ok = await copyToClipboard(text, `Lot #${shortLotId} Specifications`);
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
@@ -56,7 +68,26 @@ export default function ProduceDetailModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Produce Lot Details"
-      subtitle={`Lot Reference #${listing.id} • ${isSoldOut ? 'Sold Out Produce Lot' : 'Live on National Marketplace'}`}
+      subtitle={
+        <span className="flex flex-wrap items-center gap-1.5 text-xs text-[#566861]">
+          <span>Lot Reference</span>
+          <button
+            type="button"
+            onClick={handleCopyId}
+            title={`Full UUID: ${listing.id} (Click to copy)`}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#EBF5F0] hover:bg-[#D5EFE3] text-[#0B3326] border border-[#10B981]/30 font-mono text-[11px] font-bold transition-all cursor-pointer shadow-2xs group"
+          >
+            <span>#{shortLotId}</span>
+            {copiedId ? (
+              <Check className="w-3 h-3 text-[#10B981]" />
+            ) : (
+              <Copy className="w-3 h-3 text-[#566861] group-hover:text-[#10B981]" />
+            )}
+          </button>
+          <span className="text-[#A3B3AA]">•</span>
+          <span>{isSoldOut ? 'Sold Out Produce Lot' : 'Live on National Marketplace'}</span>
+        </span>
+      }
       icon={Package}
       iconColor="text-[#10B981]"
       iconBg="bg-[#EBF5F0]"
@@ -283,6 +314,38 @@ export default function ProduceDetailModal({
                   KYC Verified Farmer ✓
                 </span>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2.5 text-[#14211D] col-span-1 sm:col-span-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Package className="w-4 h-4 text-[#10B981] shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[#566861] block text-[10px] uppercase font-bold tracking-wider">
+                    Full System Lot UID
+                  </span>
+                  <span className="font-mono text-xs text-[#0B3326] font-semibold break-all">
+                    {listing.id}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyId}
+                className="p-1.5 px-2 rounded-lg border border-[#E5EDE8] hover:border-[#10B981] bg-white text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                title="Copy full UID"
+              >
+                {copiedId ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-[#10B981]" />
+                    <span className="text-[#10B981] text-[10px] font-bold">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-medium">Copy</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
