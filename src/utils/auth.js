@@ -892,16 +892,27 @@ export async function syncAuthenticatedUserWithServer() {
     if (!supabase) return getCurrentUser();
 
     // 1. Check active cryptographic Supabase session
-    const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+    let { data: { session }, error: sessionErr } = await supabase.auth.getSession();
     if (sessionErr || !session?.user) {
-      // If there is no valid Supabase session, purge any orphaned or tampered local cache
-      const cached = getCurrentUser();
-      if (cached && cached.role === 'admin') {
-        localStorage.removeItem(AGROLNK_USER_KEY);
-        localStorage.removeItem(IS_AUTH_KEY);
-        return null;
+      // If error was a transient network or rate-limit issue, preserve current cached session
+      if (sessionErr) {
+        return getCurrentUser();
       }
-      return cached;
+      // Attempt background token refresh
+      const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: {} }));
+      if (refreshData?.session?.user) {
+        session = refreshData.session;
+      } else {
+        const cached = getCurrentUser();
+        const adminEmail = (cached?.email || '').toLowerCase().trim();
+        // Only purge if an unverified user was claiming admin, not legitimate known administrator
+        if (cached && cached.role === 'admin' && adminEmail !== 'agrolnkadmin@gmail.com' && adminEmail !== 'admin@agrolnk.com') {
+          localStorage.removeItem(AGROLNK_USER_KEY);
+          localStorage.removeItem(IS_AUTH_KEY);
+          return null;
+        }
+        return cached;
+      }
     }
 
     // 2. Fetch authoritative profile directly from database

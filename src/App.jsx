@@ -253,7 +253,7 @@ export default function App() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'PASSWORD_RECOVERY') {
           setCurrentPage('reset-password');
-        } else if (event === 'SIGNED_OUT' || !session) {
+        } else if (event === 'SIGNED_OUT') {
           setCurrentUser(null);
           localStorage.removeItem('agrolnkUser');
           localStorage.removeItem('isAuthenticated');

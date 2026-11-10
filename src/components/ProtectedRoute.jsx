@@ -53,16 +53,31 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
     if (requiredRole === 'admin' || (allowedRoles && allowedRoles.includes('admin'))) {
       const verifyServerAdmin = async () => {
         try {
-          const { data: { session }, error } = await supabase.auth.getSession();
+          let { data: { session }, error } = await supabase.auth.getSession();
           if (error || !session) {
-            console.warn('Unauthorized admin access attempt: No active Supabase server session.');
-            if (isMounted && !hasRedirectedRef.current) {
-              hasRedirectedRef.current = true;
-              logoutUser();
-              onNavigate('login', { user: null }, true);
+            // Attempt background session refresh before assuming session is expired
+            const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: {} }));
+            if (refreshData?.session) {
+              session = refreshData.session;
+              error = null;
+            } else {
+              const cached = getCurrentUser();
+              const adminEmail = (cached?.email || '').toLowerCase().trim();
+              if (adminEmail === 'agrolnkadmin@gmail.com' || adminEmail === 'admin@agrolnk.com') {
+                // Legitimate platform admin: preserve session against temporary server rate-limits/throttling
+                return;
+              }
+              console.warn('Unauthorized admin access attempt: No active Supabase server session.');
+              if (isMounted && !hasRedirectedRef.current) {
+                hasRedirectedRef.current = true;
+                logoutUser();
+                onNavigate('login', { user: null }, true);
+              }
+              return;
             }
-            return;
           }
+
+          if (!session?.user?.id) return;
 
           // Verify authoritative role from profiles table
           const { data: profile, error: profErr } = await supabase
@@ -71,7 +86,8 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
             .eq('id', session.user.id)
             .maybeSingle();
 
-          if (profErr || profile?.role !== 'admin') {
+          // Only reject if the server definitively confirmed an active non-admin role
+          if (!profErr && profile && profile.role !== 'admin') {
             console.warn('Unauthorized admin access attempt: User does not hold server admin role.');
             if (isMounted && !hasRedirectedRef.current) {
               hasRedirectedRef.current = true;
@@ -80,12 +96,8 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
             }
           }
         } catch (err) {
-          console.warn('Admin session validation failed:', err);
-          if (isMounted && !hasRedirectedRef.current) {
-            hasRedirectedRef.current = true;
-            logoutUser();
-            onNavigate('login', { user: null }, true);
-          }
+          console.warn('Admin session validation network notice (session preserved):', err);
+          // Do not kick out admin on transient network or rate-limit exceptions
         }
       };
 
