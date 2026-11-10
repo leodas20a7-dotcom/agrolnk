@@ -59,6 +59,7 @@ export default function UserProfileModal({
   });
 
   const [resolvedIfsc, setResolvedIfsc] = useState(() => (formData.ifscCode ? resolveIfscCode(formData.ifscCode) : null));
+  const [activeTab, setActiveTab] = useState('contact'); // 'contact' | 'address' | 'bank'
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -66,6 +67,7 @@ export default function UserProfileModal({
 
   useEffect(() => {
     if (isOpen && currentUser) {
+      setActiveTab('contact');
       const curUser = currentUser || {};
       const curBank = getUserBankDetails(curUser.id) || {};
       const legDist = (curUser.district === 'Salem' || curUser.district === 'HQ Operations') && !curUser.address && !curUser.pincode;
@@ -127,11 +129,13 @@ export default function UserProfileModal({
     e.preventDefault();
     if (!formData.name.trim()) {
       setErrorMessage('Full name is required.');
+      setActiveTab('contact');
       return;
     }
     const cleanPhone = (formData.phone || '').replace(/\D/g, '');
     if (cleanPhone && (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone))) {
       setErrorMessage('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.');
+      setActiveTab('contact');
       return;
     }
 
@@ -200,26 +204,35 @@ export default function UserProfileModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
-        
-        {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-[#E5EDE8]">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center text-lg font-extrabold shadow-md shrink-0">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-3 sm:p-6 flex items-center justify-center animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose?.();
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="bg-white rounded-3xl max-w-xl w-full max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-4rem)] flex flex-col border border-[#E5EDE8] shadow-2xl text-left my-auto animate-in zoom-in-95 duration-200 relative overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky Header */}
+        <div className="shrink-0 p-4 sm:p-5 pb-3 border-b border-[#E5EDE8] bg-white z-10 flex items-start justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center text-base font-extrabold shadow-sm shrink-0">
               {formData.name ? formData.name.charAt(0).toUpperCase() : 'U'}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-[#0B3326] font-heading">
-                  Profile & Auto-Fill Defaults
+                <h3 className="text-base sm:text-lg font-bold text-[#0B3326] font-heading truncate">
+                  Profile &amp; Auto-Fill Defaults
                 </h3>
                 <Badge variant="emerald" size="sm">
                   {user.role || 'Member'}
                 </Badge>
               </div>
-              <p className="text-xs text-[#566861] mt-0.5">
-                Save your address & details to automatically auto-fill future listings and orders.
+              <p className="text-[11px] sm:text-xs text-[#566861] mt-0.5 truncate">
+                Address &amp; banking defaults for instant listing auto-fill
               </p>
             </div>
           </div>
@@ -227,329 +240,421 @@ export default function UserProfileModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer shrink-0"
+            aria-label="Close profile modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Feedback Alerts */}
-        {successMessage && (
-          <div className="p-3.5 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex items-center gap-2.5 text-xs text-[#0B3326] font-semibold animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span>{successMessage}</span>
+        {/* 3 Segmented Tabs (Crisp, modern, zero endless scroll) */}
+        <div className="shrink-0 px-4 sm:px-6 pt-3 pb-2.5 bg-[#F8FAF8] border-b border-[#E5EDE8]">
+          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-[#E5EDE8]/60">
+            <button
+              type="button"
+              onClick={() => setActiveTab('contact')}
+              className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 outline-none focus:outline-none ${
+                activeTab === 'contact'
+                  ? 'bg-white text-[#0B3326] shadow-xs'
+                  : 'text-[#566861] hover:text-[#0B3326]'
+              }`}
+            >
+              <User className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'contact' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
+              <span className="truncate">Identity</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('address')}
+              className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 outline-none focus:outline-none ${
+                activeTab === 'address'
+                  ? 'bg-white text-[#0B3326] shadow-xs'
+                  : 'text-[#566861] hover:text-[#0B3326]'
+              }`}
+            >
+              <MapPin className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'address' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
+              <span className="truncate">Address</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('bank')}
+              className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 outline-none focus:outline-none ${
+                activeTab === 'bank'
+                  ? 'bg-white text-[#0B3326] shadow-xs'
+                  : 'text-[#566861] hover:text-[#0B3326]'
+              }`}
+            >
+              <Landmark className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'bank' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
+              <span className="truncate">Bank &amp; VAN</span>
+            </button>
           </div>
-        )}
+        </div>
 
-        {errorMessage && (
-          <div className="p-3.5 rounded-2xl bg-[#FEF2F2] border border-red-200 text-xs text-red-700 font-semibold">
-            {errorMessage}
-          </div>
-        )}
-
-        {/* Form Body */}
-        <form onSubmit={handleSave} className="space-y-5">
-          
-          {/* Section 1: Personal & Contact */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-[#10B981]" /> Contact & Identity
-            </h4>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleChange('name', e.target.value)}
-                  placeholder="e.g. Sakthi Vel"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  required
-                />
+        {/* Scrollable Form Body Wrapped in Form */}
+        <form onSubmit={handleSave} className="flex-1 overflow-y-auto flex flex-col justify-between">
+          <div className="p-4 sm:p-6 space-y-4">
+            
+            {/* Feedback Alerts */}
+            {successMessage && (
+              <div className="p-3 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex items-center gap-2.5 text-xs text-[#0B3326] font-semibold animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                <span>{successMessage}</span>
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    value={formData.phone}
-                    onChange={(e) => handleChange('phone', e.target.value)}
-                    placeholder="9876543210 (10 digits)"
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  />
-                </div>
+            {errorMessage && (
+              <div className="p-3 rounded-2xl bg-[#FEF2F2] border border-red-200 text-xs text-red-700 font-semibold animate-in fade-in">
+                {errorMessage}
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Email Address (Read-only)
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    value={formData.email}
-                    readOnly
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#566861] cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Farm / Enterprise Name
-                </label>
-                <div className="relative">
-                  <Building2 className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={formData.farmName}
-                    onChange={(e) => handleChange('farmName', e.target.value)}
-                    placeholder="e.g. Velan Agro Farm"
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Address & Location Details */}
-          <div className="space-y-3 pt-3 border-t border-[#E5EDE8]">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-[#10B981]" /> Farmgate Address & Auto-fill Location
-              </h4>
-              <span className="text-[10px] text-[#10B981] font-bold bg-[#EBF5F0] px-2 py-0.5 rounded-full">
-                ⚡ Auto-fills listings & dispatch
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Street / Village / Farmgate Address
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.address}
-                  onChange={(e) => handleChange('address', e.target.value)}
-                  placeholder="e.g. 42 Green Valley Road, Omalur Taluk"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#14211D] mb-1">
-                    District
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.district}
-                    onChange={(e) => handleChange('district', e.target.value)}
-                    placeholder="e.g. Salem"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  />
+            {/* TAB 1: Contact & Identity */}
+            {activeTab === 'contact' && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between pb-1 border-b border-[#E5EDE8]">
+                  <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-[#10B981]" /> Contact &amp; Identity
+                  </h4>
+                  <span className="text-[10px] text-[#566861]">Step 1 of 3</span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#14211D] mb-1">
-                    State
-                  </label>
-                  <SearchableSelect
-                    options={commonStates}
-                    value={formData.state}
-                    onChange={(val) => handleChange('state', val)}
-                    placeholder="Select State"
-                    searchPlaceholder="Search state..."
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => handleChange('name', e.target.value)}
+                      placeholder="e.g. Sakthi Vel"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Phone Number
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        value={formData.phone}
+                        onChange={(e) => handleChange('phone', e.target.value)}
+                        placeholder="9876543210"
+                        className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Email Address (Read-only)
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        value={formData.email}
+                        readOnly
+                        className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#566861] cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Farm / Enterprise Name
+                    </label>
+                    <div className="relative">
+                      <Building2 className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={formData.farmName}
+                        onChange={(e) => handleChange('farmName', e.target.value)}
+                        placeholder="e.g. Velan Agro Farm"
+                        className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#14211D] mb-1">
-                    PIN Code
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={formData.pincode}
-                    onChange={(e) => handleChange('pincode', e.target.value)}
-                    placeholder="e.g. 636001"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  />
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('address')}
+                    className="text-xs font-bold text-[#10B981] hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    Next: Farmgate Address &rarr;
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Nearest Highway / Hub Landmark (Optional)
-                </label>
-                <div className="relative">
-                  <Navigation className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={formData.landmark}
-                    onChange={(e) => handleChange('landmark', e.target.value)}
-                    placeholder="e.g. Near NH44 Toll Plaza / APMC Market Gate"
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Dedicated Virtual Account Number (VAN) for Escrow Collections */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-[#F8FAF8] border border-emerald-200/90 space-y-2.5 text-left">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5 uppercase tracking-wide">
-                <Landmark className="w-4 h-4 text-emerald-700" />
-                Dedicated Virtual Escrow Account (VAN)
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
-                user.vanStatus === 'active'
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                  : user.vanStatus === 'rejected'
-                  ? 'bg-rose-100 text-rose-800 border-rose-300'
-                  : 'bg-amber-100 text-amber-800 border-amber-300'
-              }`}>
-                {user.vanStatus === 'active'
-                  ? '● VAN Active'
-                  : user.vanStatus === 'rejected'
-                  ? '✕ Bank Rejected'
-                  : '⏳ Bank Approval Pending'}
-              </span>
-            </div>
-
-            <p className="text-[11px] text-[#566861] leading-relaxed">
-              Your business is linked to a dedicated virtual collection account on the AgroLnk Escrow Nodal Ledger. High-value trade payments (≥ ₹50,000) clear directly through this number.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
-                <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Virtual Account No. (VAN)</span>
-                <div className="flex items-center justify-between mt-0.5">
-                  <span className="font-mono font-extrabold text-[#0B3326] text-xs">
-                    {user.virtualAccountNumber || 'Awaiting Bank Issuance'}
+            {/* TAB 2: Address & Location */}
+            {activeTab === 'address' && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between pb-1 border-b border-[#E5EDE8]">
+                  <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#10B981]" /> Farmgate Address &amp; Location
+                  </h4>
+                  <span className="text-[10px] text-[#10B981] font-bold bg-[#EBF5F0] px-2 py-0.5 rounded-full">
+                    ⚡ Auto-fills listings
                   </span>
-                  {user.virtualAccountNumber && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard?.writeText(user.virtualAccountNumber);
-                        setCopiedVan(true);
-                        setTimeout(() => setCopiedVan(false), 2000);
-                      }}
-                      className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
-                    >
-                      {copiedVan ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Street / Village / Farmgate Address
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formData.address}
+                      onChange={(e) => handleChange('address', e.target.value)}
+                      placeholder="e.g. 42 Green Valley Road, Omalur Taluk"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981] resize-none"
+                    />
+                  </div>
+
+                  {/* 3-Column Micro-Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#14211D] mb-1">
+                        District
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.district}
+                        onChange={(e) => handleChange('district', e.target.value)}
+                        placeholder="e.g. Salem"
+                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#14211D] mb-1">
+                        State
+                      </label>
+                      <SearchableSelect
+                        options={commonStates}
+                        value={formData.state}
+                        onChange={(val) => handleChange('state', val)}
+                        placeholder="Select State"
+                        searchPlaceholder="Search state..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#14211D] mb-1">
+                        PIN Code
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={formData.pincode}
+                        onChange={(e) => handleChange('pincode', e.target.value)}
+                        placeholder="e.g. 636001"
+                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Nearest Highway / Hub Landmark (Optional)
+                    </label>
+                    <div className="relative">
+                      <Navigation className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={formData.landmark}
+                        onChange={(e) => handleChange('landmark', e.target.value)}
+                        placeholder="e.g. Near NH44 Toll Plaza / APMC Gate"
+                        className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('contact')}
+                    className="text-xs font-semibold text-[#566861] hover:underline cursor-pointer"
+                  >
+                    &larr; Back to Identity
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('bank')}
+                    className="text-xs font-bold text-[#10B981] hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    Next: Bank &amp; VAN &rarr;
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
-                <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Dedicated Branch IFSC</span>
-                <span className="font-mono font-extrabold text-[#0B3326] text-xs block mt-0.5">
-                  {user.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Bank Account & Escrow Payout Details */}
-          <div className="space-y-3 pt-3 border-t border-[#E5EDE8]">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
-                <Landmark className="w-3.5 h-3.5 text-[#10B981]" /> Escrow Payout Bank Account
-              </h4>
-              <span className="text-[10px] text-[#10B981] font-bold bg-[#EBF5F0] px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Lock className="w-2.5 h-2.5" /> RBI Nodal Direct Payout
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Bank Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.bankName}
-                  onChange={(e) => handleChange('bankName', e.target.value)}
-                  placeholder="e.g. State Bank of India"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  Account Number
-                </label>
-                <input
-                  type="text"
-                  value={formData.accountNumber}
-                  onChange={(e) => handleChange('accountNumber', e.target.value.replace(/\D/g, ''))}
-                  placeholder="e.g. 38291048211"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] font-mono text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  IFSC Code
-                </label>
-                <input
-                  type="text"
-                  value={formData.ifscCode}
-                  onChange={(e) => handleChange('ifscCode', e.target.value)}
-                  placeholder="e.g. SBIN0004921"
-                  maxLength={11}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] font-mono uppercase text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                />
-                {resolvedIfsc && (
-                  <span className="text-[10px] text-[#10B981] font-semibold block mt-0.5">
-                    ✓ {resolvedIfsc.bankName} ({resolvedIfsc.branch})
+            {/* TAB 3: Bank & VAN */}
+            {activeTab === 'bank' && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between pb-1 border-b border-[#E5EDE8]">
+                  <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider flex items-center gap-1.5">
+                    <Landmark className="w-3.5 h-3.5 text-[#10B981]" /> Escrow Payout &amp; VAN
+                  </h4>
+                  <span className="text-[10px] text-[#10B981] font-bold bg-[#EBF5F0] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> RBI Nodal Payout
                   </span>
-                )}
-              </div>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#14211D] mb-1">
-                  UPI ID (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.upiId}
-                  onChange={(e) => handleChange('upiId', e.target.value.toLowerCase().trim())}
-                  placeholder="e.g. sakthivel@oksbi"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                />
+                {/* Compact Dedicated Virtual Account Number (VAN) */}
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-[#F8FAF8] border border-emerald-200/90 space-y-2 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5 uppercase tracking-wide">
+                      <Landmark className="w-3.5 h-3.5 text-emerald-700" />
+                      Virtual Account (VAN)
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide border ${
+                      user.vanStatus === 'active'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : user.vanStatus === 'rejected'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                    }`}>
+                      {user.vanStatus === 'active'
+                        ? '● Active'
+                        : user.vanStatus === 'rejected'
+                        ? '✕ Rejected'
+                        : '⏳ Approval Pending'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded-xl bg-white border border-emerald-100">
+                      <span className="text-[9px] text-[#566861] uppercase tracking-wider block font-semibold">Virtual A/C No. (VAN)</span>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="font-mono font-extrabold text-[#0B3326] text-xs">
+                          {user.virtualAccountNumber || 'Awaiting Bank Issuance'}
+                        </span>
+                        {user.virtualAccountNumber && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(user.virtualAccountNumber);
+                              setCopiedVan(true);
+                              setTimeout(() => setCopiedVan(false), 2000);
+                            }}
+                            className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                            title="Copy VAN"
+                          >
+                            {copiedVan ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-white border border-emerald-100">
+                      <span className="text-[9px] text-[#566861] uppercase tracking-wider block font-semibold">Dedicated Branch IFSC</span>
+                      <span className="font-mono font-extrabold text-[#0B3326] text-xs block mt-0.5">
+                        {user.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Account Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Bank Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bankName}
+                      onChange={(e) => handleChange('bankName', e.target.value)}
+                      placeholder="e.g. State Bank of India"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      Account Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.accountNumber}
+                      onChange={(e) => handleChange('accountNumber', e.target.value.replace(/\D/g, ''))}
+                      placeholder="e.g. 38291048211"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] font-mono text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      IFSC Code
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.ifscCode}
+                      onChange={(e) => handleChange('ifscCode', e.target.value)}
+                      placeholder="e.g. SBIN0004921"
+                      maxLength={11}
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] font-mono uppercase text-xs font-bold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                    {resolvedIfsc && (
+                      <span className="text-[10px] text-[#10B981] font-semibold block mt-0.5 truncate">
+                        ✓ {resolvedIfsc.bankName} ({resolvedIfsc.branch})
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#14211D] mb-1">
+                      UPI ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.upiId}
+                      onChange={(e) => handleChange('upiId', e.target.value.toLowerCase().trim())}
+                      placeholder="e.g. name@oksbi"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-1 flex justify-start">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('address')}
+                    className="text-xs font-semibold text-[#566861] hover:underline cursor-pointer"
+                  >
+                    &larr; Back to Address
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
           </div>
 
-          {/* Footer Actions */}
-          <div className="pt-4 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Sticky Bottom Actions Bar */}
+          <div className="shrink-0 p-4 sm:p-5 border-t border-[#E5EDE8] bg-white flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 z-10">
             <span className="text-[11px] text-[#566861] flex items-center justify-center sm:justify-start gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-              Secured in your encrypted session
+              Encrypted session security
             </span>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 justify-end">
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 onClick={onClose}
-                className="text-xs font-semibold justify-center w-full sm:w-auto"
+                className="text-xs font-semibold px-4 py-2 cursor-pointer"
               >
                 Cancel
               </Button>
@@ -560,7 +665,7 @@ export default function UserProfileModal({
                 icon={Save}
                 iconPosition="left"
                 disabled={isSaving}
-                className="text-xs font-bold shadow-xs cursor-pointer justify-center w-full sm:w-auto"
+                className="text-xs font-bold shadow-xs cursor-pointer px-5 py-2"
               >
                 {isSaving ? 'Saving...' : 'Save Profile Defaults'}
               </Button>
