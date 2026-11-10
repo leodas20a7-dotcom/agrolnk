@@ -231,13 +231,21 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
       <div className="max-w-4xl mx-auto space-y-8 text-left">
         
         {/* Top Back Navigation */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => onNavigate('buyer-marketplace')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Marketplace
-          </button>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate('buyer-marketplace')}
+              title="Return to Marketplace"
+              aria-label="Back to Marketplace"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
+            </button>
+            <span className="text-xs sm:text-sm font-bold text-[#0B3326] hidden sm:inline">
+              Marketplace Lot Inspection
+            </span>
+          </div>
           <Badge variant="emerald" size="sm" dot={true}>
             Live Verified Batch
           </Badge>

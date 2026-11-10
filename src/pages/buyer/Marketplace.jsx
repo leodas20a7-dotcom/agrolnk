@@ -208,19 +208,24 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
         
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
+          <div className="flex items-start sm:items-center gap-3">
             <button
+              type="button"
               onClick={() => onNavigate(dashboardTarget)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-2 cursor-pointer"
+              title="Return to Dashboard"
+              aria-label="Back to Dashboard"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+              <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
             </button>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
-              Marketplace
-            </h1>
-            <p className="text-xs sm:text-sm text-[#566861]">
-              Discover and procure fresh verified produce directly from local farmers and cooperatives.
-            </p>
+            <div className="space-y-0.5 min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#0B3326] font-heading tracking-tight">
+                Marketplace
+              </h1>
+              <p className="text-xs sm:text-sm text-[#566861] hidden sm:block">
+                Discover and procure fresh verified produce directly from local farmers and cooperatives.
+              </p>
+            </div>
           </div>
 
           <Button
