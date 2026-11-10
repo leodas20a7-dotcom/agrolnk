@@ -105,19 +105,21 @@ export default function ProduceDetailModal({
             >
               Close
             </Button>
-            <Button
-              variant="accent"
-              size="sm"
-              icon={Edit3}
-              iconPosition="left"
-              onClick={() => {
-                onClose();
-                onEdit?.(listing);
-              }}
-              className="px-5 py-2 font-bold"
-            >
-              Edit Listing
-            </Button>
+            {onEdit && (
+              <Button
+                variant="accent"
+                size="sm"
+                icon={Edit3}
+                iconPosition="left"
+                onClick={() => {
+                  onClose();
+                  onEdit(listing);
+                }}
+                className="px-5 py-2 font-bold"
+              >
+                Edit Listing
+              </Button>
+            )}
           </div>
         </div>
       }
