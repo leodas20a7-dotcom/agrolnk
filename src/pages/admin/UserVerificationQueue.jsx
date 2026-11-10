@@ -301,32 +301,39 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <div className="space-y-1">
+          <div className="flex items-start sm:items-center gap-3">
+            {/* Option 1: Modern Squircle Back Button */}
             <button
+              type="button"
               onClick={() => onNavigate('admin-dashboard')}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-0.5 cursor-pointer"
+              title="Return to Admin Dashboard"
+              aria-label="Back to Dashboard"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+              <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
             </button>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl sm:text-3xl font-bold text-[#0B3326] font-heading tracking-tight">
-                User KYC & Verification
-              </h1>
-              {pendingCount > 0 && (
-                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  {pendingCount} Pending
-                </span>
-              )}
+
+            <div className="space-y-0.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0B3326] font-heading tracking-tight">
+                  User KYC & Verification
+                </h1>
+                {pendingCount > 0 && (
+                  <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    {pendingCount} Pending
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-[#566861] hidden sm:block">
+                Review newly registered participants, inspect credentials, and approve verified badges.
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-[#566861] hidden sm:block">
-              Review newly registered participants, inspect credentials, and approve verified badges.
-            </p>
           </div>
 
           {/* Feedback Toast */}
           {feedbackMessage && (
-            <div className="p-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150">
+            <div className="p-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150 self-start sm:self-auto">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{feedbackMessage}</span>
             </div>
