@@ -402,8 +402,8 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             </div>
 
             {/* Search & Category Filter */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[200px]">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-60">
                 <Search className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -413,7 +413,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                     setCurrentPage(1);
                   }}
                   placeholder="Search commodity or seller..."
-                  className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs focus:outline-none focus:border-[#10B981] focus:bg-white transition-all"
+                  className="w-full pl-9 pr-3 py-2 sm:py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs focus:outline-none focus:border-[#10B981] focus:bg-white transition-all"
                 />
               </div>
 
@@ -424,7 +424,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                     setSelectedCategory(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="px-3 py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-medium text-[#0B3326] focus:outline-none focus:border-[#10B981]"
+                  className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-medium text-[#0B3326] focus:outline-none focus:border-[#10B981]"
                 >
                   <option value="all">All Commodities ({listings.length})</option>
                   {uniqueCommodities.map((c) => (
