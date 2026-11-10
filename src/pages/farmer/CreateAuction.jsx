@@ -227,32 +227,35 @@ export default function CreateAuction({ currentUser, onNavigate }) {
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="max-w-4xl mx-auto space-y-8 text-left">
         
-        {/* Top Navigation */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => onNavigate(isFoodProcessor ? 'food-processor-dashboard' : 'farmer-dashboard')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-          </button>
-          <div className="text-xs text-[#566861]">
+        {/* Top Header & Navigation */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate(isFoodProcessor ? 'food-processor-dashboard' : 'farmer-dashboard')}
+              title="Return to Dashboard"
+              aria-label="Back to Dashboard"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
+            </button>
+            <div className="space-y-0.5 min-w-0">
+              <div className="inline-flex items-center gap-1.5 mb-0.5">
+                <Badge variant="amber" size="sm" dot={true}>
+                  Competitive Bidding Engine
+                </Badge>
+              </div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#0B3326] font-heading tracking-tight">
+                Launch Live Auction
+              </h1>
+              <p className="text-xs sm:text-sm text-[#566861] hidden sm:block">
+                Set your reserve floor price and let verified national buyers compete for your harvest in real time.
+              </p>
+            </div>
+          </div>
+          <div className="text-xs text-[#566861] shrink-0 self-end sm:self-center">
             Step <span className="font-bold text-[#0B3326]">1</span> of 1: Create Live Auction
           </div>
-        </div>
-
-        {/* Page Headline */}
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5">
-            <Badge variant="amber" size="sm" dot={true}>
-              Competitive Bidding Engine
-            </Badge>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
-            Launch Live Auction
-          </h1>
-          <p className="text-xs sm:text-sm text-[#566861]">
-            Set your reserve floor price and let verified national buyers compete for your harvest in real time.
-          </p>
         </div>
 
         {/* Error Alert */}

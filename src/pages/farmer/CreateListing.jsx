@@ -600,10 +600,11 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           <button
             type="button"
             onClick={handlePrevStep}
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#566861] hover:text-[#0B3326] px-2.5 py-1.5 rounded-xl hover:bg-[#F8FAF8] transition-colors cursor-pointer shrink-0"
+            title={currentStep > 1 ? 'Go to previous step' : 'Return to Dashboard'}
+            aria-label={currentStep > 1 ? 'Previous Step' : 'Back to Dashboard'}
+            className="w-10 h-10 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">{currentStep > 1 ? 'Back' : 'Dashboard'}</span>
+            <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
           </button>
 
           {/* Smart Step Progress Pills */}
