@@ -131,24 +131,29 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
+          <div className="flex items-start sm:items-center gap-3">
             <button
+              type="button"
               onClick={() => onNavigate('admin-dashboard')}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-1 cursor-pointer"
+              title="Return to Dashboard"
+              aria-label="Back to Dashboard"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+              <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
             </button>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#0B3326] font-heading">
-                Quality Inspection & Assay Desk
-              </h1>
-              <span className="bg-amber-100 text-amber-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <Scale className="w-3.5 h-3.5" /> Ombudsman & Quality Assays
-              </span>
+            <div className="space-y-0.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0B3326] font-heading tracking-tight">
+                  Quality Inspection & Assay Desk
+                </h1>
+                <span className="bg-amber-100 text-amber-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Scale className="w-3.5 h-3.5" /> Ombudsman & Quality Assays
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-[#566861] hidden sm:block">
+                Review buyer inspection requests, dispatch certified assayer reports, and arbitrate escrow releases.
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-[#566861]">
-              Review buyer inspection requests, dispatch certified assayer reports, and arbitrate escrow releases.
-            </p>
           </div>
 
           {/* Filter Pills & Refresh Button */}
