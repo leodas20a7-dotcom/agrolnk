@@ -203,7 +203,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             <h1 className="text-xl sm:text-3xl font-bold font-heading">
               Admin Overview
             </h1>
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/80 mt-1">
+            <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/80 mt-1">
               Monitor user verifications, marketplace produce catalog, and escrow settlements.
             </p>
           </div>
@@ -402,7 +402,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                     <span className="hidden sm:inline">{filteredListings.length} Active Lots</span>
                   </span>
                 </h2>
-                <p className="text-xs text-[#566861]">
+                <p className="hidden sm:block text-xs text-[#566861]">
                   View, inspect, and moderate listed agricultural produce. Only unbooked items can be safely removed.
                 </p>
               </div>
