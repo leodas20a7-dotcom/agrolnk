@@ -266,7 +266,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
-      <div className="space-y-8 text-left">
+      <div className="space-y-5 sm:space-y-8 text-left pb-24 sm:pb-8">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -304,96 +304,101 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           </div>
         </div>
 
-        {/* 4 Multi-Pillar Revenue Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 4 Multi-Pillar Revenue Summary Cards (2x2 grid on mobile for instant glance) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           
           {/* Total Ecosystem Gross Volume */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Total Ecosystem GMV</span>
-              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
-                <TrendingUp className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Total Ecosystem GMV</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981] shrink-0">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-[#0B3326]">
+            <div className="text-lg sm:text-2xl font-bold text-[#0B3326] truncate">
               {formatINR(totalEcosystemGMV)}
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
               Trades, Freight, Storage &amp; Credit
             </div>
           </div>
 
           {/* Total Platform Revenue */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Platform Revenue (0.25%-0.50%)</span>
-              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
-                <DollarSign className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Platform Revenue</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981] shrink-0">
+                <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-[#10B981]">
+            <div className="text-lg sm:text-2xl font-bold text-[#10B981] truncate">
               {formatINR(totalAgroLnkRevenue)}
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
-              Produce, Transport, Warehouse &amp; FI
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              Produce, Transport &amp; Storage
             </div>
           </div>
 
           {/* Active Escrow Locked */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-blue-400 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Active Escrow Locked</span>
-              <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-                <Lock className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-blue-400 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Active Escrow Locked</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-blue-700">
+            <div className="text-lg sm:text-2xl font-bold text-blue-700 truncate">
               {formatINR(totalEscrowLocked)}
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
-              Produce Trade &amp; Freight Escrow
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              Produce &amp; Freight Escrow
             </div>
           </div>
 
           {/* Net Partner Settlements */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-emerald-400 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Net Disbursed to Partners</span>
-              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-                <CheckCircle2 className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-emerald-400 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Net Disbursed</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-emerald-700">
+            <div className="text-lg sm:text-2xl font-bold text-emerald-700 truncate">
               {formatINR(totalSettledToSellers)}
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
-              Sellers, Carriers &amp; Warehouses
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              Sellers &amp; Carriers
             </div>
           </div>
 
         </div>
 
         {/* Section: Pending Admin Call Verification & Escrow Clearance Queue */}
-        <div className="p-6 rounded-3xl bg-gradient-to-r from-[#FEF3C7]/90 via-[#F2FBF6] to-white border border-[#FDE68A] shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 text-[#92400E]">
-              <PhoneCall className="w-5 h-5" />
+        <div className="p-4 sm:p-6 rounded-3xl bg-gradient-to-r from-[#FEF3C7]/90 via-[#F2FBF6] to-white border border-[#FDE68A] shadow-sm space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-start sm:items-center gap-2.5 text-[#92400E]">
+              <PhoneCall className="w-5 h-5 shrink-0 mt-0.5 sm:mt-0" />
               <div>
-                <h3 className="text-base font-bold font-heading text-[#92400E]">
-                  Admin Supervised Escrow: Buyer Call & Payout Clearance Desk
-                </h3>
-                <p className="text-xs text-[#566861] mt-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-bold font-heading text-[#92400E]">
+                    Admin Supervised Escrow: Buyer Call &amp; Payout Clearance Desk
+                  </h3>
+                  <Badge variant="amber" size="sm" className="sm:hidden">
+                    Supervised
+                  </Badge>
+                </div>
+                <p className="hidden sm:block text-xs text-[#566861] mt-0.5">
                   Call buyer post-delivery to confirm produce satisfaction, then 1-click release funds to farmer bank account with instant UTR.
                 </p>
               </div>
             </div>
-            <Badge variant="amber" size="md">
+            <Badge variant="amber" size="md" className="hidden sm:inline-flex shrink-0">
               Supervised Tripartite Model
             </Badge>
           </div>
 
           {/* Quick Cards of Pending / Active Escrow Consignments */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {ledgerItems.filter(i => i.escrowState === 'locked' || i.status === 'delivered').slice(0, 3).map((item) => (
               <div
                 key={item.id}
@@ -432,22 +437,25 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           </div>
         </div>
 
-        {/* Vault Switcher: Produce Trades vs. Logistics Freight vs. Warehouse Storage */}
-        <div className="flex items-center gap-3 border-b border-[#E5EDE8] pb-1 overflow-x-auto">
+        {/* Vault Switcher: Produce Trades vs. Logistics Freight vs. Warehouse Storage (2x2 grid on mobile, horizontal tabs on desktop) */}
+        <div className="grid grid-cols-2 sm:flex sm:items-center sm:gap-4 border-b border-[#E5EDE8] pb-2 sm:pb-1 gap-2">
           <button
             onClick={() => {
               setActiveLedgerTab('orders');
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer shrink-0 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
               activeLedgerTab === 'orders'
-                ? 'border-[#0B3326] text-[#0B3326]'
-                : 'border-transparent text-[#566861] hover:text-[#0B3326]'
+                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
+                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-            <span>Produce Trade Escrow Vault ({ledgerItems.length})</span>
+            <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
+            <span className="truncate">
+              <span className="sm:hidden">Produce ({ledgerItems.length})</span>
+              <span className="hidden sm:inline">Produce Trade Vault ({ledgerItems.length})</span>
+            </span>
           </button>
 
           <button
@@ -456,17 +464,20 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer shrink-0 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
               activeLedgerTab === 'freight'
-                ? 'border-[#0B3326] text-[#0B3326]'
-                : 'border-transparent text-[#566861] hover:text-[#0B3326]'
+                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
+                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <Truck className="w-4 h-4 text-blue-600" />
-            <span>Logistics & Freight Vault ({freightItems.length})</span>
+            <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="truncate">
+              <span className="sm:hidden">Freight ({freightItems.length})</span>
+              <span className="hidden sm:inline">Logistics &amp; Freight ({freightItems.length})</span>
+            </span>
             {freightItems.filter((f) => f.freightState === 'pending_verification').length > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                {freightItems.filter((f) => f.freightState === 'pending_verification').length} UTR Pending
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                {freightItems.filter((f) => f.freightState === 'pending_verification').length}
               </span>
             )}
           </button>
@@ -477,16 +488,16 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer shrink-0 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
               activeLedgerTab === 'warehouse'
-                ? 'border-[#0B3326] text-[#0B3326]'
-                : 'border-transparent text-[#566861] hover:text-[#0B3326]'
+                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
+                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <Warehouse className="w-4 h-4 text-emerald-600" />
-            <span>Warehouse Storage ({warehouseItems.length})</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              0.25% Direct Fee
+            <Warehouse className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="truncate">
+              <span className="sm:hidden">Warehouse ({warehouseItems.length})</span>
+              <span className="hidden sm:inline">Warehouse Storage ({warehouseItems.length})</span>
             </span>
           </button>
 
@@ -496,23 +507,23 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer shrink-0 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
               activeLedgerTab === 'financing'
-                ? 'border-[#0B3326] text-[#0B3326]'
-                : 'border-transparent text-[#566861] hover:text-[#0B3326]'
+                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
+                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <Landmark className="w-4 h-4 text-purple-600" />
-            <span>Trade Financing / Credit ({financingItems.length})</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
-              0.25% LSP Sourcing Fee
+            <Landmark className="w-4 h-4 text-purple-600 shrink-0" />
+            <span className="truncate">
+              <span className="sm:hidden">Credit ({financingItems.length})</span>
+              <span className="hidden sm:inline">Trade Financing ({financingItems.length})</span>
             </span>
           </button>
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {[
               { id: 'all', label: 'All Transactions' },
               ...(activeLedgerTab === 'orders' || activeLedgerTab === 'freight'
@@ -542,7 +553,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               <button
                 key={tab.id}
                 onClick={() => { setStatusFilter(tab.id); setCurrentPage(1); }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   statusFilter === tab.id
                     ? 'bg-[#0B3326] text-white shadow-xs'
                     : tab.highlight && ledgerItems.filter(i => i.escrowState === 'pending_verification').length > 0
@@ -570,76 +581,473 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
         {/* Full Ledger Table */}
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-[#E5EDE8] shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              {activeLedgerTab === 'orders' ? (
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
-                      <th className="py-3.5 px-4">Order ID &amp; Commodity</th>
-                      <th className="py-3.5 px-4">Gross Trade Value</th>
-                      <th className="py-3.5 px-4 text-[#1E40AF]">Buyer Paid (+0.25%)</th>
-                      <th className="py-3.5 px-4 text-[#10B981]">Seller Received (-0.25%)</th>
-                      <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
-                      <th className="py-3.5 px-4">Escrow Status</th>
-                      <th className="py-3.5 px-4 text-center">Admin Verification &amp; Payout</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E5EDE8]">
-                    {paginatedItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-[#0B3326] block">{item.orderNumber}</span>
-                          <span className="text-[11px] text-[#566861]">
-                            {item.commodity} • {item.quantity} {item.unit}
-                          </span>
-                        </td>
+            {paginatedItems.length === 0 ? (
+              <div className="py-12 text-center text-[#566861] space-y-2">
+                <ShieldCheck className="w-8 h-8 text-[#10B981] mx-auto opacity-50" />
+                <p className="font-semibold text-sm text-[#0B3326]">No Transactions Found</p>
+                <p className="text-xs">No records match the selected vault and filter criteria.</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Full Data Tables (Hidden on mobile) */}
+                <div className="hidden md:block overflow-x-auto">
+                  {activeLedgerTab === 'orders' ? (
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
+                          <th className="py-3.5 px-4">Order ID &amp; Commodity</th>
+                          <th className="py-3.5 px-4">Gross Trade Value</th>
+                          <th className="py-3.5 px-4 text-[#1E40AF]">Buyer Paid (+0.25%)</th>
+                          <th className="py-3.5 px-4 text-[#10B981]">Seller Received (-0.25%)</th>
+                          <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
+                          <th className="py-3.5 px-4">Escrow Status</th>
+                          <th className="py-3.5 px-4 text-center">Admin Verification &amp; Payout</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5EDE8]">
+                        {paginatedItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#0B3326] block">{item.orderNumber}</span>
+                              <span className="text-[11px] text-[#566861]">
+                                {item.commodity} • {item.quantity} {item.unit}
+                              </span>
+                            </td>
 
-                        <td className="py-3.5 px-4 font-bold text-[#14211D]">
-                          {formatINR(item.tradeValue)}
-                        </td>
+                            <td className="py-3.5 px-4 font-bold text-[#14211D]">
+                              {formatINR(item.tradeValue)}
+                            </td>
 
-                        <td className="py-3.5 px-4 font-semibold text-[#1E40AF]">
-                          {formatINR(item.totalBuyerPayable)}
-                          <span className="block text-[10px] text-[#566861]">
-                            Fee: +{formatINR(item.buyerFee)}
-                          </span>
-                        </td>
+                            <td className="py-3.5 px-4 font-semibold text-[#1E40AF]">
+                              {formatINR(item.totalBuyerPayable)}
+                              <span className="block text-[10px] text-[#566861]">
+                                Fee: +{formatINR(item.buyerFee)}
+                              </span>
+                            </td>
 
-                        <td className="py-3.5 px-4 font-semibold text-[#10B981]">
-                          {formatINR(item.netSellerReceivable)}
-                          <span className="block text-[10px] text-[#566861]">
-                            Fee: -{formatINR(item.sellerFee)}
-                          </span>
-                        </td>
+                            <td className="py-3.5 px-4 font-semibold text-[#10B981]">
+                              {formatINR(item.netSellerReceivable)}
+                              <span className="block text-[10px] text-[#566861]">
+                                Fee: -{formatINR(item.sellerFee)}
+                              </span>
+                            </td>
 
-                        <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
-                          {formatINR(item.totalPlatformCommission)}
-                        </td>
+                            <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
+                              {formatINR(item.totalPlatformCommission)}
+                            </td>
 
-                        <td className="py-3.5 px-4">
-                          {item.escrowState === 'pending_verification' ? (
-                            <div className="space-y-1">
-                              <Badge variant="amber" size="sm" dot={true}>
-                                Bank UTR Pending
-                              </Badge>
-                              {item.bankUtr && (
-                                <span className="font-mono text-[10px] text-amber-950 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 block truncate max-w-[140px]">
-                                  UTR: {item.bankUtr}
-                                </span>
+                            <td className="py-3.5 px-4">
+                              {item.escrowState === 'pending_verification' ? (
+                                <div className="space-y-1">
+                                  <Badge variant="amber" size="sm" dot={true}>
+                                    Bank UTR Pending
+                                  </Badge>
+                                  {item.bankUtr && (
+                                    <span className="font-mono text-[10px] text-amber-950 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 block truncate max-w-[140px]">
+                                      UTR: {item.bankUtr}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : item.escrowState === 'released' ? (
+                                <Badge variant="emerald" size="sm">
+                                  Settled (Released)
+                                </Badge>
+                              ) : (
+                                <Badge variant="teal" size="sm" dot={true}>
+                                  Locked in Escrow
+                                </Badge>
                               )}
-                            </div>
-                          ) : item.escrowState === 'released' ? (
-                            <Badge variant="emerald" size="sm">
-                              Settled (Released)
-                            </Badge>
-                          ) : (
-                            <Badge variant="teal" size="sm" dot={true}>
-                              Locked in Escrow
-                            </Badge>
-                          )}
-                        </td>
+                            </td>
 
-                        <td className="py-3.5 px-4 text-center">
+                            <td className="py-3.5 px-4 text-center">
+                              {item.escrowState === 'pending_verification' ? (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  icon={ShieldCheck}
+                                  iconPosition="left"
+                                  onClick={() => setConfirmingDepositOrder(item)}
+                                  className="text-xs font-bold py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
+                                >
+                                  Verify Deposit
+                                </Button>
+                              ) : item.escrowState === 'released' ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
+                                  </span>
+                                  {item.bankUtr && (
+                                    <span className="font-mono text-[10px] text-[#566861] block">
+                                      UTR: {item.bankUtr}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="accent"
+                                  size="sm"
+                                  icon={PhoneCall}
+                                  iconPosition="left"
+                                  onClick={() => setOrderForVerification(item)}
+                                  className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                                >
+                                  Call Buyer &amp; Release
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : activeLedgerTab === 'freight' ? (
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
+                          <th className="py-3.5 px-4">Delivery # &amp; Order</th>
+                          <th className="py-3.5 px-4">Transporter Carrier</th>
+                          <th className="py-3.5 px-4">Base Freight Quote</th>
+                          <th className="py-3.5 px-4 text-[#1E40AF]">Consignor Deposited (+0.25%)</th>
+                          <th className="py-3.5 px-4 text-[#10B981]">Transporter Payout (-0.25%)</th>
+                          <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
+                          <th className="py-3.5 px-4">Freight Escrow Status</th>
+                          <th className="py-3.5 px-4 text-center">Admin Verification &amp; Release</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5EDE8]">
+                        {paginatedItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#0B3326] block">{item.deliveryNumber}</span>
+                              <span className="text-[11px] text-[#566861]">
+                                Order: {item.orderNumber} • {item.commodity}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#14211D] block">{item.transporterName || 'Unassigned'}</span>
+                              <span className="text-[11px] text-[#566861]">
+                                {item.vehicleType || 'Commercial'} {item.vehicleNumber ? `• ${item.vehicleNumber}` : ''}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-bold text-[#14211D]">
+                              {formatINR(item.baseFare)}
+                            </td>
+
+                            <td className="py-3.5 px-4 font-semibold text-[#1E40AF]">
+                              {formatINR(item.totalFreightDeposit)}
+                              <span className="block text-[10px] text-[#566861]">
+                                Fee: +{formatINR(item.consignorFee)}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-semibold text-[#10B981]">
+                              {formatINR(item.netTransporterPayout)}
+                              <span className="block text-[10px] text-[#566861]">
+                                Fee: -{formatINR(item.transporterFee)}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
+                              {formatINR(item.totalAgroLnkFreightRevenue)}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              {item.freightState === 'pending_verification' ? (
+                                <div className="space-y-1">
+                                  <Badge variant="amber" size="sm" dot={true}>
+                                    Bank UTR Pending
+                                  </Badge>
+                                  {item.freightBankUtr && (
+                                    <span className="font-mono text-[10px] text-amber-950 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 block truncate max-w-[140px]">
+                                      UTR: {item.freightBankUtr}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : item.freightState === 'released' ? (
+                                <Badge variant="emerald" size="sm">
+                                  Disbursed to Carrier
+                                </Badge>
+                              ) : item.freightState === 'locked' ? (
+                                <Badge variant="teal" size="sm" dot={true}>
+                                  Locked in Escrow
+                                </Badge>
+                              ) : (
+                                <Badge variant="gray" size="sm">
+                                  Unfunded
+                                </Badge>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              {item.freightState === 'pending_verification' ? (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  icon={ShieldCheck}
+                                  iconPosition="left"
+                                  onClick={() => setConfirmingFreightDelivery(item)}
+                                  className="text-xs font-bold py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
+                                >
+                                  Verify Freight
+                                </Button>
+                              ) : item.freightState === 'released' ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
+                                  </span>
+                                  {item.freightDisbursalUtr && (
+                                    <span className="font-mono text-[10px] text-[#566861] block">
+                                      Ref: {item.freightDisbursalUtr}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : item.freightState === 'locked' ? (
+                                <Button
+                                  variant="accent"
+                                  size="sm"
+                                  icon={CheckCircle2}
+                                  iconPosition="left"
+                                  onClick={() => setReleasingFreightDelivery(item)}
+                                  className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                                >
+                                  Release Fare
+                                </Button>
+                              ) : (
+                                <span className="text-gray-400 text-xs italic">Awaiting Consignor</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : activeLedgerTab === 'warehouse' ? (
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
+                          <th className="py-3.5 px-4">Receipt # &amp; Commodity</th>
+                          <th className="py-3.5 px-4">Warehouse Facility</th>
+                          <th className="py-3.5 px-4">Monthly Storage Rent</th>
+                          <th className="py-3.5 px-4 text-[#1E40AF]">Depositor Paid (+0.25%)</th>
+                          <th className="py-3.5 px-4 text-[#10B981]">Warehouse Settled (-0.25%)</th>
+                          <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
+                          <th className="py-3.5 px-4">Settlement Status</th>
+                          <th className="py-3.5 px-4 text-center">Settlement Mode</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5EDE8]">
+                        {paginatedItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#0B3326] block">{item.receiptNumber}</span>
+                              <span className="text-[11px] text-[#566861]">
+                                {item.commodity} ({item.totalQuantity} {item.unit}) • {item.farmerName}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#14211D] block">{item.warehouseName || 'Accredited Warehouse'}</span>
+                              <span className="text-[11px] text-[#566861]">
+                                Chamber: {item.chamber || 'Standard Cold Store'}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-bold text-[#14211D]">
+                              {formatINR(item.baseRent)}
+                            </td>
+
+                            <td className="py-3.5 px-4 font-semibold text-[#1E40AF]">
+                              {formatINR(item.totalRentDeposit)}
+                              <span className="block text-[10px] text-[#566861]">
+                                Fee: +{formatINR(item.depositorFee)}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-semibold text-[#10B981]">
+                              {formatINR(item.netWarehousePayout)}
+                              <span className="block text-[10px] text-[#566861]">
+                                Fee: -{formatINR(item.warehouseFee)}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
+                              {formatINR(item.totalAgroLnkWarehouseRevenue)}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              {item.warehousePaymentState === 'settled' ? (
+                                <Badge variant="emerald" size="sm">
+                                  Direct Settled
+                                </Badge>
+                              ) : (
+                                <Badge variant="gray" size="sm">
+                                  Pending Due
+                                </Badge>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Razorpay Direct
+                                </span>
+                                <span className="text-[10px] text-[#566861] block">
+                                  No Escrow Hold
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    /* activeLedgerTab === 'financing' */
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
+                          <th className="py-3.5 px-4">Credit Request # &amp; Commodity</th>
+                          <th className="py-3.5 px-4">Borrower &amp; Financier</th>
+                          <th className="py-3.5 px-4">Sanctioned Principal</th>
+                          <th className="py-3.5 px-4 text-[#1E40AF]">AgroLnk 0.25% Sourcing Fee</th>
+                          <th className="py-3.5 px-4 text-[#10B981]">Net Disbursed to Borrower</th>
+                          <th className="py-3.5 px-4">Disbursal Status</th>
+                          <th className="py-3.5 px-4 text-center">LSP Regulatory Model</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5EDE8]">
+                        {paginatedItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#0B3326] block">{item.requestNumber}</span>
+                              <span className="text-[11px] text-[#566861]">
+                                {item.commodity} • {item.purposeLabel || 'Trade Credit'}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#14211D] block">{item.applicantName}</span>
+                              <span className="text-[11px] text-purple-700 font-semibold block">
+                                NBFC: {item.financierName || 'Institutional Partner'}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-bold text-[#14211D]">
+                              {formatINR(item.principal)}
+                            </td>
+
+                            <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
+                              {formatINR(item.originationFee)}
+                              <span className="block text-[10px] text-[#566861]">
+                                0.25% Technology Fee
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-semibold text-[#10B981]">
+                              {formatINR(item.netDisbursedToBorrower)}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              {item.financingState === 'disbursed' ? (
+                                <div className="space-y-0.5">
+                                  <Badge variant="emerald" size="sm">
+                                    Disbursed Direct
+                                  </Badge>
+                                  {item.bankUtr && (
+                                    <span className="font-mono text-[10px] text-[#566861] block truncate max-w-[130px]">
+                                      UTR: {item.bankUtr}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <Badge variant="amber" size="sm">
+                                  {item.status === 'borrower_accepted' ? 'Ready for NBFC Disbursal' : 'Under Evaluation'}
+                                </Badge>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> RBI LSP Direct
+                                </span>
+                                <span className="text-[10px] text-[#566861] block">
+                                  Direct RE Account
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Mobile Responsive Cards (Visible only on mobile, Zero horizontal scrolling) */}
+                <div className="block md:hidden p-3.5 space-y-3 bg-[#F8FAF8]">
+                  {activeLedgerTab === 'orders' ? (
+                    paginatedItems.map((item) => (
+                      <div key={item.id} className="p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-xs text-[#0B3326] block">{item.orderNumber}</span>
+                            <span className="text-[11px] text-[#566861]">
+                              {item.commodity} • {item.quantity} {item.unit}
+                            </span>
+                          </div>
+                          <div>
+                            {item.escrowState === 'pending_verification' ? (
+                              <Badge variant="amber" size="sm" dot={true}>
+                                UTR Pending
+                              </Badge>
+                            ) : item.escrowState === 'released' ? (
+                              <Badge variant="emerald" size="sm">
+                                Settled
+                              </Badge>
+                            ) : (
+                              <Badge variant="teal" size="sm" dot={true}>
+                                Locked
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-[#E5EDE8]/60">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-[#566861] block">Buyer</span>
+                            <span className="font-semibold text-[#14211D] truncate block">{item.buyerName || 'Buyer'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-[#566861] block">Producer (Seller)</span>
+                            <span className="font-semibold text-[#14211D] truncate block">{item.farmerName || 'Farmer'}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Gross Trade</span>
+                            <span className="font-bold text-[#14211D] text-xs">{formatINR(item.tradeValue)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk Fee (0.5%)</span>
+                            <span className="font-bold text-[#0B3326] text-xs">{formatINR(item.totalPlatformCommission)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Buyer Paid (+0.25%)</span>
+                            <span className="font-bold text-[#1E40AF] text-xs">{formatINR(item.totalBuyerPayable)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Seller Receives</span>
+                            <span className="font-bold text-[#10B981] text-xs">{formatINR(item.netSellerReceivable)}</span>
+                          </div>
+                        </div>
+
+                        {item.bankUtr && (
+                          <div className="text-[10px] font-mono text-[#566861] bg-[#F2FBF6] px-2.5 py-1 rounded-lg border border-[#E5EDE8] truncate">
+                            Bank UTR: {item.bankUtr}
+                          </div>
+                        )}
+
+                        <div className="pt-0.5">
                           {item.escrowState === 'pending_verification' ? (
                             <Button
                               variant="primary"
@@ -647,20 +1055,14 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               icon={ShieldCheck}
                               iconPosition="left"
                               onClick={() => setConfirmingDepositOrder(item)}
-                              className="text-xs font-bold py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
+                              className="w-full justify-center text-xs font-bold py-2 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
                             >
-                              Verify Deposit
+                              Verify Deposit &amp; Lock
                             </Button>
                           ) : item.escrowState === 'released' ? (
-                            <div className="space-y-0.5">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
-                              </span>
-                              {item.bankUtr && (
-                                <span className="font-mono text-[10px] text-[#566861] block">
-                                  UTR: {item.bankUtr}
-                                </span>
-                              )}
+                            <div className="py-2 text-center text-xs font-bold text-[#10B981] flex items-center justify-center gap-1.5 bg-emerald-50 rounded-xl border border-emerald-200">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Disbursed to Farmer Bank</span>
                             </div>
                           ) : (
                             <Button
@@ -669,97 +1071,73 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               icon={PhoneCall}
                               iconPosition="left"
                               onClick={() => setOrderForVerification(item)}
-                              className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                              className="w-full justify-center text-xs font-bold py-2 cursor-pointer"
                             >
                               Call Buyer &amp; Release
                             </Button>
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeLedgerTab === 'freight' ? (
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
-                      <th className="py-3.5 px-4">Delivery # &amp; Order</th>
-                      <th className="py-3.5 px-4">Transporter Carrier</th>
-                      <th className="py-3.5 px-4">Base Freight Quote</th>
-                      <th className="py-3.5 px-4 text-[#1E40AF]">Consignor Deposited (+0.25%)</th>
-                      <th className="py-3.5 px-4 text-[#10B981]">Transporter Payout (-0.25%)</th>
-                      <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
-                      <th className="py-3.5 px-4">Freight Escrow Status</th>
-                      <th className="py-3.5 px-4 text-center">Admin Verification &amp; Release</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E5EDE8]">
-                    {paginatedItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-[#0B3326] block">{item.deliveryNumber}</span>
-                          <span className="text-[11px] text-[#566861]">
-                            Order: {item.orderNumber} • {item.commodity}
-                          </span>
-                        </td>
+                        </div>
+                      </div>
+                    ))
+                  ) : activeLedgerTab === 'freight' ? (
+                    paginatedItems.map((item) => (
+                      <div key={item.id} className="p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-xs text-[#0B3326] block">{item.deliveryNumber}</span>
+                            <span className="text-[11px] text-[#566861]">
+                              Order: {item.orderNumber} • {item.commodity}
+                            </span>
+                          </div>
+                          <div>
+                            {item.freightState === 'pending_verification' ? (
+                              <Badge variant="amber" size="sm" dot={true}>
+                                UTR Pending
+                              </Badge>
+                            ) : item.freightState === 'released' ? (
+                              <Badge variant="emerald" size="sm">
+                                Disbursed
+                              </Badge>
+                            ) : item.freightState === 'locked' ? (
+                              <Badge variant="teal" size="sm" dot={true}>
+                                Locked
+                              </Badge>
+                            ) : (
+                              <Badge variant="gray" size="sm">
+                                Unfunded
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
 
-                        <td className="py-3.5 px-4">
+                        <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                          <span className="text-[10px] uppercase font-bold text-[#566861] block">Transporter Carrier</span>
                           <span className="font-bold text-[#14211D] block">{item.transporterName || 'Unassigned'}</span>
-                          <span className="text-[11px] text-[#566861]">
+                          <span className="text-[11px] text-[#566861] block">
                             {item.vehicleType || 'Commercial'} {item.vehicleNumber ? `• ${item.vehicleNumber}` : ''}
                           </span>
-                        </td>
+                        </div>
 
-                        <td className="py-3.5 px-4 font-bold text-[#14211D]">
-                          {formatINR(item.baseFare)}
-                        </td>
+                        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Base Fare</span>
+                            <span className="font-bold text-[#14211D]">{formatINR(item.baseFare)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk Fee</span>
+                            <span className="font-bold text-[#0B3326]">{formatINR(item.totalAgroLnkFreightRevenue)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Deposited</span>
+                            <span className="font-bold text-[#1E40AF]">{formatINR(item.totalFreightDeposit)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Carrier Receives</span>
+                            <span className="font-bold text-[#10B981]">{formatINR(item.netTransporterPayout)}</span>
+                          </div>
+                        </div>
 
-                        <td className="py-3.5 px-4 font-semibold text-[#1E40AF]">
-                          {formatINR(item.totalFreightDeposit)}
-                          <span className="block text-[10px] text-[#566861]">
-                            Fee: +{formatINR(item.consignorFee)}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-semibold text-[#10B981]">
-                          {formatINR(item.netTransporterPayout)}
-                          <span className="block text-[10px] text-[#566861]">
-                            Fee: -{formatINR(item.transporterFee)}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
-                          {formatINR(item.totalAgroLnkFreightRevenue)}
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          {item.freightState === 'pending_verification' ? (
-                            <div className="space-y-1">
-                              <Badge variant="amber" size="sm" dot={true}>
-                                Bank UTR Pending
-                              </Badge>
-                              {item.freightBankUtr && (
-                                <span className="font-mono text-[10px] text-amber-950 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 block truncate max-w-[140px]">
-                                  UTR: {item.freightBankUtr}
-                                </span>
-                              )}
-                            </div>
-                          ) : item.freightState === 'released' ? (
-                            <Badge variant="emerald" size="sm">
-                              Disbursed to Carrier
-                            </Badge>
-                          ) : item.freightState === 'locked' ? (
-                            <Badge variant="teal" size="sm" dot={true}>
-                              Locked in Escrow
-                            </Badge>
-                          ) : (
-                            <Badge variant="gray" size="sm">
-                              Unfunded
-                            </Badge>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
+                        <div className="pt-0.5">
                           {item.freightState === 'pending_verification' ? (
                             <Button
                               variant="primary"
@@ -767,20 +1145,14 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               icon={ShieldCheck}
                               iconPosition="left"
                               onClick={() => setConfirmingFreightDelivery(item)}
-                              className="text-xs font-bold py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
+                              className="w-full justify-center text-xs font-bold py-2 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
                             >
-                              Verify Freight
+                              Verify Freight Deposit
                             </Button>
                           ) : item.freightState === 'released' ? (
-                            <div className="space-y-0.5">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
-                              </span>
-                              {item.freightDisbursalUtr && (
-                                <span className="font-mono text-[10px] text-[#566861] block">
-                                  Ref: {item.freightDisbursalUtr}
-                                </span>
-                              )}
+                            <div className="py-2 text-center text-xs font-bold text-[#10B981] flex items-center justify-center gap-1.5 bg-emerald-50 rounded-xl border border-emerald-200">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Fare Disbursed to Carrier</span>
                             </div>
                           ) : item.freightState === 'locked' ? (
                             <Button
@@ -789,178 +1161,139 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               icon={CheckCircle2}
                               iconPosition="left"
                               onClick={() => setReleasingFreightDelivery(item)}
-                              className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                              className="w-full justify-center text-xs font-bold py-2 cursor-pointer"
                             >
-                              Release Fare
+                              Release Freight Fare
                             </Button>
                           ) : (
-                            <span className="text-gray-400 text-xs italic">Awaiting Consignor</span>
+                            <span className="block text-center text-gray-400 text-xs italic py-1">Awaiting Consignor Deposit</span>
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeLedgerTab === 'warehouse' ? (
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
-                      <th className="py-3.5 px-4">Receipt # &amp; Commodity</th>
-                      <th className="py-3.5 px-4">Warehouse Facility</th>
-                      <th className="py-3.5 px-4">Monthly Storage Rent</th>
-                      <th className="py-3.5 px-4 text-[#1E40AF]">Depositor Paid (+0.25%)</th>
-                      <th className="py-3.5 px-4 text-[#10B981]">Warehouse Settled (-0.25%)</th>
-                      <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
-                      <th className="py-3.5 px-4">Settlement Status</th>
-                      <th className="py-3.5 px-4 text-center">Settlement Mode</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E5EDE8]">
-                    {paginatedItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-[#0B3326] block">{item.receiptNumber}</span>
-                          <span className="text-[11px] text-[#566861]">
-                            {item.commodity} ({item.totalQuantity} {item.unit}) • {item.farmerName}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-[#14211D] block">{item.warehouseName || 'Accredited Warehouse'}</span>
-                          <span className="text-[11px] text-[#566861]">
-                            Chamber: {item.chamber || 'Standard Cold Store'}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-bold text-[#14211D]">
-                          {formatINR(item.baseRent)}
-                        </td>
-
-                        <td className="py-3.5 px-4 font-semibold text-[#1E40AF]">
-                          {formatINR(item.totalRentDeposit)}
-                          <span className="block text-[10px] text-[#566861]">
-                            Fee: +{formatINR(item.depositorFee)}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-semibold text-[#10B981]">
-                          {formatINR(item.netWarehousePayout)}
-                          <span className="block text-[10px] text-[#566861]">
-                            Fee: -{formatINR(item.warehouseFee)}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
-                          {formatINR(item.totalAgroLnkWarehouseRevenue)}
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          {item.warehousePaymentState === 'settled' ? (
-                            <Badge variant="emerald" size="sm">
-                              Direct Settled
-                            </Badge>
-                          ) : (
-                            <Badge variant="gray" size="sm">
-                              Pending Due
-                            </Badge>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="space-y-0.5">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Razorpay Direct
-                            </span>
-                            <span className="text-[10px] text-[#566861] block">
-                              No Escrow Hold
+                        </div>
+                      </div>
+                    ))
+                  ) : activeLedgerTab === 'warehouse' ? (
+                    paginatedItems.map((item) => (
+                      <div key={item.id} className="p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-xs text-[#0B3326] block">{item.receiptNumber}</span>
+                            <span className="text-[11px] text-[#566861]">
+                              {item.commodity} ({item.totalQuantity} {item.unit}) • {item.farmerName}
                             </span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                /* activeLedgerTab === 'financing' */
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
-                      <th className="py-3.5 px-4">Credit Request # &amp; Commodity</th>
-                      <th className="py-3.5 px-4">Borrower &amp; Financier</th>
-                      <th className="py-3.5 px-4">Sanctioned Principal</th>
-                      <th className="py-3.5 px-4 text-[#1E40AF]">AgroLnk 0.25% Sourcing Fee</th>
-                      <th className="py-3.5 px-4 text-[#10B981]">Net Disbursed to Borrower</th>
-                      <th className="py-3.5 px-4">Disbursal Status</th>
-                      <th className="py-3.5 px-4 text-center">LSP Regulatory Model</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E5EDE8]">
-                    {paginatedItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-[#F8FAF8]/80 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-[#0B3326] block">{item.requestNumber}</span>
-                          <span className="text-[11px] text-[#566861]">
-                            {item.commodity} • {item.purposeLabel || 'Trade Credit'}
-                          </span>
-                        </td>
+                          <div>
+                            {item.warehousePaymentState === 'settled' ? (
+                              <Badge variant="emerald" size="sm">
+                                Settled Direct
+                              </Badge>
+                            ) : (
+                              <Badge variant="gray" size="sm">
+                                Pending Due
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
 
-                        <td className="py-3.5 px-4">
+                        <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                          <span className="text-[10px] uppercase font-bold text-[#566861] block">Warehouse Facility</span>
+                          <span className="font-bold text-[#14211D] block">{item.warehouseName || 'Accredited Warehouse'}</span>
+                          <span className="text-[11px] text-[#566861] block">
+                            Chamber: {item.chamber || 'Standard Cold Store'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Monthly Rent</span>
+                            <span className="font-bold text-[#14211D]">{formatINR(item.baseRent)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk Fee</span>
+                            <span className="font-bold text-[#0B3326]">{formatINR(item.totalAgroLnkWarehouseRevenue)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Depositor Paid</span>
+                            <span className="font-bold text-[#1E40AF]">{formatINR(item.totalRentDeposit)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Warehouse Receives</span>
+                            <span className="font-bold text-[#10B981]">{formatINR(item.netWarehousePayout)}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between text-xs">
+                          <span className="text-[#566861]">Settlement Mode:</span>
+                          <span className="font-bold text-emerald-700 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Razorpay Direct
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    /* activeLedgerTab === 'financing' */
+                    paginatedItems.map((item) => (
+                      <div key={item.id} className="p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-xs text-[#0B3326] block">{item.requestNumber}</span>
+                            <span className="text-[11px] text-[#566861]">
+                              {item.commodity} • {item.purposeLabel || 'Trade Credit'}
+                            </span>
+                          </div>
+                          <div>
+                            {item.financingState === 'disbursed' ? (
+                              <Badge variant="emerald" size="sm">
+                                Disbursed
+                              </Badge>
+                            ) : (
+                              <Badge variant="amber" size="sm">
+                                {item.status === 'borrower_accepted' ? 'Ready for NBFC' : 'Evaluating'}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                          <span className="text-[10px] uppercase font-bold text-[#566861] block">Borrower &amp; Lender</span>
                           <span className="font-bold text-[#14211D] block">{item.applicantName}</span>
                           <span className="text-[11px] text-purple-700 font-semibold block">
                             NBFC: {item.financierName || 'Institutional Partner'}
                           </span>
-                        </td>
+                        </div>
 
-                        <td className="py-3.5 px-4 font-bold text-[#14211D]">
-                          {formatINR(item.principal)}
-                        </td>
-
-                        <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
-                          {formatINR(item.originationFee)}
-                          <span className="block text-[10px] text-[#566861]">
-                            0.25% Technology Fee
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-semibold text-[#10B981]">
-                          {formatINR(item.netDisbursedToBorrower)}
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          {item.financingState === 'disbursed' ? (
-                            <div className="space-y-0.5">
-                              <Badge variant="emerald" size="sm">
-                                Disbursed Direct
-                              </Badge>
-                              {item.bankUtr && (
-                                <span className="font-mono text-[10px] text-[#566861] block truncate max-w-[130px]">
-                                  UTR: {item.bankUtr}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <Badge variant="amber" size="sm">
-                              {item.status === 'borrower_accepted' ? 'Ready for NBFC Disbursal' : 'Under Evaluation'}
-                            </Badge>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="space-y-0.5">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> RBI LSP Direct
-                            </span>
-                            <span className="text-[10px] text-[#566861] block">
-                              Direct RE Account
-                            </span>
+                        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Sanctioned Principal</span>
+                            <span className="font-bold text-[#14211D]">{formatINR(item.principal)}</span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                          <div>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk 0.25% Fee</span>
+                            <span className="font-bold text-[#0B3326]">{formatINR(item.originationFee)}</span>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Net Disbursed to Borrower</span>
+                            <span className="font-bold text-[#10B981]">{formatINR(item.netDisbursedToBorrower)}</span>
+                          </div>
+                        </div>
+
+                        {item.bankUtr && (
+                          <div className="text-[10px] font-mono text-[#566861] bg-[#F2FBF6] px-2.5 py-1 rounded-lg border border-[#E5EDE8] truncate">
+                            Bank UTR: {item.bankUtr}
+                          </div>
+                        )}
+
+                        <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-between text-xs">
+                          <span className="text-[#566861]">LSP Regulatory:</span>
+                          <span className="font-bold text-purple-700 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> RBI LSP Direct
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Pagination Controls */}
