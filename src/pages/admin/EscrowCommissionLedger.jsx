@@ -437,20 +437,21 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
         </div>
 
         {/* Vault Switcher: Produce Trades vs. Logistics Freight vs. Warehouse Storage (2x2 grid on mobile, horizontal tabs on desktop) */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center sm:gap-4 border-b border-[#E5EDE8] pb-2 sm:pb-1 gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:items-center sm:gap-6 border-b border-[#E5EDE8] pb-2 sm:pb-0 gap-2">
           <button
+            type="button"
             onClick={() => {
               setActiveLedgerTab('orders');
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none outline-none focus:outline-none focus:ring-0 ${
               activeLedgerTab === 'orders'
-                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
-                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
+                ? 'bg-[#EBF5F0] text-[#10B981] border border-[#10B981]/30 sm:bg-transparent sm:border-0 sm:border-b-2 sm:border-[#10B981]'
+                : 'bg-white text-[#566861] hover:text-[#10B981] border border-[#E5EDE8] sm:border-0 sm:border-b-2 sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0" />
+            <ShieldCheck className={`w-4 h-4 shrink-0 ${activeLedgerTab === 'orders' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
             <span className="truncate">
               <span className="sm:hidden">Produce ({ledgerItems.length})</span>
               <span className="hidden sm:inline">Produce Trade Vault ({ledgerItems.length})</span>
@@ -458,18 +459,19 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveLedgerTab('freight');
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none outline-none focus:outline-none focus:ring-0 ${
               activeLedgerTab === 'freight'
-                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
-                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
+                ? 'bg-[#EBF5F0] text-[#10B981] border border-[#10B981]/30 sm:bg-transparent sm:border-0 sm:border-b-2 sm:border-[#10B981]'
+                : 'bg-white text-[#566861] hover:text-[#10B981] border border-[#E5EDE8] sm:border-0 sm:border-b-2 sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+            <Truck className={`w-4 h-4 shrink-0 ${activeLedgerTab === 'freight' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
             <span className="truncate">
               <span className="sm:hidden">Freight ({freightItems.length})</span>
               <span className="hidden sm:inline">Logistics &amp; Freight ({freightItems.length})</span>
@@ -482,18 +484,19 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveLedgerTab('warehouse');
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none outline-none focus:outline-none focus:ring-0 ${
               activeLedgerTab === 'warehouse'
-                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
-                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
+                ? 'bg-[#EBF5F0] text-[#10B981] border border-[#10B981]/30 sm:bg-transparent sm:border-0 sm:border-b-2 sm:border-[#10B981]'
+                : 'bg-white text-[#566861] hover:text-[#10B981] border border-[#E5EDE8] sm:border-0 sm:border-b-2 sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <Warehouse className="w-4 h-4 text-emerald-600 shrink-0" />
+            <Warehouse className={`w-4 h-4 shrink-0 ${activeLedgerTab === 'warehouse' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
             <span className="truncate">
               <span className="sm:hidden">Warehouse ({warehouseItems.length})</span>
               <span className="hidden sm:inline">Warehouse Storage ({warehouseItems.length})</span>
@@ -501,18 +504,19 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveLedgerTab('financing');
               setStatusFilter('all');
               setCurrentPage(1);
             }}
-            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none sm:border-b-2 ${
+            className={`p-2.5 sm:p-0 sm:pb-3 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 transition-all cursor-pointer rounded-xl sm:rounded-none outline-none focus:outline-none focus:ring-0 ${
               activeLedgerTab === 'financing'
-                ? 'bg-[#0B3326] text-white sm:bg-transparent sm:text-[#0B3326] sm:border-[#0B3326] shadow-xs sm:shadow-none'
-                : 'bg-white text-[#566861] hover:text-[#0B3326] border border-[#E5EDE8] sm:border-transparent sm:bg-transparent'
+                ? 'bg-[#EBF5F0] text-[#10B981] border border-[#10B981]/30 sm:bg-transparent sm:border-0 sm:border-b-2 sm:border-[#10B981]'
+                : 'bg-white text-[#566861] hover:text-[#10B981] border border-[#E5EDE8] sm:border-0 sm:border-b-2 sm:border-transparent sm:bg-transparent'
             }`}
           >
-            <Landmark className="w-4 h-4 text-purple-600 shrink-0" />
+            <Landmark className={`w-4 h-4 shrink-0 ${activeLedgerTab === 'financing' ? 'text-[#10B981]' : 'text-[#566861]'}`} />
             <span className="truncate">
               <span className="sm:hidden">Credit ({financingItems.length})</span>
               <span className="hidden sm:inline">Trade Financing ({financingItems.length})</span>
