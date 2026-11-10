@@ -390,9 +390,16 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               </div>
               <div>
                 <h2 className="text-base font-bold text-[#0B3326] font-heading flex items-center gap-2">
-                  Marketplace Produce Lots
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#10B981] font-bold">
-                    {filteredListings.length} Active Lots
+                  <span title="Marketplace Produce Lots" className="cursor-help sm:cursor-default">
+                    <span className="inline sm:hidden">Market Lots</span>
+                    <span className="hidden sm:inline">Marketplace Produce Lots</span>
+                  </span>
+                  <span
+                    title={`${filteredListings.length} Active Lots`}
+                    className="text-xs px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#10B981] font-bold cursor-help sm:cursor-default shrink-0"
+                  >
+                    <span className="inline sm:hidden">{filteredListings.length} Lots</span>
+                    <span className="hidden sm:inline">{filteredListings.length} Active Lots</span>
                   </span>
                 </h2>
                 <p className="text-xs text-[#566861]">
