@@ -297,162 +297,160 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
-      <div className="space-y-6 text-left max-w-7xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 text-left max-w-7xl mx-auto pb-24 sm:pb-8">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="space-y-1">
             <button
               onClick={() => onNavigate('admin-dashboard')}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-1 cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors mb-0.5 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard
             </button>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#0B3326] font-heading">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl sm:text-3xl font-bold text-[#0B3326] font-heading tracking-tight">
                 User KYC & Verification
               </h1>
               {pendingCount > 0 && (
-                <span className="bg-amber-100 text-amber-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                  {pendingCount} Pending Review
+                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  {pendingCount} Pending
                 </span>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-[#566861]">
+            <p className="text-xs sm:text-sm text-[#566861] hidden sm:block">
               Review newly registered participants, inspect credentials, and approve verified badges.
             </p>
           </div>
 
           {/* Feedback Toast */}
           {feedbackMessage && (
-            <div className="p-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <div className="p-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{feedbackMessage}</span>
             </div>
           )}
         </div>
 
-        {/* Filters Bar */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-          
-          {/* Left: Tab Filter & Date Filter */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Tab Filter */}
-            <div className="flex flex-wrap items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
-              <button
-                onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'pending'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-[#566861] hover:text-[#0B3326]'
-                }`}
-              >
-                Pending ({pendingCount})
-              </button>
-              <button
-                onClick={() => { setActiveTab('verified'); setCurrentPage(1); }}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'verified'
-                    ? 'bg-[#0B3326] text-white shadow-xs'
-                    : 'text-[#566861] hover:text-[#0B3326]'
-                }`}
-              >
-                Verified ({verifiedCount})
-              </button>
-              <button
-                onClick={() => { setActiveTab('rejected'); setCurrentPage(1); }}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'rejected'
-                    ? 'bg-red-600 text-white shadow-xs'
-                    : 'text-[#566861] hover:text-[#0B3326]'
-                }`}
-              >
-                Revoked ({rejectedCount})
-              </button>
-              <button
-                onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'all'
-                    ? 'bg-[#0B3326] text-white shadow-xs'
-                    : 'text-[#566861] hover:text-[#0B3326]'
-                }`}
-              >
-                All ({safeUsers.length})
-              </button>
-            </div>
-
-            {/* Date Filter Dropdown */}
-            <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl">
-              <div className="flex items-center gap-1 pl-2 pr-1 text-[#566861]">
-                <Calendar className="w-3.5 h-3.5 text-[#10B981]" />
-                <span className="text-[11px] font-bold text-[#0B3326] hidden sm:inline">Date:</span>
-              </div>
-              <select
-                value={dateFilter}
-                onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1); }}
-                className="bg-white border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-[#10B981] cursor-pointer"
-              >
-                <option value="all">All Dates</option>
-                <option value="today">Today</option>
-                <option value="week">Past 7 Days</option>
-                <option value="month">This Month</option>
-                <option value="custom">Custom Date</option>
-              </select>
-
-              {dateFilter === 'custom' && (
-                <input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) => { setCustomDate(e.target.value); setCurrentPage(1); }}
-                  className="bg-white border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#10B981] cursor-pointer"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Right Controls: View Mode Switch & Search */}
-          <div className="flex items-center gap-2.5 w-full lg:w-auto justify-between lg:justify-end">
-            {/* View Switch: Grid vs Rows */}
-            <div className="flex items-center bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl shrink-0">
-              <button
-                type="button"
-                onClick={() => handleSetViewMode('grid')}
-                title="Grid View (2-Column Cards)"
-                className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  viewMode === 'grid'
-                    ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
-                    : 'text-[#566861] hover:text-[#0B3326]'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span className="text-[11px]">Grid</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetViewMode('rows')}
-                title="Row-wise List View (Full Width Rows)"
-                className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  viewMode === 'rows'
-                    ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
-                    : 'text-[#566861] hover:text-[#0B3326]'
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-                <span className="text-[11px]">Rows</span>
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative flex-1 lg:w-64">
+        {/* Unified Search & Filters Bar */}
+        <div className="space-y-2.5 bg-white p-3 sm:p-4 rounded-2xl border border-[#E5EDE8] shadow-2xs">
+          {/* Top Row: Search Input + Date Filter */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <div className="relative flex-1">
               <Search className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                placeholder="Search user, email or entity..."
-                className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                placeholder="Search participant, phone, email, or VAN..."
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
               />
             </div>
+
+            <div className="flex items-center gap-2 justify-between sm:justify-start">
+              {/* Date Filter */}
+              <div className="flex items-center gap-1.5 bg-[#F8FAF8] border border-[#E5EDE8] px-2 py-1 rounded-xl flex-1 sm:flex-initial">
+                <Calendar className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <select
+                  value={dateFilter}
+                  onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1); }}
+                  className="bg-transparent text-xs font-semibold text-[#0B3326] focus:outline-none cursor-pointer w-full sm:w-auto"
+                >
+                  <option value="all">All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="week">Past 7 Days</option>
+                  <option value="month">This Month</option>
+                  <option value="custom">Custom Date</option>
+                </select>
+              </div>
+
+              {/* View Switcher (Desktop only - mobile stays clean list) */}
+              <div className="hidden sm:flex items-center bg-[#F8FAF8] border border-[#E5EDE8] p-1 rounded-xl shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode('grid')}
+                  title="Grid View"
+                  className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    viewMode === 'grid'
+                      ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
+                      : 'text-[#566861] hover:text-[#0B3326]'
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="text-[11px]">Grid</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode('rows')}
+                  title="List View"
+                  className={`p-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    viewMode === 'rows'
+                      ? 'bg-white text-[#0B3326] shadow-2xs font-bold border border-[#E5EDE8]'
+                      : 'text-[#566861] hover:text-[#0B3326]'
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="text-[11px]">Rows</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Row: Status Filter Tabs (Single row horizontal scroll on mobile) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-[#F1F5F2]">
+            <button
+              onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'pending'
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] hover:bg-[#F1F5F2]'
+              }`}
+            >
+              <span>Pending</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === 'pending' ? 'bg-amber-700 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                {pendingCount}
+              </span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('verified'); setCurrentPage(1); }}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'verified'
+                  ? 'bg-[#0B3326] text-white shadow-2xs'
+                  : 'bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] hover:bg-[#F1F5F2]'
+              }`}
+            >
+              <span>Verified</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === 'verified' ? 'bg-[#144737] text-white' : 'bg-gray-200 text-gray-700'}`}>
+                {verifiedCount}
+              </span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('rejected'); setCurrentPage(1); }}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'rejected'
+                  ? 'bg-red-600 text-white shadow-2xs'
+                  : 'bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] hover:bg-[#F1F5F2]'
+              }`}
+            >
+              <span>Revoked</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === 'rejected' ? 'bg-red-700 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                {rejectedCount}
+              </span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'all'
+                  ? 'bg-[#0B3326] text-white shadow-2xs'
+                  : 'bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] hover:bg-[#F1F5F2]'
+              }`}
+            >
+              <span>All</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === 'all' ? 'bg-[#144737] text-white' : 'bg-gray-200 text-gray-700'}`}>
+                {safeUsers.length}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -643,21 +641,22 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                   return (
                     <div
                       key={item.id}
-                      className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:border-[#10B981]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
                     >
                       {/* Left: User Identity & Details */}
-                      <div className="flex items-start sm:items-center gap-3.5 min-w-[240px]">
-                        <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-extrabold text-base shrink-0 shadow-2xs">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-extrabold text-sm sm:text-base shrink-0 shadow-2xs border border-emerald-100">
                           {item.name ? item.name.charAt(0).toUpperCase() : 'U'}
                         </div>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-sm font-bold text-[#0B3326]">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          {/* Name + Status + VAN */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h3 className="text-sm font-bold text-[#0B3326] truncate">
                               {item.name}
                             </h3>
                             {item.pendingChanges ? (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
-                                ⚡ Revision Request
+                                ⚡ Revision
                               </span>
                             ) : isVerified ? (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -672,22 +671,25 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                                 ✕ Revoked
                               </span>
                             ) : null}
+
                             {item.virtualAccountNumber ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              <span className="inline-flex items-center text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                                 VAN: {item.virtualAccountNumber}
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              <span className="inline-flex items-center text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                 VAN Pending
                               </span>
                             )}
                           </div>
+
+                          {/* Subtitle: Organization, Role badge, and Timestamp */}
                           <div className="text-xs text-[#566861] flex items-center gap-1.5 flex-wrap">
-                            <span className="font-semibold text-[#0B3326]">{item.orgName || item.email}</span>
+                            <span className="font-semibold text-[#0B3326] truncate max-w-[150px] sm:max-w-xs">{item.orgName || item.email}</span>
                             <span>&bull;</span>
-                            <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-2 py-0.5 rounded-md text-[11px]">{item.role}</span>
+                            <span className="capitalize font-medium text-[#10B981] bg-[#EBF5F0] px-1.5 py-0.2 rounded-md text-[10px] sm:text-[11px]">{item.role}</span>
                             <span>&bull;</span>
-                            <span className="text-[11px] text-[#566861] flex items-center gap-1 font-medium">
+                            <span className="text-[10px] sm:text-[11px] text-[#566861] flex items-center gap-1 font-medium">
                               <Clock className="w-3 h-3 text-[#10B981]" />
                               {formatRequestDateTime(item.submittedAt || item.created_at)}
                             </span>
@@ -696,11 +698,11 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                       </div>
 
                       {/* Right: Quick Actions */}
-                      <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E5EDE8] shrink-0 justify-end">
+                      <div className="grid grid-cols-3 sm:flex items-center gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-[#E5EDE8] shrink-0">
                         <button
                           type="button"
                           onClick={() => setSelectedUserForDocs(item)}
-                          className="px-3.5 py-2 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 shadow-2xs"
+                          className="px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] hover:bg-[#F8FAF8] text-[#566861] hover:text-[#0B3326] text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1 shadow-2xs text-center"
                         >
                           <Eye className="w-3.5 h-3.5 text-[#10B981]" />
                           <span>Details</span>
@@ -710,7 +712,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           <button
                             type="button"
                             onClick={() => handleReject(item.id, item.name)}
-                            className="px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-medium cursor-pointer"
+                            className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-[#E5EDE8] text-[#566861] hover:text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer text-center"
                           >
                             Revoke
                           </button>
@@ -718,7 +720,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           <button
                             type="button"
                             onClick={() => handleApprove(item.id, item.name)}
-                            className="px-4 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
+                            className="col-span-2 sm:col-span-1 px-4 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center justify-center gap-1.5 text-center"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
                             <span>Re-Approve</span>
@@ -728,14 +730,14 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                             <button
                               type="button"
                               onClick={() => handleReject(item.id, item.name)}
-                              className="px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors"
+                              className="px-3 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold cursor-pointer transition-colors text-center"
                             >
                               Reject
                             </button>
                             <button
                               type="button"
                               onClick={() => handleApprove(item.id, item.name)}
-                              className="px-4 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
+                              className="px-3.5 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center justify-center gap-1.5 text-center"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399]" />
                               <span>Approve</span>
