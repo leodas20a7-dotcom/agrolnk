@@ -34,6 +34,7 @@ import { getAdminMetrics } from '../../utils/admin';
 import { formatINR } from '../../utils/commission';
 import { getListings, checkListingBookings, deleteListing, COMMODITY_IMAGES } from '../../utils/listings';
 import ProduceDetailModal from '../../components/farmer/ProduceDetailModal';
+import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { toast } from '../../context/ToastContext';
 import { getCurrentUser } from '../../utils/auth';
@@ -62,6 +63,8 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   const [listings, setListings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
   const [selectedListing, setSelectedListing] = useState(null);
   const [listingToDelete, setListingToDelete] = useState(null);
   const [blockedDeleteInfo, setBlockedDeleteInfo] = useState(null);
@@ -178,6 +181,12 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   });
 
   const uniqueCommodities = Array.from(new Set(listings.map((l) => l.commodity).filter(Boolean)));
+
+  // Pagination calculations for Marketplace Produce Lots
+  const totalPages = Math.ceil(filteredListings.length / itemsPerPage) || 1;
+  const validCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startIndex = (validCurrentPage - 1) * itemsPerPage;
+  const paginatedListings = filteredListings.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
@@ -399,7 +408,10 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   placeholder="Search commodity or seller..."
                   className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs focus:outline-none focus:border-[#10B981] focus:bg-white transition-all"
                 />
@@ -408,7 +420,10 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               {uniqueCommodities.length > 0 && (
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="px-3 py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-medium text-[#0B3326] focus:outline-none focus:border-[#10B981]"
                 >
                   <option value="all">All Commodities ({listings.length})</option>
@@ -424,7 +439,8 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
           {/* Listings Table / Cards */}
           {filteredListings.length > 0 ? (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[#F8FAF8] text-[#566861] font-bold border-b border-[#E5EDE8]">
@@ -437,7 +453,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5EDE8]">
-                  {filteredListings.map((lot) => {
+                  {paginatedListings.map((lot) => {
                     const fallbackImg = COMMODITY_IMAGES[lot.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
                     const imgUrl = Array.isArray(lot.images) && lot.images[0] ? lot.images[0] : fallbackImg;
                     const totalVal = Number(lot.quantity || 0) * Number(lot.price || 0);
@@ -532,6 +548,16 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={validCurrentPage}
+              totalPages={totalPages}
+              totalItems={filteredListings.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
+          </>
           ) : (
             <div className="py-12 text-center text-[#566861] space-y-2">
               <Package className="w-8 h-8 text-[#10B981] mx-auto opacity-50" />
