@@ -190,13 +190,13 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
-      <div className="space-y-6 text-left max-w-7xl mx-auto">
+      <div className="space-y-5 sm:space-y-6 text-left max-w-7xl mx-auto pb-24 sm:pb-8">
         
         {/* Simple & Clean Header Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-7 rounded-2xl bg-[#0B3326] text-white shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-7 rounded-2xl bg-[#0B3326] text-white shadow-sm">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30">
+              <span className="text-[10px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30">
                 Platform Admin
               </span>
             </div>
@@ -208,14 +208,14 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto pt-1 sm:pt-0">
             <Button
               variant="secondary"
               size="sm"
               icon={UserCheck}
               iconPosition="left"
               onClick={() => onNavigate('admin-verification')}
-              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer"
+              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer justify-center py-2 sm:py-1.5"
             >
               KYC Queue ({metrics.pendingKYCCount})
             </Button>
@@ -225,9 +225,9 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               icon={Landmark}
               iconPosition="left"
               onClick={() => onNavigate('admin-escrow')}
-              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer"
+              className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer justify-center py-2 sm:py-1.5"
             >
-              📞 Buyer Calls & Escrow ({metrics.activeEscrowOrdersCount})
+              📞 Escrow Desk ({metrics.activeEscrowOrdersCount})
             </Button>
           </div>
         </div>
@@ -248,70 +248,70 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
           </div>
         )}
 
-        {/* 4 Clean Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 4 Clean Metric Cards (2x2 grid on mobile for instant glance, 4-col on desktop) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           
           {/* Total GMV */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Total Trade Value</span>
-              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
-                <TrendingUp className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Total Trade Value</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981] shrink-0">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-[#0B3326]">
+            <div className="text-lg sm:text-2xl font-bold text-[#0B3326] truncate">
               {formatINR(metrics.totalGMV)}
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
               {metrics.totalOrdersCount} orders processed
             </div>
           </div>
 
           {/* Platform Revenue */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Platform Revenue (0.50%)</span>
-              <div className="p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981]">
-                <DollarSign className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Revenue (0.50%)</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981] shrink-0">
+                <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-[#10B981]">
+            <div className="text-lg sm:text-2xl font-bold text-[#10B981] truncate">
               {formatINR(metrics.totalCommissionsEarned)}
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
-              0.25% Buyer + 0.25% Seller fee
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              0.25% Buyer + 0.25% Seller
             </div>
           </div>
 
           {/* Escrow Locked */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#3B82F6]/40 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Active Escrow</span>
-              <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-                <Lock className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#3B82F6]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Active Escrow</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-blue-700">
+            <div className="text-lg sm:text-2xl font-bold text-blue-700 truncate">
               {formatINR(metrics.totalEscrowLocked)}
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
-              {metrics.activeEscrowOrdersCount} orders in transit/inspection
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              {metrics.activeEscrowOrdersCount} orders in transit
             </div>
           </div>
 
           {/* Pending KYC */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-amber-400 transition-colors">
-            <div className="flex items-center justify-between text-xs text-[#566861] mb-2">
-              <span className="font-medium">Pending KYC</span>
-              <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
-                <UserCheck className="w-4 h-4" />
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-amber-400 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Pending KYC</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-amber-50 text-amber-600 shrink-0">
+                <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-amber-600">
+            <div className="text-lg sm:text-2xl font-bold text-amber-600 truncate">
               {metrics.pendingKYCCount} Users
             </div>
-            <div className="text-[11px] text-[#566861] mt-1">
-              Awaiting identity approval
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              Awaiting approval
             </div>
           </div>
 
@@ -440,114 +440,202 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
           {/* Listings Table / Cards */}
           {filteredListings.length > 0 ? (
             <>
-              <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#F8FAF8] text-[#566861] font-bold border-b border-[#E5EDE8]">
-                    <th className="py-3 px-3">Commodity & Variety</th>
-                    <th className="py-3 px-3">Seller / Origin</th>
-                    <th className="py-3 px-3">Grade & Quantity</th>
-                    <th className="py-3 px-3">Spot Price / Total</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E5EDE8]">
-                  {paginatedListings.map((lot) => {
-                    const fallbackImg = COMMODITY_IMAGES[lot.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
-                    const imgUrl = Array.isArray(lot.images) && lot.images[0] ? lot.images[0] : fallbackImg;
-                    const totalVal = Number(lot.quantity || 0) * Number(lot.price || 0);
+              {/* Desktop Table View (Hidden on mobile) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#F8FAF8] text-[#566861] font-bold border-b border-[#E5EDE8]">
+                      <th className="py-3 px-3">Commodity & Variety</th>
+                      <th className="py-3 px-3">Seller / Origin</th>
+                      <th className="py-3 px-3">Grade & Quantity</th>
+                      <th className="py-3 px-3">Spot Price / Total</th>
+                      <th className="py-3 px-3">Status</th>
+                      <th className="py-3 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E5EDE8]">
+                    {paginatedListings.map((lot) => {
+                      const fallbackImg = COMMODITY_IMAGES[lot.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
+                      const imgUrl = Array.isArray(lot.images) && lot.images[0] ? lot.images[0] : fallbackImg;
+                      const totalVal = Number(lot.quantity || 0) * Number(lot.price || 0);
 
-                    return (
-                      <tr key={lot.id} className="hover:bg-[#F8FAF8] transition-colors group">
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={imgUrl}
-                              alt={lot.commodity}
-                              className="w-10 h-10 rounded-xl object-cover border border-[#E5EDE8] shrink-0"
-                            />
-                            <div>
-                              <div className="font-bold text-[#0B3326] text-xs sm:text-sm">
-                                {lot.commodity}
-                              </div>
-                              <div className="text-[11px] text-[#566861]">
-                                {lot.variety || 'Standard Quality'} &bull; Lot #{lot.id?.slice(0, 8)}
+                      return (
+                        <tr key={lot.id} className="hover:bg-[#F8FAF8] transition-colors group">
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={imgUrl}
+                                alt={lot.commodity}
+                                className="w-10 h-10 rounded-xl object-cover border border-[#E5EDE8] shrink-0"
+                              />
+                              <div>
+                                <div className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                                  {lot.commodity}
+                                </div>
+                                <div className="text-[11px] text-[#566861]">
+                                  {lot.variety || 'Standard Quality'} &bull; Lot #{lot.id?.slice(0, 8)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="py-3 px-3">
-                          <div className="font-semibold text-[#0B3326]">
-                            {lot.farmerName || 'Registered Producer'}
-                          </div>
-                          <div className="text-[11px] text-[#566861] flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-[#10B981]" />
-                            <span>{lot.district || 'Tamil Nadu'}, {lot.state || 'India'}</span>
-                          </div>
-                        </td>
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-[#0B3326]">
+                              {lot.farmerName || 'Registered Producer'}
+                            </div>
+                            <div className="text-[11px] text-[#566861] flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-[#10B981]" />
+                              <span>{lot.district || 'Tamil Nadu'}, {lot.state || 'India'}</span>
+                            </div>
+                          </td>
 
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="px-1.5 py-0.5 rounded-md bg-[#EBF5F0] text-[#10B981] font-bold text-[10px]">
-                              Grade {lot.grade || 'A'}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="px-1.5 py-0.5 rounded-md bg-[#EBF5F0] text-[#10B981] font-bold text-[10px]">
+                                Grade {lot.grade || 'A'}
+                              </span>
+                            </div>
+                            <div className="font-bold text-[#0B3326]">
+                              {Number(lot.quantity || 0).toLocaleString('en-IN')} {lot.unit || 'kg'}
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-[#10B981]">
+                              ₹{Number(lot.price || 0).toLocaleString('en-IN')}/{lot.unit || 'kg'}
+                            </div>
+                            <div className="text-[11px] text-[#566861]">
+                              Total: {formatINR(totalVal)}
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                              lot.status === 'sold'
+                                ? 'bg-neutral-100 text-neutral-600'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${lot.status === 'sold' ? 'bg-neutral-400' : 'bg-emerald-500'}`} />
+                              {lot.status === 'sold' ? 'Sold Out' : 'Active Listing'}
                             </span>
-                          </div>
-                          <div className="font-bold text-[#0B3326]">
-                            {Number(lot.quantity || 0).toLocaleString('en-IN')} {lot.unit || 'kg'}
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-[#10B981]">
-                            ₹{Number(lot.price || 0).toLocaleString('en-IN')}/{lot.unit || 'kg'}
-                          </div>
-                          <div className="text-[11px] text-[#566861]">
-                            Total: {formatINR(totalVal)}
-                          </div>
-                        </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedListing(lot)}
+                                className="px-2.5 py-1.5 rounded-lg border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] text-[#0B3326] font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
+                                title="View Full Produce Details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View</span>
+                              </button>
 
-                        <td className="py-3 px-3">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                            lot.status === 'sold'
-                              ? 'bg-neutral-100 text-neutral-600'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${lot.status === 'sold' ? 'bg-neutral-400' : 'bg-emerald-500'}`} />
-                            {lot.status === 'sold' ? 'Sold Out' : 'Active Listing'}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClick(lot)}
+                                className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-rose-700 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
+                                title="Delete Produce Lot (Allowed only if unbooked)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View (Optimized for phones) */}
+              <div className="block md:hidden space-y-3">
+                {paginatedListings.map((lot) => {
+                  const fallbackImg = COMMODITY_IMAGES[lot.commodity] || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
+                  const imgUrl = Array.isArray(lot.images) && lot.images[0] ? lot.images[0] : fallbackImg;
+                  const totalVal = Number(lot.quantity || 0) * Number(lot.price || 0);
+
+                  return (
+                    <div
+                      key={lot.id}
+                      className="p-3.5 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-3 text-left"
+                    >
+                      {/* Top: Image, Commodity, Status */}
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img
+                            src={imgUrl}
+                            alt={lot.commodity}
+                            className="w-11 h-11 rounded-xl object-cover border border-[#E5EDE8] shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-[#0B3326] text-sm truncate">
+                              {lot.commodity}
+                            </h4>
+                            <p className="text-[11px] text-[#566861] truncate">
+                              {lot.variety || 'Standard'} &bull; #{lot.id?.slice(0, 6)}
+                            </p>
+                            <p className="text-[11px] font-semibold text-[#0B3326] truncate">
+                              {lot.farmerName || 'Producer'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          lot.status === 'sold'
+                            ? 'bg-neutral-100 text-neutral-600'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${lot.status === 'sold' ? 'bg-neutral-400' : 'bg-emerald-500'}`} />
+                          {lot.status === 'sold' ? 'Sold' : 'Active'}
+                        </span>
+                      </div>
+
+                      {/* Middle: Metrics grid */}
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
+                        <div>
+                          <span className="text-[10px] text-[#566861] uppercase font-semibold block">Qty & Grade</span>
+                          <span className="font-bold text-[#0B3326] text-xs">
+                            {Number(lot.quantity || 0).toLocaleString('en-IN')} {lot.unit || 'kg'} (Gr. {lot.grade || 'A'})
                           </span>
-                        </td>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#566861] uppercase font-semibold block">Rate & Total</span>
+                          <span className="font-bold text-[#10B981] text-xs">
+                            ₹{Number(lot.price || 0).toLocaleString('en-IN')}/{lot.unit || 'kg'}
+                          </span>
+                          <span className="text-[10px] text-[#566861] block">
+                            {formatINR(totalVal)}
+                          </span>
+                        </div>
+                      </div>
 
-                        <td className="py-3 px-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedListing(lot)}
-                              className="px-2.5 py-1.5 rounded-lg border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] text-[#0B3326] font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
-                              title="View Full Produce Details"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>View</span>
-                            </button>
+                      {/* Actions: View and Delete */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedListing(lot)}
+                          className="py-2 px-3 rounded-xl border border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6] text-[#0B3326] font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-[#10B981]" />
+                          <span>View Details</span>
+                        </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteClick(lot)}
-                              className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-rose-700 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
-                              title="Delete Produce Lot (Allowed only if unbooked)"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                              <span>Delete</span>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteClick(lot)}
+                          className="py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Delete Lot</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
             {/* Pagination Controls */}
             <Pagination
