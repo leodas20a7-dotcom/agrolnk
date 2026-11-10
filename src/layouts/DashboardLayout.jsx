@@ -690,16 +690,18 @@ export default function DashboardLayout({
               </button>
 
               {/* Sign Out (Desktop only - mobile accesses sign out via collapsed drawer menu) */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOutClick}
-                icon={LogOut}
-                iconPosition="right"
-                className="hidden lg:inline-flex text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer"
-              >
-                <span>Sign Out</span>
-              </Button>
+              <div className="hidden lg:flex items-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSignOutClick}
+                  icon={LogOut}
+                  iconPosition="right"
+                  className="text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                >
+                  <span>Sign Out</span>
+                </Button>
+              </div>
 
               {/* Mobile Menu Toggle Button (only when subnav groups exist) */}
               {navGroups.length > 0 && (
