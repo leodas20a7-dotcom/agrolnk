@@ -35,6 +35,7 @@ import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
 import UserProfileModal from '../components/profile/UserProfileModal';
 import NotificationBell from '../components/notifications/NotificationBell';
+import AlertModal from '../components/ui/AlertModal';
 import { getTotalPlatformUnreadCount, subscribeToGlobalUnreadMessages, getSupportThreadKey } from '../utils/chat';
 
 export default function DashboardLayout({
@@ -55,6 +56,7 @@ export default function DashboardLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [activeChatThread, setActiveChatThread] = useState(null);
   const [activePartnerContext, setActivePartnerContext] = useState(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -171,7 +173,13 @@ export default function DashboardLayout({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSignOut = () => {
+  const handleSignOutClick = () => {
+    setMobileMenuOpen(false);
+    setShowSignOutConfirm(true);
+  };
+
+  const handleConfirmSignOut = () => {
+    setShowSignOutConfirm(false);
     logoutUser();
     onNavigate('login', { user: null }, true);
   };
@@ -681,14 +689,14 @@ export default function DashboardLayout({
                 </div>
               </button>
 
-              {/* Sign Out */}
+              {/* Sign Out (Desktop only - mobile accesses sign out via collapsed drawer menu) */}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleSignOut}
+                onClick={handleSignOutClick}
                 icon={LogOut}
                 iconPosition="right"
-                className="hidden sm:inline-flex text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                className="hidden lg:inline-flex text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer"
               >
                 <span>Sign Out</span>
               </Button>
@@ -758,7 +766,7 @@ export default function DashboardLayout({
               <div className="pt-2 border-t border-[#E5EDE8]">
                 <button
                   type="button"
-                  onClick={handleSignOut}
+                  onClick={handleSignOutClick}
                   className="w-full px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
@@ -839,6 +847,21 @@ export default function DashboardLayout({
         onProfileUpdated={(updated) => {
           setActiveUser(updated);
         }}
+      />
+
+      {/* Sign Out Confirmation Modal */}
+      <AlertModal
+        isOpen={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        title="Sign Out"
+        type="warning"
+        message="Do you want to sign out?"
+        description="You will need to sign in again to access your account and dashboard."
+        confirmText="Yes, Sign Out"
+        cancelText="Cancel"
+        showCancel={true}
+        onConfirm={handleConfirmSignOut}
+        onCancel={() => setShowSignOutConfirm(false)}
       />
     </div>
   );
