@@ -104,13 +104,21 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
       <div className="max-w-3xl mx-auto space-y-8 text-left">
         
         {/* Top Header */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => onNavigate('farmer-create-listing', { initialData: listingData })}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" /> Edit Details
-          </button>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate('farmer-create-listing', { initialData: listingData })}
+              title="Return to Edit Details"
+              aria-label="Edit Details"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
+            </button>
+            <span className="text-xs sm:text-sm font-bold text-[#0B3326]">
+              Edit Details
+            </span>
+          </div>
           <div className="text-xs text-[#566861]">
             Step <span className="font-bold text-[#0B3326]">2</span> of 2: Preview & Publish
           </div>

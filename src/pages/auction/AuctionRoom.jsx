@@ -279,17 +279,24 @@ export default function AuctionRoom({ currentUser, onNavigate, navState }) {
         
         {/* Top Breadcrumb & Live Timer */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <button
-            onClick={() =>
-              onNavigate(
-                isFarmer ? 'farmer-my-auctions' : 'buyer-live-auctions'
-              )
-            }
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />{' '}
-            {isFarmer ? 'Back to My Auctions' : 'Back to Live Auctions'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                onNavigate(
+                  isFarmer ? 'farmer-my-auctions' : 'buyer-live-auctions'
+                )
+              }
+              title={isFarmer ? 'Return to My Auctions' : 'Return to Live Auctions'}
+              aria-label="Back to Auctions"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs hover:bg-[#F8FAF8] text-[#0B3326] flex items-center justify-center shrink-0 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#0B3326]" />
+            </button>
+            <span className="text-xs sm:text-sm font-bold text-[#0B3326]">
+              {isFarmer ? 'My Auctions Floor' : 'Live Clock Arena'}
+            </span>
+          </div>
 
           <div className="flex items-center gap-3">
             <AuctionTimer
