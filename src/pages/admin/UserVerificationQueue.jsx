@@ -762,52 +762,55 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
         {/* Document Inspection & Verification Preview Modal */}
         {selectedUserForDocs && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-5">
-            <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[92vh] overflow-y-auto text-left space-y-5">
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-end sm:items-center justify-center p-0 sm:p-5">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[92vh] sm:max-h-[90vh] overflow-y-auto text-left space-y-4 sm:space-y-5">
               
+              {/* Mobile Drawer Pull Indicator */}
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto sm:hidden -mt-1 mb-1" />
+
               {/* Modal Header */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-[#E5EDE8]">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold text-base shadow-xs border border-emerald-100">
+              <div className="flex items-center justify-between pb-3 sm:pb-3.5 border-b border-[#E5EDE8]">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold text-sm sm:text-base shadow-xs border border-emerald-100">
                     {selectedUserForDocs.name ? selectedUserForDocs.name.charAt(0).toUpperCase() : 'U'}
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#0B3326] tracking-tight">
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-bold text-[#0B3326] tracking-tight truncate">
                       {selectedUserForDocs.name}
                     </h3>
-                    <p className="text-xs text-[#566861] capitalize">
+                    <p className="text-[11px] sm:text-xs text-[#566861] capitalize truncate">
                       {selectedUserForDocs.role} &bull; {selectedUserForDocs.orgName || selectedUserForDocs.email}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setSelectedUserForDocs(null)}
-                  className="p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F1F5F2] cursor-pointer transition-colors"
+                  className="p-1.5 sm:p-2 shrink-0 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F1F5F2] cursor-pointer transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* User Details */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-xs p-3 sm:p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
                 <div>
-                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">Contact Phone</span>
-                  <span className="font-semibold text-[#0B3326] mt-0.5 block">{selectedUserForDocs.phone || 'N/A'}</span>
+                  <span className="text-[#566861] block text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider">Contact Phone</span>
+                  <span className="font-semibold text-[#0B3326] text-xs mt-0.5 block truncate">{selectedUserForDocs.phone || 'N/A'}</span>
                 </div>
                 <div>
-                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">Email</span>
-                  <span className="font-semibold text-[#0B3326] mt-0.5 block truncate" title={selectedUserForDocs.email}>{selectedUserForDocs.email}</span>
+                  <span className="text-[#566861] block text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider">Email</span>
+                  <span className="font-semibold text-[#0B3326] text-xs mt-0.5 block truncate" title={selectedUserForDocs.email}>{selectedUserForDocs.email}</span>
                 </div>
                 <div>
-                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">Location</span>
-                  <span className="font-semibold text-[#0B3326] mt-0.5 block">
+                  <span className="text-[#566861] block text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider">Location</span>
+                  <span className="font-semibold text-[#0B3326] text-xs mt-0.5 block truncate">
                     {selectedUserForDocs.district ? `${selectedUserForDocs.district}, ${selectedUserForDocs.state || 'India'}` : 'Tamil Nadu'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">KYC Status</span>
-                  <span className="font-bold capitalize text-[#0B3326] mt-0.5 block">
-                    {selectedUserForDocs.hasPendingReview ? 'Revision Under Review' : selectedUserForDocs.verificationStatus}
+                  <span className="text-[#566861] block text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider">KYC Status</span>
+                  <span className="font-bold capitalize text-[#0B3326] text-xs mt-0.5 block truncate">
+                    {selectedUserForDocs.hasPendingReview ? 'Revision Review' : selectedUserForDocs.verificationStatus}
                   </span>
                 </div>
               </div>
@@ -971,28 +974,31 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     </p>
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl bg-white border border-emerald-300 shadow-sm space-y-3.5">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-emerald-300 shadow-sm space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-2.5">
                       <span className="text-xs font-bold text-[#0B3326]">Configure Bank Virtual Account</span>
                       <button
                         type="button"
                         onClick={handleGenerateDefaultVan}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-bold cursor-pointer transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs sm:text-[11px] font-bold cursor-pointer transition-colors w-full sm:w-auto"
                       >
                         <span>⚡</span>
                         <span>Auto-Generate VAN</span>
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
                       <div>
                         <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase tracking-wide">Virtual Account No.</label>
                         <input
                           type="text"
+                          autoCapitalize="characters"
+                          autoCorrect="off"
+                          spellCheck="false"
                           value={vanFormData.virtualAccountNumber}
-                          onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountNumber: e.target.value }))}
+                          onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountNumber: e.target.value.toUpperCase() }))}
                           placeholder="e.g. AGRO70A06C8537"
-                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 font-mono text-xs uppercase"
+                          className="w-full px-3 py-2 sm:py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 font-mono text-xs uppercase"
                         />
                       </div>
 
@@ -1000,10 +1006,13 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase tracking-wide">Bank IFSC Code</label>
                         <input
                           type="text"
+                          autoCapitalize="characters"
+                          autoCorrect="off"
+                          spellCheck="false"
                           value={vanFormData.virtualAccountIfsc}
-                          onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountIfsc: e.target.value }))}
+                          onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountIfsc: e.target.value.toUpperCase() }))}
                           placeholder="e.g. ICIC0000104"
-                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 font-mono text-xs uppercase"
+                          className="w-full px-3 py-2 sm:py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 font-mono text-xs uppercase"
                         />
                       </div>
 
@@ -1014,7 +1023,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           value={vanFormData.vanBankName}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, vanBankName: e.target.value }))}
                           placeholder="e.g. ICICI Bank Ltd."
-                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs"
+                          className="w-full px-3 py-2 sm:py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs"
                         />
                       </div>
 
@@ -1023,7 +1032,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         <select
                           value={vanFormData.vanStatus}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, vanStatus: e.target.value }))}
-                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs font-semibold bg-white"
+                          className="w-full px-3 py-2 sm:py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs font-semibold bg-white"
                         >
                           <option value="pending_bank_approval">⏳ Pending Bank Review</option>
                           <option value="active">● Active & Verified</option>
@@ -1038,7 +1047,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                           value={vanFormData.vanNotes}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, vanNotes: e.target.value }))}
                           placeholder="e.g. ICICI Corporate Desk Application #49281"
-                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs"
+                          className="w-full px-3 py-2 sm:py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs"
                         />
                       </div>
                     </div>
@@ -1047,7 +1056,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                       <button
                         type="button"
                         onClick={() => setIsEditingVan(false)}
-                        className="px-3.5 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
+                        className="flex-1 sm:flex-initial px-4 py-2 sm:py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors text-center"
                       >
                         Cancel
                       </button>
@@ -1055,7 +1064,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         type="button"
                         disabled={vanSaving}
                         onClick={handleSaveVan}
-                        className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 transition-colors"
+                        className="flex-1 sm:flex-initial px-4 py-2 sm:py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 transition-colors text-center"
                       >
                         <Save className="w-3.5 h-3.5" />
                         <span>{vanSaving ? 'Saving...' : 'Save Provision'}</span>
