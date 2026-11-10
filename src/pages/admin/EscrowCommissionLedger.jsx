@@ -17,7 +17,8 @@ import {
   Clock,
   FileSpreadsheet,
   Truck,
-  Warehouse
+  Warehouse,
+  ChevronDown
 } from 'lucide-react';
 import { getOrders, verifyAndLockEscrowDeposit } from '../../utils/orders';
 import { getDeliveries, verifyFreightBankDeposit, adminReleaseFreightEscrow } from '../../utils/deliveries';
@@ -379,22 +380,20 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             <div className="flex items-start sm:items-center gap-2.5 text-[#92400E]">
               <PhoneCall className="w-5 h-5 shrink-0 mt-0.5 sm:mt-0" />
               <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm sm:text-base font-bold font-heading text-[#92400E]">
-                    Admin Supervised Escrow: Buyer Call &amp; Payout Clearance Desk
-                  </h3>
-                  <Badge variant="amber" size="sm" className="sm:hidden">
-                    Supervised
-                  </Badge>
-                </div>
+                <h3 className="text-sm sm:text-base font-bold font-heading text-[#92400E]">
+                  Admin Supervised Escrow: Buyer Call &amp; Payout Clearance Desk
+                </h3>
                 <p className="hidden sm:block text-xs text-[#566861] mt-0.5">
                   Call buyer post-delivery to confirm produce satisfaction, then 1-click release funds to farmer bank account with instant UTR.
                 </p>
               </div>
             </div>
-            <Badge variant="amber" size="md" className="hidden sm:inline-flex shrink-0">
-              Supervised Tripartite Model
-            </Badge>
+            <div className="self-start sm:self-center shrink-0">
+              <Badge variant="amber" size="sm">
+                <span className="sm:hidden">Supervised</span>
+                <span className="hidden sm:inline">Supervised Tripartite Model</span>
+              </Badge>
+            </div>
           </div>
 
           {/* Quick Cards of Pending / Active Escrow Consignments */}
@@ -521,9 +520,11 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
           </button>
         </div>
 
-        {/* Filter Controls Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        {/* Filter Controls Bar: Desktop Pills + Right Search vs. Mobile Side-by-Side Search + Right Dropdown */}
+        <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          
+          {/* Desktop Filter Pills (Hidden on mobile) */}
+          <div className="hidden sm:flex flex-wrap items-center gap-1.5 sm:gap-2">
             {[
               { id: 'all', label: 'All Transactions' },
               ...(activeLedgerTab === 'orders' || activeLedgerTab === 'freight'
@@ -553,7 +554,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               <button
                 key={tab.id}
                 onClick={() => { setStatusFilter(tab.id); setCurrentPage(1); }}
-                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   statusFilter === tab.id
                     ? 'bg-[#0B3326] text-white shadow-xs'
                     : tab.highlight && ledgerItems.filter(i => i.escrowState === 'pending_verification').length > 0
@@ -566,7 +567,68 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
             ))}
           </div>
 
-          <div className="relative w-full sm:w-72">
+          {/* Mobile Single Row: Search Bar (Left) + Right-Side Status Filter Dropdown */}
+          <div className="flex sm:hidden items-center gap-2 w-full">
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                placeholder="Search order #, commodity..."
+                className="w-full pl-8 pr-2.5 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs text-[#14211D] focus:ring-2 focus:ring-[#10B981] focus:outline-none placeholder:text-[#8D9B95]"
+              />
+            </div>
+
+            <div className="relative shrink-0 max-w-[155px]">
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={`w-full appearance-none pl-2.5 pr-7 py-2 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-[#10B981] focus:outline-none cursor-pointer truncate shadow-2xs ${
+                  statusFilter !== 'all'
+                    ? 'bg-[#0B3326] text-white border-[#0B3326]'
+                    : 'bg-white text-[#0B3326] border-[#E5EDE8]'
+                }`}
+              >
+                {[
+                  { id: 'all', label: 'All Status' },
+                  ...(activeLedgerTab === 'orders' || activeLedgerTab === 'freight'
+                    ? [
+                        {
+                          id: 'pending_verification',
+                          label: `Pending UTR (${
+                            activeLedgerTab === 'orders'
+                              ? ledgerItems.filter((i) => i.escrowState === 'pending_verification').length
+                              : freightItems.filter((i) => i.freightState === 'pending_verification').length
+                          })`,
+                        },
+                        { id: 'locked', label: 'Locked Escrow' },
+                      ]
+                    : []),
+                  {
+                    id: 'released',
+                    label:
+                      activeLedgerTab === 'warehouse'
+                        ? 'Settled'
+                        : activeLedgerTab === 'financing'
+                        ? 'Disbursed'
+                        : 'Settled',
+                  },
+                ].map((opt) => (
+                  <option key={opt.id} value={opt.id} className="text-[#14211D] bg-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className={`w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${statusFilter !== 'all' ? 'text-white' : 'text-[#566861]'}`} />
+            </div>
+          </div>
+
+          {/* Desktop Search Bar (Hidden on mobile) */}
+          <div className="hidden sm:block relative w-72">
             <Search className="w-3.5 h-3.5 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -576,6 +638,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs text-[#14211D] focus:ring-2 focus:ring-[#10B981] focus:outline-none"
             />
           </div>
+
         </div>
 
         {/* Full Ledger Table */}
