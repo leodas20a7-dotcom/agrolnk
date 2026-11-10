@@ -762,17 +762,17 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
         {/* Document Inspection & Verification Preview Modal */}
         {selectedUserForDocs && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[90vh] overflow-y-auto text-left space-y-5">
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-5">
+            <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-[#E5EDE8] max-h-[92vh] overflow-y-auto text-left space-y-5">
               
               {/* Modal Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold">
+              <div className="flex items-center justify-between pb-3.5 border-b border-[#E5EDE8]">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-[#EBF5F0] text-[#0B3326] flex items-center justify-center font-bold text-base shadow-xs border border-emerald-100">
                     {selectedUserForDocs.name ? selectedUserForDocs.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-[#0B3326]">
+                    <h3 className="text-base font-bold text-[#0B3326] tracking-tight">
                       {selectedUserForDocs.name}
                     </h3>
                     <p className="text-xs text-[#566861] capitalize">
@@ -782,31 +782,31 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 </div>
                 <button
                   onClick={() => setSelectedUserForDocs(null)}
-                  className="p-1 rounded-xl text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                  className="p-2 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F1F5F2] cursor-pointer transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* User Details */}
-              <div className="grid grid-cols-2 gap-3 text-xs p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
                 <div>
-                  <span className="text-[#566861] block text-[11px]">Contact Phone</span>
-                  <span className="font-semibold text-[#0B3326]">{selectedUserForDocs.phone || 'N/A'}</span>
+                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">Contact Phone</span>
+                  <span className="font-semibold text-[#0B3326] mt-0.5 block">{selectedUserForDocs.phone || 'N/A'}</span>
                 </div>
                 <div>
-                  <span className="text-[#566861] block text-[11px]">Email</span>
-                  <span className="font-semibold text-[#0B3326]">{selectedUserForDocs.email}</span>
+                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">Email</span>
+                  <span className="font-semibold text-[#0B3326] mt-0.5 block truncate" title={selectedUserForDocs.email}>{selectedUserForDocs.email}</span>
                 </div>
                 <div>
-                  <span className="text-[#566861] block text-[11px]">Location</span>
-                  <span className="font-semibold text-[#0B3326]">
+                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">Location</span>
+                  <span className="font-semibold text-[#0B3326] mt-0.5 block">
                     {selectedUserForDocs.district ? `${selectedUserForDocs.district}, ${selectedUserForDocs.state || 'India'}` : 'Tamil Nadu'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[#566861] block text-[11px]">Verification Status</span>
-                  <span className="font-bold capitalize text-[#0B3326]">
+                  <span className="text-[#566861] block text-[10px] uppercase font-semibold tracking-wider">KYC Status</span>
+                  <span className="font-bold capitalize text-[#0B3326] mt-0.5 block">
                     {selectedUserForDocs.hasPendingReview ? 'Revision Under Review' : selectedUserForDocs.verificationStatus}
                   </span>
                 </div>
@@ -866,34 +866,48 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
               )}
 
               {/* Virtual Account Number (VAN) Banking Provision Card */}
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-[#F8FAF8] border border-emerald-200/80 space-y-3.5 text-left">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#0B3326] flex items-center gap-2 uppercase tracking-wide">
-                    <Landmark className="w-4 h-4 text-emerald-700" />
-                    Virtual Account Number (VAN) Banking Provision
-                  </span>
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-white to-slate-50 border border-emerald-200/90 shadow-2xs space-y-3.5 text-left">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100/80 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100/80 text-emerald-800 flex items-center justify-center">
+                      <Landmark className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-[#0B3326] uppercase tracking-wide block">
+                        Virtual Account Number (VAN)
+                      </span>
+                      <span className="text-[10px] text-[#566861] font-medium block">Dedicated B2B Escrow Clearing Route</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border shadow-2xs ${
                       selectedUserForDocs.vanStatus === 'active'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                         : selectedUserForDocs.vanStatus === 'rejected'
-                        ? 'bg-rose-100 text-rose-800 border-rose-300'
-                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                        ? 'bg-rose-50 text-rose-700 border-rose-300'
+                        : 'bg-amber-50 text-amber-700 border-amber-300'
                     }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        selectedUserForDocs.vanStatus === 'active'
+                          ? 'bg-emerald-600'
+                          : selectedUserForDocs.vanStatus === 'rejected'
+                          ? 'bg-rose-600'
+                          : 'bg-amber-500 animate-pulse'
+                      }`} />
                       {selectedUserForDocs.vanStatus === 'active'
-                        ? '● VAN Active'
+                        ? 'VAN Active'
                         : selectedUserForDocs.vanStatus === 'rejected'
-                        ? '✕ Bank Rejected'
-                        : '⏳ Pending Bank Review'}
+                        ? 'Bank Rejected'
+                        : 'Pending Bank Review'}
                     </span>
                     {!isEditingVan && (
                       <button
                         type="button"
                         onClick={() => setIsEditingVan(true)}
-                        className="p-1 rounded-lg text-emerald-800 hover:bg-emerald-100 transition-colors text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
                         title="Edit or Assign Bank Virtual Account"
                       >
-                        <Edit3 className="w-3.5 h-3.5" />
+                        <Edit3 className="w-3.5 h-3.5 text-emerald-700" />
                         <span>Edit</span>
                       </button>
                     )}
@@ -901,19 +915,20 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                 </div>
 
                 {!isEditingVan ? (
-                  <div className="space-y-2.5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
-                        <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Virtual Account No. (VAN)</span>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="font-mono font-extrabold text-[#0B3326] text-xs">
-                            {selectedUserForDocs.virtualAccountNumber || 'Awaiting Bank Issuance'}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                      <div className="p-3 rounded-xl bg-white border border-emerald-100/90 shadow-2xs hover:border-emerald-200 transition-colors">
+                        <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold mb-1">Virtual Account No. (VAN)</span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-[#0B3326] text-xs tracking-wider">
+                            {selectedUserForDocs.virtualAccountNumber || 'Awaiting Issuance'}
                           </span>
                           {selectedUserForDocs.virtualAccountNumber && (
                             <button
                               type="button"
                               onClick={() => handleCopyVan(selectedUserForDocs.virtualAccountNumber, 'van')}
-                              className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                              className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-1 rounded-md hover:bg-emerald-50 transition-colors"
+                              title="Copy Virtual Account Number"
                             >
                               {copiedVanField === 'van' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
@@ -921,95 +936,94 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         </div>
                       </div>
 
-                      <div className="p-2.5 rounded-xl bg-white border border-emerald-100">
-                        <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Dedicated Branch IFSC</span>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="font-mono font-extrabold text-[#0B3326] text-xs">
+                      <div className="p-3 rounded-xl bg-white border border-emerald-100/90 shadow-2xs hover:border-emerald-200 transition-colors">
+                        <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold mb-1">Dedicated Branch IFSC</span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-[#0B3326] text-xs tracking-wider">
                             {selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104'}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleCopyVan(selectedUserForDocs.virtualAccountIfsc || 'ICIC0000104', 'ifsc')}
-                            className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                            className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-1 rounded-md hover:bg-emerald-50 transition-colors"
+                            title="Copy IFSC Code"
                           >
                             {copiedVanField === 'ifsc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </div>
 
-                      <div className="p-2.5 rounded-xl bg-white border border-emerald-100 sm:col-span-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold">Banking Clearing Partner</span>
-                            <span className="font-bold text-[#0B3326] text-xs block">
-                              {selectedUserForDocs.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.'}
-                            </span>
-                          </div>
-                          {selectedUserForDocs.vanNotes && (
-                            <span className="text-[11px] text-[#566861] italic max-w-[200px] truncate">
-                              Ref: {selectedUserForDocs.vanNotes}
-                            </span>
-                          )}
-                        </div>
+                      <div className="p-3 rounded-xl bg-white border border-emerald-100/90 shadow-2xs hover:border-emerald-200 transition-colors">
+                        <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold mb-1">Banking Partner</span>
+                        <span className="font-bold text-[#0B3326] text-xs block truncate" title={selectedUserForDocs.vanBankName || 'ICICI Bank Ltd.'}>
+                          {selectedUserForDocs.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.'}
+                        </span>
+                        {selectedUserForDocs.vanNotes && (
+                          <span className="text-[10px] text-[#566861] italic block truncate mt-0.5">
+                            {selectedUserForDocs.vanNotes}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <p className="text-[11px] text-[#566861] leading-relaxed">
-                      💡 Users receive incoming B2B transfers directly into their dedicated escrow sub-ledger via NEFT/RTGS.
+                    <p className="text-[11px] text-[#566861] leading-relaxed flex items-center gap-1.5 bg-emerald-50/50 p-2 rounded-lg border border-emerald-100/60">
+                      <span>💡</span>
+                      <span>High-value NEFT/RTGS payments deposited to this VAN will automatically route to this participant's escrow sub-ledger.</span>
                     </p>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-xl bg-white border border-emerald-300 space-y-3">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                      <span className="text-xs font-bold text-[#0B3326]">Provision Bank Virtual Account</span>
+                  <div className="p-4 rounded-xl bg-white border border-emerald-300 shadow-sm space-y-3.5">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                      <span className="text-xs font-bold text-[#0B3326]">Configure Bank Virtual Account</span>
                       <button
                         type="button"
                         onClick={handleGenerateDefaultVan}
-                        className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-bold cursor-pointer transition-colors"
                       >
-                        Auto-Generate AgroLnk Nodal VAN
+                        <span>⚡</span>
+                        <span>Auto-Generate VAN</span>
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       <div>
-                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Virtual Account No.</label>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase tracking-wide">Virtual Account No.</label>
                         <input
                           type="text"
                           value={vanFormData.virtualAccountNumber}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountNumber: e.target.value }))}
-                          placeholder="e.g. AGROESC982104"
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 font-mono text-xs uppercase"
+                          placeholder="e.g. AGRO70A06C8537"
+                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 font-mono text-xs uppercase"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank IFSC Code</label>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase tracking-wide">Bank IFSC Code</label>
                         <input
                           type="text"
                           value={vanFormData.virtualAccountIfsc}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, virtualAccountIfsc: e.target.value }))}
                           placeholder="e.g. ICIC0000104"
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 font-mono text-xs uppercase"
+                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 font-mono text-xs uppercase"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank Name</label>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase tracking-wide">Clearing Bank Name</label>
                         <input
                           type="text"
                           value={vanFormData.vanBankName}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, vanBankName: e.target.value }))}
                           placeholder="e.g. ICICI Bank Ltd."
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs"
+                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank Approval Status</label>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase tracking-wide">Bank Approval Status</label>
                         <select
                           value={vanFormData.vanStatus}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, vanStatus: e.target.value }))}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold"
+                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs font-semibold bg-white"
                         >
                           <option value="pending_bank_approval">⏳ Pending Bank Review</option>
                           <option value="active">● Active & Verified</option>
@@ -1018,22 +1032,22 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase">Bank Application Notes / Ticket Reference</label>
+                        <label className="text-[10px] font-bold text-[#566861] block mb-1 uppercase tracking-wide">Application Notes / Ticket Reference</label>
                         <input
                           type="text"
                           value={vanFormData.vanNotes}
                           onChange={(e) => setVanFormData((prev) => ({ ...prev, vanNotes: e.target.value }))}
                           placeholder="e.g. ICICI Corporate Desk Application #49281"
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs"
+                          className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs"
                         />
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-end gap-2.5 pt-2.5 border-t border-gray-100">
                       <button
                         type="button"
                         onClick={() => setIsEditingVan(false)}
-                        className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer"
+                        className="px-3.5 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
                       >
                         Cancel
                       </button>
@@ -1041,7 +1055,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         type="button"
                         disabled={vanSaving}
                         onClick={handleSaveVan}
-                        className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                        className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 transition-colors"
                       >
                         <Save className="w-3.5 h-3.5" />
                         <span>{vanSaving ? 'Saving...' : 'Save Provision'}</span>
