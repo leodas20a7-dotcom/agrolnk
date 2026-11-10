@@ -65,6 +65,8 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
     dbMessageCount: 0,
     threads: [],
   });
+  const [chatThreadPage, setChatThreadPage] = useState(1);
+  const chatThreadsPerPage = 6;
 
   // Modal States
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -729,33 +731,51 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
               </div>
 
               {chatDiag.threads.length > 0 ? (
-                <div className="divide-y divide-[#E5EDE8] border border-[#E5EDE8] rounded-2xl overflow-hidden">
-                  {chatDiag.threads.map((t) => (
-                    <div key={t.threadKey} className="p-4 flex items-center justify-between gap-4 hover:bg-[#F8FAF8] transition-colors">
-                      <div className="space-y-0.5 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-[#0B3326] font-mono">{t.threadKey}</span>
-                          <Badge variant="dark" size="sm">{t.messageCount} messages</Badge>
-                        </div>
-                        {t.lastMessage && (
-                          <p className="text-[11px] text-[#566861] truncate max-w-md">
-                            Latest: "{t.lastMessage.text || t.lastMessage.rawText || '—'}"
-                          </p>
-                        )}
-                      </div>
+                <>
+                  <div className="divide-y divide-[#E5EDE8] border border-[#E5EDE8] rounded-2xl overflow-hidden">
+                    {(() => {
+                      const totalThreadPages = Math.ceil(chatDiag.threads.length / chatThreadsPerPage) || 1;
+                      const validThreadPage = Math.min(Math.max(chatThreadPage, 1), totalThreadPages);
+                      const startIdx = (validThreadPage - 1) * chatThreadsPerPage;
+                      const paginatedThreads = chatDiag.threads.slice(startIdx, startIdx + chatThreadsPerPage);
 
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleClearSingleThread(t.threadKey)}
-                        icon={Trash2}
-                        className="text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 cursor-pointer shrink-0"
-                      >
-                        Clear Thread
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                      return paginatedThreads.map((t) => (
+                        <div key={t.threadKey} className="p-4 flex items-center justify-between gap-4 hover:bg-[#F8FAF8] transition-colors">
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-[#0B3326] font-mono">{t.threadKey}</span>
+                              <Badge variant="dark" size="sm">{t.messageCount} messages</Badge>
+                            </div>
+                            {t.lastMessage && (
+                              <p className="text-[11px] text-[#566861] truncate max-w-md">
+                                Latest: "{t.lastMessage.text || t.lastMessage.rawText || '—'}"
+                              </p>
+                            )}
+                          </div>
+
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleClearSingleThread(t.threadKey)}
+                            icon={Trash2}
+                            className="text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 cursor-pointer shrink-0"
+                          >
+                            Clear Thread
+                          </Button>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Pagination for Chat Threads */}
+                  <Pagination
+                    currentPage={Math.min(Math.max(chatThreadPage, 1), Math.ceil(chatDiag.threads.length / chatThreadsPerPage) || 1)}
+                    totalPages={Math.ceil(chatDiag.threads.length / chatThreadsPerPage) || 1}
+                    totalItems={chatDiag.threads.length}
+                    itemsPerPage={chatThreadsPerPage}
+                    onPageChange={setChatThreadPage}
+                  />
+                </>
               ) : (
                 <div className="py-8 text-center text-[#566861]">
                   <CheckCircle2 className="w-8 h-8 text-[#10B981] mx-auto mb-2" />
