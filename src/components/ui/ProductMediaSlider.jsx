@@ -46,6 +46,7 @@ export default function ProductMediaSlider({
 
   const videoRefs = useRef({});
   const thumbRefs = useRef([]);
+  const thumbContainerRef = useRef(null);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
@@ -99,13 +100,17 @@ export default function ProductMediaSlider({
     return () => clearInterval(timer);
   }, [autoPlay, items.length, isHovered, isPlaying, isLightboxOpen, isAutoPlayPausedByUser, autoPlayInterval, currentIndex]);
 
-  // Smooth scroll thumbnail into view when slide changes
+  // Smooth scroll ONLY the horizontal thumbnail strip (isolated container scroll, never scrolls the window/page)
   useEffect(() => {
-    if (thumbRefs.current[currentIndex]) {
-      thumbRefs.current[currentIndex].scrollIntoView({
+    const container = thumbContainerRef.current;
+    const activeThumb = thumbRefs.current[currentIndex];
+    if (container && activeThumb) {
+      const thumbLeft = activeThumb.offsetLeft;
+      const thumbWidth = activeThumb.offsetWidth;
+      const containerWidth = container.offsetWidth;
+      container.scrollTo({
+        left: thumbLeft - containerWidth / 2 + thumbWidth / 2,
         behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
       });
     }
   }, [currentIndex]);
@@ -366,7 +371,10 @@ export default function ProductMediaSlider({
 
       {/* Horizontal Thumbnail Strip (only shown when multiple authentic media items exist) */}
       {items.length > 1 && (
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
+        <div
+          ref={thumbContainerRef}
+          className="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar"
+        >
           {items.map((url, idx) => {
             const isVid = isVideoUrl(url);
             const isSelected = idx === currentIndex;
