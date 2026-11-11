@@ -20,7 +20,8 @@ import {
   Lock,
   Scale,
   AlertCircle,
-  FileText
+  FileText,
+  Info
 } from 'lucide-react';
 import { createOrder } from '../../utils/orders';
 import { deductListingQuantity, getListingById, COMMODITY_IMAGES } from '../../utils/listings';
@@ -414,7 +415,18 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                 </div>
                 <div className="pt-2 border-t border-[#14624A]/60 flex items-center justify-between text-[11px] text-[#DCFCE7]/80">
                   <span>Full Lot Crop Value: ₹{estimatedTotal.toLocaleString('en-IN')}</span>
-                  <span className="text-[#34D399] font-semibold">+ Live Transporter Quote</span>
+                  <div className="relative group inline-flex items-center gap-1 cursor-pointer">
+                    <span className="text-[#34D399] font-semibold">+ Live Freight Quote</span>
+                    <Info className="w-3.5 h-3.5 text-[#34D399]/90 group-hover:text-white transition-colors" />
+                    {/* Hover Info Tooltip */}
+                    <div className="pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 transition-all duration-200 absolute right-0 bottom-full mb-2 w-64 p-2.5 rounded-xl bg-[#07241A] border border-[#14624A] text-[11px] text-[#DCFCE7] shadow-xl z-30 leading-snug">
+                      <div className="font-bold text-white mb-0.5 flex items-center gap-1.5">
+                        <Truck className="w-3.5 h-3.5 text-[#34D399]" /> Competitive Freight RFQ
+                      </div>
+                      Carrier bids open immediately upon lot reservation. AgroLnk automatically locks the lowest verified transporter quote for you within 30 minutes.
+                      <div className="w-2 h-2 bg-[#07241A] border-r border-b border-[#14624A] transform rotate-45 absolute right-3 -bottom-1"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -607,7 +619,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-2.5">
+                        <div className="space-y-2">
                           <Button
                             variant="accent"
                             size="lg"
@@ -618,11 +630,23 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                           >
                             Buy Now • Get 30-Min Freight Quote
                           </Button>
-                          <div className="p-2.5 rounded-xl bg-[#F2FBF6] border border-[#10B981]/25 text-[11px] text-[#0B3326] flex items-start gap-2">
-                            <Truck className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
-                            <span>
-                              <strong>Lowest Freight Quote in 30 Mins:</strong> Reserve your quantity (≥ {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1)} {listing.unit}), receive live transporter bids, and pay Crop + Lowest Freight together in Escrow.
-                            </span>
+
+                          {/* Sleek Minimal Info Trigger (Idea 1) */}
+                          <div className="flex justify-center pt-0.5">
+                            <div className="relative group inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2FBF6] border border-[#10B981]/25 hover:border-[#10B981] text-[11px] text-[#0B3326] cursor-pointer transition-all shadow-2xs">
+                              <Clock className="w-3.5 h-3.5 text-[#10B981]" />
+                              <span className="font-semibold">30-min live freight bidding</span>
+                              <Info className="w-3.5 h-3.5 text-[#566861] group-hover:text-[#10B981] transition-colors" />
+
+                              {/* Floating Info Tooltip */}
+                              <div className="pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 transition-all duration-200 absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 rounded-2xl bg-white border border-[#E5EDE8] text-[11px] text-[#566861] shadow-xl z-30 leading-relaxed text-left">
+                                <div className="font-bold text-[#0B3326] mb-1 flex items-center gap-1.5 text-xs">
+                                  <Truck className="w-3.5 h-3.5 text-[#10B981]" /> How Freight Bidding Works
+                                </div>
+                                Reserve your lot (MOQ ≥ {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1)} {listing.unit}) to broadcast a 30-minute live RFQ to verified carriers. AgroLnk selects the lowest quote and allows you to pay Crop + Freight together in Escrow.
+                                <div className="w-2.5 h-2.5 bg-white border-r border-b border-[#E5EDE8] transform rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1.5"></div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
