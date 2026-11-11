@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
-import { createDelivery } from './deliveries';
+import { createDelivery, getDeliveryForOrder } from './deliveries';
 import { processLiveEscrowDeposit, processLiveEscrowRelease, isOrderSettledInEscrow } from './escrowApi';
 import { getUserBankDetails } from './bankDetails';
 import { broadcastDataChange } from './syncChannel';
 import { sendNotification } from './notifications';
 import { getCurrentUser } from './auth';
 import { convertVolume, normalizeUnitName } from './pricingUnits';
+import { calculateFreightFinancials } from './commission';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -53,6 +54,25 @@ function mapOrderFromDb(row) {
     totalQuintals: row.total_quintals || row.totalQuintals || row.meta?.total_quintals || null,
     pricePerUnit: Number(row.price_per_unit),
     totalAmount: Number(row.total_amount),
+    freightAmount:
+      row.freight_amount !== undefined && row.freight_amount !== null
+        ? Number(row.freight_amount)
+        : row.freightAmount !== undefined
+        ? Number(row.freightAmount)
+        : 0,
+    freightFeeAmount:
+      row.freight_fee_amount !== undefined && row.freight_fee_amount !== null
+        ? Number(row.freight_fee_amount)
+        : row.freightFeeAmount !== undefined
+        ? Number(row.freightFeeAmount)
+        : 0,
+    grandTotalAmount:
+      row.grand_total_amount !== undefined && row.grand_total_amount !== null
+        ? Number(row.grand_total_amount)
+        : row.grandTotalAmount !== undefined
+        ? Number(row.grandTotalAmount)
+        : Number(row.total_amount || 0),
+    rfqExpiresAt: row.rfq_expires_at || row.rfqExpiresAt || null,
     state: row.state,
     district: row.district,
     escrowStatus: row.escrow_status || (row.status === 'completed' ? 'released' : 'funded'),
@@ -359,6 +379,35 @@ export async function createOrder(orderData) {
     let orderId = orderData.id || generateId();
     let orderNumber = orderData.orderNumber || generateOrderNum();
     const isTradeCredit = orderData.paymentMode === 'trade_credit';
+    const isFreightRfq = Boolean(
+      orderData.awaitingFreightQuote ||
+      orderData.status === 'awaiting_freight_quote' ||
+      orderData.escrowStatus === 'awaiting_freight_quote'
+    );
+    const rfqExpiresAt =
+      orderData.rfqExpiresAt ||
+      (isFreightRfq ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null);
+
+    // Pre-flight MOQ check if listing MOQ was passed by caller
+    if (orderData.minOrderQuantity && Number(orderData.minOrderQuantity) > 0) {
+      const listingUnit = orderData.listingUnit || orderData.unit || 'kg';
+      const buyerUnit = orderData.unit || listingUnit;
+      const reqInListingUnit =
+        orderData.quantityInListingUnit !== undefined && Number(orderData.quantityInListingUnit) > 0
+          ? Number(orderData.quantityInListingUnit)
+          : convertVolume(orderData.quantity, buyerUnit, listingUnit);
+      const availInListingUnit =
+        orderData.availableQuantity !== undefined && Number(orderData.availableQuantity) > 0
+          ? Number(orderData.availableQuantity)
+          : Infinity;
+      const effectiveMoq = Math.min(Number(orderData.minOrderQuantity), availInListingUnit);
+
+      if (reqInListingUnit + 1e-6 < effectiveMoq) {
+        throw new Error(
+          `Minimum Order Quantity (MOQ) for this lot is ${effectiveMoq} ${listingUnit}. Please increase your order quantity.`
+        );
+      }
+    }
 
     const deliveryLocation = orderData.deliveryLocation || {
       state: orderData.buyerState || orderData.deliveryState || orderData.state || '',
@@ -398,10 +447,20 @@ export async function createOrder(orderData) {
       totalQuintals: orderData.totalQuintals !== undefined ? Number(orderData.totalQuintals) : undefined,
       pricePerUnit: Number(orderData.pricePerUnit),
       totalAmount: Number(orderData.totalAmount),
+      freightAmount: Number(orderData.freightAmount || 0),
+      freightFeeAmount: Number(orderData.freightFeeAmount || 0),
+      grandTotalAmount: Number(orderData.grandTotalAmount || orderData.totalAmount || 0),
+      rfqExpiresAt: rfqExpiresAt,
       state: orderData.state || '',
       district: orderData.district || '',
-      escrowStatus: isTradeCredit ? 'financing_pending' : (orderData.escrowStatus || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'funded')),
-      status: orderData.status || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'order_placed'),
+      escrowStatus: isFreightRfq
+        ? 'awaiting_freight_quote'
+        : isTradeCredit
+        ? 'financing_pending'
+        : orderData.escrowStatus || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'funded'),
+      status: isFreightRfq
+        ? 'awaiting_freight_quote'
+        : orderData.status || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'order_placed'),
       paymentMode: orderData.paymentMode || (isTradeCredit ? 'trade_credit' : 'direct'),
       paymentMethod: orderData.paymentMethod || (orderData.paymentMode === 'escrow_van' ? 'escrow_van' : 'razorpay_route'),
       bankUtr: orderData.bankUtr || orderData.razorpay_payment_id || null,
@@ -433,6 +492,8 @@ export async function createOrder(orderData) {
           p_quantity: deductQty,
           p_delivery_location: deliveryLocation,
           p_is_trade_credit: Boolean(isTradeCredit),
+          p_awaiting_freight_quote: Boolean(isFreightRfq),
+          p_buyer_unit: orderData.unit || orderData.listingUnit || 'kg',
         });
 
         if (!rpcErr && rpcData?.success) {
@@ -442,24 +503,51 @@ export async function createOrder(orderData) {
           localItem.orderNumber = orderNumber;
           localItem.totalAmount = Number(rpcData.total_amount || localItem.totalAmount);
           localItem.escrowStatus = rpcData.escrow_status || localItem.escrowStatus;
+          localItem.status = rpcData.status || localItem.status;
+          localItem.rfqExpiresAt = rpcData.rfq_expires_at || localItem.rfqExpiresAt;
+          localItem.deliveryId = rpcData.delivery_id || null;
           localItem.atomicDeducted = true;
           saveLocalOrder(localItem);
 
-          // Register in Live Escrow API Engine
-          try {
-            await processLiveEscrowDeposit({
-              orderNumber: orderNumber,
-              commodity: `${localItem.commodity} (${localItem.variety || 'Standard'}, ${localItem.grade || 'A'})`,
-              tradeAmount: localItem.totalAmount,
-              buyerName: localItem.buyerName,
-              farmerName: localItem.farmerName,
-              paymentMode: isTradeCredit ? 'NBFC Institutional Trade Credit' : 'Buyer Instant Virtual Nodal UPI',
-            });
-          } catch {}
+          if (isFreightRfq) {
+            // Broadcast 30-Minute RFQ to verified transporters
+            try {
+              const { data: transporters } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('role', 'transporter');
+              if (Array.isArray(transporters) && transporters.length > 0) {
+                for (const t of transporters) {
+                  if (!t?.id) continue;
+                  await sendNotification({
+                    recipientId: t.id,
+                    recipientRole: 'transporter',
+                    title: `New 30-Min Freight RFQ: ${localItem.commodity}`,
+                    message: `Quote requested for ${localItem.quantity} ${localItem.unit} from ${localItem.district || 'Origin'}, ${localItem.state || ''} to ${deliveryLocation?.district || 'Destination'}, ${deliveryLocation?.state || ''}. Lowest bid wins!`,
+                    type: 'delivery',
+                    link: '/transporter-dashboard',
+                  });
+                }
+              }
+            } catch {}
+          } else {
+            // Register in Live Escrow API Engine only when payment is already funded
+            try {
+              await processLiveEscrowDeposit({
+                orderNumber: orderNumber,
+                commodity: `${localItem.commodity} (${localItem.variety || 'Standard'}, ${localItem.grade || 'A'})`,
+                tradeAmount: localItem.totalAmount,
+                buyerName: localItem.buyerName,
+                farmerName: localItem.farmerName,
+                paymentMode: isTradeCredit ? 'NBFC Institutional Trade Credit' : 'Buyer Instant Virtual Nodal UPI',
+              });
+            } catch {}
+          }
 
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: localItem }));
             window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: localItem }));
+            window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: localItem }));
             window.dispatchEvent(new Event('storage'));
           }
 
@@ -472,6 +560,7 @@ export async function createOrder(orderData) {
           if (
             msg.includes('sold out') ||
             msg.includes('exceeds available inventory') ||
+            msg.includes('Minimum Order Quantity') ||
             msg.includes('not found') ||
             msg.includes('cannot buy your own produce') ||
             msg.includes('Self-trading')
@@ -484,6 +573,7 @@ export async function createOrder(orderData) {
           rpcCatch.message &&
           (rpcCatch.message.includes('sold out') ||
             rpcCatch.message.includes('exceeds available inventory') ||
+            rpcCatch.message.includes('Minimum Order Quantity') ||
             rpcCatch.message.includes('not found') ||
             rpcCatch.message.includes('cannot buy your own produce') ||
             rpcCatch.message.includes('Self-trading'))
@@ -498,14 +588,18 @@ export async function createOrder(orderData) {
     let verifiedTotalAmount = Number(orderData.totalAmount);
 
     if (orderData.listingId && Number(orderData.quantity) > 0) {
-      // Step A: Verify stock availability & authoritative price in live Supabase listing
+      // Step A: Verify stock availability, MOQ & authoritative price in live Supabase listing
       const { data: currentListing, error: checkErr } = await supabase
         .from('listings')
-        .select('id, quantity, status, price, farmer_id, unit')
+        .select('id, quantity, min_order_quantity, status, price, farmer_id, unit, description, state, district, farmer_name')
         .eq('id', orderData.listingId)
         .maybeSingle();
 
       if (!checkErr && currentListing) {
+        if (orderData.buyerId && currentListing.farmer_id && String(orderData.buyerId) === String(currentListing.farmer_id)) {
+          throw new Error('You cannot buy your own produce. Self-trading is not permitted on AgroLnk.');
+        }
+
         // Enforce accurate cross-unit conversion against live listing's native unit
         const listingUnit = currentListing.unit || orderData.listingUnit || orderData.unit || 'kg';
         const buyerUnit = orderData.unit || listingUnit;
@@ -520,12 +614,33 @@ export async function createOrder(orderData) {
           );
         }
 
+        // Enforce Minimum Order Quantity (MOQ) from authoritative DB column or description fallback tag
+        let liveMoq = Math.max(
+          Number(currentListing.min_order_quantity || 0),
+          Number(orderData.minOrderQuantity || 0)
+        );
+        if (currentListing.description) {
+          const moqMatch = String(currentListing.description).match(/<!--agrolnk:minOrderQty:([0-9.]+)-->/);
+          if (moqMatch && Number(moqMatch[1]) > 0) {
+            liveMoq = Math.max(liveMoq, Number(moqMatch[1]));
+          }
+        }
+        if (liveMoq > 0) {
+          const effectiveMoq = Math.min(liveMoq, Number(currentListing.quantity));
+          if (actualDeductQty + 1e-6 < effectiveMoq) {
+            throw new Error(
+              `Minimum Order Quantity (MOQ) for this lot is ${effectiveMoq} ${listingUnit}.`
+            );
+          }
+        }
+
         // Authoritative Server-Side Pricing Guard: Override any client-tampered price
         if (currentListing.price !== undefined && currentListing.price !== null && Number(currentListing.price) > 0) {
           verifiedPricePerUnit = Number(currentListing.price);
           verifiedTotalAmount = Math.round(actualDeductQty * verifiedPricePerUnit * 100) / 100;
           localItem.pricePerUnit = verifiedPricePerUnit;
           localItem.totalAmount = verifiedTotalAmount;
+          localItem.grandTotalAmount = Number(orderData.grandTotalAmount || verifiedTotalAmount);
         }
 
         // Step B: Atomically decrement stock with conditional .gte guard to eliminate overselling
@@ -557,6 +672,7 @@ export async function createOrder(orderData) {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
     const dbOrderId = isUuid(orderId) ? orderId : generateStandardUuid();
+    localItem.id = dbOrderId;
     const dbRow = {
       id: dbOrderId,
       order_number: orderNumber,
@@ -585,22 +701,51 @@ export async function createOrder(orderData) {
       district: orderData.district || '',
       payment_id: orderData.razorpay_payment_id || orderData.paymentId || orderData.bankUtr || null,
       payment_mode: orderData.paymentMode || (isTradeCredit ? 'trade_credit' : 'direct'),
-      escrow_status: isTradeCredit ? 'pending' : (orderData.paymentMode === 'escrow_van' ? 'pending' : ((orderData.razorpay_payment_id || orderData.paymentId) ? 'funded' : 'pending')),
-      status: orderData.status || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'order_placed'),
+      escrow_status: isFreightRfq
+        ? 'awaiting_freight_quote'
+        : isTradeCredit
+        ? 'pending'
+        : orderData.paymentMode === 'escrow_van'
+        ? 'pending'
+        : orderData.razorpay_payment_id || orderData.paymentId
+        ? 'funded'
+        : 'pending',
+      status: isFreightRfq
+        ? 'awaiting_freight_quote'
+        : orderData.status || (orderData.paymentMode === 'escrow_van' ? 'pending' : 'order_placed'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('orders')
         .insert([dbRow])
         .select()
         .single();
 
+      // Fallback if DB check constraint hasn't been migrated with awaiting_freight_quote yet
+      if (error && isFreightRfq) {
+        const fallbackRow = {
+          ...dbRow,
+          escrow_status: 'pending',
+          status: 'pending',
+        };
+        const retry = await supabase.from('orders').insert([fallbackRow]).select().single();
+        data = retry.data;
+        error = retry.error;
+      }
+
       if (!error && data) {
         const mapped = mapOrderFromDb(data);
-        saveLocalOrder({ ...localItem, ...mapped, atomicDeducted: true });
+        saveLocalOrder({
+          ...localItem,
+          ...mapped,
+          status: isFreightRfq ? 'awaiting_freight_quote' : mapped.status,
+          escrowStatus: isFreightRfq ? 'awaiting_freight_quote' : mapped.escrowStatus,
+          rfqExpiresAt: rfqExpiresAt || mapped.rfqExpiresAt,
+          atomicDeducted: true,
+        });
       } else {
         saveLocalOrder(localItem);
       }
@@ -609,18 +754,72 @@ export async function createOrder(orderData) {
       saveLocalOrder(localItem);
     }
 
-    // Register deposit in Live Escrow API Engine
-    try {
-      await processLiveEscrowDeposit({
-        orderNumber: orderNumber,
-        commodity: `${localItem.commodity} (${localItem.variety || 'Standard'}, ${localItem.grade || 'A'})`,
-        tradeAmount: localItem.totalAmount,
-        buyerName: localItem.buyerName,
-        farmerName: localItem.farmerName,
-        paymentMode: isTradeCredit ? 'NBFC Institutional Trade Credit' : 'Buyer Instant Virtual Nodal UPI',
-      });
-    } catch (escrowErr) {
-      console.warn('Live escrow deposit record notice:', escrowErr);
+    if (isFreightRfq) {
+      // Automatically create 30-Minute Competitive Freight RFQ in public.deliveries
+      try {
+        const createdDel = await createDelivery({
+          orderId: dbOrderId,
+          orderNumber: orderNumber,
+          listingId: orderData.listingId,
+          farmerId: orderData.farmerId,
+          farmerName: orderData.farmerName || 'Verified Producer',
+          farmerPhone: orderData.farmerPhone || '',
+          buyerId: orderData.buyerId,
+          buyerName: orderData.buyerName || 'Buyer',
+          buyerPhone: orderData.buyerPhone || deliveryLocation.phone || '',
+          commodity: localItem.commodity,
+          variety: localItem.variety,
+          grade: localItem.grade,
+          quantity: localItem.quantity,
+          unit: localItem.unit,
+          totalAmount: localItem.totalAmount,
+          pickupLocation: {
+            state: localItem.state || '',
+            district: localItem.district || '',
+            address: orderData.pickupAddress || `${localItem.district || ''}, ${localItem.state || ''}`,
+            contactName: localItem.farmerName || 'Verified Producer',
+            phone: orderData.farmerPhone || '',
+          },
+          deliveryLocation: deliveryLocation,
+          status: 'transport_requested',
+          rfqExpiresAt: rfqExpiresAt,
+          freightPayerRole: 'buyer',
+        });
+        if (createdDel?.id) {
+          localItem.deliveryId = createdDel.id;
+          saveLocalOrder(localItem);
+        }
+      } catch (delErr) {
+        console.warn('Auto freight RFQ creation notice:', delErr);
+      }
+    } else {
+      // Register deposit in Live Escrow API Engine only when order payment is already funded
+      try {
+        await processLiveEscrowDeposit({
+          orderNumber: orderNumber,
+          commodity: `${localItem.commodity} (${localItem.variety || 'Standard'}, ${localItem.grade || 'A'})`,
+          tradeAmount: localItem.totalAmount,
+          buyerName: localItem.buyerName,
+          farmerName: localItem.farmerName,
+          paymentMode: isTradeCredit ? 'NBFC Institutional Trade Credit' : 'Buyer Instant Virtual Nodal UPI',
+        });
+      } catch (escrowErr) {
+        console.warn('Live escrow deposit record notice:', escrowErr);
+      }
+
+      // Dispatch targeted notification to Producer when payment is funded immediately
+      try {
+        sendNotification({
+          recipientId: localItem.farmerId,
+          recipientRole: 'farmer',
+          title: `New Purchase Order ${localItem.orderNumber}`,
+          message: `Order for ${localItem.quantity} ${localItem.unit} of ${localItem.commodity} received from ${localItem.buyerName}. Total ₹${localItem.totalAmount.toLocaleString('en-IN')} escrow funded.`,
+          type: 'order',
+          link: '/farmer-orders',
+        });
+      } catch (notifErr) {
+        console.warn('Order notification notice:', notifErr);
+      }
     }
 
     if (typeof window !== 'undefined') {
@@ -629,23 +828,272 @@ export async function createOrder(orderData) {
       window.dispatchEvent(new Event('storage'));
     }
 
-    // Dispatch targeted notification to Producer
-    try {
-      sendNotification({
-        recipientId: localItem.farmerId,
-        recipientRole: 'farmer',
-        title: `New Purchase Order ${localItem.orderNumber}`,
-        message: `Order for ${localItem.quantity} ${localItem.unit} of ${localItem.commodity} received from ${localItem.buyerName}. Total ₹${localItem.totalAmount.toLocaleString('en-IN')} escrow funded.`,
-        type: 'order',
-        link: '/farmer-orders',
-      });
-    } catch (notifErr) {
-      console.warn('Order notification notice:', notifErr);
-    }
-
     return localItem;
   } catch (err) {
     console.error('Error creating order:', err);
+    throw err;
+  }
+}
+
+/**
+ * Complete Buyer's Combined Crop + Freight Escrow Checkout after Transporter Quote is Ready.
+ * Atomically locks Crop Escrow + Freight Escrow, assigns Winning Transporter, and notifies both Farmer & Transporter.
+ */
+export async function completeBuyerOrderWithFreightPayment(orderId, paymentData = {}) {
+  try {
+    const allOrders = await getOrders();
+    const existingOrder = allOrders.find(
+      (o) => o.id === orderId || o.orderNumber === orderId
+    );
+
+    const resolvedOrderId = existingOrder?.id || orderId;
+    const liveDelivery = await getDeliveryForOrder(existingOrder?.orderNumber || resolvedOrderId);
+    const resolvedDeliveryId = liveDelivery?.id || paymentData.deliveryId || existingOrder?.deliveryId || null;
+
+    // Anti-Tampering Guard: Always use authoritative freight quote from live delivery/order in Supabase, never client-manipulated values
+    const serverFreightAmount = Number(
+      liveDelivery?.lowestQuote?.freightAmount ||
+      liveDelivery?.freightAmount ||
+      existingOrder?.freightAmount ||
+      0
+    );
+
+    if (!(serverFreightAmount > 0)) {
+      throw new Error(
+        'Cannot complete combined escrow checkout before a verified transporter freight quote (> ₹0) is recorded.'
+      );
+    }
+
+    const paymentId =
+      paymentData.paymentId ||
+      paymentData.razorpay_payment_id ||
+      paymentData.bankUtr ||
+      `ESC-COMBINED-${Date.now()}`;
+    const rawPaymentMode = paymentData.paymentMode || existingOrder?.paymentMode || 'direct_razorpay';
+    const normalizedRpcPaymentMode =
+      rawPaymentMode === 'trade_credit'
+        ? 'trade_credit'
+        : rawPaymentMode === 'escrow_van' || String(rawPaymentMode).includes('VAN')
+        ? 'escrow_van'
+        : 'direct_razorpay';
+    const selectedTransporterId =
+      liveDelivery?.lowestQuote?.transporterId ||
+      liveDelivery?.transporterId ||
+      paymentData.transporterId ||
+      paymentData.selectedTransporterId ||
+      null;
+    const selectedTransporterName =
+      liveDelivery?.lowestQuote?.transporterName ||
+      liveDelivery?.transporterName ||
+      paymentData.transporterName ||
+      'Assigned Fleet';
+
+    // 1. Try Atomic RPC first (matches lock_buyer_order_and_freight_escrow_atomic SQL signature)
+    if (resolvedOrderId) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+          'lock_buyer_order_and_freight_escrow_atomic',
+          {
+            p_order_id: resolvedOrderId,
+            p_payment_mode: normalizedRpcPaymentMode,
+            p_payment_id: paymentId,
+            p_bank_utr: paymentData.bankUtr || paymentId,
+            p_auto_verified:
+              normalizedRpcPaymentMode !== 'escrow_van' || Boolean(paymentData.autoVerified),
+          }
+        );
+
+        if (!rpcErr && rpcRes?.success) {
+          const finalFreightAmt = Number(rpcRes.freight_amount ?? serverFreightAmount);
+          const freightFin = calculateFreightFinancials(finalFreightAmt);
+          const updatedLocal = {
+            ...(existingOrder || {}),
+            id: resolvedOrderId,
+            deliveryId: rpcRes.delivery_id || resolvedDeliveryId,
+            status: rpcRes.status || 'order_placed',
+            escrowStatus:
+              rpcRes.escrow_status ||
+              (normalizedRpcPaymentMode === 'trade_credit' ? 'financing_pending' : 'funded'),
+            paymentMode: rawPaymentMode,
+            bankUtr: paymentData.bankUtr || paymentId,
+            freightAmount: finalFreightAmt,
+            freightFeeAmount: freightFin.consignorFee,
+            grandTotalAmount: Number(
+              rpcRes.grand_total_amount ?? existingOrder?.totalAmount ?? 0
+            ),
+            updatedAt: new Date().toISOString(),
+          };
+          saveLocalOrder(updatedLocal);
+
+          try {
+            await processLiveEscrowDeposit({
+              orderNumber: updatedLocal.orderNumber,
+              commodity: `${updatedLocal.commodity || 'Produce'} (+ ₹${updatedLocal.freightAmount.toLocaleString('en-IN')} Freight)`,
+              tradeAmount: updatedLocal.totalAmount,
+              buyerName: updatedLocal.buyerName,
+              farmerName: updatedLocal.farmerName,
+              paymentMode:
+                normalizedRpcPaymentMode === 'trade_credit'
+                  ? 'NBFC Institutional Trade Credit'
+                  : 'Combined Crop + Freight Escrow Nodal Deposit',
+            });
+          } catch {}
+
+          broadcastDataChange('orders', 'update');
+          broadcastDataChange('deliveries', 'update');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: updatedLocal }));
+            window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: updatedLocal }));
+            window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: updatedLocal }));
+            window.dispatchEvent(new Event('storage'));
+          }
+
+          return updatedLocal;
+        }
+      } catch (rpcCatch) {
+        console.warn('lock_buyer_order_and_freight_escrow_atomic fallback:', rpcCatch);
+      }
+    }
+
+    // 2. Client-side Fallback (strictly uses authoritative serverFreightAmount & server cropAmount)
+    const freightAmount = serverFreightAmount;
+    const freightFin = calculateFreightFinancials(freightAmount);
+    const cropAmount = Number(existingOrder?.totalAmount || paymentData.totalAmount || 0);
+    const cropFee = Math.round(cropAmount * 0.0025 * 100) / 100;
+    const freightFee = freightFin.consignorFee;
+    const grandTotal = Math.round((cropAmount + cropFee + freightAmount + freightFee) * 100) / 100;
+    const newEscrowStatus =
+      normalizedRpcPaymentMode === 'trade_credit' ? 'financing_pending' : 'funded';
+
+    const orderUpdatePayload = {
+      status: 'order_placed',
+      escrow_status: newEscrowStatus,
+      payment_id: paymentId,
+      bank_utr: paymentData.bankUtr || paymentId,
+      payment_mode: rawPaymentMode,
+      freight_amount: freightAmount,
+      freight_fee_amount: freightFee,
+      grand_total_amount: grandTotal,
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      const { error: ordErr } = await supabase
+        .from('orders')
+        .update(orderUpdatePayload)
+        .eq('id', resolvedOrderId);
+
+      if (ordErr) {
+        // Retry with core columns if new freight columns are not yet migrated
+        await supabase
+          .from('orders')
+          .update({
+            status: 'order_placed',
+            escrow_status: newEscrowStatus,
+            payment_id: paymentId,
+            payment_mode: rawPaymentMode,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', resolvedOrderId);
+      }
+    } catch {}
+
+    // Update linked Delivery row to 'assigned' + 'escrow_locked'
+    if (resolvedDeliveryId) {
+      try {
+        const delUpdate = {
+          status: 'assigned',
+          freight_escrow_status: 'escrow_locked',
+          freight_payer_id: existingOrder?.buyerId || null,
+          freight_payer_role: 'buyer',
+          freight_amount: freightAmount,
+          freight_base_amount: freightAmount,
+          consignor_freight_fee: freightFin.consignorFee,
+          total_freight_payable: freightFin.totalFreightDeposit,
+          transporter_commission_fee: freightFin.transporterFee,
+          transporter_net_payout: freightFin.netTransporterPayout,
+          freight_payment_mode: rawPaymentMode,
+          freight_bank_utr: paymentData.bankUtr || paymentId,
+          freight_deposited_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        if (selectedTransporterId) delUpdate.transporter_id = selectedTransporterId;
+        if (selectedTransporterName) delUpdate.transporter_name = selectedTransporterName;
+
+        await supabase.from('deliveries').update(delUpdate).eq('id', resolvedDeliveryId);
+      } catch {}
+    }
+
+    const updatedLocal = {
+      ...(existingOrder || {}),
+      id: resolvedOrderId,
+      deliveryId: resolvedDeliveryId,
+      status: 'order_placed',
+      escrowStatus: newEscrowStatus,
+      paymentMode: rawPaymentMode,
+      bankUtr: paymentData.bankUtr || paymentId,
+      freightAmount: freightAmount,
+      freightFeeAmount: freightFee,
+      grandTotalAmount: grandTotal,
+      updatedAt: new Date().toISOString(),
+    };
+    saveLocalOrder(updatedLocal);
+
+    // Record deposit in Live Escrow API Engine
+    try {
+      await processLiveEscrowDeposit({
+        orderNumber: updatedLocal.orderNumber,
+        commodity: `${updatedLocal.commodity || 'Produce'} (+ ₹${freightAmount.toLocaleString('en-IN')} Freight)`,
+        tradeAmount: cropAmount,
+        buyerName: updatedLocal.buyerName,
+        farmerName: updatedLocal.farmerName,
+        paymentMode:
+          normalizedRpcPaymentMode === 'trade_credit'
+            ? 'NBFC Institutional Trade Credit'
+            : 'Combined Crop + Freight Escrow Nodal Deposit',
+      });
+    } catch {}
+
+    // Notify Producer (Farmer / FPO / FP) that Crop + Freight Escrow is now 100% funded
+    if (updatedLocal.farmerId) {
+      try {
+        await sendNotification({
+          recipientId: updatedLocal.farmerId,
+          recipientRole: 'farmer',
+          title: `Order & Escrow Funded: ${updatedLocal.orderNumber}`,
+          message: `Buyer funded ₹${cropAmount.toLocaleString('en-IN')} crop escrow + ₹${freightAmount.toLocaleString('en-IN')} freight escrow. Transporter (${selectedTransporterName}) will arrive for pickup.`,
+          type: 'order',
+          link: '/farmer-orders',
+        });
+      } catch {}
+    }
+
+    // Notify Winning Transporter that Freight Escrow is locked and pickup address is unlocked
+    if (selectedTransporterId) {
+      try {
+        await sendNotification({
+          recipientId: selectedTransporterId,
+          recipientRole: 'transporter',
+          title: `Quote Accepted & Freight Escrow Locked!`,
+          message: `Your freight quote of ₹${freightAmount.toLocaleString('en-IN')} for Order ${updatedLocal.orderNumber} (${updatedLocal.commodity}) was funded in escrow! Full pickup & drop details are now unlocked.`,
+          type: 'delivery',
+          link: '/transporter-dashboard',
+        });
+      } catch {}
+    }
+
+    broadcastDataChange('orders', 'update');
+    broadcastDataChange('deliveries', 'update');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: updatedLocal }));
+      window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: updatedLocal }));
+      window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: updatedLocal }));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return updatedLocal;
+  } catch (err) {
+    console.error('Error in completeBuyerOrderWithFreightPayment:', err);
     throw err;
   }
 }

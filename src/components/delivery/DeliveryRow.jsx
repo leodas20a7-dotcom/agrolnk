@@ -76,9 +76,13 @@ export default function DeliveryRow({
         </div>
 
         <div className="min-w-0">
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Freight Cost</span>
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">
+            {isPriceOffered ? 'Lowest Quote' : 'Freight Cost'}
+          </span>
           <span className="font-extrabold text-sm text-[#10B981] block truncate">
-            {delivery.freightAmount ? `₹${Number(delivery.freightAmount).toLocaleString('en-IN')}` : 'Calculating'}
+            {delivery.freightAmount
+              ? `₹${Number(delivery.freightAmount).toLocaleString('en-IN')}`
+              : 'Awaiting Bids'}
           </span>
         </div>
       </div>
@@ -89,18 +93,7 @@ export default function DeliveryRow({
           <DeliveryStatusBadge status={delivery.status} size="sm" />
         </div>
 
-        {isPriceOffered && onAcceptPrice && (
-          <Button
-            variant="accent"
-            size="sm"
-            onClick={() => onAcceptPrice(delivery)}
-            className="text-xs font-bold py-1.5 px-3 shadow-xs cursor-pointer whitespace-nowrap"
-          >
-            Accept ₹{delivery.freightAmount}
-          </Button>
-        )}
-
-        {isTransporter && isAvailableJob && onAccept && (
+        {isTransporter && (isAvailableJob || isPriceOffered) && onAccept && (
           <Button
             variant={isVerified ? 'accent' : 'outline'}
             size="sm"
@@ -111,7 +104,7 @@ export default function DeliveryRow({
               !isVerified ? 'border-[#D97706] text-[#D97706] hover:bg-[#FEF3C7]' : ''
             }`}
           >
-            {isVerified ? 'Quote & Accept' : 'Verify to Quote'}
+            {isVerified ? (isPriceOffered ? 'Submit Lower Quote' : 'Quote Freight') : 'Verify to Quote'}
           </Button>
         )}
 

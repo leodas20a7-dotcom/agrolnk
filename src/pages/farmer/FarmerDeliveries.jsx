@@ -281,17 +281,26 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                             {existingDelivery.status === 'price_offered' ? (
                               <div className="p-3 rounded-xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-[#34D399] font-bold">Quote: ₹{existingDelivery.freightAmount}</span>
-                                  <span className="text-[10px] text-white/70">{existingDelivery.transporterName || 'Carrier'}</span>
+                                  <span className="text-[#34D399] font-bold">
+                                    Lowest Quote: ₹{Number(existingDelivery.freightAmount || 0).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-[10px] text-white/70">
+                                    {existingDelivery.quotesCount > 1
+                                      ? `${existingDelivery.quotesCount} Carrier Bids`
+                                      : existingDelivery.transporterName || 'Carrier Quoted'}
+                                  </span>
                                 </div>
+                                <p className="text-[10px] text-white/75">
+                                  Buyer pays 100% of freight in Combined Escrow. Awaiting buyer checkout lock.
+                                </p>
                                 <div className="flex items-center gap-2">
                                   <Button
-                                    variant="accent"
+                                    variant="secondary"
                                     size="sm"
-                                    onClick={() => handleAcceptPrice(existingDelivery)}
+                                    onClick={() => setSelectedDeliveryForDetail(existingDelivery)}
                                     className="w-full text-xs font-bold py-1.5 shadow-xs cursor-pointer"
                                   >
-                                    Accept ₹{existingDelivery.freightAmount} & Confirm
+                                    View Quote & Route →
                                   </Button>
                                 </div>
                               </div>
@@ -318,7 +327,7 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                             iconPosition="left"
                             className="w-full font-bold text-xs py-2.5 shadow-xs cursor-pointer"
                           >
-                            Arrange Delivery
+                            Request Platform Carrier
                           </Button>
                         )}
                       </div>
@@ -388,8 +397,6 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                       delivery={item}
                       viewerRole="farmer"
                       onView={(d) => setSelectedDeliveryForDetail(d)}
-                      onAcceptPrice={handleAcceptPrice}
-                      onDeclinePrice={handleDeclinePrice}
                     />
                   ))}
                 </div>
@@ -401,8 +408,6 @@ export default function FarmerDeliveries({ currentUser, onNavigate, navState }) 
                       delivery={item}
                       viewerRole="farmer"
                       onView={(d) => setSelectedDeliveryForDetail(d)}
-                      onAcceptPrice={handleAcceptPrice}
-                      onDeclinePrice={handleDeclinePrice}
                     />
                   ))}
                 </div>

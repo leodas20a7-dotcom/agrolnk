@@ -190,7 +190,10 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
 
   const availableJobs = safeDeliveries.filter(
-    (d) => d.status === 'transport_requested' || (d.status === 'price_offered' && d.transporterId === user.id)
+    (d) =>
+      (d.status === 'transport_requested' || d.status === 'price_offered') &&
+      d.freightEscrowStatus !== 'locked' &&
+      d.freightEscrowStatus !== 'released'
   );
   // Strictly match this transporter's ID so unassigned demo orders are not falsely attributed
   const myDeliveries = safeDeliveries.filter((d) => d.transporterId === user.id);

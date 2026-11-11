@@ -130,10 +130,10 @@ export default function DeliveryCard({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs text-[#34D399] font-bold">
                 <Truck className="w-4 h-4" />
-                <span>Price Quote from Carrier</span>
+                <span>Lowest Carrier Quote ({delivery.quotesCount || 1} Bid{delivery.quotesCount > 1 ? 's' : ''})</span>
               </div>
               <Badge variant="emerald" size="sm">
-                Action Required
+                Buyer Pays Freight
               </Badge>
             </div>
 
@@ -148,7 +148,7 @@ export default function DeliveryCard({
               </div>
 
               <div className="text-right">
-                <span className="text-[10px] text-white/70 block uppercase font-bold">Total Freight Fare</span>
+                <span className="text-[10px] text-white/70 block uppercase font-bold">Lowest Freight Bid</span>
                 <span className="text-xl font-extrabold text-[#34D399] font-heading block">
                   ₹{Number(delivery.freightAmount).toLocaleString('en-IN')}
                 </span>
@@ -156,7 +156,7 @@ export default function DeliveryCard({
             </div>
 
             <p className="text-[10px] text-white/75 leading-relaxed">
-              * If this transport fare is OK, click Accept below to confirm driver dispatch. ₹0 cash needed now (guaranteed via escrow upon delivery).
+              * Buyer pays 100% of freight in Combined Escrow. Once buyer funds checkout, carrier is assigned automatically.
             </p>
           </div>
         )}
@@ -185,15 +185,17 @@ export default function DeliveryCard({
           </div>
         )}
 
-        {/* Transporter View: Sent Quote Pending Approval */}
+        {/* Transporter View: Competitive Quote Status */}
         {isTransporter && isPriceOffered && (
           <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] text-xs text-[#92400E] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-[#D97706]" />
-              <span>Quote Sent: <strong>₹{Number(delivery.freightAmount || 0).toLocaleString('en-IN')}</strong></span>
+              <span>
+                Lowest Bid: <strong>₹{Number(delivery.freightAmount || 0).toLocaleString('en-IN')}</strong> ({delivery.quotesCount || 1} quote{delivery.quotesCount > 1 ? 's' : ''})
+              </span>
             </div>
             <Badge variant="amber" size="sm">
-              Waiting Farmer Approval
+              Awaiting Buyer Lock
             </Badge>
           </div>
         )}
@@ -207,36 +209,6 @@ export default function DeliveryCard({
         </div>
 
         <div className="flex items-center justify-end gap-2 flex-wrap">
-          {/* Farmer Price Approval Handshake */}
-          {isFarmer && isPriceOffered && (
-            <>
-              {onDeclinePrice && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDeclinePrice(delivery)}
-                  icon={XCircle}
-                  iconPosition="left"
-                  className="text-xs text-red-600 hover:bg-red-50 py-2 cursor-pointer"
-                >
-                  Decline
-                </Button>
-              )}
-              {onAcceptPrice && (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => onAcceptPrice(delivery)}
-                  icon={Check}
-                  iconPosition="left"
-                  className="text-xs font-bold py-2 shadow-xs cursor-pointer"
-                >
-                  Pay ₹{delivery.freightAmount} via Razorpay & Confirm
-                </Button>
-              )}
-            </>
-          )}
-
           {/* Buyer Confirmation */}
           {viewerRole === 'buyer' && isDelivered && onConfirmReceipt && (
             <Button
@@ -251,8 +223,8 @@ export default function DeliveryCard({
             </Button>
           )}
 
-          {/* Transporter Action */}
-          {isTransporter && isAvailableJob && onAccept && (
+          {/* Transporter Action (Can submit/update quote while RFQ is open) */}
+          {isTransporter && (isAvailableJob || isPriceOffered) && onAccept && (
             <Button
               variant={isVerified ? 'accent' : 'outline'}
               size="sm"

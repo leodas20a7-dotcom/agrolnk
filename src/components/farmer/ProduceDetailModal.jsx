@@ -217,6 +217,11 @@ export default function ProduceDetailModal({
             <span className="text-base font-extrabold text-[#14211D]">
               {listing.quantity} {listing.unit}
             </span>
+            {Number(listing.minOrderQuantity || 0) > 0 && (
+              <span className="text-[10px] font-bold text-[#0F5238] block mt-0.5">
+                MOQ: {listing.minOrderQuantity} {listing.unit}
+              </span>
+            )}
           </div>
 
           <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8]">
@@ -286,11 +291,11 @@ export default function ProduceDetailModal({
               </div>
             </div>
 
-            {listing.village && (
+            {listing.village && Boolean(onEdit) && (
               <div className="flex items-center gap-2.5 text-[#14211D]">
                 <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
                 <div>
-                  <span className="text-[#566861] block text-[11px]">Pickup Address / Depot</span>
+                  <span className="text-[#566861] block text-[11px]">Pickup Address / Depot (Private)</span>
                   <span className="font-semibold">{listing.village}</span>
                 </div>
               </div>

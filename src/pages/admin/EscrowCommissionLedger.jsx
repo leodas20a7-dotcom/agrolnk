@@ -137,10 +137,23 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
       const fin = calculateFreightFinancials(dlv.freightAmount);
       const isSettled = dlv.status === 'completed' || dlv.freightEscrowStatus === 'released';
       const isPendingVerification = dlv.freightEscrowStatus === 'pending_bank_check';
+      const isLocked =
+        dlv.freightEscrowStatus === 'locked' ||
+        dlv.freightEscrowStatus === 'escrow_locked' ||
+        dlv.status === 'assigned' ||
+        dlv.status === 'picked_up' ||
+        dlv.status === 'in_transit' ||
+        dlv.status === 'delivered';
       return {
         ...dlv,
         ...fin,
-        freightState: isPendingVerification ? 'pending_verification' : (isSettled ? 'released' : (dlv.freightEscrowStatus === 'escrow_locked' ? 'locked' : 'unfunded')),
+        freightState: isPendingVerification
+          ? 'pending_verification'
+          : isSettled
+          ? 'released'
+          : isLocked
+          ? 'locked'
+          : 'unfunded',
       };
     });
 
@@ -773,7 +786,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                           <th className="py-3.5 px-4">Delivery # &amp; Order</th>
                           <th className="py-3.5 px-4">Transporter Carrier</th>
                           <th className="py-3.5 px-4">Base Freight Quote</th>
-                          <th className="py-3.5 px-4 text-[#1E40AF]">Consignor Deposited (+0.25%)</th>
+                          <th className="py-3.5 px-4 text-[#1E40AF]">Buyer Deposited (+0.25%)</th>
                           <th className="py-3.5 px-4 text-[#10B981]">Transporter Payout (-0.25%)</th>
                           <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
                           <th className="py-3.5 px-4">Freight Escrow Status</th>
@@ -881,7 +894,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                                   Release Fare
                                 </Button>
                               ) : (
-                                <span className="text-gray-400 text-xs italic">Awaiting Consignor</span>
+                                <span className="text-gray-400 text-xs italic">Awaiting Buyer Escrow</span>
                               )}
                             </td>
                           </tr>

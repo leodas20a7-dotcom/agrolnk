@@ -23,13 +23,14 @@ import OrderStatus from './OrderStatus';
 import DeliveryTimeline from '../delivery/DeliveryTimeline';
 import OrderReceiptModal from './OrderReceiptModal';
 import { getFinancingRequestForOrder } from '../../utils/financing';
-import { getDeliveryForOrder } from '../../utils/deliveries';
+import { getDeliveryForOrder, calculateTransportFinancials } from '../../utils/deliveries';
 import { getInspectionForOrder } from '../../utils/inspection';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import { formatDualVolume } from '../../utils/pricingUnits';
 import { getCurrentUser } from '../../utils/auth';
 import { toast } from '../../context/ToastContext';
-import { depositOrderEscrow } from '../../utils/orders';
+import { depositOrderEscrow, completeBuyerOrderWithFreightPayment } from '../../utils/orders';
+import { calculateOrderFinancials } from '../../utils/commission';
 import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 
 export default function OrderSummary({
@@ -47,6 +48,7 @@ export default function OrderSummary({
   const [existingInspection, setExistingInspection] = useState(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
+  const [rfqRemainingSec, setRfqRemainingSec] = useState(30 * 60);
 
   useEffect(() => {
     let isMounted = true;
@@ -89,6 +91,23 @@ export default function OrderSummary({
     };
   }, [order?.id, order?.orderNumber, order?.status, viewerRole]);
 
+  useEffect(() => {
+    const expiryIso =
+      existingDelivery?.rfqExpiresAt ||
+      (order?.createdAt
+        ? new Date(new Date(order.createdAt).getTime() + 30 * 60 * 1000).toISOString()
+        : null);
+    if (!expiryIso) return;
+
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((new Date(expiryIso).getTime() - Date.now()) / 1000));
+      setRfqRemainingSec(diff);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [existingDelivery?.rfqExpiresAt, order?.createdAt]);
+
   if (!order) return null;
 
   const isBuyer = viewerRole === 'buyer';
@@ -100,14 +119,6 @@ export default function OrderSummary({
   const destStr = typeof order.deliveryLocation === 'object'
     ? `${order.deliveryLocation?.district || order.buyerDistrict || 'Chennai'}, ${order.deliveryLocation?.state || order.buyerState || 'Tamil Nadu'}`
     : `${order.buyerDistrict || 'Chennai'}, ${order.buyerState || 'Tamil Nadu'}`;
-
-  const pickupAddressFull = typeof order.pickupLocation === 'object'
-    ? `${order.pickupLocation?.address || ''}${order.pickupLocation?.address ? ', ' : ''}${order.pickupLocation?.district || order.district || 'Salem'}, ${order.pickupLocation?.state || order.state || 'Tamil Nadu'}`
-    : `${order.district || 'Salem'}, ${order.state || 'Tamil Nadu'}`;
-
-  const destAddressFull = typeof order.deliveryLocation === 'object'
-    ? `${order.deliveryLocation?.address || order.buyerAddress || 'Wholesale Market Hub'}${order.deliveryLocation?.address || order.buyerAddress ? ', ' : ''}${order.deliveryLocation?.district || order.buyerDistrict || 'Chennai'}, ${order.deliveryLocation?.state || order.buyerState || 'Tamil Nadu'}${order.deliveryLocation?.pincode ? ` (${order.deliveryLocation.pincode})` : ''}`
-    : `${order.buyerAddress ? `${order.buyerAddress}, ` : ''}${order.buyerDistrict || 'Chennai'}, ${order.buyerState || 'Tamil Nadu'}`;
 
   const isFarmerFinancing = Boolean(
     !isBuyer &&
@@ -134,37 +145,77 @@ export default function OrderSummary({
       : existingDelivery?.status || order.status;
 
   const isPendingEscrow = Boolean(
-    (order.escrowStatus === 'pending' || order.escrow_status === 'pending' || order.status === 'pending') &&
+    (order.escrowStatus === 'pending' ||
+      order.escrow_status === 'pending' ||
+      order.status === 'pending' ||
+      order.status === 'awaiting_freight_quote' ||
+      order.status === 'freight_quoted') &&
     !isBuyerFinanced &&
     order.status !== 'completed' &&
     order.status !== 'cancelled'
   );
 
+  const quotedFreightAmount = Number(
+    existingDelivery?.lowestQuote?.freightAmount ||
+      existingDelivery?.freightAmount ||
+      order.freightAmount ||
+      0
+  );
+  const hasFreightQuote = Boolean(
+    quotedFreightAmount > 0 &&
+    (existingDelivery?.status === 'price_offered' ||
+      (existingDelivery?.quotesCount || 0) > 0 ||
+      order.status === 'freight_quoted' ||
+      order.freightAmount > 0)
+  );
+  const cropFin = calculateOrderFinancials(Number(order.totalAmount || order.total_amount || 0));
+  const freightFin = calculateTransportFinancials(quotedFreightAmount);
+  const combinedEscrowPayable = cropFin.totalBuyerPayable + (hasFreightQuote ? freightFin.totalPayableByFarmer : 0);
+
+  const formatRfqTime = (sec) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
   const handleDepositEscrow = async () => {
     setIsDepositing(true);
     const currentUser = getCurrentUser();
+    const baseCropVal = Number(order.totalAmount || order.total_amount || 0);
+    const tradeValToCharge = hasFreightQuote ? baseCropVal + quotedFreightAmount : baseCropVal;
+
     try {
       await initiateRazorpayRouteCheckout({
         listing: {
           id: order.listingId || order.listing_id || order.auctionId || order.auction_id || 'lot',
           commodity: order.commodity,
           unit: order.unit,
-          price_per_unit: Number(order.pricePerUnit || order.price_per_unit || (order.totalAmount / (order.quantity || 1)) || 0),
+          price_per_unit: Number(order.pricePerUnit || order.price_per_unit || (baseCropVal / (order.quantity || 1)) || 0),
         },
         quantity: Number(order.quantity || 1),
-        pricePerUnit: Number(order.pricePerUnit || order.price_per_unit || (order.totalAmount / (order.quantity || 1)) || 0),
-        customTradeValue: Number(order.totalAmount || order.total_amount || 0),
+        pricePerUnit: Number(order.pricePerUnit || order.price_per_unit || (baseCropVal / (order.quantity || 1)) || 0),
+        customTradeValue: tradeValToCharge,
         purchaseUnit: order.unit || 'kg',
         buyerUser: currentUser || { name: order.buyerName || 'Buyer Partner', id: order.buyerId },
         onSuccess: async (payRes) => {
           try {
-            await depositOrderEscrow(order.id, {
-              paymentMode: `Razorpay Route (${payRes?.razorpay_payment_id || 'Gateway'})`,
-              paymentId: payRes?.razorpay_payment_id,
-              orderId: payRes?.razorpay_order_id,
-              signature: payRes?.razorpay_signature,
-            });
-            toast.success('Escrow deposit secured via Razorpay! Transport dispatch is now authorized.');
+            if (hasFreightQuote) {
+              await completeBuyerOrderWithFreightPayment(order.id, {
+                paymentMode: `Razorpay Combined Escrow (${payRes?.razorpay_payment_id || 'Gateway'})`,
+                paymentId: payRes?.razorpay_payment_id,
+                orderId: payRes?.razorpay_order_id,
+                signature: payRes?.razorpay_signature,
+              });
+              toast.success('Combined Crop + Freight Escrow locked! Seller & Transporter notified immediately.');
+            } else {
+              await depositOrderEscrow(order.id, {
+                paymentMode: `Razorpay Route (${payRes?.razorpay_payment_id || 'Gateway'})`,
+                paymentId: payRes?.razorpay_payment_id,
+                orderId: payRes?.razorpay_order_id,
+                signature: payRes?.razorpay_signature,
+              });
+              toast.success('Escrow deposit secured via Razorpay! Transport dispatch is now authorized.');
+            }
           } catch (err) {
             console.error('Error settling order escrow deposit:', err);
             toast.error('Payment captured, updating order failed. Please refresh.');
@@ -188,58 +239,96 @@ export default function OrderSummary({
   return (
     <div className="space-y-4 text-left">
 
-      {/* Buyer Awaiting Escrow Deposit Banner */}
+      {/* Buyer 30-Minute Freight Quote & Combined Escrow Banner */}
       {isBuyer && isPendingEscrow && (
-        <div className="p-4 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left animate-in fade-in shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-900 shrink-0">
-              <ShieldAlert className="w-5 h-5 text-amber-700" />
+        <div
+          className={`p-4 rounded-2xl border-2 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left animate-in fade-in shadow-xs ${
+            hasFreightQuote
+              ? 'bg-emerald-50/90 border-emerald-400'
+              : 'bg-amber-50/90 border-amber-300'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`p-2.5 rounded-xl shrink-0 ${
+                hasFreightQuote ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'
+              }`}
+            >
+              {hasFreightQuote ? (
+                <Truck className="w-5 h-5 text-emerald-700" />
+              ) : (
+                <Clock className="w-5 h-5 text-amber-700" />
+              )}
             </div>
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-amber-950 text-sm">
-                  {order.auctionId || order.auction_id ? 'Auction Won — Escrow Deposit Required' : 'Awaiting Escrow Deposit'}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-[#0B3326] text-sm">
+                  {hasFreightQuote
+                    ? `Lowest Freight Quote Ready: ₹${quotedFreightAmount.toLocaleString('en-IN')}`
+                    : order.auctionId || order.auction_id
+                    ? 'Auction Won — Awaiting Freight Quote & Escrow'
+                    : rfqRemainingSec === 0
+                    ? '30-Min Window Elapsed — Escalated to Admin Concierge Desk'
+                    : 'Awaiting 30-Min Competitive Freight Quote'}
                 </span>
-                <Badge variant="amber" size="xs">
-                  Pending Payment
+                <Badge variant={hasFreightQuote ? 'emerald' : 'amber'} size="xs">
+                  {hasFreightQuote
+                    ? `${existingDelivery?.quotesCount || 1} Quote(s) • Pay Combined Escrow`
+                    : rfqRemainingSec === 0
+                    ? 'Admin Desk Notified'
+                    : `⏱ ${formatRfqTime(rfqRemainingSec)} Left`}
                 </Badge>
               </div>
-              <p className="text-[#566861]">
-                Deposit <strong className="text-emerald-800 font-bold">₹{Number(order.totalAmount || order.total_amount || 0).toLocaleString('en-IN')}</strong> into AgroLnk Escrow to authorize farmgate packaging and truck dispatch.
-              </p>
+              {hasFreightQuote ? (
+                <p className="text-[#2D5A47]">
+                  Crop Escrow (<strong>₹{cropFin.totalBuyerPayable.toLocaleString('en-IN')}</strong>) + Lowest Freight Escrow (<strong>₹{freightFin.totalPayableByFarmer.toLocaleString('en-IN')}</strong>) = <strong className="text-[#0B3326] font-extrabold">₹{combinedEscrowPayable.toLocaleString('en-IN')}</strong>. Pay once to notify both Seller &amp; Transporter immediately.
+                </p>
+              ) : (
+                <p className="text-[#566861]">
+                  Verified transporters are bidding on your route (<strong>{pickupStr} → {destStr}</strong>). Once the lowest quote arrives (within 30 mins), your <strong>Pay Combined Escrow</strong> button activates here automatically.
+                </p>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="accent"
-              size="sm"
-              disabled={isDepositing}
-              onClick={handleDepositEscrow}
-              className="font-bold text-xs py-2 px-4 shadow-sm cursor-pointer whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white"
-            >
-              {isDepositing ? 'Opening Payment...' : `Deposit Escrow (₹${Number(order.totalAmount || order.total_amount || 0).toLocaleString('en-IN')})`}
-            </Button>
-          </div>
+          {hasFreightQuote && (
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="accent"
+                size="sm"
+                disabled={isDepositing}
+                onClick={handleDepositEscrow}
+                className="font-bold text-xs py-2.5 px-4 shadow-sm cursor-pointer whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white"
+              >
+                {isDepositing
+                  ? 'Opening Payment...'
+                  : `Pay Combined Escrow (₹${combinedEscrowPayable.toLocaleString('en-IN')})`}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Farmer Cautionary Banner - Escrow Not Yet Funded */}
+      {/* Farmer Cautionary Banner - Buyer Awaiting Freight Quote / Escrow Deposit */}
       {!isBuyer && isPendingEscrow && (
         <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs flex items-center gap-3 text-left animate-in fade-in">
           <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 shrink-0">
             <AlertTriangle className="w-5 h-5 text-amber-600" />
           </div>
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-extrabold text-amber-950 text-sm">
-                Awaiting Buyer Escrow Deposit
+                {hasFreightQuote
+                  ? 'Freight Quoted — Awaiting Buyer Combined Escrow Payment'
+                  : 'Buyer Awaiting 30-Min Transporter Freight Quote'}
               </span>
               <Badge variant="amber" size="xs">
-                Do Not Dispatch
+                ₹0 Farmer Freight • Do Not Dispatch Yet
               </Badge>
             </div>
             <p className="text-amber-900">
-              The winning buyer has not yet deposited trade funds (₹{Number(order.totalAmount || order.total_amount || 0).toLocaleString('en-IN')}) into escrow. <strong>Do not pack or release goods</strong> until the escrow status changes to Funded.
+              {hasFreightQuote
+                ? `A verified transporter quoted ₹${quotedFreightAmount.toLocaleString('en-IN')}. Waiting for the buyer to lock Combined Crop + Freight Escrow.`
+                : 'Verified transporters are currently bidding on the buyer’s delivery route. Once the buyer locks Combined Escrow, you and the winning transporter will be notified immediately.'}
             </p>
           </div>
         </div>
@@ -351,12 +440,14 @@ export default function OrderSummary({
           </div>
         </div>
 
-        {/* Full Delivery Route & Destination (Read-Only) */}
+        {/* Privacy-Protected Delivery Route & Destination (District, State Only) */}
         <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
             <span className="text-[#566861]">
-              <strong>{viewerRole === 'farmer' ? 'Delivery Destination' : 'Farmgate Pickup'}:</strong> {viewerRole === 'farmer' ? destAddressFull : pickupAddressFull}
+              <strong>{viewerRole === 'farmer' ? 'Delivery Destination' : 'Farmgate Pickup'}:</strong>{' '}
+              {viewerRole === 'farmer' ? destStr : pickupStr}{' '}
+              <span className="text-[11px] text-[#566861]/80">(Street Address Protected)</span>
             </span>
           </div>
           <Badge variant="blue" size="sm">

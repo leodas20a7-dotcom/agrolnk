@@ -87,10 +87,16 @@ export default function MarketplaceCard({ listing, onSelect }) {
             <span className="font-bold text-[#14211D] block">
               {listing.quantity} {listing.unit}
             </span>
-            {listing.unit === 'MT' && (
-              <span className="text-[10px] text-[#566861] font-medium block">
-                ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+            {!isAuction ? (
+              <span className="text-[10px] text-[#0B3326] font-semibold block">
+                Min Order: {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1).toLocaleString('en-IN')} {listing.unit}
               </span>
+            ) : (
+              listing.unit === 'MT' && (
+                <span className="text-[10px] text-[#566861] font-medium block">
+                  ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+                </span>
+              )
             )}
           </div>
           <div>

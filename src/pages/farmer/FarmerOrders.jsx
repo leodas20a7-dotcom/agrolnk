@@ -14,7 +14,6 @@ import FinancingReviewModal from '../../components/financing/FinancingReviewModa
 import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTermAcceptanceModal';
 import CreateDeliveryModal from '../../components/delivery/CreateDeliveryModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
-import SelfTransportModal from '../../components/delivery/SelfTransportModal';
 import OrderReceiptModal from '../../components/orders/OrderReceiptModal';
 import {
   ShoppingBag,
@@ -75,7 +74,6 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
 
   // In-order delivery modals
   const [orderForDelivery, setOrderForDelivery] = useState(null);
-  const [orderForSelfTransport, setOrderForSelfTransport] = useState(null);
   const [deliveryForDetail, setDeliveryForDetail] = useState(null);
   const [orderForReceipt, setOrderForReceipt] = useState(null);
 
@@ -166,7 +164,11 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
     Boolean(o.disbursedAt || o.disbursed_at || o.bankUtr || o.bank_utr);
 
   const isOrderPending = (o) =>
-    (o.status === 'pending' || o.status === 'order_placed') && !isOrderCompleted(o);
+    (o.status === 'pending' ||
+      o.status === 'order_placed' ||
+      o.status === 'awaiting_freight_quote' ||
+      o.status === 'freight_quoted') &&
+    !isOrderCompleted(o);
 
   const isOrderInProgress = (o) =>
     (o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered') &&
@@ -214,12 +216,16 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
     if (!selectedOrder) return;
     const isAwaitingEscrow = 
       selectedOrder.escrowStatus === 'pending' || 
-      selectedOrder.escrowStatus === 'pending_verification' || 
+      selectedOrder.escrowStatus === 'pending_verification' ||
+      selectedOrder.escrowStatus === 'awaiting_freight_quote' ||
+      selectedOrder.escrowStatus === 'freight_quoted' ||
       selectedOrder.status === 'pending' ||
+      selectedOrder.status === 'awaiting_freight_quote' ||
+      selectedOrder.status === 'freight_quoted' ||
       selectedOrder.status === 'payment_verification_pending';
 
     if (isAwaitingEscrow) {
-      alert('Produce dispatch is locked. You cannot advance order status until AgroLnk Admin confirms receipt of the bank deposit.');
+      alert('Produce dispatch is locked until the buyer completes the Combined Crop + Freight Escrow deposit.');
       return;
     }
     setIsUpdating(true);
@@ -437,8 +443,18 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             />
 
             {/* Order Fulfillment & Logistics Actions (Only for active / non-completed states) */}
-            {(selectedOrder.status === 'pending' || selectedOrder.status === 'order_placed') && (() => {
+            {(selectedOrder.status === 'pending' ||
+              selectedOrder.status === 'order_placed' ||
+              selectedOrder.status === 'awaiting_freight_quote' ||
+              selectedOrder.status === 'freight_quoted') && (() => {
+              const isAwaitingFreightRfq =
+                selectedOrder.status === 'awaiting_freight_quote' ||
+                selectedOrder.status === 'freight_quoted' ||
+                selectedOrder.escrowStatus === 'awaiting_freight_quote' ||
+                selectedOrder.escrowStatus === 'freight_quoted';
+
               const isAwaitingEscrow = 
+                isAwaitingFreightRfq ||
                 selectedOrder.escrowStatus === 'pending' || 
                 selectedOrder.escrowStatus === 'pending_verification' || 
                 selectedOrder.status === 'pending' ||
@@ -452,11 +468,28 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     Delivery & Fulfillment Setup
                   </span>
                   <Badge variant={isAwaitingEscrow ? "amber" : "teal"} size="sm">
-                    {isAwaitingEscrow ? "Awaiting Escrow Verification" : "Escrow Locked"}
+                    {isAwaitingFreightRfq
+                      ? "Buyer Awaiting Freight Quote"
+                      : isAwaitingEscrow
+                      ? "Awaiting Escrow Verification"
+                      : "Crop + Freight Escrow Locked"}
                   </Badge>
                 </div>
 
-                {isAwaitingEscrow ? (
+                {isAwaitingFreightRfq ? (
+                  <div className="p-4 rounded-xl bg-amber-50 border-2 border-amber-300 space-y-2 text-left">
+                    <div className="flex items-center gap-2 font-bold text-amber-950 text-xs">
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+                      <span>Lot Reserved — Buyer Receiving 30-Min Transporter Quotes</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Verified AgroLnk transporters are currently quoting freight for this route. Once the buyer pays the <strong>Combined Crop + Freight Escrow</strong> (100% freight paid by buyer), you will be notified immediately and the assigned carrier will arrive for pickup.
+                    </p>
+                    <div className="p-2.5 rounded-lg bg-amber-100/80 border border-amber-300 text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                      <span>⚠️ Sequence Protection: Do not harvest or load produce until Combined Escrow is funded and a verified transporter is assigned.</span>
+                    </div>
+                  </div>
+                ) : isAwaitingEscrow ? (
                   <div className="p-4 rounded-xl bg-amber-50 border-2 border-amber-300 space-y-2 text-left">
                     <div className="flex items-center gap-2 font-bold text-amber-950 text-xs">
                       <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -471,8 +504,8 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                   </div>
                 ) : (
                   <>
-                {/* Case A: Transporter Requested */}
-                {linkedDelivery && linkedDelivery.status === 'transport_requested' && (
+                {/* Case A: Transporter Requested / Price Offered */}
+                {linkedDelivery && (linkedDelivery.status === 'transport_requested' || linkedDelivery.status === 'price_offered') && (
                   <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
                     <div className="flex items-center gap-2.5">
                       <div className="p-2 rounded-lg bg-amber-100 text-amber-800">
@@ -480,10 +513,12 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                       </div>
                       <div>
                         <span className="text-xs font-bold text-amber-950 block">
-                          Platform Carrier Requested ({linkedDelivery.deliveryNumber})
+                          Platform Carrier Bidding ({linkedDelivery.deliveryNumber})
                         </span>
                         <span className="text-[11px] text-amber-800">
-                          Broadcasting load to transport network. Transporter will be assigned shortly.
+                          {linkedDelivery.quotesCount > 0
+                            ? `${linkedDelivery.quotesCount} quote(s) received (Lowest: ₹${Number(linkedDelivery.freightAmount || 0).toLocaleString('en-IN')}). Buyer pays 100% of freight.`
+                            : 'Broadcasting load to verified transport network. Buyer pays 100% of freight.'}
                         </span>
                       </div>
                     </div>
@@ -507,10 +542,10 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                       </div>
                       <div>
                         <span className="text-xs font-bold text-emerald-950 block">
-                          Carrier Assigned: {linkedDelivery.transporterName || 'Platform Transporter'}
+                          Carrier Assigned & Buyer Paid Freight: {linkedDelivery.transporterName || 'Platform Transporter'}
                         </span>
                         <span className="text-[11px] text-emerald-800">
-                          Vehicle: <strong className="font-mono">{linkedDelivery.vehicleNumber || 'Assigned'}</strong> • Driver: {linkedDelivery.driverName || 'Assigned'}
+                          Vehicle: <strong className="font-mono">{linkedDelivery.vehicleNumber || 'Assigned'}</strong> • Driver Contact: {linkedDelivery.driverPhone || linkedDelivery.transporterPhone || 'Assigned'}
                         </span>
                       </div>
                     </div>
@@ -525,36 +560,22 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                   </div>
                 )}
 
-                {/* Case C: No Transport Selected Yet */}
-                {(!linkedDelivery || (linkedDelivery.status !== 'transport_requested' && linkedDelivery.status !== 'assigned' && linkedDelivery.status !== 'in_transit')) && (
+                {/* Case C: Legacy Order Without Linked Delivery Yet */}
+                {(!linkedDelivery || (linkedDelivery.status !== 'transport_requested' && linkedDelivery.status !== 'price_offered' && linkedDelivery.status !== 'assigned' && linkedDelivery.status !== 'in_transit')) && (
                   <div className="space-y-2.5">
                     <p className="text-xs text-[#566861]">
-                      Buyer payment is secured in escrow. Choose how to fulfill this shipment:
+                      Buyer payment is secured in escrow. Broadcast this load to AgroLnk verified transporters (Buyer & Seller addresses remain private):
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Button
-                        variant="secondary"
-                        size="md"
-                        onClick={() => setOrderForDelivery(selectedOrder)}
-                        icon={Truck}
-                        iconPosition="left"
-                        className="w-full font-bold py-2.5 px-3 text-xs justify-center cursor-pointer"
-                      >
-                        Request Platform Carrier
-                      </Button>
-
-                      <Button
-                        variant="accent"
-                        size="md"
-                        disabled={isUpdating}
-                        onClick={() => setOrderForSelfTransport(selectedOrder)}
-                        icon={Check}
-                        iconPosition="left"
-                        className="w-full font-bold py-2.5 px-3 text-xs justify-center cursor-pointer shadow-sm"
-                      >
-                        Self-Arranged Transport
-                      </Button>
-                    </div>
+                    <Button
+                      variant="accent"
+                      size="md"
+                      onClick={() => setOrderForDelivery(selectedOrder)}
+                      icon={Truck}
+                      iconPosition="left"
+                      className="w-full font-bold py-2.5 px-4 text-xs justify-center cursor-pointer shadow-sm"
+                    >
+                      Request Verified AgroLnk Carrier
+                    </Button>
                   </div>
                 )}
                   </>
@@ -696,19 +717,6 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             setLinkedDelivery(dlv);
             fetchOrders();
             setDeliveryForDetail(dlv);
-          }}
-        />
-      )}
-
-      {/* In-order Self Transport Vehicle Input Modal */}
-      {orderForSelfTransport && (
-        <SelfTransportModal
-          order={orderForSelfTransport}
-          currentUser={user}
-          onClose={() => setOrderForSelfTransport(null)}
-          onSuccess={(dlv) => {
-            setLinkedDelivery(dlv);
-            fetchOrders();
           }}
         />
       )}

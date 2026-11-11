@@ -19,6 +19,23 @@ export default function OrderStatus({
     );
   }
 
+  // If awaiting 30-minute competitive freight quote or quote is ready for buyer checkout:
+  if (status === 'awaiting_freight_quote' || escrowStatus === 'awaiting_freight_quote') {
+    return (
+      <Badge variant="amber" size={size} dot={true} className="whitespace-nowrap">
+        <span>Awaiting 30m Freight Quote</span>
+      </Badge>
+    );
+  }
+
+  if (status === 'freight_quoted' || escrowStatus === 'freight_quoted') {
+    return (
+      <Badge variant="emerald" size={size} dot={true} className="whitespace-nowrap">
+        <span>Freight Quoted • Pay Escrow</span>
+      </Badge>
+    );
+  }
+
   // If newly placed, pending, or confirmed:
   if (status === 'order_placed' || status === 'pending' || status === 'confirmed') {
     if (escrowStatus === 'pending' || status === 'pending' || escrowStatus === 'pending_verification') {

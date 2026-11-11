@@ -28,11 +28,13 @@ import {
   MapPin,
   Tag,
   Layers,
-  Check
+  Check,
+  PhoneCall
 } from 'lucide-react';
 import { getAdminMetrics } from '../../utils/admin';
 import { formatINR } from '../../utils/commission';
 import { getListings, checkListingBookings, deleteListing, COMMODITY_IMAGES } from '../../utils/listings';
+import { getDeliveries, assignAdminFailSafeFreightQuote } from '../../utils/deliveries';
 import ProduceDetailModal from '../../components/farmer/ProduceDetailModal';
 import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
@@ -71,12 +73,24 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteSuccessMsg, setDeleteSuccessMsg] = useState(null);
 
+  // 30-Minute Freight RFQ Concierge & Fail-Safe Desk State
+  const [deliveries, setDeliveries] = useState([]);
+  const [conciergeRfq, setConciergeRfq] = useState(null);
+  const [conciergeFreightAmount, setConciergeFreightAmount] = useState('');
+  const [conciergeTransporterName, setConciergeTransporterName] = useState('AgroLnk Managed Fleet Partner');
+  const [conciergeVehicleType, setConciergeVehicleType] = useState('Medium LCV (14ft Eicher)');
+  const [conciergeVehicleNumber, setConciergeVehicleNumber] = useState('TN 01 AL 9900');
+  const [conciergeDriverName, setConciergeDriverName] = useState('Verified Fleet Driver');
+  const [conciergeDriverPhone, setConciergeDriverPhone] = useState('9840011223');
+  const [isAssigningQuote, setIsAssigningQuote] = useState(false);
+
   const fetchListingsData = async () => {
     try {
-      const data = await getListings();
-      setListings(Array.isArray(data) ? data : []);
+      const [listingData, deliveryData] = await Promise.all([getListings(), getDeliveries()]);
+      setListings(Array.isArray(listingData) ? listingData : []);
+      setDeliveries(Array.isArray(deliveryData) ? deliveryData : []);
     } catch (err) {
-      console.error('Failed to fetch marketplace listings:', err);
+      console.error('Failed to fetch marketplace listings/deliveries:', err);
     }
   };
 
@@ -102,6 +116,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
     window.addEventListener('agrolnk_order_updated', fetchMetrics);
     window.addEventListener('agrolnk_financing_updated', fetchMetrics);
     window.addEventListener('agrolnk_listings_updated', fetchListingsData);
+    window.addEventListener('agrolnk_deliveries_updated', fetchListingsData);
     window.addEventListener('storage', fetchMetrics);
     window.addEventListener('storage', fetchListingsData);
 
@@ -113,10 +128,66 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_order_updated', fetchMetrics);
       window.removeEventListener('agrolnk_financing_updated', fetchMetrics);
       window.removeEventListener('agrolnk_listings_updated', fetchListingsData);
+      window.removeEventListener('agrolnk_deliveries_updated', fetchListingsData);
       window.removeEventListener('storage', fetchMetrics);
       window.removeEventListener('storage', fetchListingsData);
     };
   }, []);
+
+  // Unquoted 30-Minute Freight RFQs (including >30-minute escalated loads)
+  const unquotedRfqDeliveries = (Array.isArray(deliveries) ? deliveries : []).filter(
+    (d) =>
+      d.status === 'transport_requested' &&
+      (!d.freightAmount || Number(d.freightAmount) === 0) &&
+      (!d.quotesCount || d.quotesCount === 0)
+  );
+  const escalatedRfqCount = unquotedRfqDeliveries.filter(
+    (d) => d.isRfqExpired || d.adminEscalated
+  ).length;
+
+  const handleOpenConciergeModal = (dlv) => {
+    setConciergeRfq(dlv);
+    setConciergeFreightAmount('');
+    setConciergeTransporterName('AgroLnk Managed Fleet Partner');
+    setConciergeVehicleType('Medium LCV (14ft Eicher)');
+    setConciergeVehicleNumber('TN 01 AL 9900');
+    setConciergeDriverName('Verified Fleet Driver');
+    setConciergeDriverPhone('9840011223');
+  };
+
+  const handleAssignConciergeQuote = async () => {
+    if (!conciergeRfq) return;
+    const amt = Number(conciergeFreightAmount || 0);
+    if (!amt || amt <= 0) {
+      toast.error('Please enter a valid verified freight quote amount (₹).');
+      return;
+    }
+    setIsAssigningQuote(true);
+    try {
+      await assignAdminFailSafeFreightQuote(
+        conciergeRfq.id,
+        {
+          freightAmount: amt,
+          transporterName: conciergeTransporterName.trim() || 'AgroLnk Managed Fleet Partner',
+          vehicleType: conciergeVehicleType.trim() || 'Commercial Truck',
+          vehicleNumber: conciergeVehicleNumber.trim().toUpperCase() || 'TN 01 AL 9900',
+          driverName: conciergeDriverName.trim() || 'Fleet Driver',
+          driverPhone: conciergeDriverPhone.trim() || '9840011223',
+        },
+        user
+      );
+      toast.success(
+        `Concierge freight quote (₹${amt.toLocaleString('en-IN')}) assigned! Buyer notified to complete Combined Escrow.`
+      );
+      setConciergeRfq(null);
+      await fetchListingsData();
+    } catch (err) {
+      console.error('Error assigning concierge freight quote:', err);
+      toast.error(err.message || 'Failed to assign concierge freight quote.');
+    } finally {
+      setIsAssigningQuote(false);
+    }
+  };
 
   const handleDeleteClick = async (lot) => {
     if (!lot) return;
@@ -378,6 +449,97 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
           </button>
 
         </div>
+
+        {/* ========================================================================= */}
+        {/* 30-MINUTE FREIGHT RFQ CONCIERGE & ESCALATION DESK (ZERO-BID FAIL-SAFE)    */}
+        {/* ========================================================================= */}
+        {unquotedRfqDeliveries.length > 0 && (
+          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-50 via-[#FFFBEB] to-white border-2 border-amber-300 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-200/80">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                  <Truck className="w-5 h-5 text-amber-700" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm sm:text-base font-extrabold text-amber-950 font-heading">
+                      30-Minute Freight RFQ Concierge Desk ({unquotedRfqDeliveries.length} Awaiting Quote)
+                    </h2>
+                    {escalatedRfqCount > 0 && (
+                      <Badge variant="amber" size="xs">
+                        🚨 {escalatedRfqCount} Escalated (&gt;30m • Call Buyer Now)
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-amber-900/80 mt-0.5">
+                    If no transporter quotes within 30 minutes, call the buyer &amp; offline fleet partner to assign a verified concierge freight quote so the buyer can lock Combined Escrow.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {unquotedRfqDeliveries.map((dlv) => {
+                const isEscalated = dlv.isRfqExpired || dlv.adminEscalated;
+                const originDistrict = dlv.pickupLocation?.district || 'Origin';
+                const originState = dlv.pickupLocation?.state || 'India';
+                const destDistrict = dlv.deliveryLocation?.district || 'Destination';
+                const destState = dlv.deliveryLocation?.state || 'India';
+                const buyerPhone = dlv.deliveryLocation?.phone || 'Contact in Profile';
+
+                return (
+                  <div
+                    key={dlv.id}
+                    className={`p-4 rounded-2xl bg-white border flex flex-col justify-between gap-3 shadow-2xs ${
+                      isEscalated ? 'border-rose-300 ring-2 ring-rose-500/10' : 'border-amber-200'
+                    }`}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-xs text-[#0B3326]">
+                          {dlv.orderNumber} • {dlv.deliveryNumber}
+                        </span>
+                        <Badge variant={isEscalated ? 'amber' : 'blue'} size="xs">
+                          {isEscalated ? '🚨 30m Elapsed — Escalated' : '⏱ Live 30m Bidding'}
+                        </Badge>
+                      </div>
+                      <div className="text-xs font-bold text-[#14211D]">
+                        {dlv.commodity} ({dlv.quantity} {dlv.unit})
+                      </div>
+                      <div className="text-[11px] text-[#566861] flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                        <span>
+                          <strong>{originDistrict}, {originState}</strong> → <strong>{destDistrict}, {destState}</strong>
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#566861] flex items-center justify-between pt-1 border-t border-gray-100">
+                        <span>
+                          Buyer: <strong className="text-[#0B3326]">{dlv.buyerName || 'Buyer'}</strong> ({buyerPhone})
+                        </span>
+                        <span>
+                          Seller: <strong className="text-[#0B3326]">{dlv.farmerName || 'Seller'}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5EDE8]">
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        icon={PhoneCall}
+                        iconPosition="left"
+                        onClick={() => handleOpenConciergeModal(dlv)}
+                        className="text-xs font-bold py-1.5 px-3.5 cursor-pointer bg-[#0B3326] hover:bg-[#144234] text-white"
+                      >
+                        Assign Concierge Freight Quote
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* MARKETPLACE PRODUCE LISTINGS & MODERATION (WITH SAFE DELETE OPTION)       */}
@@ -796,6 +958,132 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                 <p className="text-[11px] leading-relaxed">
                   Once a buyer deposits funds into the AgroLnk Escrow vault, the produce item is locked to guarantee fulfillment, dispatch logistics, and delivery OTP release.
                 </p>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* 3. Admin 30-Minute Fail-Safe Concierge Freight Quote Modal */}
+        {conciergeRfq && (
+          <Modal
+            isOpen={Boolean(conciergeRfq)}
+            onClose={() => !isAssigningQuote && setConciergeRfq(null)}
+            title="Assign Concierge Freight Quote"
+            subtitle={`30-Minute RFQ Fail-Safe Desk • ${conciergeRfq.orderNumber}`}
+            icon={Truck}
+            iconColor="text-[#10B981]"
+            iconBg="bg-[#EBF5F0]"
+            maxWidth="max-w-lg"
+            footer={
+              <div className="flex items-center justify-end gap-2 w-full">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isAssigningQuote}
+                  onClick={() => setConciergeRfq(null)}
+                  className="px-4 py-2"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={isAssigningQuote}
+                  onClick={handleAssignConciergeQuote}
+                  className="px-5 py-2 bg-[#0B3326] hover:bg-[#144234] text-white font-bold cursor-pointer"
+                >
+                  {isAssigningQuote ? 'Assigning Quote...' : 'Assign Quote & Notify Buyer'}
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4 text-left text-xs">
+              <div className="p-3.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Produce Load:</span>
+                  <strong className="text-[#0B3326]">
+                    {conciergeRfq.commodity} ({conciergeRfq.quantity} {conciergeRfq.unit})
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Pickup Address (Admin View):</span>
+                  <strong className="text-[#0B3326]">
+                    {conciergeRfq.pickupLocation?.address ? `${conciergeRfq.pickupLocation.address}, ` : ''}
+                    {conciergeRfq.pickupLocation?.district || 'Origin'}, {conciergeRfq.pickupLocation?.state || 'India'}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Drop Address (Admin View):</span>
+                  <strong className="text-[#0B3326]">
+                    {conciergeRfq.deliveryLocation?.address ? `${conciergeRfq.deliveryLocation.address}, ` : ''}
+                    {conciergeRfq.deliveryLocation?.district || 'Destination'}, {conciergeRfq.deliveryLocation?.state || 'India'}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#566861]">Buyer Contact:</span>
+                  <strong className="text-emerald-800">
+                    {conciergeRfq.buyerName} ({conciergeRfq.deliveryLocation?.phone || 'On File'})
+                  </strong>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-[#0B3326] uppercase tracking-wider block">
+                  Verified Freight Quote Amount (₹) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="any"
+                  value={conciergeFreightAmount}
+                  onChange={(e) => setConciergeFreightAmount(e.target.value)}
+                  placeholder="Enter agreed freight amount (e.g. 4500)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="font-bold text-[#0B3326] block">Fleet Partner Name</label>
+                  <input
+                    type="text"
+                    value={conciergeTransporterName}
+                    onChange={(e) => setConciergeTransporterName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-semibold text-[#14211D]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-[#0B3326] block">Vehicle Class</label>
+                  <input
+                    type="text"
+                    value={conciergeVehicleType}
+                    onChange={(e) => setConciergeVehicleType(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-semibold text-[#14211D]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-[#0B3326] block">Vehicle Registration #</label>
+                  <input
+                    type="text"
+                    value={conciergeVehicleNumber}
+                    onChange={(e) => setConciergeVehicleNumber(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-mono font-bold text-[#14211D] uppercase"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-[#0B3326] block">Driver Phone (10-digit)</label>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={conciergeDriverPhone}
+                    onChange={(e) => setConciergeDriverPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-mono font-semibold text-[#14211D]"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-950 leading-relaxed">
+                ✓ Assigning this concierge freight quote immediately updates the Buyer’s checkout screen so they can pay <strong>Combined Crop + Freight Escrow</strong> in one step.
               </div>
             </div>
           </Modal>

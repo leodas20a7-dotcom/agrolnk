@@ -65,14 +65,19 @@ export function calculateFreightFinancials(freightAmount) {
   return {
     baseFare,
     consignorFee,
+    buyerFee: consignorFee,
     consignorFeePercentage: 0.25,
     transporterFee,
     transporterFeePercentage: 0.25,
     totalAgroLnkFreightRevenue,
     totalFreightDeposit,
+    totalPayableByFarmer: totalFreightDeposit,
+    totalPayableByBuyer: totalFreightDeposit,
     netTransporterPayout,
   };
 }
+
+export const calculateTransportFinancials = calculateFreightFinancials;
 
 /**
  * Calculate financial breakdown for Warehouse Storage Rent (0.25% Direct Commission Model)

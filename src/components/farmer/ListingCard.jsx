@@ -106,7 +106,12 @@ export default function ListingCard({ listing, onView, onEdit, onDelete }) {
             <span className={`font-bold block ${isSoldOut ? 'text-amber-700' : 'text-[#14211D]'}`}>
               {isSoldOut ? `0 ${listing.unit || 'kg'} (Sold)` : `${Number(listing.quantity || 0).toLocaleString('en-IN')} ${listing.unit || 'kg'}`}
             </span>
-            {listing.unit === 'MT' && !isSoldOut && (
+            {!isSoldOut && !isAuction && (
+              <span className="text-[10px] text-[#0B3326] font-semibold block">
+                Min Order: {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1).toLocaleString('en-IN')} {listing.unit || 'kg'}
+              </span>
+            )}
+            {listing.unit === 'MT' && !isSoldOut && isAuction && (
               <span className="text-[10px] text-[#566861] font-medium block">
                 ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
               </span>

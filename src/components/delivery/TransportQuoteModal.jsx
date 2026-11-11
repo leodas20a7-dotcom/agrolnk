@@ -43,12 +43,12 @@ export default function TransportQuoteModal({
   };
 
   const pickupDistrict = typeof delivery?.pickupLocation === 'object'
-    ? (delivery.pickupLocation?.district || 'Salem')
-    : 'Salem';
+    ? `${delivery.pickupLocation?.district || 'Salem'}, ${delivery.pickupLocation?.state || 'Tamil Nadu'}`
+    : `${delivery?.pickupDistrict || 'Salem'}, ${delivery?.pickupState || 'Tamil Nadu'}`;
 
   const destDistrict = typeof delivery?.deliveryLocation === 'object'
-    ? (delivery.deliveryLocation?.district || 'Chennai')
-    : 'Chennai';
+    ? `${delivery.deliveryLocation?.district || 'Chennai'}, ${delivery.deliveryLocation?.state || 'Tamil Nadu'}`
+    : `${delivery?.deliveryDistrict || 'Chennai'}, ${delivery?.deliveryState || 'Tamil Nadu'}`;
 
   const distanceKm = useMemo(() => {
     return delivery?.estimatedDistanceKm || estimateDistanceKm(pickupDistrict, destDistrict);
@@ -58,9 +58,42 @@ export default function TransportQuoteModal({
     return calculateEstimatedFare(delivery?.quantity, distanceKm);
   }, [delivery?.quantity, distanceKm]);
 
+  const existingQuotes = Array.isArray(delivery?.freightQuotes) ? delivery.freightQuotes : [];
+  const myExistingQuote = existingQuotes.find(
+    (q) => String(q.transporterId) === String(user.id)
+  );
+  const currentLowestAmount = Number(
+    delivery?.lowestQuote?.freightAmount || delivery?.freightAmount || 0
+  );
+
+  const [rfqRemainingSec, setRfqRemainingSec] = useState(30 * 60);
+  useEffect(() => {
+    const expiryIso =
+      delivery?.rfqExpiresAt ||
+      (delivery?.createdAt
+        ? new Date(new Date(delivery.createdAt).getTime() + 30 * 60 * 1000).toISOString()
+        : null);
+    if (!expiryIso) return;
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((new Date(expiryIso).getTime() - Date.now()) / 1000));
+      setRfqRemainingSec(diff);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [delivery?.rfqExpiresAt, delivery?.createdAt]);
+
+  const formatRfqTime = (sec) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
   const [savedFleet, setSavedFleet] = useState([]);
   const [selectedVehicleKey, setSelectedVehicleKey] = useState(defaultFareInfo.vehicleKey || 'medium_lcv');
-  const [freightAmount, setFreightAmount] = useState(0);
+  const [freightAmount, setFreightAmount] = useState(
+    myExistingQuote?.freightAmount ? Number(myExistingQuote.freightAmount) : 0
+  );
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
@@ -191,9 +224,9 @@ export default function TransportQuoteModal({
           </button>
         </div>
 
-        {/* Load & Route Summary */}
+        {/* Load & Route Summary (Privacy Protected District, State) */}
         <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <span className="text-base font-bold text-[#14211D] block">
                 {delivery.commodity} ({delivery.quantity} {delivery.unit})
@@ -203,14 +236,26 @@ export default function TransportQuoteModal({
               </span>
             </div>
 
-            <Badge variant="emerald" size="sm">
-              ~{distanceKm} km Route
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <Badge variant={rfqRemainingSec > 0 ? 'amber' : 'dark'} size="sm">
+                {rfqRemainingSec > 0 ? `⏱ 30m RFQ: ${formatRfqTime(rfqRemainingSec)}` : '30m Window Ended'}
+              </Badge>
+              {currentLowestAmount > 0 && (
+                <Badge variant="emerald" size="sm">
+                  Lowest Bid: ₹{currentLowestAmount.toLocaleString('en-IN')}
+                </Badge>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-[#566861] pt-2 border-t border-[#E5EDE8]">
-            <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-            <span>{pickupDistrict} (Farmgate) → {destDistrict} (Buyer Market Hub)</span>
+          <div className="flex items-center justify-between gap-2 text-xs text-[#566861] pt-2 border-t border-[#E5EDE8] flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+              <strong>{pickupDistrict}</strong> (Origin) → <strong>{destDistrict}</strong> (Destination)
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              🔒 Exact Street Addresses Unlock Upon Escrow Lock
+            </span>
           </div>
         </div>
 
@@ -282,7 +327,7 @@ export default function TransportQuoteModal({
           {/* Vehicle Category Selector */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-              Vehicle Class & Rate / Fee
+              Select Vehicle Class &amp; Tonnage Capacity
             </label>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(VEHICLE_TARIFF_RATES).map(([key, v]) => {
@@ -300,7 +345,7 @@ export default function TransportQuoteModal({
                   >
                     <span className="text-xs font-bold block">{v.name.split('(')[0]}</span>
                     <span className="text-[10px] text-[#566861] block">
-                      Base ₹{v.baseFare} + ₹{v.ratePerKm}/km
+                      Capacity up to {(v.maxKg / 1000).toLocaleString('en-IN')} MT
                     </span>
                   </button>
                 );
@@ -310,16 +355,33 @@ export default function TransportQuoteModal({
 
           {/* Transport Quote Fare Input */}
           <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <span className="text-xs font-bold text-[#34D399] uppercase tracking-wider block">
-                  Transporter Price Quote (₹)
+                  Your Competitive Freight Quote (₹)
                 </span>
                 <span className="text-[11px] text-[#DCFCE7]/80">
-                  Standard Matrix Reference: Base ₹{currentRate.baseFare} + ({distanceKm} km × ₹{currentRate.ratePerKm}) = ₹{Math.round(currentRate.baseFare + distanceKm * currentRate.ratePerKm)} (You can quote any amount based on distance)
+                  Quote based on your vehicle availability &amp; route ({pickupDistrict} → {destDistrict}). The lowest verified quote wins automatically!
                 </span>
               </div>
+              {currentLowestAmount > 0 && (
+                <div className="px-2.5 py-1 rounded-xl bg-[#14624A] border border-[#34D399]/40 text-right">
+                  <span className="text-[9px] uppercase tracking-wider text-[#DCFCE7]/80 block">
+                    Current Lowest Bid
+                  </span>
+                  <span className="text-xs font-extrabold text-[#34D399]">
+                    ₹{currentLowestAmount.toLocaleString('en-IN')} ({delivery?.quotesCount || 1} bid{(delivery?.quotesCount || 1) > 1 ? 's' : ''})
+                  </span>
+                </div>
+              )}
             </div>
+
+            {myExistingQuote && (
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-[11px] text-[#DCFCE7] flex items-center justify-between">
+                <span>Your Previous Quote: <strong>₹{Number(myExistingQuote.freightAmount).toLocaleString('en-IN')}</strong></span>
+                <span className="text-[#34D399] font-semibold">You can lower/update your bid anytime</span>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <span className="text-2xl font-extrabold text-[#34D399]">₹</span>
@@ -327,7 +389,7 @@ export default function TransportQuoteModal({
                 type="number"
                 min="0"
                 step="any"
-                placeholder="0"
+                placeholder="Enter your competitive freight amount"
                 value={freightAmount}
                 onFocus={() => {
                   if (Number(freightAmount) === 0) setFreightAmount('');
@@ -341,7 +403,7 @@ export default function TransportQuoteModal({
               />
             </div>
             <span className="text-[10px] text-white/70 block">
-              * The farmer will review and click "Accept & Confirm" before you are dispatched.
+              * The system automatically displays the lowest verified quote to the Buyer. Once the Buyer pays Combined Escrow, you and the Farmer are notified immediately and exact addresses unlock.
             </span>
           </div>
 

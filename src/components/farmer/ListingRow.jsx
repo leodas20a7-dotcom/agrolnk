@@ -72,10 +72,16 @@ export default function ListingRow({ listing, onView, onEdit, onDelete }) {
           <span className={`font-extrabold text-sm block truncate ${isSoldOut ? 'text-amber-700' : 'text-[#0B3326]'}`}>
             {isSoldOut ? '0 (Sold)' : `${Number(listing.quantity || 0).toLocaleString('en-IN')} ${listing.unit || 'kg'}`}
           </span>
-          {listing.unit === 'MT' && !isSoldOut && (
-            <span className="text-[10px] text-[#566861] font-medium block truncate">
-              ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+          {!isSoldOut && !isAuction ? (
+            <span className="text-[10px] text-[#10B981] font-semibold block truncate">
+              Min: {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1).toLocaleString('en-IN')} {listing.unit || 'kg'}
             </span>
+          ) : (
+            listing.unit === 'MT' && !isSoldOut && (
+              <span className="text-[10px] text-[#566861] font-medium block truncate">
+                ({(Number(listing.quantity || 0) * 10).toLocaleString('en-IN')} Qtl)
+              </span>
+            )
           )}
         </div>
 

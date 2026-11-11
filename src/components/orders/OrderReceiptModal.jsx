@@ -243,16 +243,53 @@ export default function OrderReceiptModal({
                 <span>Gross Commodity Value:</span>
                 <span className="font-semibold text-[#14211D]">{formatINR(fin.tradeValue)}</span>
               </div>
-              <div className="flex justify-between text-[#566861]">
-                <span>AgroLnk Facilitation Fee (0.25%):</span>
-                <span className="font-semibold text-emerald-700">- {formatINR(fin.sellerFee)}</span>
-              </div>
-              <div className="pt-2 border-t border-[#E5EDE8] flex justify-between text-sm font-extrabold text-[#0B3326]">
-                <span>Net Farmer Payout:</span>
-                <span className="text-emerald-700">{formatINR(fin.netSellerReceivable)}</span>
-              </div>
+              {viewerRole === 'buyer' ? (
+                <>
+                  <div className="flex justify-between text-[#566861]">
+                    <span>Buyer Platform Fee (0.25%):</span>
+                    <span className="font-semibold text-[#14211D]">+ {formatINR(fin.buyerFee)}</span>
+                  </div>
+                  {Number(order.freightAmount || 0) > 0 && (
+                    <>
+                      <div className="flex justify-between text-[#566861]">
+                        <span>Agreed Carrier Freight Escrow:</span>
+                        <span className="font-semibold text-[#14211D]">+ {formatINR(Number(order.freightAmount))}</span>
+                      </div>
+                      <div className="flex justify-between text-[#566861]">
+                        <span>Freight Escrow Fee (0.25%):</span>
+                        <span className="font-semibold text-[#14211D]">
+                          + {formatINR(Number(order.freightFeeAmount || Math.round(Number(order.freightAmount) * 0.0025 * 100) / 100))}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="pt-2 border-t border-[#E5EDE8] flex justify-between text-sm font-extrabold text-[#0B3326]">
+                    <span>Total Combined Escrow Paid:</span>
+                    <span className="text-emerald-700">
+                      {formatINR(
+                        Number(order.grandTotalAmount || 0) > 0
+                          ? Number(order.grandTotalAmount)
+                          : fin.totalBuyerPayable +
+                              Number(order.freightAmount || 0) +
+                              Number(order.freightFeeAmount || Math.round(Number(order.freightAmount || 0) * 0.0025 * 100) / 100)
+                      )}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-[#566861]">
+                    <span>AgroLnk Facilitation Fee (0.25%):</span>
+                    <span className="font-semibold text-emerald-700">- {formatINR(fin.sellerFee)}</span>
+                  </div>
+                  <div className="pt-2 border-t border-[#E5EDE8] flex justify-between text-sm font-extrabold text-[#0B3326]">
+                    <span>Net Farmer Payout:</span>
+                    <span className="text-emerald-700">{formatINR(fin.netSellerReceivable)}</span>
+                  </div>
+                </>
+              )}
               <span className="text-[10px] text-[#566861] block pt-1">
-                Zero hidden charges. Amount directly credited to registered bank account.
+                Zero hidden charges. Settled through AgroLnk Nodal Escrow Account.
               </span>
             </div>
 

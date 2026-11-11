@@ -156,37 +156,43 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
     }
     setIsProcessingOrder(true);
     try {
-      const order = await createOrder({
-        ...orderPayload,
-        buyerId: user.id || '',
-        buyerName: user.name || 'Buyer',
-        buyerPhone: user.phone || orderPayload?.buyerPhone || '',
-        buyerEmail: user.email || '',
-        buyerCompany: user.companyName || user.orgName || orderPayload?.buyerCompany || '',
-        buyerAddress: orderPayload?.buyerAddress || user.address || '',
-        buyerDistrict: orderPayload?.buyerDistrict || user.district || '',
-        buyerState: orderPayload?.buyerState || user.state || '',
-        buyerPincode: orderPayload?.buyerPincode || user.pincode || '',
-        deliveryLocation: orderPayload?.deliveryLocation || {
-          state: orderPayload?.buyerState || user.state || 'Tamil Nadu',
-          district: orderPayload?.buyerDistrict || user.district || 'Chennai',
-          address: orderPayload?.buyerAddress || user.address || 'Wholesale Market Hub',
-          pincode: orderPayload?.buyerPincode || user.pincode || '600001',
-          companyName: user.companyName || user.name || 'Buyer Enterprise',
-          phone: user.phone || '',
-        },
-      });
+      let order = orderPayload?.alreadyCreatedOrder || null;
 
-      // Deduct quantity only if not already deducted by createOrder
-      const deductQty = orderPayload.quantityInListingUnit ?? orderPayload.quantity;
-      if (!order?.atomicDeducted) {
-        await deductListingQuantity(listing.id, deductQty);
+      if (!order) {
+        order = await createOrder({
+          ...orderPayload,
+          buyerId: user.id || '',
+          buyerName: user.name || 'Buyer',
+          buyerPhone: user.phone || orderPayload?.buyerPhone || '',
+          buyerEmail: user.email || '',
+          buyerCompany: user.companyName || user.orgName || orderPayload?.buyerCompany || '',
+          buyerAddress: orderPayload?.buyerAddress || user.address || '',
+          buyerDistrict: orderPayload?.buyerDistrict || user.district || '',
+          buyerState: orderPayload?.buyerState || user.state || '',
+          buyerPincode: orderPayload?.buyerPincode || user.pincode || '',
+          deliveryLocation: orderPayload?.deliveryLocation || {
+            state: orderPayload?.buyerState || user.state || 'Tamil Nadu',
+            district: orderPayload?.buyerDistrict || user.district || 'Chennai',
+            address: orderPayload?.buyerAddress || user.address || 'Wholesale Market Hub',
+            pincode: orderPayload?.buyerPincode || user.pincode || '600001',
+            companyName: user.companyName || user.name || 'Buyer Enterprise',
+            phone: user.phone || '',
+          },
+        });
+
+        // Deduct quantity only if not already deducted by createOrder
+        const deductQty = orderPayload.quantityInListingUnit ?? orderPayload.quantity;
+        if (!order?.atomicDeducted) {
+          await deductListingQuantity(listing.id, deductQty);
+        }
       }
 
       toast.success(
-        orderPayload.paymentMode === 'escrow_van'
-          ? 'Order placed! Escrow deposit verified via automated bank clearing.'
-          : 'Order placed successfully! Escrow deposit held in security.'
+        order?.status === 'awaiting_freight_quote' || orderPayload?.awaitingFreightQuote
+          ? 'Lot reserved! 30-minute live freight RFQ broadcasted to verified transporters.'
+          : orderPayload.paymentMode === 'escrow_van'
+          ? 'Order placed! Combined Crop + Freight Escrow verified via automated bank clearing.'
+          : 'Order confirmed! Combined Crop + Freight Escrow locked in security.'
       );
       setIsModalOpen(false);
       onNavigate('buyer-orders', { newOrder: order });
@@ -353,12 +359,14 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                     Variety: {listing.variety}
                   </p>
                 )}
-                <p className="text-xs text-[#566861] flex items-center gap-1 pt-1">
+                <p className="text-xs text-[#566861] flex items-center gap-1.5 pt-1 flex-wrap">
                   <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                   <span>
-                    {listing.village ? `${listing.village}, ` : ''}
                     {listing.district ? `${listing.district}, ` : ''}
                     {listing.state}
+                  </span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326]">
+                    Exact Address Privacy Protected
                   </span>
                 </p>
               </div>
@@ -366,7 +374,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
               {/* Price & Valuation Banner */}
               <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-3">
                 <div className="flex items-center justify-between text-xs text-[#DCFCE7]/80">
-                  <span>Unit Price</span>
+                  <span>Ex-Farm Unit Price</span>
                   <span className="text-[#34D399] font-bold">Fixed Direct Price</span>
                 </div>
                 <div className="flex items-baseline justify-between flex-wrap gap-2">
@@ -385,9 +393,28 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                     In Stock
                   </Badge>
                 </div>
-                <div className="pt-2 border-t border-[#14624A] flex items-center justify-between text-xs text-[#DCFCE7]/90">
-                  <span>Available: {listing.quantity} {listing.unit}</span>
-                  <span>Est. Total: ₹{estimatedTotal.toLocaleString('en-IN')}</span>
+                <div className="pt-2.5 border-t border-[#14624A] grid grid-cols-2 gap-2 text-xs text-[#DCFCE7]/90">
+                  <div>
+                    <span className="text-[10px] text-white/60 block uppercase font-semibold">Available Stock</span>
+                    <span className="font-bold text-white">
+                      {Number(listing.quantity || 0).toLocaleString('en-IN')} {listing.unit}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-white/60 block uppercase font-semibold">Min Order (MOQ)</span>
+                    <span className="font-bold text-[#34D399]">
+                      {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1).toLocaleString('en-IN')} {listing.unit}
+                      {Number(listing.minOrderQuantity || 1) > Number(listing.quantity || 0) && (
+                        <span className="text-[10px] text-amber-300 block font-normal">
+                          (Final Remainder Lot)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-[#14624A]/60 flex items-center justify-between text-[11px] text-[#DCFCE7]/80">
+                  <span>Full Lot Crop Value: ₹{estimatedTotal.toLocaleString('en-IN')}</span>
+                  <span className="text-[#34D399] font-semibold">+ Live Transporter Quote</span>
                 </div>
               </div>
 
@@ -580,16 +607,24 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                           </div>
                         </div>
                       ) : (
-                        <Button
-                          variant="accent"
-                          size="lg"
-                          onClick={() => setIsModalOpen(true)}
-                          icon={ShoppingBag}
-                          iconPosition="left"
-                          className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
-                        >
-                          Buy Now • Escrow Secured
-                        </Button>
+                        <div className="space-y-2.5">
+                          <Button
+                            variant="accent"
+                            size="lg"
+                            onClick={() => setIsModalOpen(true)}
+                            icon={ShoppingBag}
+                            iconPosition="left"
+                            className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
+                          >
+                            Buy Now • Get 30-Min Freight Quote
+                          </Button>
+                          <div className="p-2.5 rounded-xl bg-[#F2FBF6] border border-[#10B981]/25 text-[11px] text-[#0B3326] flex items-start gap-2">
+                            <Truck className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Lowest Freight Quote in 30 Mins:</strong> Reserve your quantity (≥ {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1)} {listing.unit}), receive live transporter bids, and pay Crop + Lowest Freight together in Escrow.
+                            </span>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )
@@ -600,11 +635,15 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
               <div className="space-y-2 pt-2 border-t border-[#E5EDE8] text-xs text-[#566861]">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                  <span>100% Escrow deposit protection</span>
+                  <span>100% Combined Crop + Freight Escrow protection</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                  <span>GPS tracked multi-axle freight coordination</span>
+                  <span>30-Minute Competitive Transporter Bidding (Admin Fail-Safe)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                  <span>100% Buyer & Seller address privacy protected</span>
                 </div>
               </div>
 

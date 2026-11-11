@@ -129,7 +129,11 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
     o.admin_verification_status === 'approved';
 
   const isOrderPending = (o) =>
-    (o.status === 'pending' || o.status === 'order_placed') && !isOrderCompleted(o);
+    (o.status === 'pending' ||
+      o.status === 'order_placed' ||
+      o.status === 'awaiting_freight_quote' ||
+      o.status === 'freight_quoted') &&
+    !isOrderCompleted(o);
 
   const isOrderInProgress = (o) =>
     (o.status === 'confirmed' || o.status === 'ready_for_delivery' || o.status === 'dispatched' || o.status === 'in_transit' || o.status === 'delivered') &&

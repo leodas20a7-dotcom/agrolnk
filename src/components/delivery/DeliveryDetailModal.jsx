@@ -27,7 +27,9 @@ import {
   confirmTransporterDropoffWithOtp,
   acceptTransportPrice,
   declineTransportPrice,
-  getDeliverySecretPins
+  getDeliverySecretPins,
+  isDeliveryAddressUnlocked,
+  getPrivacySafeLocationLabel
 } from '../../utils/deliveries';
 import FreightEscrowModal from './FreightEscrowModal';
 
@@ -59,21 +61,39 @@ export default function DeliveryDetailModal({
   if (!currentDelivery) return null;
 
   const isTransporter = viewerRole === 'transporter';
-  const isFarmer = viewerRole === 'farmer' || viewerRole === 'fpo';
+  const isFarmer = viewerRole === 'farmer' || viewerRole === 'fpo' || viewerRole === 'food_processor' || viewerRole === 'processor';
   const isBuyer = viewerRole === 'buyer';
+  const isAdmin = viewerRole === 'admin' || currentUser?.role === 'admin';
   const isAssignedTransporter =
     isTransporter &&
     (!currentDelivery.transporterId ||
       currentDelivery.transporterId === currentUser?.id ||
-      currentUser?.role === 'admin');
+      isAdmin);
 
-  const pickupStr = typeof currentDelivery.pickupLocation === 'object'
-    ? `${currentDelivery.pickupLocation?.address || ''}, ${currentDelivery.pickupLocation?.district || 'Salem'}, ${currentDelivery.pickupLocation?.state || 'Tamil Nadu'}`
-    : currentDelivery.pickupLocation;
+  const transporterUnlocked = isDeliveryAddressUnlocked(
+    currentDelivery,
+    viewerRole,
+    currentUser?.id
+  );
 
-  const destStr = typeof currentDelivery.deliveryLocation === 'object'
-    ? `${currentDelivery.deliveryLocation?.address || ''}, ${currentDelivery.deliveryLocation?.district || 'Chennai'}, ${currentDelivery.deliveryLocation?.state || 'Tamil Nadu'}`
-    : currentDelivery.deliveryLocation;
+  // Privacy Guard:
+  // - Farmer sees their own Origin address, but only District/State for Buyer Destination
+  // - Buyer sees only District/State for Origin Farmgate, and their own Destination address
+  // - Transporter sees only District/State until Buyer funds Combined Escrow & assigns carrier
+  const canViewFullPickupAddress = isFarmer || isAdmin || (isTransporter && transporterUnlocked);
+  const canViewFullDestAddress = isBuyer || isAdmin || (isTransporter && transporterUnlocked);
+
+  const pickupStr = getPrivacySafeLocationLabel(
+    currentDelivery.pickupLocation,
+    canViewFullPickupAddress,
+    'Farmgate Origin'
+  );
+
+  const destStr = getPrivacySafeLocationLabel(
+    currentDelivery.deliveryLocation,
+    canViewFullDestAddress,
+    'Buyer Destination'
+  );
 
   const handleFarmerAcceptPrice = () => {
     // Open Freight Escrow Modal for farmer to deposit freight under dual-tier model
@@ -245,26 +265,46 @@ export default function DeliveryDetailModal({
 
             <div className="flex-1 space-y-3">
               <div>
-                <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-                  Origin Farmgate / Depot Pickup
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
+                    Origin Farmgate / Depot Pickup
+                  </span>
+                  {!canViewFullPickupAddress && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326]">
+                      Address Privacy Protected
+                    </span>
+                  )}
+                </div>
                 <span className="font-bold text-[#14211D] text-sm block">
                   {pickupStr}
                 </span>
                 <span className="text-[#566861] text-[11px] block mt-0.5">
                   Producer: {currentDelivery.farmerName || 'Producer'}
+                  {canViewFullPickupAddress && (currentDelivery.farmerPhone || currentDelivery.pickupLocation?.phone)
+                    ? ` • Phone: ${currentDelivery.farmerPhone || currentDelivery.pickupLocation?.phone}`
+                    : ''}
                 </span>
               </div>
 
               <div>
-                <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-                  Buyer Delivery Destination
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
+                    Buyer Delivery Destination
+                  </span>
+                  {!canViewFullDestAddress && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326]">
+                      Address Privacy Protected
+                    </span>
+                  )}
+                </div>
                 <span className="font-bold text-[#14211D] text-sm block">
                   {destStr}
                 </span>
                 <span className="text-[#566861] text-[11px] block mt-0.5">
                   Buyer: {currentDelivery.buyerName || 'Buyer'}
+                  {canViewFullDestAddress && (currentDelivery.buyerPhone || currentDelivery.deliveryLocation?.phone)
+                    ? ` • Phone: ${currentDelivery.buyerPhone || currentDelivery.deliveryLocation?.phone}`
+                    : ''}
                 </span>
               </div>
             </div>
@@ -309,48 +349,26 @@ export default function DeliveryDetailModal({
           <DeliveryTimeline currentStatus={currentDelivery.status} delivery={currentDelivery} />
         </div>
 
-        {/* Farmer Price Quote Review & Acceptance Action Bar */}
+        {/* Farmer Price Quote Info Bar (Buyer Pays 100% Freight) */}
         {isFarmer && currentDelivery.status === 'price_offered' && (
-          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-4">
+          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <span className="font-bold text-[#34D399] uppercase tracking-wider text-xs block">
-                  Carrier Price Quote Received
+                  Lowest Transporter Quote Sent to Buyer
                 </span>
                 <span className="text-xs text-white/80">
-                  {currentDelivery.transporterName || 'Carrier'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} for this {currentDelivery.estimatedDistanceKm || currentDelivery.distanceKm ? `~${currentDelivery.estimatedDistanceKm || currentDelivery.distanceKm} km` : 'freight'} route.
+                  {currentDelivery.transporterName || 'Verified Carrier'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} ({currentDelivery.quotesCount || 1} bid{currentDelivery.quotesCount > 1 ? 's' : ''}). Buyer pays 100% of freight in Combined Escrow.
                 </span>
               </div>
               <div className="text-right shrink-0">
                 <span className="text-2xl font-extrabold text-[#34D399] font-heading block">
                   ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')}
                 </span>
+                <span className="text-[10px] text-white/70 font-semibold block">
+                  Paid by Buyer (₹0 Farmer Cost)
+                </span>
               </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/15">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={isUpdating}
-                onClick={handleFarmerDeclinePrice}
-                icon={XCircle}
-                iconPosition="left"
-                className="text-xs text-red-300 hover:text-white hover:bg-white/10 cursor-pointer"
-              >
-                Decline Quote
-              </Button>
-              <Button
-                variant="accent"
-                size="md"
-                disabled={isUpdating}
-                onClick={handleFarmerAcceptPrice}
-                icon={Check}
-                iconPosition="left"
-                className="font-bold py-2.5 px-6 shadow-xs cursor-pointer"
-              >
-                {isUpdating ? 'Opening Escrow Deposit...' : `Deposit ₹${Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} in AgroLnk Escrow`}
-              </Button>
             </div>
           </div>
         )}

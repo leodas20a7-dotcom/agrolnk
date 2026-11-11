@@ -259,8 +259,19 @@ function mapListingFromDb(row) {
   let extractedProductType = row.product_type || '';
   let extractedBrandName = row.brand_name || '';
   let extractedPackaging = row.packaging_type || '';
+  let extractedMinOrderQty = row.min_order_quantity !== undefined && row.min_order_quantity !== null
+    ? Number(row.min_order_quantity)
+    : 0;
 
   if (cleanDescription) {
+    if (!extractedMinOrderQty) {
+      const matchMoq = cleanDescription.match(/<!--agrolnk:minOrderQty:(.*?)-->/);
+      if (matchMoq) {
+        extractedMinOrderQty = Number(matchMoq[1]) || 0;
+      }
+    }
+    cleanDescription = cleanDescription.replace(/<!--agrolnk:minOrderQty:(.*?)-->\s*/g, '').trim();
+
     if (!extractedProductType) {
       const matchProductType = cleanDescription.match(/<!--agrolnk:productType:(.*?)-->/);
       if (matchProductType) {
@@ -292,6 +303,12 @@ function mapListingFromDb(row) {
     }
   }
 
+  const totalQty = Number(row.quantity) || 0;
+  const unitName = row.unit || 'kg';
+  const defaultMoq = unitName === 'MT' ? 1 : unitName === 'Quintal' ? 1 : 50;
+  const resolvedMoq = extractedMinOrderQty > 0 ? extractedMinOrderQty : Math.min(defaultMoq, totalQty > 0 ? totalQty : defaultMoq);
+  const effectiveMoq = totalQty > 0 ? Math.min(resolvedMoq, totalQty) : resolvedMoq;
+
   return {
     id: row.id,
     farmerId: row.farmer_id,
@@ -299,8 +316,10 @@ function mapListingFromDb(row) {
     commodity: row.commodity,
     variety: row.variety,
     grade: row.grade,
-    quantity: Number(row.quantity),
-    unit: row.unit,
+    quantity: totalQty,
+    minOrderQuantity: resolvedMoq,
+    effectiveMinOrderQuantity: effectiveMoq,
+    unit: unitName,
     price: Number(row.price),
     priceUnit: extractedPriceUnit || (row.unit === 'MT' ? 'Quintal' : row.unit),
     productType: extractedProductType || 'raw',
@@ -423,6 +442,15 @@ export async function createListing(listingData) {
       setCachedListingVillage(listingId, village);
     }
 
+    const totalQuantityNum = Number(listingData.quantity) || 500;
+    const unitStr = listingData.unit || 'kg';
+    const defaultMoqVal = unitStr === 'MT' ? 1 : unitStr === 'Quintal' ? 1 : 50;
+    const rawMoq = Number(listingData.minOrderQuantity);
+    const validMoq = rawMoq > 0 ? Math.min(rawMoq, totalQuantityNum) : Math.min(defaultMoqVal, totalQuantityNum);
+
+    const rawDesc = (listingData.description || '').replace(/<!--agrolnk:minOrderQty:.*?-->\s*/g, '').trim();
+    const descWithMoq = `<!--agrolnk:minOrderQty:${validMoq}-->\n${rawDesc}`.trim();
+
     const dbRow = {
       id: listingId,
       farmer_id: listingData.farmerId || null,
@@ -430,15 +458,16 @@ export async function createListing(listingData) {
       commodity: listingData.commodity || 'Tomato',
       variety: listingData.variety || 'None',
       grade: listingData.grade || 'A',
-      quantity: Number(listingData.quantity) || 500,
-      unit: listingData.unit || 'kg',
+      quantity: totalQuantityNum,
+      min_order_quantity: validMoq,
+      unit: unitStr,
       price: Number(listingData.price) || 40,
       sale_type: listingData.saleType || 'direct',
       state: listingData.state || '',
       district: listingData.district || '',
       village: village || null,
       harvest_date: listingData.harvestDate || null,
-      description: listingData.description || null,
+      description: descWithMoq || null,
       product_type: listingData.productType || 'raw',
       images: imagesArray,
       status: 'active',
@@ -460,10 +489,23 @@ export async function createListing(listingData) {
     data = res.data;
     error = res.error;
 
+    // Fallback 0: If min_order_quantity column does not exist yet
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('min_order_quantity'))) {
+      delete dbRow.min_order_quantity;
+      const retryMoq = await supabase
+        .from('listings')
+        .insert([dbRow])
+        .select()
+        .single();
+      data = retryMoq.data;
+      error = retryMoq.error;
+    }
+
     // Fallback 1: If village column does not exist in PostgreSQL schema yet (PGRST204 or 42703)
     if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
+      delete fallbackRow.min_order_quantity;
       if (village) {
         const existingDesc = fallbackRow.description || '';
         fallbackRow.description = `<!--agrolnk:village:${encodeURIComponent(village)}-->\n${existingDesc}`.trim();
@@ -482,6 +524,7 @@ export async function createListing(listingData) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
       delete fallbackRow.product_type;
+      delete fallbackRow.min_order_quantity;
       if (listingData.productType && listingData.productType !== 'raw') {
         const curDesc = fallbackRow.description || '';
         fallbackRow.description = `<!--agrolnk:productType:${listingData.productType}-->\n${curDesc}`.trim();
@@ -500,7 +543,7 @@ export async function createListing(listingData) {
       throw error;
     }
 
-    const mapped = mapListingFromDb({ ...data, village: data?.village || village });
+    const mapped = mapListingFromDb({ ...data, village: data?.village || village, min_order_quantity: data?.min_order_quantity ?? validMoq });
 
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: mapped }));
@@ -531,19 +574,29 @@ export async function updateListing(listingId, listingData) {
       setCachedListingVillage(listingId, village);
     }
 
+    const totalQuantityNum = Number(listingData.quantity) || 500;
+    const unitStr = listingData.unit || 'kg';
+    const defaultMoqVal = unitStr === 'MT' ? 1 : unitStr === 'Quintal' ? 1 : 50;
+    const rawMoq = Number(listingData.minOrderQuantity);
+    const validMoq = rawMoq > 0 ? Math.min(rawMoq, totalQuantityNum) : Math.min(defaultMoqVal, totalQuantityNum);
+
+    const rawDesc = (listingData.description || '').replace(/<!--agrolnk:minOrderQty:.*?-->\s*/g, '').trim();
+    const descWithMoq = `<!--agrolnk:minOrderQty:${validMoq}-->\n${rawDesc}`.trim();
+
     const dbRow = {
       commodity: listingData.commodity || 'Tomato',
       variety: listingData.variety || 'None',
       grade: listingData.grade || 'A',
-      quantity: Number(listingData.quantity) || 500,
-      unit: listingData.unit || 'kg',
+      quantity: totalQuantityNum,
+      min_order_quantity: validMoq,
+      unit: unitStr,
       price: Number(listingData.price) || 40,
       sale_type: listingData.saleType || 'direct',
       state: listingData.state || '',
       district: listingData.district || '',
       village: village || null,
       harvest_date: listingData.harvestDate || null,
-      description: listingData.description || null,
+      description: descWithMoq || null,
       images: imagesArray,
       updated_at: new Date().toISOString(),
     };
@@ -555,10 +608,24 @@ export async function updateListing(listingId, listingData) {
       .select()
       .single();
 
+    // Fallback 0: If min_order_quantity column does not exist yet
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('min_order_quantity'))) {
+      delete dbRow.min_order_quantity;
+      const retryMoq = await supabase
+        .from('listings')
+        .update(dbRow)
+        .eq('id', listingId)
+        .select()
+        .single();
+      data = retryMoq.data;
+      error = retryMoq.error;
+    }
+
     // Fallback 1: If village column does not exist in schema yet
     if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('village'))) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
+      delete fallbackRow.min_order_quantity;
       if (village) {
         const existingDesc = fallbackRow.description || '';
         const cleanDesc = existingDesc.replace(/<!--agrolnk:village:(.*?)-->\s*/, '').trim();
@@ -579,6 +646,7 @@ export async function updateListing(listingId, listingData) {
       const fallbackRow = { ...dbRow };
       delete fallbackRow.village;
       delete fallbackRow.description;
+      delete fallbackRow.min_order_quantity;
       const retryRes = await supabase
         .from('listings')
         .update(fallbackRow)
@@ -594,7 +662,7 @@ export async function updateListing(listingId, listingData) {
       throw error;
     }
 
-    const mapped = mapListingFromDb({ ...data, village: data?.village || village });
+    const mapped = mapListingFromDb({ ...data, village: data?.village || village, min_order_quantity: data?.min_order_quantity ?? validMoq });
 
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: mapped }));

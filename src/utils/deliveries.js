@@ -1,9 +1,52 @@
 // AgroLnk Supabase Deliveries & Logistics Engine
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange } from './syncChannel';
+import { sendNotification } from './notifications';
+import { calculateFreightFinancials } from './commission';
+import { getCurrentUser } from './auth';
+
+export const calculateTransportFinancials = calculateFreightFinancials;
 
 function mapDeliveryFromDb(row) {
   if (!row) return null;
+
+  const rawQuotes = Array.isArray(row.freight_quotes) ? row.freight_quotes : [];
+  const freightAmt = row.freight_amount ? Number(row.freight_amount) : null;
+
+  // Ensure backwards compatibility if a single quote exists on the row without freight_quotes array
+  const normalizedQuotes =
+    rawQuotes.length > 0
+      ? [...rawQuotes].sort((a, b) => Number(a.freightAmount || 0) - Number(b.freightAmount || 0))
+      : freightAmt && row.transporter_name
+      ? [
+          {
+            transporterId: row.transporter_id || 'transporter',
+            transporterName: row.transporter_name,
+            vehicleType: row.vehicle_type || 'Commercial Freight Carrier',
+            vehicleNumber: row.vehicle_number || '',
+            driverName: row.driver_name || 'Assigned Driver',
+            driverPhone: row.driver_phone || '',
+            freightAmount: freightAmt,
+            isAdminAssigned: Boolean(row.admin_assigned_quote),
+            quotedAt: row.updated_at || row.created_at,
+          },
+        ]
+      : [];
+
+  const lowestQuote = normalizedQuotes.length > 0 ? normalizedQuotes[0] : null;
+  const resolvedFreightAmt = lowestQuote ? Number(lowestQuote.freightAmount) : freightAmt;
+  const rfqExpiresAt =
+    row.rfq_expires_at ||
+    (row.created_at ? new Date(new Date(row.created_at).getTime() + 30 * 60 * 1000).toISOString() : null);
+
+  const isRfqExpired = Boolean(
+    rfqExpiresAt &&
+      new Date(rfqExpiresAt).getTime() <= Date.now() &&
+      normalizedQuotes.length === 0 &&
+      !resolvedFreightAmt &&
+      row.status === 'transport_requested'
+  );
+
   return {
     id: row.id,
     deliveryNumber: row.delivery_number,
@@ -13,13 +56,13 @@ function mapDeliveryFromDb(row) {
     farmerName: row.farmer_name,
     buyerId: row.buyer_id,
     buyerName: row.buyer_name,
-    transporterId: row.transporter_id,
-    transporterName: row.transporter_name,
-    vehicleType: row.vehicle_type,
-    vehicleNumber: row.vehicle_number,
-    driverName: row.driver_name,
-    driverPhone: row.driver_phone,
-    freightAmount: row.freight_amount ? Number(row.freight_amount) : null,
+    transporterId: lowestQuote?.transporterId || row.transporter_id,
+    transporterName: lowestQuote?.transporterName || row.transporter_name,
+    vehicleType: lowestQuote?.vehicleType || row.vehicle_type,
+    vehicleNumber: lowestQuote?.vehicleNumber || row.vehicle_number,
+    driverName: lowestQuote?.driverName || row.driver_name,
+    driverPhone: lowestQuote?.driverPhone || row.driver_phone,
+    freightAmount: resolvedFreightAmt,
     estimatedDistanceKm: row.estimated_distance_km ? Number(row.estimated_distance_km) : null,
     commodity: row.commodity,
     grade: row.grade,
@@ -32,13 +75,23 @@ function mapDeliveryFromDb(row) {
     notes: row.notes,
     pickupOtp: row.pickup_otp,
     deliveryOtp: row.delivery_otp,
-    // Transport Escrow & Take-Rate fields
-    freightEscrowStatus: row.freight_escrow_status || (row.status === 'completed' ? 'released' : (row.freight_amount ? 'unfunded' : null)),
-    freightPayerId: row.freight_payer_id || null,
-    freightPayerRole: row.freight_payer_role || 'farmer',
-    freightBaseAmount: Number(row.freight_base_amount || row.freight_amount || 0),
+    // Competitive Multi-Transporter Bidding & 30-Min RFQ fields
+    rfqExpiresAt,
+    isRfqExpired,
+    freightQuotes: normalizedQuotes,
+    lowestQuote,
+    quotesCount: normalizedQuotes.length,
+    adminEscalated: Boolean(row.admin_escalated) || isRfqExpired,
+    adminAssignedQuote: Boolean(row.admin_assigned_quote || lowestQuote?.isAdminAssigned),
+    // Transport Escrow & Take-Rate fields (Buyer-paid model)
+    freightEscrowStatus:
+      row.freight_escrow_status ||
+      (row.status === 'completed' ? 'released' : resolvedFreightAmt ? 'unfunded' : null),
+    freightPayerId: row.freight_payer_id || row.buyer_id || null,
+    freightPayerRole: row.freight_payer_role || 'buyer',
+    freightBaseAmount: Number(row.freight_base_amount || resolvedFreightAmt || 0),
     consignorFreightFee: Number(row.consignor_freight_fee || 0),
-    totalFreightPayable: Number(row.total_freight_payable || row.freight_amount || 0),
+    totalFreightPayable: Number(row.total_freight_payable || resolvedFreightAmt || 0),
     transporterCommissionFee: Number(row.transporter_commission_fee || 0),
     transporterNetPayout: Number(row.transporter_net_payout || 0),
     freightPaymentMode: row.freight_payment_mode || 'direct_razorpay',
@@ -53,83 +106,93 @@ function mapDeliveryFromDb(row) {
   };
 }
 
-// District distance matrix (regional agricultural corridors)
-export const DISTRICT_DISTANCES = {
-  'salem-chennai': 340,
-  'salem-coimbatore': 165,
-  'salem-madurai': 225,
-  'salem-bangalore': 205,
-  'salem-trichy': 140,
-  'salem-dindigul': 175,
-  'dindigul-madurai': 65,
-  'dindigul-chennai': 430,
-  'dindigul-coimbatore': 155,
-  'coimbatore-chennai': 500,
-  'coimbatore-madurai': 210,
-  'coimbatore-bangalore': 365,
-  'madurai-chennai': 460,
-  'trichy-chennai': 330,
-  'theni-chennai': 490,
-  'dharmapuri-chennai': 295,
-  'erode-chennai': 395,
-  'thanjavur-chennai': 340,
-  'tirunelveli-chennai': 620,
-};
+/**
+ * Determine whether exact street addresses and phone numbers are unlocked for the current viewer.
+ * Privacy Shield Rule:
+ * - Buyers and Farmers NEVER see each other's street addresses.
+ * - Transporters in the open bidding pool only see District & State.
+ * - Only Admin or the Winning Assigned Transporter (after Buyer Escrow Lock) unlocks street addresses.
+ */
+export function isDeliveryAddressUnlocked(delivery, viewerRole = '', viewerId = '') {
+  if (!delivery) return false;
+  const role = String(viewerRole || '').toLowerCase();
+  if (role === 'admin') return true;
+  if (role === 'transporter') {
+    const isAssignedStatus = ['assigned', 'picked_up', 'dispatched', 'in_transit', 'delivered', 'completed'].includes(
+      delivery.status
+    );
+    const isThisWinner =
+      viewerId && delivery.transporterId && String(delivery.transporterId) === String(viewerId);
+    return Boolean(isAssignedStatus && isThisWinner);
+  }
+  return false;
+}
 
 /**
- * Estimate road distance between pickup and delivery districts
+ * Format location string while enforcing strict street-address privacy
  */
-export function estimateDistanceKm(originDistrict = '', destDistrict = '') {
-  const orig = (originDistrict || '').trim().toLowerCase();
-  const dest = (destDistrict || '').trim().toLowerCase();
-  if (!orig || !dest || orig === dest) return 35;
-  const key1 = `${orig}-${dest}`;
-  const key2 = `${dest}-${orig}`;
-  if (DISTRICT_DISTANCES[key1]) return DISTRICT_DISTANCES[key1];
-  if (DISTRICT_DISTANCES[key2]) return DISTRICT_DISTANCES[key2];
+export function getPrivacySafeLocationLabel(locationObj, isUnlocked = false, fallbackLabel = 'Hub') {
+  if (!locationObj) return fallbackLabel;
+  if (typeof locationObj === 'string') return isUnlocked ? locationObj : fallbackLabel;
+  const district = locationObj.district || '';
+  const state = locationObj.state || '';
+  const districtState = [district, state].filter(Boolean).join(', ') || fallbackLabel;
+  if (!isUnlocked) {
+    return districtState;
+  }
+  const street = locationObj.address || '';
+  const pin = locationObj.pincode ? ` - ${locationObj.pincode}` : '';
+  return street ? `${street}, ${districtState}${pin}` : `${districtState}${pin}`;
+}
+
+export const DISTRICT_DISTANCES = {};
+
+/**
+ * Deprecated formula helper (No hardcoded distance formula is used; transporters quote directly based on route & truck availability)
+ */
+export function estimateDistanceKm() {
   return null;
 }
 
 /**
- * Transparent vehicle tariff matrix (Base fare + per-km rate)
+ * Vehicle categories for fleet selection & capacity matching (No hardcoded per-km price formula)
  */
 export const VEHICLE_TARIFF_RATES = {
   'mini_truck': {
     name: 'Mini Truck (Tata Ace / Bolero)',
     maxCapacityKg: 1500,
-    baseFare: 400,
-    ratePerKm: 14,
+    baseFare: 0,
+    ratePerKm: 0,
     description: 'Best for local & small lots (up to 1.5 MT)'
   },
   'medium_lcv': {
     name: 'Medium LCV (14ft Eicher)',
     maxCapacityKg: 5000,
-    baseFare: 900,
-    ratePerKm: 24,
+    baseFare: 0,
+    ratePerKm: 0,
     description: 'Standard agri freight (up to 5.0 MT)'
   },
   'reefer_truck': {
     name: 'Reefer Cold-Chain Truck',
     maxCapacityKg: 8000,
-    baseFare: 1600,
-    ratePerKm: 34,
+    baseFare: 0,
+    ratePerKm: 0,
     description: 'Temperature-controlled for perishable horticulture'
   },
   'heavy_truck': {
-    name: 'Heavy Commercial (10-Wheeler)',
-    maxCapacityKg: 20000,
-    baseFare: 2600,
-    ratePerKm: 42,
-    description: 'Bulk grain / wholesale volume (up to 20 MT)'
+    name: 'Heavy Commercial (10-Wheeler / Multi-Axle)',
+    maxCapacityKg: 25000,
+    baseFare: 0,
+    ratePerKm: 0,
+    description: 'Bulk grain / wholesale volume (up to 25 MT)'
   }
 };
 
 /**
- * Calculate recommended vehicle and estimated fair price
+ * Recommend appropriate vehicle class based on load weight (without forcing a formula price)
  */
-export function calculateEstimatedFare(weightKg, distanceKm, vehicleKey = null) {
+export function calculateEstimatedFare(weightKg, _distanceKm = null, vehicleKey = null) {
   const wt = Number(weightKg) || 1000;
-  const dist = Number(distanceKm) || 100;
 
   let chosenKey = vehicleKey;
   if (!chosenKey || !VEHICLE_TARIFF_RATES[chosenKey]) {
@@ -140,14 +203,13 @@ export function calculateEstimatedFare(weightKg, distanceKm, vehicleKey = null) 
   }
 
   const rate = VEHICLE_TARIFF_RATES[chosenKey];
-  const calculatedFare = Math.round(rate.baseFare + (dist * rate.ratePerKm));
   return {
     vehicleKey: chosenKey,
     vehicleName: rate.name,
-    distanceKm: dist,
-    estimatedFare: calculatedFare,
-    baseFare: rate.baseFare,
-    ratePerKm: rate.ratePerKm,
+    distanceKm: null,
+    estimatedFare: 0,
+    baseFare: 0,
+    ratePerKm: 0,
     description: rate.description
   };
 }
@@ -256,14 +318,14 @@ export async function getBuyerDeliveries(buyerId) {
 
 /**
  * Get all open platform jobs available for commercial transporters
- * Excludes self-arranged farmer shipments and deduplicates by order
+ * Includes both 'transport_requested' and 'price_offered' (during the 30-min competitive bidding window before escrow lock)
  */
 export async function getAvailableTransportJobs() {
   try {
     const { data, error } = await supabase
       .from('deliveries')
       .select('*')
-      .eq('status', 'transport_requested')
+      .in('status', ['transport_requested', 'price_offered'])
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -273,7 +335,13 @@ export async function getAvailableTransportJobs() {
 
     const rawList = (data || [])
       .map(mapDeliveryFromDb)
-      .filter((d) => d.transporterName !== 'Farmer Direct Transport' && d.transporterName !== 'Self / Direct Farmer');
+      .filter(
+        (d) =>
+          d.transporterName !== 'Farmer Direct Transport' &&
+          d.transporterName !== 'Self / Direct Farmer' &&
+          d.freightEscrowStatus !== 'escrow_locked' &&
+          d.freightEscrowStatus !== 'released'
+      );
 
     const seen = new Set();
     const deduped = [];
@@ -328,12 +396,16 @@ export async function getTransporterDeliveries(transporterId) {
 
 /**
  * Create or update a delivery record in Supabase (Guaranteed Idempotency)
- * Prevents multiple clicks from creating duplicate jobs in Transporter Desk
+ * Sets a 30-minute competitive transporter bidding window (rfq_expires_at)
  */
 export async function createDelivery(deliveryData) {
   try {
     const orderIdentifier = deliveryData.orderId || deliveryData.orderNumber;
-    
+    const nowIso = new Date().toISOString();
+    const rfqExpiresAt =
+      deliveryData.rfqExpiresAt ||
+      new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
     // Check if a delivery already exists for this order to prevent duplicates
     if (orderIdentifier) {
       const { data: existingRows } = await supabase
@@ -344,7 +416,6 @@ export async function createDelivery(deliveryData) {
 
       if (existingRows && existingRows.length > 0) {
         const existing = existingRows[0];
-        // Clean up duplicate rows if multiple were created before
         if (existingRows.length > 1) {
           const duplicateIds = existingRows.slice(1).map((r) => r.id);
           try {
@@ -354,7 +425,6 @@ export async function createDelivery(deliveryData) {
           }
         }
 
-        // If existing record was found, update its location/notes and ensure active request status
         const { data: updated, error: updateErr } = await supabase
           .from('deliveries')
           .update({
@@ -362,7 +432,7 @@ export async function createDelivery(deliveryData) {
             delivery_location: deliveryData.deliveryLocation || existing.delivery_location,
             status: deliveryData.status || existing.status || 'transport_requested',
             notes: deliveryData.notes || existing.notes || null,
-            updated_at: new Date().toISOString(),
+            updated_at: nowIso,
           })
           .eq('id', existing.id)
           .select()
@@ -397,13 +467,13 @@ export async function createDelivery(deliveryData) {
       delivery_number: generateDeliveryNum(),
       order_id: isUuid(deliveryData.orderId) ? deliveryData.orderId : null,
       order_number: deliveryData.orderNumber || '#AGM-1000',
-      farmer_id: isUuid(deliveryData.farmerId) ? deliveryData.farmerId : null,
+      farmer_id: isUuid(deliveryData.farmerId) ? deliveryData.farmerId : (deliveryData.farmerId || null),
       farmer_name: deliveryData.farmerName || 'Producer',
-      buyer_id: isUuid(deliveryData.buyerId) ? deliveryData.buyerId : null,
+      buyer_id: isUuid(deliveryData.buyerId) ? deliveryData.buyerId : (deliveryData.buyerId || null),
       buyer_name: deliveryData.buyerName || 'Buyer',
       transporter_id: isUuid(deliveryData.transporterId) ? deliveryData.transporterId : null,
       transporter_name: deliveryData.transporterName || null,
-      commodity: deliveryData.commodity || 'Tomato',
+      commodity: deliveryData.commodity || 'Produce',
       grade: deliveryData.grade || 'A',
       variety: deliveryData.variety || 'Standard',
       quantity: Number(deliveryData.quantity),
@@ -411,24 +481,61 @@ export async function createDelivery(deliveryData) {
       pickup_location: deliveryData.pickupLocation || {},
       delivery_location: deliveryData.deliveryLocation || {},
       status: deliveryData.status || 'transport_requested',
+      rfq_expires_at: rfqExpiresAt,
+      freight_quotes: [],
+      freight_payer_id: deliveryData.buyerId || null,
+      freight_payer_role: 'buyer',
       pickup_otp: String(Math.floor(1000 + Math.random() * 9000)),
       delivery_otp: String(Math.floor(1000 + Math.random() * 9000)),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: nowIso,
+      updated_at: nowIso,
     };
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('deliveries')
       .insert([dbRow])
       .select()
       .single();
+
+    // Fallback if rfq_expires_at or freight_quotes columns have not been migrated yet
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('rfq_expires_at') || error.message?.includes('freight_quotes'))) {
+      const fallbackRow = { ...dbRow };
+      delete fallbackRow.rfq_expires_at;
+      delete fallbackRow.freight_quotes;
+      delete fallbackRow.freight_payer_id;
+      delete fallbackRow.freight_payer_role;
+      const retry = await supabase
+        .from('deliveries')
+        .insert([fallbackRow])
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Supabase delivery creation error:', error);
       throw error;
     }
 
-    return mapDeliveryFromDb(data);
+    const mapped = mapDeliveryFromDb(data);
+
+    // Broadcast freight RFQ notification to all transporters
+    try {
+      const originDist = deliveryData.pickupLocation?.district || 'Farmgate';
+      const originState = deliveryData.pickupLocation?.state || '';
+      const destDist = deliveryData.deliveryLocation?.district || 'Buyer Hub';
+      const destState = deliveryData.deliveryLocation?.state || '';
+      sendNotification({
+        recipientRole: 'transporter',
+        title: `New Freight RFQ: ${mapped.commodity} (${mapped.quantity} ${mapped.unit})`,
+        message: `Route: ${originDist}${originState ? `, ${originState}` : ''} → ${destDist}${destState ? `, ${destState}` : ''}. Submit your competitive freight quote within 30 minutes.`,
+        type: 'delivery',
+        link: '/transporter-dashboard',
+      });
+    } catch {}
+
+    return mapped;
   } catch (err) {
     console.error('Error creating delivery:', err);
     throw err;
@@ -436,123 +543,163 @@ export async function createDelivery(deliveryData) {
 }
 
 /**
- * Handle Farmer Self-Arranged Transport Dispatch
- * Records vehicle registration number and driver info for direct buyer notification
+ * Deprecated self-arranged transport stub (Self-arranged transport is disabled to preserve Buyer/Seller address privacy)
  */
-export async function createOrUpdateSelfTransport(order, vehicleInfo) {
-  try {
-    const orderId = order.id || order.orderNumber;
-    const { data: existingRows } = await supabase
-      .from('deliveries')
-      .select('*')
-      .or(`order_id.eq.${orderId},order_number.eq.${orderId}`)
-      .order('created_at', { ascending: false });
-
-    const vehicleNum = (vehicleInfo.vehicleNumber || '').trim().toUpperCase();
-    const driverName = (vehicleInfo.driverName || '').trim() || (order.farmerName || 'Self / Direct Farmer');
-    const driverPhone = (vehicleInfo.driverPhone || '').trim();
-
-    if (existingRows && existingRows.length > 0) {
-      const primary = existingRows[0];
-      const { data: updated, error } = await supabase
-        .from('deliveries')
-        .update({
-          status: 'in_transit',
-          transporter_name: 'Farmer Direct Transport',
-          vehicle_number: vehicleNum,
-          driver_name: driverName,
-          driver_phone: driverPhone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', primary.id)
-        .select()
-        .single();
-
-      if (existingRows.length > 1) {
-        const dupIds = existingRows.slice(1).map((r) => r.id);
-        try {
-          await supabase.from('deliveries').delete().in('id', dupIds);
-        } catch {}
-      }
-
-      if (!error && updated) return mapDeliveryFromDb(updated);
-    }
-
-    // Create a new self-arranged delivery manifest
-    const num = Math.floor(1000 + Math.random() * 9000);
-    const dbRow = {
-      id: crypto.randomUUID?.() || `del_${Date.now()}`,
-      delivery_number: `DEL-${num}`,
-      order_id: order.id || null,
-      order_number: order.orderNumber || '#AGM-1000',
-      farmer_id: order.farmerId || null,
-      farmer_name: order.farmerName || 'Producer',
-      buyer_id: order.buyerId || null,
-      buyer_name: order.buyerName || 'Buyer',
-      transporter_id: null,
-      transporter_name: 'Farmer Direct Transport',
-      vehicle_number: vehicleNum,
-      driver_name: driverName,
-      driver_phone: driverPhone,
-      commodity: order.commodity || 'Produce Lot',
-      grade: order.grade || 'A',
-      variety: order.variety || 'Standard',
-      quantity: Number(order.quantity),
-      unit: order.unit || 'kg',
-      pickup_location: order.pickupLocation || {
-        district: order.district || 'Salem',
-        state: order.state || 'Tamil Nadu',
-        address: `${order.district || 'Salem'} Farmgate Aggregation Hub`,
-      },
-      delivery_location: order.deliveryLocation || {
-        district: 'Chennai',
-        state: 'Tamil Nadu',
-        address: 'Buyer Wholesale Facility Bay 12',
-      },
-      status: 'in_transit',
-      pickup_otp: String(Math.floor(1000 + Math.random() * 9000)),
-      delivery_otp: String(Math.floor(1000 + Math.random() * 9000)),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase.from('deliveries').insert([dbRow]).select().single();
-    if (error) throw error;
-    return mapDeliveryFromDb(data);
-  } catch (err) {
-    console.error('Error in createOrUpdateSelfTransport:', err);
-    throw err;
-  }
+export async function createOrUpdateSelfTransport() {
+  throw new Error('Self-arranged transport is disabled on AgroLnk to protect buyer and seller address privacy. All shipments use AgroLnk Verified Transporters.');
 }
 
 /**
- * Transporter submits a price quote & vehicle allocation for farmer approval
+ * Transporter submits a competitive freight quote during the 30-minute RFQ window.
+ * Supports multiple transporters bidding on the same job and automatically selects the lowest quote for the Buyer.
  */
 export async function submitTransportQuote(deliveryId, quoteData) {
   try {
-    const { data, error } = await supabase
+    const activeUser = getCurrentUser();
+    if (activeUser?.role && activeUser.role !== 'transporter' && activeUser.role !== 'admin') {
+      throw new Error('Only verified transporters or the AgroLnk Logistics Desk can submit freight quotes.');
+    }
+
+    const effectiveIsAdmin = activeUser?.role === 'admin' && Boolean(quoteData.isAdminAssigned);
+    const resolvedTransporterId = effectiveIsAdmin
+      ? quoteData.transporterId || 'admin_concierge_fleet'
+      : activeUser?.id || quoteData.transporterId || 'transporter';
+
+    const cleanFreightAmt = Math.round(Number(quoteData.freightAmount || 0) * 100) / 100;
+    if (!cleanFreightAmt || cleanFreightAmt <= 0) {
+      throw new Error('Please enter a valid freight quote amount greater than ₹0.');
+    }
+
+    const existingDelivery = await getDeliveryById(deliveryId);
+    if (
+      existingDelivery &&
+      !effectiveIsAdmin &&
+      (['locked', 'escrow_locked', 'released'].includes(existingDelivery.freightEscrowStatus) ||
+        ['assigned', 'in_transit', 'delivered', 'completed'].includes(existingDelivery.status))
+    ) {
+      throw new Error('This freight job is already locked in escrow and no longer accepting quotes.');
+    }
+
+    // 1. Try Atomic Server RPC (handles multi-transporter quote array + lowest quote selection + order sync)
+    try {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('submit_transporter_quote_atomic', {
+        p_delivery_id: deliveryId,
+        p_transporter_id: resolvedTransporterId,
+        p_transporter_name: quoteData.transporterName || activeUser?.name || 'Verified Transporter',
+        p_vehicle_type: quoteData.vehicleType || 'Commercial Freight Carrier',
+        p_vehicle_number: (quoteData.vehicleNumber || '').trim().toUpperCase(),
+        p_driver_name: quoteData.driverName || 'Assigned Driver',
+        p_driver_phone: quoteData.driverPhone || '',
+        p_freight_amount: cleanFreightAmt,
+        p_is_admin_assigned: effectiveIsAdmin,
+      });
+
+      if (!rpcErr && rpcRes?.success) {
+        const refreshed = await getDeliveryById(deliveryId);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: refreshed }));
+          window.dispatchEvent(new Event('agrolnk_orders_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+        return refreshed;
+      }
+      if (rpcErr && rpcErr.message?.includes('already assigned')) {
+        throw new Error(rpcErr.message);
+      }
+    } catch (rpcCatch) {
+      if (rpcCatch.message?.includes('already assigned')) {
+        throw rpcCatch;
+      }
+      console.warn('submit_transporter_quote_atomic RPC fallback notice:', rpcCatch);
+    }
+
+    // 2. Client-side Fallback if RPC not yet applied in Supabase
+    const nowIso = new Date().toISOString();
+    const existingQuotes = Array.isArray(existingDelivery?.freightQuotes) ? existingDelivery.freightQuotes : [];
+
+    const newQuoteEntry = {
+      transporterId: resolvedTransporterId,
+      transporterName: quoteData.transporterName || activeUser?.name || 'Commercial Transporter',
+      vehicleType: quoteData.vehicleType || 'Commercial Freight Carrier',
+      vehicleNumber: (quoteData.vehicleNumber || '').trim().toUpperCase(),
+      driverName: quoteData.driverName || 'Driver',
+      driverPhone: quoteData.driverPhone || '',
+      freightAmount: cleanFreightAmt,
+      isAdminAssigned: effectiveIsAdmin,
+      quotedAt: nowIso,
+    };
+
+    const filteredQuotes = existingQuotes.filter(
+      (q) => String(q.transporterId || '') !== String(newQuoteEntry.transporterId)
+    );
+    const updatedQuotes = [...filteredQuotes, newQuoteEntry].sort(
+      (a, b) => Number(a.freightAmount || 0) - Number(b.freightAmount || 0)
+    );
+
+    const winningQuote = effectiveIsAdmin ? newQuoteEntry : updatedQuotes[0];
+
+    const updatePayload = {
+      transporter_id: winningQuote.transporterId || null,
+      transporter_name: winningQuote.transporterName || 'Commercial Transporter',
+      vehicle_type: winningQuote.vehicleType || 'Commercial Freight Carrier',
+      vehicle_number: winningQuote.vehicleNumber,
+      driver_name: winningQuote.driverName || 'Driver',
+      driver_phone: winningQuote.driverPhone || '',
+      freight_amount: Number(winningQuote.freightAmount),
+      freight_quotes: updatedQuotes,
+      admin_assigned_quote: Boolean(effectiveIsAdmin || existingDelivery?.adminAssignedQuote),
+      status: 'price_offered',
+      updated_at: nowIso,
+    };
+
+    let { data, error } = await supabase
       .from('deliveries')
-      .update({
-        transporter_id: quoteData.transporterId || null,
-        transporter_name: quoteData.transporterName || 'Commercial Transporter',
-        vehicle_type: quoteData.vehicleType || 'Commercial Freight Carrier',
-        vehicle_number: (quoteData.vehicleNumber || '').trim().toUpperCase(),
-        driver_name: quoteData.driverName || 'Driver',
-        driver_phone: quoteData.driverPhone || '',
-        freight_amount: Number(quoteData.freightAmount) || 2400,
-        estimated_distance_km: Number(quoteData.distanceKm) || 150,
-        status: 'price_offered',
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', deliveryId)
       .select()
       .single();
+
+    if (error && (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('freight_quotes'))) {
+      delete updatePayload.freight_quotes;
+      delete updatePayload.admin_assigned_quote;
+      const retry = await supabase
+        .from('deliveries')
+        .update(updatePayload)
+        .eq('id', deliveryId)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Error submitting transport quote:', error);
       throw error;
     }
-    return mapDeliveryFromDb(data);
+
+    const mapped = mapDeliveryFromDb({ ...data, freight_quotes: data?.freight_quotes || updatedQuotes });
+
+    // Notify Buyer of lowest quote
+    if (mapped?.buyerId) {
+      try {
+        sendNotification({
+          recipientId: mapped.buyerId,
+          recipientRole: 'buyer',
+          title: `Lowest Freight Quote Ready: ₹${Number(winningQuote.freightAmount).toLocaleString('en-IN')} (${mapped.orderNumber})`,
+          message: `Verified carrier (${winningQuote.transporterName}) quoted ₹${Number(winningQuote.freightAmount).toLocaleString('en-IN')} for ${mapped.commodity}. Complete combined escrow payment to lock lot & dispatch.`,
+          type: 'delivery',
+          link: '/buyer-orders',
+        });
+      } catch {}
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: mapped }));
+      window.dispatchEvent(new Event('agrolnk_orders_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return mapped;
   } catch (err) {
     console.error('Error in submitTransportQuote:', err);
     throw err;
@@ -560,7 +707,39 @@ export async function submitTransportQuote(deliveryId, quoteData) {
 }
 
 /**
- * Farmer/Buyer accepts transporter quote and deposits freight into AgroLnk Escrow
+ * Admin 30-Minute Concierge Fail-Safe:
+ * Fetch all open freight requests that have expired (30+ minutes) with 0 transporter bids
+ */
+export async function getExpiredUnquotedDeliveries() {
+  try {
+    const all = await getDeliveries();
+    return all.filter(
+      (d) =>
+        d.status === 'transport_requested' &&
+        (!d.freightAmount || Number(d.freightAmount) <= 0) &&
+        (d.isRfqExpired || d.adminEscalated)
+    );
+  } catch (err) {
+    console.error('Error in getExpiredUnquotedDeliveries:', err);
+    return [];
+  }
+}
+
+/**
+ * Admin 30-Minute Concierge Fail-Safe:
+ * Manually assign a verified freight quote and fleet carrier after telephonic coordination with Buyer
+ */
+export async function assignAdminFailSafeFreightQuote(deliveryId, adminQuoteData) {
+  return submitTransportQuote(deliveryId, {
+    ...adminQuoteData,
+    transporterId: adminQuoteData.transporterId || 'admin_concierge_fleet',
+    transporterName: adminQuoteData.transporterName || 'AgroLnk Verified Fleet Partner',
+    isAdminAssigned: true,
+  });
+}
+
+/**
+ * Buyer (or Admin) accepts transporter quote and deposits freight into AgroLnk Escrow
  * Handles both Instant Gateway (< 50k) and Escrow Virtual Account (NEFT/RTGS)
  */
 export async function depositFreightEscrow({
@@ -577,7 +756,7 @@ export async function depositFreightEscrow({
     const updatePayload = {
       freight_escrow_status: isBankTransfer ? 'pending_bank_check' : 'escrow_locked',
       freight_payer_id: payerUser?.id || null,
-      freight_payer_role: payerUser?.role || 'farmer',
+      freight_payer_role: payerUser?.role || 'buyer',
       freight_base_amount: freightBreakdown?.baseFare || 0,
       consignor_freight_fee: freightBreakdown?.consignorFee || 0,
       total_freight_payable: freightBreakdown?.totalFreightDeposit || 0,
@@ -586,7 +765,7 @@ export async function depositFreightEscrow({
       freight_payment_mode: paymentMode,
       freight_bank_utr: bankUtr || null,
       freight_deposited_at: nowIso,
-      status: isBankTransfer ? 'price_offered' : 'assigned', // Only assign if funds verified/locked
+      status: isBankTransfer ? 'price_offered' : 'assigned',
       updated_at: nowIso,
     };
 
@@ -693,38 +872,36 @@ export async function adminReleaseFreightEscrow({
 }
 
 /**
- * Farmer accepts the transporter's offered price ("It is OK")
- * Immediately assigns the transport and moves to dispatch readiness
+ * Legacy helper guarded against bypassing Buyer Combined Escrow payment.
+ * Transport assignment requires Buyer Combined Crop + Freight Escrow lock or Admin Bank Verification.
  */
 export async function acceptTransportPrice(deliveryId) {
-  try {
-    const { data, error } = await supabase
-      .from('deliveries')
-      .update({
-        status: 'assigned',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', deliveryId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error accepting transport price:', error);
-      throw error;
-    }
-    return mapDeliveryFromDb(data);
-  } catch (err) {
-    console.error('Error in acceptTransportPrice:', err);
-    throw err;
+  const existing = await getDeliveryById(deliveryId);
+  if (
+    !existing ||
+    !['locked', 'escrow_locked', 'released'].includes(existing.freightEscrowStatus)
+  ) {
+    throw new Error(
+      'Transport dispatch can only be unlocked after Buyer completes Combined Crop + Freight Escrow payment.'
+    );
   }
+  return existing;
 }
 
 /**
- * Farmer declines the transporter's price quote
- * Re-opens the freight request to the transport board
+ * Re-opens a freight request to the transport board (only permitted by Admin before escrow is locked)
  */
 export async function declineTransportPrice(deliveryId) {
   try {
+    const activeUser = getCurrentUser();
+    const existing = await getDeliveryById(deliveryId);
+    if (existing && ['locked', 'escrow_locked', 'released'].includes(existing.freightEscrowStatus)) {
+      throw new Error('Cannot reset a freight quote after Freight Escrow is already locked.');
+    }
+    if (activeUser?.role && activeUser.role !== 'admin') {
+      throw new Error('Freight quotes are competitively ranked automatically for the Buyer.');
+    }
+
     const { data, error } = await supabase
       .from('deliveries')
       .update({
@@ -732,6 +909,7 @@ export async function declineTransportPrice(deliveryId) {
         transporter_id: null,
         transporter_name: null,
         freight_amount: null,
+        freight_quotes: [],
         updated_at: new Date().toISOString(),
       })
       .eq('id', deliveryId)
@@ -750,32 +928,16 @@ export async function declineTransportPrice(deliveryId) {
 }
 
 /**
- * Transporter accepts a transport delivery job directly
+ * Legacy direct accept helper redirected to competitive quote submission
+ * Prevents transporters from bypassing the 30-Minute RFQ & Buyer Combined Escrow lock via DevTools
  */
-export async function acceptDelivery(deliveryId, transporterInfo) {
-  try {
-    const { data, error } = await supabase
-      .from('deliveries')
-      .update({
-        transporter_id: transporterInfo.id || null,
-        transporter_name: transporterInfo.name || 'Commercial Transporter',
-        vehicle_type: transporterInfo.vehicleType || 'Commercial Freight Carrier',
-        vehicle_number: (transporterInfo.vehicleNumber || '').trim().toUpperCase(),
-        driver_name: transporterInfo.driverName || 'Driver',
-        driver_phone: transporterInfo.driverPhone || '',
-        status: 'assigned',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', deliveryId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return mapDeliveryFromDb(data);
-  } catch (err) {
-    console.error('Error accepting delivery:', err);
-    throw err;
+export async function acceptDelivery(deliveryId, transporterInfo = {}) {
+  if (transporterInfo?.freightAmount && Number(transporterInfo.freightAmount) > 0) {
+    return submitTransportQuote(deliveryId, transporterInfo);
   }
+  throw new Error(
+    'Direct job assignment without a freight quote and Buyer Escrow payment is disabled. Please submit a competitive freight quote.'
+  );
 }
 
 /**
@@ -901,7 +1063,13 @@ export async function confirmBuyerReceipt(deliveryId) {
 export async function getTransporterStats(transporterId) {
   try {
     const all = await getDeliveries();
-    const availableJobs = all.filter((d) => d.status === 'transport_requested');
+    const availableJobs = all.filter(
+      (d) =>
+        (d.status === 'transport_requested' || d.status === 'price_offered') &&
+        d.freightEscrowStatus !== 'locked' &&
+        d.freightEscrowStatus !== 'escrow_locked' &&
+        d.freightEscrowStatus !== 'released'
+    );
     const myDeliveries = all.filter((d) => d.transporterId === transporterId);
     const activeDeliveries = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'in_transit');
     const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed');
