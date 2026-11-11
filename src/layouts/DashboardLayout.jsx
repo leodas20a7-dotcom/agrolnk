@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { logoutUser, getCurrentUser, getResolvedUserKycStatus, fetchCurrentProfile } from '../utils/auth';
+import { logoutUser, getCurrentUser, getResolvedUserKycStatus, isUserKycVerified, fetchCurrentProfile } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
 import UserProfileModal from '../components/profile/UserProfileModal';
@@ -664,7 +664,7 @@ export default function DashboardLayout({
               {/* KYC Verification Badge Pill (for non-admin users) */}
               {user.role !== 'admin' && (
                 (() => {
-                  const isVerified = user.kycStatus === 'verified' || user.verificationStatus === 'verified';
+                  const isVerified = isUserKycVerified(user) || user.kycStatus === 'verified' || user.verificationStatus === 'verified';
                   return isVerified ? (
                     <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                       ✓ Verified

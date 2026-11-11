@@ -59,7 +59,7 @@ export default function ListFromInventoryModal({
       onClose();
     } catch (err) {
       console.error('Failed to list from warehouse inventory:', err);
-      setError('Failed to create listing from warehouse. Please try again.');
+      setError(err?.message || 'Failed to create listing from warehouse. Please try again.');
       setIsSubmitting(false);
     }
   };

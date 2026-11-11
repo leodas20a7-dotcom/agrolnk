@@ -5,7 +5,7 @@ import Badge from '../ui/Badge';
 import { calculateOrderFinancials, formatINR } from '../../utils/commission';
 import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 import { createFinancingRequest, getFinancingRequests } from '../../utils/financing';
-import { getResolvedUserKycStatus } from '../../utils/auth';
+import { getResolvedUserKycStatus, isUserKycVerified } from '../../utils/auth';
 import { convertVolume, getRateInUnit } from '../../utils/pricingUnits';
 import { ESCROW_NODAL_ACCOUNT, generateOrderSmartVAN, processSmartVanWebhookCredit } from '../../utils/escrowApi';
 import { createOrder, completeBuyerOrderWithFreightPayment } from '../../utils/orders';
@@ -232,7 +232,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   const handleRequestFreightQuotes = async () => {
     setError('');
 
-    if (getResolvedUserKycStatus(currentUser) !== 'verified') {
+    if (!isUserKycVerified(currentUser)) {
       setError('Buyer KYC verification is required before placing purchase orders.');
       return;
     }
@@ -482,6 +482,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
         });
       }, 1600);
     } catch (_err) {
+      setError(_err?.message || 'Virtual Account transfer simulation failed.');
       setIsSubmitting(false);
     }
   };
@@ -590,7 +591,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
     } catch (err) {
       console.error('Failed to submit trade credit application:', err);
-      setError('Unable to submit trade credit request. Please try again.');
+      setError(err?.message || 'Unable to submit trade credit request. Please try again.');
       setIsSubmitting(false);
     }
   };

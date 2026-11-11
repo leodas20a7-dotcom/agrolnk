@@ -3,6 +3,7 @@ import { X, Building2, CheckCircle2, ShieldCheck, Scale, ThermometerSnowflake, F
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { provideWarehouseQuote, confirmProduceInward, declineWarehouseQuote } from '../../utils/warehouses';
+import { toast } from '../../context/ToastContext';
 
 export default function WarehouseInwardModal({
   receipt,
@@ -45,10 +46,12 @@ export default function WarehouseInwardModal({
         chamber: assignedChamber,
         notes: notes || `Standard storage fee ₹${quotedRatePerTonne}/T/mo applied.`,
       });
+      toast.success('Warehouse storage quote sent to depositor!');
       onSuccess?.();
       onClose();
     } catch (err) {
       console.error('Error sending warehouse quote:', err);
+      toast.error(err?.message || 'Failed to send storage quote.');
     } finally {
       setLoading(false);
     }
@@ -64,10 +67,12 @@ export default function WarehouseInwardModal({
         moisture,
         chamberBay,
       });
+      toast.success('Produce inward confirmed & Electronic Warehouse Receipt (WHR) generated!');
       onSuccess?.();
       onClose();
     } catch (err) {
       console.error('Error confirming produce inward:', err);
+      toast.error(err?.message || 'Failed to confirm produce inward.');
     } finally {
       setLoading(false);
     }

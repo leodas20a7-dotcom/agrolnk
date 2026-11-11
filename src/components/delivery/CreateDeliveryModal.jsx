@@ -124,7 +124,7 @@ export default function CreateDeliveryModal({
       onClose();
     } catch (err) {
       console.error('Failed to create delivery request:', err);
-      setError('Failed to submit transport request. Please try again.');
+      setError(err?.message || 'Failed to submit transport request. Please try again.');
       setIsSubmitting(false);
     }
   };

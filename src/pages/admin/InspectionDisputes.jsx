@@ -10,6 +10,7 @@ import InspectionStatusBadge from '../../components/inspection/InspectionStatusB
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { toast } from '../../context/ToastContext';
 
 export default function InspectionDisputes({ currentUser, onNavigate }) {
   const user = currentUser || {};
@@ -96,33 +97,45 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     e.preventDefault();
     if (!selectedDispute) return;
 
-    await arbitrateDispute(selectedDispute.id, {
-      action: resolutionAction,
-      refundAmount: resolutionAction === 'partial_refund' ? Number(refundAmount) : (resolutionAction === 'full_refund' ? selectedDispute.orderAmount : 0),
-      notes: arbitrationNotes,
-      arbitratedBy: 'AgroLnk Platform Ombudsman'
-    });
+    try {
+      await arbitrateDispute(selectedDispute.id, {
+        action: resolutionAction,
+        refundAmount: resolutionAction === 'partial_refund' ? Number(refundAmount) : (resolutionAction === 'full_refund' ? selectedDispute.orderAmount : 0),
+        notes: arbitrationNotes,
+        arbitratedBy: 'AgroLnk Platform Ombudsman'
+      });
 
-    setSelectedDispute(null);
-    loadInspections();
+      toast.success('Dispute arbitrated and escrow ruling recorded successfully!');
+      setSelectedDispute(null);
+      loadInspections();
+    } catch (err) {
+      console.error('Failed to arbitrate dispute:', err);
+      toast.error(err?.message || 'Failed to submit arbitration ruling.');
+    }
   };
 
   const handleSendReport = async (e) => {
     e.preventDefault();
     if (!selectedRequestToInspect) return;
 
-    await sendInspectionReportToBuyer(selectedRequestToInspect.id, {
-      inspectorName,
-      grade: assayGrade,
-      moisture: Number(assayMoisture),
-      foreignMatter: Number(assayForeign),
-      inspectionFee: Number(inspectionFee) || 500,
-      inspectorNotes: assayNotes,
-      verdict: 'approved',
-    });
+    try {
+      await sendInspectionReportToBuyer(selectedRequestToInspect.id, {
+        inspectorName,
+        grade: assayGrade,
+        moisture: Number(assayMoisture),
+        foreignMatter: Number(assayForeign),
+        inspectionFee: Number(inspectionFee) || 500,
+        inspectorNotes: assayNotes,
+        verdict: 'approved',
+      });
 
-    setSelectedRequestToInspect(null);
-    loadInspections();
+      toast.success('Inspection report and assay grade delivered to buyer!');
+      setSelectedRequestToInspect(null);
+      loadInspections();
+    } catch (err) {
+      console.error('Failed to send inspection report:', err);
+      toast.error(err?.message || 'Failed to send inspection report.');
+    }
   };
 
   return (

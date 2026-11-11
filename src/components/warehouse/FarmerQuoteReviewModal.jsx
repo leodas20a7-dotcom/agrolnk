@@ -70,7 +70,7 @@ export default function FarmerQuoteReviewModal({
       });
     } catch (err) {
       console.error('Error accepting quote:', err);
-      setError('Failed to initiate Razorpay checkout. Please try again.');
+      setError(err?.message || 'Failed to initiate Razorpay checkout. Please try again.');
       setLoading(false);
     }
   };
@@ -84,7 +84,7 @@ export default function FarmerQuoteReviewModal({
       onClose();
     } catch (err) {
       console.error('Error declining warehouse quote:', err);
-      setError('Failed to decline quote.');
+      setError(err?.message || 'Failed to decline quote. Please try again.');
     } finally {
       setLoading(false);
     }

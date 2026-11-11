@@ -23,7 +23,8 @@ import {
   VEHICLE_TARIFF_RATES
 } from '../../utils/deliveries';
 import { getTransporterFleet } from '../../utils/fleet';
-import { getResolvedUserKycStatus } from '../../utils/auth';
+import { getResolvedUserKycStatus, isUserKycVerified } from '../../utils/auth';
+import { toast } from '../../context/ToastContext';
 import AddEditVehicleModal from '../transporter/AddEditVehicleModal';
 
 export default function TransportQuoteModal({
@@ -141,8 +142,9 @@ export default function TransportQuoteModal({
 
   const isVerified =
     propIsVerified !== undefined
-      ? propIsVerified
-      : (getResolvedUserKycStatus(currentUser || user) === 'verified' ||
+      ? Boolean(propIsVerified)
+      : (isUserKycVerified(currentUser || user) ||
+         getResolvedUserKycStatus(currentUser || user) === 'verified' ||
          currentUser?.kycStatus === 'verified' ||
          currentUser?.verificationStatus === 'verified' ||
          user?.kycStatus === 'verified');
@@ -185,11 +187,12 @@ export default function TransportQuoteModal({
 
       const updated = await submitTransportQuote(delivery.id, quoteData);
       setIsSubmitting(false);
+      toast.success('Freight quote submitted successfully!');
       onSuccess?.(updated);
       onClose();
     } catch (err) {
       console.error('Failed to submit quote:', err);
-      setError('Failed to submit quote. Please try again.');
+      setError(err?.message || 'Failed to submit quote. Please try again.');
       setIsSubmitting(false);
     }
   };

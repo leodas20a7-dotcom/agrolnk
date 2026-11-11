@@ -303,7 +303,7 @@ export default function VerificationRequiredModal({
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Failed to submit verification:', err);
-      setErrorMessage('Failed to save submission. Please try again.');
+      setErrorMessage(err?.message || 'Failed to save submission. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

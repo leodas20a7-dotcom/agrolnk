@@ -218,7 +218,7 @@ export default function OrderSummary({
             }
           } catch (err) {
             console.error('Error settling order escrow deposit:', err);
-            toast.error('Payment captured, updating order failed. Please refresh.');
+            toast.error(err?.message || 'Payment captured, updating order failed. Please refresh.');
           } finally {
             setIsDepositing(false);
           }

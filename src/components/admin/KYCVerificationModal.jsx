@@ -17,6 +17,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { updateKYCStatus } from '../../utils/admin';
 import DocumentViewerModal from './DocumentViewerModal';
+import { toast } from '../../context/ToastContext';
 
 export default function KYCVerificationModal({
   user,
@@ -41,10 +42,12 @@ export default function KYCVerificationModal({
     try {
       const updated = await updateKYCStatus(user.id, newStatus, auditNotes, 'AgroLnk Admin (Govind)');
       setIsUpdating(false);
+      toast.success(`KYC status updated to ${newStatus.toUpperCase()}`);
       onStatusUpdated?.(updated);
       onClose();
     } catch (err) {
       console.error('Failed to update KYC status:', err);
+      toast.error(err?.message || 'Failed to update KYC status.');
       setIsUpdating(false);
     }
   };

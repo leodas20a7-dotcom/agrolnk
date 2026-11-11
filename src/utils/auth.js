@@ -741,8 +741,17 @@ export function getResolvedUserKycStatus(user) {
     }
   }
 
+  if (user.isVerified === true || user.is_verified === true) {
+    return 'verified';
+  }
+
   // Authoritative status directly from profile record (never trusts unverified local overrides)
-  const status = user.kycStatus || user.kyc_status || user.verificationStatus || 'pending';
+  const status =
+    user.kycStatus ||
+    user.kyc_status ||
+    user.verificationStatus ||
+    user.verification_status ||
+    'pending';
   return status;
 }
 
@@ -833,11 +842,17 @@ export async function syncAuthenticatedUserWithServer() {
 }
 
 export function isUserKycVerified(user) {
-
   if (!user) return false;
-
+  if (user.isVerified === true || user.is_verified === true) return true;
+  if (
+    user.kycStatus === 'verified' ||
+    user.kyc_status === 'verified' ||
+    user.verificationStatus === 'verified' ||
+    user.verification_status === 'verified'
+  ) {
+    return true;
+  }
   return getResolvedUserKycStatus(user) === 'verified';
-
 }
 
 
@@ -884,7 +899,7 @@ export async function fetchCurrentProfile() {
 
     if (profile && !error) {
 
-      const resolvedKyc = profile.kyc_status || kycStatus;
+      const resolvedKyc = profile.kyc_status || profile.verification_status || profile.kycStatus || profile.verificationStatus || kycStatus;
 
       const userObj = {
 

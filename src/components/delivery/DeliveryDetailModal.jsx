@@ -113,7 +113,7 @@ export default function DeliveryDetailModal({
       onClose();
     } catch (err) {
       console.error('Failed to decline quote:', err);
-      setErrorMessage('Failed to decline transport quote.');
+      setErrorMessage(err?.message || 'Failed to decline transport quote.');
       setIsUpdating(false);
     }
   };
@@ -136,7 +136,7 @@ export default function DeliveryDetailModal({
       onClose();
     } catch (err) {
       console.error('Failed to update delivery action:', err);
-      setErrorMessage('Failed to update status. Please try again.');
+      setErrorMessage(err?.message || 'Failed to update status. Please try again.');
       setIsUpdating(false);
     }
   };
@@ -154,7 +154,7 @@ export default function DeliveryDetailModal({
       onClose();
     } catch (err) {
       console.error('Failed to confirm receipt:', err);
-      setErrorMessage('Failed to confirm delivery receipt.');
+      setErrorMessage(err?.message || 'Failed to confirm delivery receipt.');
       setIsUpdating(false);
     }
   };

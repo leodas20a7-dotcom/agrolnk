@@ -26,7 +26,7 @@ import {
 import { createOrder } from '../../utils/orders';
 import { deductListingQuantity, getListingById, COMMODITY_IMAGES } from '../../utils/listings';
 import { getInspectionForOrder, subscribeToInspections } from '../../utils/inspection';
-import { getResolvedUserKycStatus } from '../../utils/auth';
+import { getResolvedUserKycStatus, isUserKycVerified } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import ProductMediaSlider from '../../components/ui/ProductMediaSlider';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
@@ -55,7 +55,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const [currentKycStatus, setCurrentKycStatus] = useState(() => 
     activeUser?.kycStatus || activeUser?.verificationStatus || getResolvedUserKycStatus(activeUser)
   );
-  const isVerified = currentKycStatus === 'verified' || activeUser?.kycStatus === 'verified' || activeUser?.verificationStatus === 'verified';
+  const isVerified = isUserKycVerified(activeUser) || currentKycStatus === 'verified' || activeUser?.kycStatus === 'verified' || activeUser?.verificationStatus === 'verified';
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   useEffect(() => {
