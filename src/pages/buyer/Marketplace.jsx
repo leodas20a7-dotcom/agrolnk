@@ -21,7 +21,9 @@ import {
   Lock,
   Clock,
   AlertCircle,
-  Gavel
+  Gavel,
+  X,
+  Check
 } from 'lucide-react';
 import { getActiveMarketplaceListings, getPlatformCommodities, fetchRemoteCommodities } from '../../utils/listings';
 import { getVarietiesForCommodity } from '../../data/commodityTaxonomy';
@@ -50,6 +52,62 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
   const isVerified = currentKycStatus === 'verified';
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+
+  // Mobile Filter Overlay State
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [tempFilters, setTempFilters] = useState({
+    commodity: 'All',
+    grade: 'All',
+    location: 'All',
+    sortBy: 'latest',
+    variety: 'All'
+  });
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedCommodity !== 'All') count++;
+    if (selectedVariety !== 'All') count++;
+    if (selectedGrade !== 'All') count++;
+    if (selectedLocation !== 'All') count++;
+    if (sortBy !== 'latest') count++;
+    return count;
+  }, [selectedCommodity, selectedVariety, selectedGrade, selectedLocation, sortBy]);
+
+  const openMobileFilters = () => {
+    setTempFilters({
+      commodity: selectedCommodity,
+      grade: selectedGrade,
+      location: selectedLocation,
+      sortBy: sortBy,
+      variety: selectedVariety
+    });
+    setIsMobileFilterOpen(true);
+  };
+
+  const handleSaveMobileFilters = () => {
+    setSelectedCommodity(tempFilters.commodity);
+    setSelectedGrade(tempFilters.grade);
+    setSelectedLocation(tempFilters.location);
+    setSortBy(tempFilters.sortBy);
+    setSelectedVariety(tempFilters.variety);
+    setIsMobileFilterOpen(false);
+  };
+
+  const handleResetMobileFilters = () => {
+    setTempFilters({
+      commodity: 'All',
+      grade: 'All',
+      location: 'All',
+      sortBy: 'latest',
+      variety: 'All'
+    });
+  };
+
+  const tempVarieties = useMemo(() => {
+    if (!tempFilters.commodity || tempFilters.commodity === 'All') return [];
+    const vars = getVarietiesForCommodity(tempFilters.commodity);
+    return ['All', ...vars];
+  }, [tempFilters.commodity]);
 
   useEffect(() => {
     const syncKyc = async () => {
@@ -207,8 +265,8 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
       <div className="space-y-8 text-left">
         
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
               type="button"
               onClick={() => onNavigate(dashboardTarget)}
@@ -234,7 +292,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
             onClick={() => onNavigate('buyer-orders')}
             icon={ShoppingBag}
             iconPosition="left"
-            className="text-xs font-bold shrink-0"
+            className="text-xs font-bold shrink-0 self-center"
           >
             My Orders
           </Button>
@@ -285,7 +343,80 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
         )}
 
         {/* Search & Filter Bar */}
-        <Card className="p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4">
+        <div className="space-y-3">
+          {/* Mobile Search & Filter Trigger (Only for mobile view) */}
+          <div className="block sm:hidden space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#566861]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search commodity, region..."
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-[#E5EDE8] bg-white text-sm text-[#14211D] placeholder:text-[#566861]/50 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all shadow-xs"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={openMobileFilters}
+                className={`h-[42px] px-3.5 rounded-xl border flex items-center gap-1.5 font-bold text-xs shrink-0 cursor-pointer transition-all shadow-xs ${
+                  activeFilterCount > 0
+                    ? 'bg-[#EBF5F0] border-[#10B981] text-[#0B3326]'
+                    : 'bg-white border-[#E5EDE8] text-[#566861] hover:bg-[#F8FAF8]'
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4 text-[#10B981]" />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-[#10B981] text-white text-[10px] font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Mobile Active Filter Badges */}
+            {activeFilterCount > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-1">
+                <span className="text-[11px] font-bold text-[#566861] shrink-0">Active:</span>
+                {selectedCommodity !== 'All' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326] text-[11px] font-semibold border border-[#A7F3D0] shrink-0">
+                    {selectedCommodity}
+                    <button type="button" onClick={() => { setSelectedCommodity('All'); setSelectedVariety('All'); }} className="hover:text-red-600 font-bold ml-0.5 cursor-pointer">×</button>
+                  </span>
+                )}
+                {selectedGrade !== 'All' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326] text-[11px] font-semibold border border-[#A7F3D0] shrink-0">
+                    Grade {selectedGrade}
+                    <button type="button" onClick={() => setSelectedGrade('All')} className="hover:text-red-600 font-bold ml-0.5 cursor-pointer">×</button>
+                  </span>
+                )}
+                {selectedLocation !== 'All' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326] text-[11px] font-semibold border border-[#A7F3D0] shrink-0">
+                    {selectedLocation}
+                    <button type="button" onClick={() => setSelectedLocation('All')} className="hover:text-red-600 font-bold ml-0.5 cursor-pointer">×</button>
+                  </span>
+                )}
+                {sortBy !== 'latest' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326] text-[11px] font-semibold border border-[#A7F3D0] shrink-0">
+                    {sortBy === 'price-low' ? 'Low-High' : 'High-Low'}
+                    <button type="button" onClick={() => setSortBy('latest')} className="hover:text-red-600 font-bold ml-0.5 cursor-pointer">×</button>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-[11px] text-[#10B981] font-semibold hover:underline shrink-0 ml-1 cursor-pointer"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Search & Filter Card (Shown on sm: and above, untouched) */}
+          <Card className="hidden sm:block p-5 bg-white border border-[#E5EDE8] shadow-xs space-y-4">
               
               {/* Main Search Input */}
               <div className="relative">
@@ -405,6 +536,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               )}
 
             </Card>
+        </div>
 
             {/* Results Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -514,6 +646,189 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
             )}
 
       </div>
+
+      {/* Mobile Filters Overlay Popup Modal */}
+      {isMobileFilterOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsMobileFilterOpen(false)}
+          />
+
+          <div
+            className="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-200 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                    Filter Produce Lots
+                  </h3>
+                  <p className="text-[11px] text-[#566861]">
+                    Refine results by commodity, grade, location, or sort order
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#F2FBF6] text-[#566861] hover:text-[#0B3326] hover:bg-[#E5EDE8] flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="Close filters"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter Body (Scrollable) */}
+            <div className="overflow-y-auto space-y-4 py-4 flex-1 pr-1 text-left">
+              {/* 1. Commodity Filter */}
+              <div>
+                <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
+                  Commodity
+                </label>
+                <SearchableSelect
+                  options={commodities.map((c) => ({
+                    value: c,
+                    label: c === 'All' ? 'All Commodities' : c,
+                  }))}
+                  value={tempFilters.commodity}
+                  onChange={(val) => {
+                    setTempFilters((prev) => ({
+                      ...prev,
+                      commodity: val,
+                      variety: 'All'
+                    }));
+                  }}
+                  placeholder="Commodity"
+                  searchPlaceholder="Search commodity..."
+                  buttonClassName="py-2.5 text-xs"
+                />
+              </div>
+
+              {/* 1.1 Contextual Variety Filter (if specific commodity chosen) */}
+              {tempFilters.commodity !== 'All' && tempVarieties.length > 1 && (
+                <div>
+                  <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
+                    Variety ({tempFilters.commodity})
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 border border-[#E5EDE8] rounded-xl bg-[#F8FAF8]">
+                    {tempVarieties.map((v) => {
+                      const isSel = tempFilters.variety === v;
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setTempFilters((prev) => ({ ...prev, variety: v }))}
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                            isSel
+                              ? 'bg-[#10B981] text-white shadow-xs'
+                              : 'bg-white text-[#0B3326] border border-[#E5EDE8]'
+                          }`}
+                        >
+                          {v === 'All' ? `All Varieties` : v}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Quality Grade Filter */}
+              <div>
+                <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
+                  Quality Grade
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {grades.map((g) => {
+                    const isSel = tempFilters.grade === g;
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setTempFilters((prev) => ({ ...prev, grade: g }))}
+                        className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center cursor-pointer border ${
+                          isSel
+                            ? 'bg-[#10B981] border-[#10B981] text-white shadow-xs'
+                            : 'bg-white border-[#E5EDE8] text-[#14211D] hover:bg-[#F8FAF8]'
+                        }`}
+                      >
+                        {g === 'All' ? 'All' : `Grade ${g}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Location Filter */}
+              <div>
+                <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
+                  Location / Region
+                </label>
+                <SearchableSelect
+                  options={locations.map((loc) => ({
+                    value: loc,
+                    label: loc === 'All' ? 'All Locations' : loc,
+                  }))}
+                  value={tempFilters.location}
+                  onChange={(val) => setTempFilters((prev) => ({ ...prev, location: val }))}
+                  placeholder="Location"
+                  searchPlaceholder="Search state..."
+                  buttonClassName="py-2.5 text-xs"
+                />
+              </div>
+
+              {/* 4. Sort By Filter */}
+              <div>
+                <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
+                  Sort By
+                </label>
+                <SearchableSelect
+                  options={[
+                    { value: 'latest', label: 'Newest Lots' },
+                    { value: 'price-low', label: 'Price: Low to High' },
+                    { value: 'price-high', label: 'Price: High to Low' },
+                  ]}
+                  value={tempFilters.sortBy}
+                  onChange={(val) => setTempFilters((prev) => ({ ...prev, sortBy: val }))}
+                  placeholder="Sort order"
+                  searchPlaceholder="Search order..."
+                  buttonClassName="py-2.5 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons Footer */}
+            <div className="pt-3 border-t border-[#E5EDE8] flex items-center gap-3">
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={handleResetMobileFilters}
+                icon={RotateCcw}
+                iconPosition="left"
+                className="text-xs font-bold text-[#566861]"
+              >
+                Reset
+              </Button>
+              <Button
+                variant="accent"
+                size="md"
+                onClick={handleSaveMobileFilters}
+                icon={Check}
+                iconPosition="left"
+                className="flex-1 text-xs font-bold justify-center"
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Verification Required Modal */}
       {isVerificationModalOpen && (
