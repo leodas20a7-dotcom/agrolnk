@@ -1139,52 +1139,6 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
               {/* Minimum Order Quantity (MOQ) Setup for Direct Sale */}
               {saleType === 'direct' && (
                 <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <label className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
-                        <Package className="w-3.5 h-3.5 text-[#10B981]" />
-                        <span>Minimum Order Quantity (MOQ) <span className="text-red-500">*</span></span>
-                      </label>
-                      <p className="text-[11px] text-[#566861] mt-0.5">
-                        Minimum quantity a buyer must purchase per order. Buyer pays 100% of transport freight.
-                      </p>
-                    </div>
-
-                    {/* Quick MOQ Percentage Presets */}
-                    {Number(formData.quantity) > 0 && (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {[
-                          { label: '10%', pct: 0.1 },
-                          { label: '25%', pct: 0.25 },
-                          { label: '50%', pct: 0.5 },
-                          { label: '100% (Full Lot)', pct: 1 },
-                        ].map((preset) => {
-                          const targetVal = Math.max(1, Math.round(Number(formData.quantity) * preset.pct));
-                          const isSelected = Number(formData.minOrderQuantity) === targetVal;
-                          return (
-                            <button
-                              key={preset.label}
-                              type="button"
-                              onClick={() =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  minOrderQuantity: String(targetVal),
-                                }))
-                              }
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                                isSelected
-                                  ? 'bg-[#0B3326] text-white border-[#0B3326] shadow-2xs'
-                                  : 'bg-white text-[#566861] border-[#CBD7D0] hover:border-[#10B981] hover:text-[#0B3326]'
-                              }`}
-                            >
-                              {preset.label} ({targetVal} {formData.unit})
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <div className="relative sm:w-64 shrink-0">
                       <input
