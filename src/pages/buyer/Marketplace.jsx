@@ -739,10 +739,10 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
                 </div>
               )}
 
-              {/* 2. Quality Grade Filter */}
+              {/* 2. Grade Filter (Short label for mobile) */}
               <div>
                 <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
-                  Quality Grade
+                  Grade
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   {grades.map((g) => {
@@ -765,41 +765,44 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
                 </div>
               </div>
 
-              {/* 3. Location Filter */}
-              <div>
-                <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
-                  Location / Region
-                </label>
-                <SearchableSelect
-                  options={locations.map((loc) => ({
-                    value: loc,
-                    label: loc === 'All' ? 'All Locations' : loc,
-                  }))}
-                  value={tempFilters.location}
-                  onChange={(val) => setTempFilters((prev) => ({ ...prev, location: val }))}
-                  placeholder="Location"
-                  searchPlaceholder="Search state..."
-                  buttonClassName="py-2.5 text-xs"
-                />
-              </div>
+              {/* 3 & 4. Split Row: Location & Sort By (Short labels for mobile) */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Location Filter */}
+                <div>
+                  <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
+                    Location
+                  </label>
+                  <SearchableSelect
+                    options={locations.map((loc) => ({
+                      value: loc,
+                      label: loc === 'All' ? 'All Locations' : loc,
+                    }))}
+                    value={tempFilters.location}
+                    onChange={(val) => setTempFilters((prev) => ({ ...prev, location: val }))}
+                    placeholder="Location"
+                    searchPlaceholder="Search location..."
+                    buttonClassName="py-2.5 text-xs truncate"
+                  />
+                </div>
 
-              {/* 4. Sort By Filter */}
-              <div>
-                <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
-                  Sort By
-                </label>
-                <SearchableSelect
-                  options={[
-                    { value: 'latest', label: 'Newest Lots' },
-                    { value: 'price-low', label: 'Price: Low to High' },
-                    { value: 'price-high', label: 'Price: High to Low' },
-                  ]}
-                  value={tempFilters.sortBy}
-                  onChange={(val) => setTempFilters((prev) => ({ ...prev, sortBy: val }))}
-                  placeholder="Sort order"
-                  searchPlaceholder="Search order..."
-                  buttonClassName="py-2.5 text-xs"
-                />
+                {/* Sort By Filter */}
+                <div>
+                  <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
+                    Sort By
+                  </label>
+                  <SearchableSelect
+                    options={[
+                      { value: 'latest', label: 'Newest Lots' },
+                      { value: 'price-low', label: 'Price: Low-High' },
+                      { value: 'price-high', label: 'Price: High-Low' },
+                    ]}
+                    value={tempFilters.sortBy}
+                    onChange={(val) => setTempFilters((prev) => ({ ...prev, sortBy: val }))}
+                    placeholder="Sort"
+                    searchPlaceholder="Search sort..."
+                    buttonClassName="py-2.5 text-xs truncate"
+                  />
+                </div>
               </div>
             </div>
 
