@@ -418,8 +418,8 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   <span className="font-bold text-[#14211D] text-sm">
                     {listing.farmerName || 'Verified Producer'}
                   </span>
-                  <Badge variant="emerald" size="sm">
-                    Verified Farmer
+                  <Badge variant="emerald" size="sm" className="whitespace-nowrap shrink-0">
+                    Verified
                   </Badge>
                 </div>
                 <p className="text-[11px] text-[#566861]">
