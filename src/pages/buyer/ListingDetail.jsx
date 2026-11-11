@@ -414,19 +414,10 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   </div>
                 </div>
                 <div className="pt-2 border-t border-[#14624A]/60 flex items-center justify-between text-[11px] text-[#DCFCE7]/80">
-                  <span>Full Lot Crop Value: ₹{estimatedTotal.toLocaleString('en-IN')}</span>
-                  <div className="relative group inline-flex items-center gap-1 cursor-pointer">
-                    <span className="text-[#34D399] font-semibold">+ Live Freight Quote</span>
-                    <Info className="w-3.5 h-3.5 text-[#34D399]/90 group-hover:text-white transition-colors" />
-                    {/* Hover Info Tooltip */}
-                    <div className="pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 transition-all duration-200 absolute right-0 bottom-full mb-2 w-64 p-2.5 rounded-xl bg-[#07241A] border border-[#14624A] text-[11px] text-[#DCFCE7] shadow-xl z-30 leading-snug">
-                      <div className="font-bold text-white mb-0.5 flex items-center gap-1.5">
-                        <Truck className="w-3.5 h-3.5 text-[#34D399]" /> Competitive Freight RFQ
-                      </div>
-                      Carrier bids open immediately upon lot reservation. AgroLnk automatically locks the lowest verified transporter quote for you within 30 minutes.
-                      <div className="w-2 h-2 bg-[#07241A] border-r border-b border-[#14624A] transform rotate-45 absolute right-3 -bottom-1"></div>
-                    </div>
-                  </div>
+                  <span>Full Lot Crop Value</span>
+                  <span className="font-bold text-white text-xs">
+                    ₹{estimatedTotal.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
 
