@@ -807,10 +807,10 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
             </div>
 
             {/* Action Buttons Footer */}
-            <div className="pt-3 border-t border-[#E5EDE8] flex items-center gap-3">
+            <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-3">
               <Button
                 variant="secondary"
-                size="md"
+                size="sm"
                 onClick={handleResetMobileFilters}
                 icon={RotateCcw}
                 iconPosition="left"
@@ -820,11 +820,11 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               </Button>
               <Button
                 variant="accent"
-                size="md"
+                size="sm"
                 onClick={handleSaveMobileFilters}
                 icon={Check}
                 iconPosition="left"
-                className="flex-1 text-xs font-bold justify-center"
+                className="text-xs font-bold px-6 py-2"
               >
                 Save
               </Button>
