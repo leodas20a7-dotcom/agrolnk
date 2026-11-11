@@ -51,13 +51,17 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
     return null;
   });
 
-  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
-  const isVerified = currentKycStatus === 'verified';
+  const activeUser = currentUser || user;
+  const [currentKycStatus, setCurrentKycStatus] = useState(() => 
+    activeUser?.kycStatus || activeUser?.verificationStatus || getResolvedUserKycStatus(activeUser)
+  );
+  const isVerified = currentKycStatus === 'verified' || activeUser?.kycStatus === 'verified' || activeUser?.verificationStatus === 'verified';
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   useEffect(() => {
     const syncKyc = () => {
-      setCurrentKycStatus(getResolvedUserKycStatus(user));
+      const u = currentUser || user;
+      setCurrentKycStatus(u?.kycStatus || u?.verificationStatus || getResolvedUserKycStatus(u));
     };
     syncKyc();
     window.addEventListener('agrolnk_kyc_updated', syncKyc);
@@ -66,7 +70,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
       window.removeEventListener('agrolnk_kyc_updated', syncKyc);
       window.removeEventListener('storage', syncKyc);
     };
-  }, [user.id, user.email]);
+  }, [user.id, user.email, currentUser]);
 
   // Sync navState.listing whenever it changes
   useEffect(() => {
@@ -103,10 +107,6 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const estimatedTotal = Number(listing?.quantity || 0) * Number(listing?.price || 0);
 
   const handleOpenInspectionPayment = () => {
-    if (!isVerified) {
-      setIsVerificationModalOpen(true);
-      return;
-    }
     setAutoTriggerInspectionPayment(true);
     setIsInspectionOpen(true);
   };
@@ -478,9 +478,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   variant="secondary"
                   size="sm"
                   onClick={() => {
-                    if (!isVerified) {
-                      setIsVerificationModalOpen(true);
-                    } else if (existingInspection?.status === 'passed' && existingInspection?.feeStatus !== 'paid') {
+                    if (existingInspection?.status === 'passed' && existingInspection?.feeStatus !== 'paid') {
                       handleOpenInspectionPayment();
                     } else {
                       setAutoTriggerInspectionPayment(false);

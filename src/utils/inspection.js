@@ -44,7 +44,7 @@ function mapInspectionToDb(item) {
     report_number: item.reportNumber,
     order_id: null, // Avoid FK constraint on unplaced pre-buy orders
     order_number: item.orderNumber || item.orderId || 'ORD-UNKNOWN',
-    buyer_id: null, // Avoid FK constraint if user profile is custom/demo
+    buyer_id: item.buyerId || null,
     buyer_name: item.buyerName || 'Procurement Buyer',
     seller_name: item.sellerName || 'Verified Producer',
     commodity: item.commodity || item.cropName || 'Produce',

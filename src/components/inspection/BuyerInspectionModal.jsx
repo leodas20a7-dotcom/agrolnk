@@ -19,6 +19,8 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { getInspectionForOrder, requestQualityInspection, payInspectionFee } from '../../utils/inspection';
 import { initiateRazorpayInspectionFeeCheckout } from '../../utils/razorpayRouteClient';
+import { toast } from '../../context/ToastContext';
+import { getCurrentUser } from '../../utils/auth';
 
 export default function BuyerInspectionModal({
   order,
@@ -31,7 +33,7 @@ export default function BuyerInspectionModal({
   onSuccess,
   onProceedToBuy,
 }) {
-  const activeBuyer = buyerUser || currentUser;
+  const activeBuyer = buyerUser || currentUser || getCurrentUser();
   const [inspection, setInspection] = useState(initialInspection);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,9 +78,11 @@ export default function BuyerInspectionModal({
         orderAmount: estAmount,
       });
       setInspection(created);
+      toast.success('Pre-buy quality check requested! Admin has been notified to dispatch an assayer.');
       if (onSuccess) onSuccess(created);
     } catch (err) {
       console.error('Failed to request inspection:', err);
+      toast.error('Unable to submit inspection request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
