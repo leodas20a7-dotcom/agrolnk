@@ -19,8 +19,8 @@ import { COMMODITY_IMAGES } from '../../utils/listings';
 /**
  * ProductMediaSlider
  * 
- * Interactive, high-performance auto-playing carousel with 5-second transitions,
- * touch swipe, video handling, and lightbox for the record's authentic media.
+ * Interactive, high-performance auto-playing carousel with reliable 5-second transitions,
+ * touch swipe, video handling, and fullscreen lightbox for the record's authentic media.
  */
 export default function ProductMediaSlider({
   media = [],
@@ -38,7 +38,6 @@ export default function ProductMediaSlider({
   const items = rawList.length > 0 ? rawList : [fallback];
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [progressPercent, setProgressPercent] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isAutoPlayPausedByUser, setIsAutoPlayPausedByUser] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -54,9 +53,19 @@ export default function ProductMediaSlider({
   useEffect(() => {
     if (currentIndex >= items.length) {
       setCurrentIndex(0);
-      setProgressPercent(0);
     }
   }, [items.length, currentIndex]);
+
+  // Pause background videos when active slide changes
+  useEffect(() => {
+    Object.keys(videoRefs.current).forEach((key) => {
+      const vid = videoRefs.current[key];
+      if (vid && Number(key) !== currentIndex && !vid.paused) {
+        vid.pause();
+      }
+    });
+    setIsPlaying(false);
+  }, [currentIndex]);
 
   // Active media item
   const activeUrl = items[currentIndex] || fallback;
@@ -66,44 +75,29 @@ export default function ProductMediaSlider({
   const handlePrev = (e) => {
     e?.stopPropagation();
     setCurrentIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1));
-    setProgressPercent(0);
-    setIsPlaying(false);
   };
 
   const handleNext = (e) => {
     e?.stopPropagation();
     setCurrentIndex((prev) => (prev === items.length - 1 ? 0 : prev + 1));
-    setProgressPercent(0);
-    setIsPlaying(false);
   };
 
   const handleSelectIndex = (idx) => {
     setCurrentIndex(idx);
-    setProgressPercent(0);
-    setIsPlaying(false);
   };
 
-  // Auto-play timer: advances every 5 seconds when record has multiple authentic media items
+  // Rock-solid 5-second interval timer that reliably advances through ALL media items
   useEffect(() => {
     if (!autoPlay || items.length <= 1 || isHovered || isPlaying || isLightboxOpen || isAutoPlayPausedByUser) {
       return;
     }
 
-    const stepMs = 50;
-    const increment = (stepMs / autoPlayInterval) * 100;
-
     const timer = setInterval(() => {
-      setProgressPercent((prev) => {
-        if (prev >= 100) {
-          setCurrentIndex((curr) => (curr + 1) % items.length);
-          return 0;
-        }
-        return prev + increment;
-      });
-    }, stepMs);
+      setCurrentIndex((prev) => (prev + 1) % items.length);
+    }, autoPlayInterval);
 
     return () => clearInterval(timer);
-  }, [autoPlay, items.length, isHovered, isPlaying, isLightboxOpen, isAutoPlayPausedByUser, autoPlayInterval]);
+  }, [autoPlay, items.length, isHovered, isPlaying, isLightboxOpen, isAutoPlayPausedByUser, autoPlayInterval, currentIndex]);
 
   // Smooth scroll thumbnail into view when slide changes
   useEffect(() => {
@@ -163,6 +157,13 @@ export default function ProductMediaSlider({
 
   return (
     <div className={`space-y-3 ${className}`}>
+      {/* Dynamic CSS Keyframe for smooth progress animation */}
+      <style>{`
+        @keyframes agrolnkProgressFill {
+          0% { width: 0%; }
+          100% { width: 100%; }
+        }
+      `}</style>
       
       {/* Main Viewport Container */}
       <div
@@ -178,11 +179,12 @@ export default function ProductMediaSlider({
           <div className="absolute top-2.5 left-4 right-4 z-30 flex items-center gap-1.5 pointer-events-none">
             {items.map((_, idx) => (
               <div
-                key={`progress-${idx}`}
+                key={`progress-track-${idx}`}
                 className="flex-1 h-1 rounded-full bg-white/25 backdrop-blur-xs overflow-hidden"
               >
                 <div
-                  className={`h-full rounded-full transition-all duration-75 ease-linear ${
+                  key={`progress-fill-${idx}-${currentIndex}-${isHovered}-${isAutoPlayPausedByUser}-${isPlaying}`}
+                  className={`h-full rounded-full ${
                     idx < currentIndex
                       ? 'w-full bg-white'
                       : idx === currentIndex
@@ -190,7 +192,12 @@ export default function ProductMediaSlider({
                       : 'w-0'
                   }`}
                   style={{
-                    width: idx < currentIndex ? '100%' : idx === currentIndex ? `${progressPercent}%` : '0%',
+                    width: idx < currentIndex ? '100%' : '0%',
+                    animation:
+                      idx === currentIndex && !isHovered && !isPlaying && !isAutoPlayPausedByUser && !isLightboxOpen
+                        ? `agrolnkProgressFill ${autoPlayInterval}ms linear forwards`
+                        : 'none',
+                    animationPlayState: isHovered || isPlaying ? 'paused' : 'running',
                   }}
                 />
               </div>
@@ -206,7 +213,7 @@ export default function ProductMediaSlider({
           return (
             <div
               key={`${url}-${idx}`}
-              className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
+              className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
                 isItemActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
               }`}
             >
@@ -224,6 +231,10 @@ export default function ProductMediaSlider({
                     muted={isMuted}
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
+                    onEnded={() => {
+                      setIsPlaying(false);
+                      handleNext();
+                    }}
                   />
 
                   {/* Centered Play Button when paused */}
@@ -258,7 +269,7 @@ export default function ProductMediaSlider({
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = fallback;
                   }}
-                  className={`w-full h-full object-cover transition-transform duration-1000 ease-out ${
+                  className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
                     isItemActive ? 'scale-100' : 'scale-105'
                   }`}
                 />
