@@ -109,6 +109,17 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
     return ['All', ...vars];
   }, [tempFilters.commodity]);
 
+  // Lock body scroll while mobile filter overlay is active
+  useEffect(() => {
+    if (isMobileFilterOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isMobileFilterOpen]);
+
   useEffect(() => {
     const syncKyc = async () => {
       const status = getResolvedUserKycStatus(user);
@@ -354,8 +365,18 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search commodity, region..."
-                  className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-[#E5EDE8] bg-white text-sm text-[#14211D] placeholder:text-[#566861]/50 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all shadow-xs"
+                  className="w-full pl-10 pr-8 py-2.5 rounded-xl border border-[#E5EDE8] bg-white text-sm text-[#14211D] placeholder:text-[#566861]/50 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all shadow-xs"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#566861] hover:text-[#0B3326] p-1 cursor-pointer"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -685,8 +706,8 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
               </button>
             </div>
 
-            {/* Filter Body (Scrollable) */}
-            <div className="overflow-y-auto space-y-4 py-4 flex-1 pr-1 text-left">
+            {/* Filter Body (Scrollable with bottom padding for dropdown menus) */}
+            <div className="overflow-y-auto space-y-4 pt-4 pb-28 flex-1 pr-1 text-left">
               {/* 1. Commodity Filter */}
               <div>
                 <label className="block text-xs font-bold text-[#0B3326] mb-1.5">
