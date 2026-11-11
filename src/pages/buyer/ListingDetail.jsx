@@ -478,7 +478,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   className="w-full justify-center py-2 text-xs font-bold border-amber-200 text-amber-950 hover:bg-amber-100/60 cursor-pointer"
                 >
                   {!existingInspection
-                    ? 'Request Quality Check Before Buy'
+                    ? 'Request Quality Check'
                     : existingInspection.status === 'requested'
                     ? 'View Inspector Status'
                     : existingInspection.feeStatus === 'paid'
