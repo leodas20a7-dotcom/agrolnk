@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,25 +10,75 @@ import {
   VolumeX,
   Film,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Sparkles,
+  Eye
 } from 'lucide-react';
 import Badge from './Badge';
 import { isVideoUrl } from '../../utils/imageUpload';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 
+// High-definition complementary views for wholesale commodities (Bulk Batch, Mandi Stacks, Moisture/Assay)
+const COMPLEMENTARY_COMMODITY_ANGLES = {
+  'Green Gram': [
+    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80', // Bulk pulse lot in warehouse
+    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80', // Clean sorted grain assay
+  ],
+  Moong: [
+    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+  ],
+  Maize: [
+    'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=800&auto=format&fit=crop&q=80', // Golden corn harvest batch
+    'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800&auto=format&fit=crop&q=80', // Bulk grain stack
+  ],
+  Tomato: [
+    'https://images.unsplash.com/photo-1546470427-0d4db154ceb7?w=800&auto=format&fit=crop&q=80', // Farm harvest crates
+    'https://images.unsplash.com/photo-1561136594-7f68413baa99?w=800&auto=format&fit=crop&q=80', // Sorted quality inspection
+  ],
+  Onion: [
+    'https://images.unsplash.com/photo-1508747703725-719777637510?w=800&auto=format&fit=crop&q=80', // Mandi bagged sacks
+    'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&auto=format&fit=crop&q=80', // Cured dry bulb grade
+  ],
+  Potato: [
+    'https://images.unsplash.com/photo-1590165482129-1b8b27698780?w=800&auto=format&fit=crop&q=80', // Sorting & grading
+    'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&auto=format&fit=crop&q=80', // Clean tubers
+  ],
+  Wheat: [
+    'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&auto=format&fit=crop&q=80', // Farmgate field harvest
+    'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80', // Moisture tested grain
+  ],
+  Rice: [
+    'https://images.unsplash.com/photo-1536304929831-ee1ca9d44906?w=800&auto=format&fit=crop&q=80', // Paddy bagging
+    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80', // Milled premium rice
+  ],
+  Soybean: [
+    'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1599420186946-7b6fb4e53799?w=800&auto=format&fit=crop&q=80',
+  ],
+  Cotton: [
+    'https://images.unsplash.com/photo-1606041008023-472dfb5e530f?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1594897030560-ab279cf66def?w=800&auto=format&fit=crop&q=80',
+  ],
+  Chilli: [
+    'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=800&auto=format&fit=crop&q=80',
+  ],
+};
+
+function getComplementaryAngles(commodity, primaryUrl) {
+  const angles = COMPLEMENTARY_COMMODITY_ANGLES[commodity] || [
+    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80',
+  ];
+  return angles.filter(url => url !== primaryUrl);
+}
+
 /**
  * ProductMediaSlider
  * 
- * An interactive, touch-friendly, high-performance carousel/slider for viewing
- * up to 8 produce photos and harvest video clips after listing creation.
- * 
- * @param {Object} props
- * @param {string[]} [props.media=[]] - Array of image/video URLs
- * @param {string} [props.commodity=''] - Commodity name for fallback
- * @param {React.ReactNode} [props.overlayBadges] - Custom badges displayed at top-left
- * @param {React.ReactNode} [props.bottomOverlay] - Custom elements displayed at bottom
- * @param {string} [props.className='']
- * @param {string} [props.aspectClassName='h-72 sm:h-96']
+ * Interactive, high-performance auto-playing carousel with 5-second transitions,
+ * story-style progress bars, touch swipe, video handling, and lightbox.
  */
 export default function ProductMediaSlider({
   media = [],
@@ -37,17 +87,30 @@ export default function ProductMediaSlider({
   bottomOverlay,
   className = '',
   aspectClassName = 'h-72 sm:h-96',
+  autoPlay = true,
+  autoPlayInterval = 5000,
 }) {
-  // Normalize media items: ensure at least one fallback item if empty
   const fallback = COMMODITY_IMAGES[commodity] || COMMODITY_IMAGES.Other || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
   const rawList = Array.isArray(media) && media.length > 0 ? media.filter(Boolean) : [fallback];
-  const items = rawList.length > 0 ? rawList : [fallback];
+
+  // If the listing only provided 1 single photo, enrich with complementary inspection angles so the 5s auto-slider has diverse perspectives
+  const items = useMemo(() => {
+    if (rawList.length > 1) return rawList;
+    const single = rawList[0] || fallback;
+    const extras = getComplementaryAngles(commodity, single);
+    return [single, ...extras];
+  }, [rawList, commodity, fallback]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isAutoPlayPausedByUser, setIsAutoPlayPausedByUser] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const videoRef = useRef(null);
+
+  const videoRefs = useRef({});
+  const thumbRefs = useRef([]);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
@@ -55,23 +118,67 @@ export default function ProductMediaSlider({
   useEffect(() => {
     if (currentIndex >= items.length) {
       setCurrentIndex(0);
+      setProgressPercent(0);
     }
   }, [items.length, currentIndex]);
 
+  // Active media item
   const activeUrl = items[currentIndex] || fallback;
   const isCurrentVideo = isVideoUrl(activeUrl);
 
+  // Navigation handlers
   const handlePrev = (e) => {
     e?.stopPropagation();
     setCurrentIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1));
+    setProgressPercent(0);
     setIsPlaying(false);
   };
 
   const handleNext = (e) => {
     e?.stopPropagation();
     setCurrentIndex((prev) => (prev === items.length - 1 ? 0 : prev + 1));
+    setProgressPercent(0);
     setIsPlaying(false);
   };
+
+  const handleSelectIndex = (idx) => {
+    setCurrentIndex(idx);
+    setProgressPercent(0);
+    setIsPlaying(false);
+  };
+
+  // Auto-play timer: advances every 5 seconds (5000ms), paused on hover, video playing, or lightbox
+  useEffect(() => {
+    if (!autoPlay || items.length <= 1 || isHovered || isPlaying || isLightboxOpen || isAutoPlayPausedByUser) {
+      return;
+    }
+
+    const stepMs = 50;
+    const increment = (stepMs / autoPlayInterval) * 100;
+
+    const timer = setInterval(() => {
+      setProgressPercent((prev) => {
+        if (prev >= 100) {
+          setCurrentIndex((curr) => (curr + 1) % items.length);
+          return 0;
+        }
+        return prev + increment;
+      });
+    }, stepMs);
+
+    return () => clearInterval(timer);
+  }, [autoPlay, items.length, isHovered, isPlaying, isLightboxOpen, isAutoPlayPausedByUser, autoPlayInterval]);
+
+  // Smooth scroll thumbnail into view when slide changes
+  useEffect(() => {
+    if (thumbRefs.current[currentIndex]) {
+      thumbRefs.current[currentIndex].scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [currentIndex]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -105,16 +212,25 @@ export default function ProductMediaSlider({
     touchEndX.current = 0;
   };
 
-  const toggleVideoPlayback = (e) => {
+  const toggleVideoPlayback = (e, index) => {
     e.stopPropagation();
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play();
+    const vid = videoRefs.current[index];
+    if (!vid) return;
+    if (vid.paused) {
+      vid.play();
       setIsPlaying(true);
     } else {
-      videoRef.current.pause();
+      vid.pause();
       setIsPlaying(false);
     }
+  };
+
+  const getMediaLabel = (idx, isVid) => {
+    if (isVid) return 'Video Clip';
+    if (idx === 0) return 'Primary Lot';
+    if (idx === 1) return 'Batch & Stacks';
+    if (idx === 2) return 'Assay Sample';
+    return `View ${idx + 1}`;
   };
 
   return (
@@ -126,74 +242,145 @@ export default function ProductMediaSlider({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Active Media Renderer */}
-        {isCurrentVideo ? (
-          <div
-            className="w-full h-full relative flex items-center justify-center cursor-pointer bg-black"
-            onClick={toggleVideoPlayback}
-          >
-            <video
-              ref={videoRef}
-              src={activeUrl}
-              className="w-full h-full object-contain"
-              playsInline
-              loop
-              muted={isMuted}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            />
-
-            {/* Centered Play Button when paused */}
-            {!isPlaying && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity">
-                <div className="w-14 h-14 rounded-full bg-[#10B981] text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110">
-                  <Play className="w-7 h-7 fill-white ml-1" />
-                </div>
-              </div>
-            )}
-
-            {/* Video Controls Overlay */}
-            <div
-              className="absolute bottom-16 right-4 flex items-center gap-2 z-20"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => setIsMuted((prev) => !prev)}
-                className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
-                title={isMuted ? 'Unmute' : 'Mute'}
+        {/* Story-style Progress Bars (visible when items > 1) */}
+        {items.length > 1 && (
+          <div className="absolute top-2.5 left-4 right-4 z-30 flex items-center gap-1.5 pointer-events-none">
+            {items.map((_, idx) => (
+              <div
+                key={`progress-${idx}`}
+                className="flex-1 h-1 rounded-full bg-white/25 backdrop-blur-xs overflow-hidden"
               >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-            </div>
+                <div
+                  className={`h-full rounded-full transition-all duration-75 ease-linear ${
+                    idx < currentIndex
+                      ? 'w-full bg-white'
+                      : idx === currentIndex
+                      ? 'bg-[#34D399]'
+                      : 'w-0'
+                  }`}
+                  style={{
+                    width: idx < currentIndex ? '100%' : idx === currentIndex ? `${progressPercent}%` : '0%',
+                  }}
+                />
+              </div>
+            ))}
           </div>
-        ) : (
-          <img
-            src={activeUrl}
-            alt={`${commodity || 'Produce'} view ${currentIndex + 1}`}
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = fallback;
-            }}
-            className="w-full h-full object-cover transition-all duration-300"
-          />
         )}
+
+        {/* Media Cross-fade Slides */}
+        {items.map((url, idx) => {
+          const isItemActive = idx === currentIndex;
+          const isVid = isVideoUrl(url);
+
+          return (
+            <div
+              key={`${url}-${idx}`}
+              className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
+                isItemActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+              }`}
+            >
+              {isVid ? (
+                <div
+                  className="w-full h-full relative flex items-center justify-center cursor-pointer bg-black"
+                  onClick={(e) => toggleVideoPlayback(e, idx)}
+                >
+                  <video
+                    ref={(el) => (videoRefs.current[idx] = el)}
+                    src={url}
+                    className="w-full h-full object-contain"
+                    playsInline
+                    loop
+                    muted={isMuted}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                  />
+
+                  {/* Centered Play Button when paused */}
+                  {!isPlaying && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity">
+                      <div className="w-14 h-14 rounded-full bg-[#10B981] text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110">
+                        <Play className="w-7 h-7 fill-white ml-1" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Video Mute / Audio Control */}
+                  <div
+                    className="absolute bottom-16 right-4 flex items-center gap-2 z-20"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setIsMuted((prev) => !prev)}
+                      className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer shadow-xs"
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={url}
+                  alt={`${commodity || 'Produce'} view ${idx + 1}`}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = fallback;
+                  }}
+                  className={`w-full h-full object-cover transition-transform duration-1000 ease-out ${
+                    isItemActive ? 'scale-100' : 'scale-105'
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
 
         {/* Top Floating Badges */}
         {overlayBadges && (
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2 flex-wrap">
+          <div className="absolute top-5 left-4 z-20 flex items-center gap-2 flex-wrap">
             {overlayBadges}
           </div>
         )}
 
-        {/* Top-Right Counter & Lightbox Button */}
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        {/* Top-Right Micro Controls: Auto-Play Indicator, Counter & Lightbox */}
+        <div className="absolute top-5 right-4 z-20 flex items-center gap-1.5">
           {items.length > 1 && (
-            <div className="px-2.5 py-1 rounded-full bg-black/60 text-white text-xs font-bold backdrop-blur-xs shadow-xs">
-              {currentIndex + 1} / {items.length}
-            </div>
+            <>
+              {/* Play / Pause Rotation Micro Toggle */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsAutoPlayPausedByUser((prev) => !prev);
+                }}
+                title={isAutoPlayPausedByUser ? 'Resume Auto-Slide (5s)' : 'Pause Auto-Slide'}
+                className="px-2 py-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-[11px] font-semibold backdrop-blur-xs shadow-xs flex items-center gap-1 transition-all cursor-pointer"
+              >
+                {isAutoPlayPausedByUser ? (
+                  <>
+                    <Play className="w-3 h-3 fill-white" />
+                    <span className="hidden sm:inline">Play</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
+                    <span className="hidden sm:inline">5s</span>
+                  </>
+                )}
+              </button>
+
+              {/* Counter Badge */}
+              <div className="px-2.5 py-1 rounded-full bg-black/60 text-white text-xs font-bold backdrop-blur-xs shadow-xs">
+                {currentIndex + 1} / {items.length}
+              </div>
+            </>
           )}
+
+          {/* Fullscreen Expand */}
           <button
             type="button"
             onClick={(e) => {
@@ -207,7 +394,7 @@ export default function ProductMediaSlider({
           </button>
         </div>
 
-        {/* Previous & Next Arrow Controls (Visible when media > 1) */}
+        {/* Left & Right Arrow Controls */}
         {items.length > 1 && (
           <>
             <button
@@ -230,7 +417,7 @@ export default function ProductMediaSlider({
           </>
         )}
 
-        {/* Custom Bottom Overlay (e.g. Escrow Banner) */}
+        {/* Custom Bottom Overlay (e.g. Escrow Secured Agreement) */}
         {bottomOverlay && (
           <div className="absolute bottom-4 left-4 right-4 z-20">
             {bottomOverlay}
@@ -238,24 +425,23 @@ export default function ProductMediaSlider({
         )}
       </div>
 
-      {/* Horizontal Thumbnail Strip (If > 1 items) */}
+      {/* Horizontal Thumbnail Strip with Perspective Micro-Labels */}
       {items.length > 1 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
+        <div className="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
           {items.map((url, idx) => {
             const isVid = isVideoUrl(url);
             const isSelected = idx === currentIndex;
+            const label = getMediaLabel(idx, isVid);
 
             return (
               <button
                 key={`${url}-${idx}`}
+                ref={(el) => (thumbRefs.current[idx] = el)}
                 type="button"
-                onClick={() => {
-                  setCurrentIndex(idx);
-                  setIsPlaying(false);
-                }}
-                className={`relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all cursor-pointer bg-[#0B3326]/5 ${
+                onClick={() => handleSelectIndex(idx)}
+                className={`group/thumb relative shrink-0 w-20 h-20 sm:w-24 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all cursor-pointer bg-[#0B3326]/5 text-left ${
                   isSelected
-                    ? 'border-[#10B981] ring-2 ring-[#10B981]/25 scale-105'
+                    ? 'border-[#10B981] ring-2 ring-[#10B981]/30 scale-102 shadow-sm'
                     : 'border-[#E5EDE8] opacity-70 hover:opacity-100 hover:border-[#10B981]/50'
                 }`}
               >
@@ -268,8 +454,8 @@ export default function ProductMediaSlider({
                       muted
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center">
-                        <Play className="w-2.5 h-2.5 fill-white ml-0.5" />
+                      <div className="w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center">
+                        <Play className="w-3 h-3 fill-white ml-0.5" />
                       </div>
                     </div>
                   </div>
@@ -281,20 +467,22 @@ export default function ProductMediaSlider({
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = fallback;
                     }}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
                   />
                 )}
 
-                {/* Badge for Video vs Photo */}
-                <div className="absolute bottom-1 right-1">
-                  {isVid ? (
-                    <Film className="w-3 h-3 text-white drop-shadow-md" />
-                  ) : idx === 0 ? (
-                    <span className="text-[8px] font-bold px-1 py-0.2 rounded-xs bg-[#10B981] text-white">
-                      Cover
-                    </span>
-                  ) : null}
+                {/* Micro-Label Pill at bottom of thumbnail */}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-1 pt-2 flex items-center justify-between">
+                  <span className="text-[9px] font-semibold text-white/95 truncate">
+                    {label}
+                  </span>
+                  {isVid && <Film className="w-2.5 h-2.5 text-[#34D399] shrink-0" />}
                 </div>
+
+                {/* Active Indicator Top Dot */}
+                {isSelected && (
+                  <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#10B981] ring-1 ring-white" />
+                )}
               </button>
             );
           })}
@@ -311,7 +499,7 @@ export default function ProductMediaSlider({
           <div className="flex items-center justify-between text-white pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm sm:text-base">
-                {commodity} — Media {currentIndex + 1} of {items.length}
+                {commodity} &bull; Media {currentIndex + 1} of {items.length} ({getMediaLabel(currentIndex, isCurrentVideo)})
               </span>
               {isCurrentVideo && (
                 <Badge variant="accent" size="sm">Video Clip</Badge>
@@ -377,7 +565,7 @@ export default function ProductMediaSlider({
                 <button
                   key={`lb-${url}-${idx}`}
                   type="button"
-                  onClick={() => setCurrentIndex(idx)}
+                  onClick={() => handleSelectIndex(idx)}
                   className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
                     idx === currentIndex
                       ? 'border-[#10B981] scale-110 ring-2 ring-[#10B981]/50'
