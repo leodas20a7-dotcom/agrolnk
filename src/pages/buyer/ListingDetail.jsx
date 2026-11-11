@@ -314,18 +314,6 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                     {existingInspection?.inspectorName ? 'Assayer Certified ✓' : 'Farmer Self-Declared'}
                   </span>
                 </div>
-
-                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                  <span className="text-[#566861] block text-[11px]">Pre-Dispatch Assay</span>
-                  <span className="font-bold text-[#10B981] text-sm">
-                    {existingInspection?.inspectorName ? 'Report Available ✓' : 'Available on Request'}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8]">
-                  <span className="text-[#566861] block text-[11px]">Dispatch Readiness</span>
-                  <span className="font-bold text-[#0B3326] text-sm">Immediate (T+0)</span>
-                </div>
               </div>
             </Card>
 
