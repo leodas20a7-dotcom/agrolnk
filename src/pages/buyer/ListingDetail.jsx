@@ -619,7 +619,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div>
                           <Button
                             variant="accent"
                             size="lg"
@@ -628,47 +628,13 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                             iconPosition="left"
                             className="w-full justify-center py-3.5 font-bold text-base shadow-sm cursor-pointer"
                           >
-                            Buy Now • Get 30-Min Freight Quote
+                            Buy Now
                           </Button>
-
-                          {/* Sleek Minimal Info Trigger (Idea 1) */}
-                          <div className="flex justify-center pt-0.5">
-                            <div className="relative group inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2FBF6] border border-[#10B981]/25 hover:border-[#10B981] text-[11px] text-[#0B3326] cursor-pointer transition-all shadow-2xs">
-                              <Clock className="w-3.5 h-3.5 text-[#10B981]" />
-                              <span className="font-semibold">30-min live freight bidding</span>
-                              <Info className="w-3.5 h-3.5 text-[#566861] group-hover:text-[#10B981] transition-colors" />
-
-                              {/* Floating Info Tooltip */}
-                              <div className="pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 transition-all duration-200 absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 rounded-2xl bg-white border border-[#E5EDE8] text-[11px] text-[#566861] shadow-xl z-30 leading-relaxed text-left">
-                                <div className="font-bold text-[#0B3326] mb-1 flex items-center gap-1.5 text-xs">
-                                  <Truck className="w-3.5 h-3.5 text-[#10B981]" /> How Freight Bidding Works
-                                </div>
-                                Reserve your lot (MOQ ≥ {Number(listing.effectiveMinOrderQuantity || listing.minOrderQuantity || 1)} {listing.unit}) to broadcast a 30-minute live RFQ to verified carriers. AgroLnk selects the lowest quote and allows you to pay Crop + Freight together in Escrow.
-                                <div className="w-2.5 h-2.5 bg-white border-r border-b border-[#E5EDE8] transform rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1.5"></div>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       )}
                     </div>
                   )
                 )}
-              </div>
-
-              {/* Trust Guarantees */}
-              <div className="space-y-2 pt-2 border-t border-[#E5EDE8] text-xs text-[#566861]">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                  <span>100% Combined Crop + Freight Escrow protection</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                  <span>30-Minute Competitive Transporter Bidding (Admin Fail-Safe)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                  <span>100% Buyer & Seller address privacy protected</span>
-                </div>
               </div>
 
             </Card>
