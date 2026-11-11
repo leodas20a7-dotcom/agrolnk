@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,75 +10,17 @@ import {
   VolumeX,
   Film,
   Camera,
-  Image as ImageIcon,
-  Sparkles,
-  Eye
+  Image as ImageIcon
 } from 'lucide-react';
 import Badge from './Badge';
 import { isVideoUrl } from '../../utils/imageUpload';
 import { COMMODITY_IMAGES } from '../../utils/listings';
 
-// High-definition complementary views for wholesale commodities (Bulk Batch, Mandi Stacks, Moisture/Assay)
-const COMPLEMENTARY_COMMODITY_ANGLES = {
-  'Green Gram': [
-    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80', // Bulk pulse lot in warehouse
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80', // Clean sorted grain assay
-  ],
-  Moong: [
-    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
-  ],
-  Maize: [
-    'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=800&auto=format&fit=crop&q=80', // Golden corn harvest batch
-    'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800&auto=format&fit=crop&q=80', // Bulk grain stack
-  ],
-  Tomato: [
-    'https://images.unsplash.com/photo-1546470427-0d4db154ceb7?w=800&auto=format&fit=crop&q=80', // Farm harvest crates
-    'https://images.unsplash.com/photo-1561136594-7f68413baa99?w=800&auto=format&fit=crop&q=80', // Sorted quality inspection
-  ],
-  Onion: [
-    'https://images.unsplash.com/photo-1508747703725-719777637510?w=800&auto=format&fit=crop&q=80', // Mandi bagged sacks
-    'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&auto=format&fit=crop&q=80', // Cured dry bulb grade
-  ],
-  Potato: [
-    'https://images.unsplash.com/photo-1590165482129-1b8b27698780?w=800&auto=format&fit=crop&q=80', // Sorting & grading
-    'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&auto=format&fit=crop&q=80', // Clean tubers
-  ],
-  Wheat: [
-    'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&auto=format&fit=crop&q=80', // Farmgate field harvest
-    'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80', // Moisture tested grain
-  ],
-  Rice: [
-    'https://images.unsplash.com/photo-1536304929831-ee1ca9d44906?w=800&auto=format&fit=crop&q=80', // Paddy bagging
-    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80', // Milled premium rice
-  ],
-  Soybean: [
-    'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1599420186946-7b6fb4e53799?w=800&auto=format&fit=crop&q=80',
-  ],
-  Cotton: [
-    'https://images.unsplash.com/photo-1606041008023-472dfb5e530f?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1594897030560-ab279cf66def?w=800&auto=format&fit=crop&q=80',
-  ],
-  Chilli: [
-    'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=800&auto=format&fit=crop&q=80',
-  ],
-};
-
-function getComplementaryAngles(commodity, primaryUrl) {
-  const angles = COMPLEMENTARY_COMMODITY_ANGLES[commodity] || [
-    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop&q=80',
-  ];
-  return angles.filter(url => url !== primaryUrl);
-}
-
 /**
  * ProductMediaSlider
  * 
  * Interactive, high-performance auto-playing carousel with 5-second transitions,
- * story-style progress bars, touch swipe, video handling, and lightbox.
+ * touch swipe, video handling, and lightbox for the record's authentic media.
  */
 export default function ProductMediaSlider({
   media = [],
@@ -90,16 +32,10 @@ export default function ProductMediaSlider({
   autoPlay = true,
   autoPlayInterval = 5000,
 }) {
+  // Use ONLY authentic media belonging to the record
   const fallback = COMMODITY_IMAGES[commodity] || COMMODITY_IMAGES.Other || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80';
   const rawList = Array.isArray(media) && media.length > 0 ? media.filter(Boolean) : [fallback];
-
-  // If the listing only provided 1 single photo, enrich with complementary inspection angles so the 5s auto-slider has diverse perspectives
-  const items = useMemo(() => {
-    if (rawList.length > 1) return rawList;
-    const single = rawList[0] || fallback;
-    const extras = getComplementaryAngles(commodity, single);
-    return [single, ...extras];
-  }, [rawList, commodity, fallback]);
+  const items = rawList.length > 0 ? rawList : [fallback];
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -147,7 +83,7 @@ export default function ProductMediaSlider({
     setIsPlaying(false);
   };
 
-  // Auto-play timer: advances every 5 seconds (5000ms), paused on hover, video playing, or lightbox
+  // Auto-play timer: advances every 5 seconds when record has multiple authentic media items
   useEffect(() => {
     if (!autoPlay || items.length <= 1 || isHovered || isPlaying || isLightboxOpen || isAutoPlayPausedByUser) {
       return;
@@ -225,14 +161,6 @@ export default function ProductMediaSlider({
     }
   };
 
-  const getMediaLabel = (idx, isVid) => {
-    if (isVid) return 'Video Clip';
-    if (idx === 0) return 'Primary Lot';
-    if (idx === 1) return 'Batch & Stacks';
-    if (idx === 2) return 'Assay Sample';
-    return `View ${idx + 1}`;
-  };
-
   return (
     <div className={`space-y-3 ${className}`}>
       
@@ -245,7 +173,7 @@ export default function ProductMediaSlider({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Story-style Progress Bars (visible when items > 1) */}
+        {/* Story-style Progress Bars (visible only when multiple authentic items exist) */}
         {items.length > 1 && (
           <div className="absolute top-2.5 left-4 right-4 z-30 flex items-center gap-1.5 pointer-events-none">
             {items.map((_, idx) => (
@@ -394,7 +322,7 @@ export default function ProductMediaSlider({
           </button>
         </div>
 
-        {/* Left & Right Arrow Controls */}
+        {/* Left & Right Arrow Controls (only when multiple authentic items exist) */}
         {items.length > 1 && (
           <>
             <button
@@ -425,13 +353,12 @@ export default function ProductMediaSlider({
         )}
       </div>
 
-      {/* Horizontal Thumbnail Strip with Perspective Micro-Labels */}
+      {/* Horizontal Thumbnail Strip (only shown when multiple authentic media items exist) */}
       {items.length > 1 && (
         <div className="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
           {items.map((url, idx) => {
             const isVid = isVideoUrl(url);
             const isSelected = idx === currentIndex;
-            const label = getMediaLabel(idx, isVid);
 
             return (
               <button
@@ -439,7 +366,7 @@ export default function ProductMediaSlider({
                 ref={(el) => (thumbRefs.current[idx] = el)}
                 type="button"
                 onClick={() => handleSelectIndex(idx)}
-                className={`group/thumb relative shrink-0 w-20 h-20 sm:w-24 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all cursor-pointer bg-[#0B3326]/5 text-left ${
+                className={`group/thumb relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border-2 transition-all cursor-pointer bg-[#0B3326]/5 text-left ${
                   isSelected
                     ? 'border-[#10B981] ring-2 ring-[#10B981]/30 scale-102 shadow-sm'
                     : 'border-[#E5EDE8] opacity-70 hover:opacity-100 hover:border-[#10B981]/50'
@@ -471,17 +398,20 @@ export default function ProductMediaSlider({
                   />
                 )}
 
-                {/* Micro-Label Pill at bottom of thumbnail */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-1 pt-2 flex items-center justify-between">
-                  <span className="text-[9px] font-semibold text-white/95 truncate">
-                    {label}
-                  </span>
-                  {isVid && <Film className="w-2.5 h-2.5 text-[#34D399] shrink-0" />}
+                {/* Badge for Video vs Cover */}
+                <div className="absolute bottom-1 right-1">
+                  {isVid ? (
+                    <Film className="w-3 h-3 text-white drop-shadow-md" />
+                  ) : idx === 0 ? (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm bg-[#10B981] text-white">
+                      Cover
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* Active Indicator Top Dot */}
                 {isSelected && (
-                  <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#10B981] ring-1 ring-white" />
+                  <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#10B981] ring-1 ring-white" />
                 )}
               </button>
             );
@@ -499,7 +429,7 @@ export default function ProductMediaSlider({
           <div className="flex items-center justify-between text-white pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm sm:text-base">
-                {commodity} &bull; Media {currentIndex + 1} of {items.length} ({getMediaLabel(currentIndex, isCurrentVideo)})
+                {commodity} &bull; Media {currentIndex + 1} of {items.length}
               </span>
               {isCurrentVideo && (
                 <Badge variant="accent" size="sm">Video Clip</Badge>
