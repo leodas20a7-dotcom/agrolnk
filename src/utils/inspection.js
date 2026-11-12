@@ -146,6 +146,12 @@ export async function getInspectionForOrder(orderNumberOrId) {
         saveStoredInspections(all);
         return mapped;
       }
+      // If deleted/not found in Supabase, purge from local storage cache
+      const all = getStoredInspections();
+      const filtered = all.filter((r) => r.orderId !== orderNumberOrId && r.orderNumber !== orderNumberOrId && r.id !== orderNumberOrId);
+      if (filtered.length !== all.length) {
+        saveStoredInspections(filtered);
+      }
       return null;
     }
   } catch (err) {
@@ -365,5 +371,33 @@ export function subscribeToInspections(callback) {
   } catch {
     return () => {};
   }
+}
+
+/**
+ * Admin cancels / deletes an inspection request cleanly
+ */
+export async function deleteInspectionRecord(inspectionId) {
+  if (!inspectionId) return false;
+
+  // 1. Remove from local cache immediately
+  const all = getStoredInspections();
+  const filtered = all.filter(
+    (r) => r.id !== inspectionId && r.orderId !== inspectionId && r.orderNumber !== inspectionId
+  );
+  saveStoredInspections(filtered);
+
+  // 2. Remove from Supabase
+  try {
+    await supabase
+      .from('inspections')
+      .delete()
+      .or(`id.eq.${inspectionId},order_id.eq.${inspectionId},order_number.eq.${inspectionId}`);
+  } catch (err) {
+    console.warn('Could not delete inspection from Supabase:', err);
+  }
+
+  // 3. Dispatch event for instant UI sync across all open pages
+  window.dispatchEvent(new Event('agrolnk_inspections_updated'));
+  return true;
 }
 

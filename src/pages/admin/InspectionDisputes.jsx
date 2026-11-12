@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { 
   AlertTriangle, ShieldCheck, CheckCircle2, 
-  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck, RefreshCw, Info
+  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck, RefreshCw, Info, Trash2
 } from 'lucide-react';
-import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer, subscribeToInspections } from '../../utils/inspection';
+import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer, subscribeToInspections, deleteInspectionRecord } from '../../utils/inspection';
 import { formatINR } from '../../utils/commission';
 import InspectionStatusBadge from '../../components/inspection/InspectionStatusBadge';
 import Button from '../../components/ui/Button';
@@ -28,6 +28,8 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDispute, setSelectedDispute] = useState(null);
   const [selectedRequestToInspect, setSelectedRequestToInspect] = useState(null);
+  const [requestToDelete, setRequestToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [resolutionAction, setResolutionAction] = useState('partial_refund');
   const [refundAmount, setRefundAmount] = useState('');
   const [arbitrationNotes, setArbitrationNotes] = useState('');
@@ -144,6 +146,22 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     } catch (err) {
       console.error('Failed to send inspection report:', err);
       toast.error(err?.message || 'Failed to send inspection report.');
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!requestToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteInspectionRecord(requestToDelete.id);
+      toast.success('Inspection request cancelled and removed. Product listing is ready for Buy Now.');
+      setRequestToDelete(null);
+      loadInspections();
+    } catch (err) {
+      console.error('Failed to delete inspection:', err);
+      toast.error('Failed to cancel inspection request.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -371,31 +389,63 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
 
                         {/* 5. Admin Action */}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          {item.status === 'requested' ? (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => setSelectedRequestToInspect(item)}
-                              icon={FileCheck}
-                              iconPosition="left"
-                              className="text-xs font-bold py-1.5 px-3.5 ml-auto"
-                            >
-                              Dispatch Assayer
-                            </Button>
-                          ) : item.status === 'disputed' ? (
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleOpenArbitration(item)}
-                              className="text-xs font-bold py-1.5 px-3.5 ml-auto"
-                            >
-                              Arbitrate
-                            </Button>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-bold border border-emerald-200">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Certified
-                            </span>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                            {item.status === 'requested' ? (
+                              <>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => setSelectedRequestToInspect(item)}
+                                  icon={FileCheck}
+                                  iconPosition="left"
+                                  className="text-xs font-bold py-1.5 px-3.5"
+                                >
+                                  Dispatch Assayer
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRequestToDelete(item)}
+                                  title="Cancel Request & Delete"
+                                  className="p-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : item.status === 'disputed' ? (
+                              <>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => handleOpenArbitration(item)}
+                                  className="text-xs font-bold py-1.5 px-3.5"
+                                >
+                                  Arbitrate
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRequestToDelete(item)}
+                                  title="Cancel & Delete"
+                                  className="p-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-bold border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Certified
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setRequestToDelete(item)}
+                                  title="Delete Record"
+                                  className="p-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-[#566861] hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -715,6 +765,52 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Confirm Delete / Cancel Request */}
+        {requestToDelete && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#E5EDE8] text-left space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-200">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                  Cancel Inspection Request?
+                </h3>
+                <p className="text-xs text-[#566861] leading-relaxed">
+                  Are you sure you want to cancel the quality check request for <strong className="text-[#0B3326]">{requestToDelete.cropName}</strong> ({formatShortId(requestToDelete.id)})?
+                </p>
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 mt-2">
+                  ℹ️ This request will be cleanly removed. The buyer's listing page will automatically revert back to <strong>"Buy Now"</strong> with no dispute or penalty records created.
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-end gap-2.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setRequestToDelete(null)}
+                  disabled={isDeleting}
+                  className="text-xs font-bold"
+                >
+                  Keep Request
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  loading={isDeleting}
+                  icon={Trash2}
+                  iconPosition="left"
+                  className="text-xs font-bold px-4"
+                >
+                  {isDeleting ? 'Cancelling...' : 'Cancel & Delete'}
+                </Button>
               </div>
             </div>
           </div>
