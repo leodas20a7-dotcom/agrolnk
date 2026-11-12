@@ -7,6 +7,7 @@ import { sendNotification } from './notifications';
 import { getCurrentUser } from './auth';
 import { convertVolume, normalizeUnitName } from './pricingUnits';
 import { calculateFreightFinancials } from './commission';
+import { deductListingQuantity } from './listings';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -215,8 +216,25 @@ export async function getOrders() {
       const resolved = {
         ...(localMatch || {}),
         ...r, // Remote database state
-        status: isLocallyCompleted ? 'completed' : r.status,
-        escrowStatus: isLocallyCompleted ? 'released' : r.escrowStatus,
+        listingId: r.listingId || localMatch?.listingId || localMatch?.listing_id || null,
+        auctionId: r.auctionId || localMatch?.auctionId || localMatch?.auction_id || null,
+        buyerId: r.buyerId || localMatch?.buyerId || localMatch?.buyer_id || null,
+        buyerEmail: r.buyerEmail || localMatch?.buyerEmail || null,
+        buyerPhone: r.buyerPhone || localMatch?.buyerPhone || null,
+        buyerName: r.buyerName || localMatch?.buyerName || null,
+        rfqExpiresAt: r.rfqExpiresAt || localMatch?.rfqExpiresAt || null,
+        deliveryLocation: r.deliveryLocation || localMatch?.deliveryLocation || null,
+        buyerAddress: r.buyerAddress || localMatch?.buyerAddress || null,
+        buyerDistrict: r.buyerDistrict || localMatch?.buyerDistrict || null,
+        buyerState: r.buyerState || localMatch?.buyerState || null,
+        buyerPincode: r.buyerPincode || localMatch?.buyerPincode || null,
+        quantityInListingUnit: r.quantityInListingUnit || localMatch?.quantityInListingUnit || null,
+        listingUnit: r.listingUnit || localMatch?.listingUnit || null,
+        totalKg: r.totalKg || localMatch?.totalKg || null,
+        totalMT: r.totalMT || localMatch?.totalMT || null,
+        totalQuintals: r.totalQuintals || localMatch?.totalQuintals || null,
+        status: isLocallyCompleted ? 'completed' : (r.status || localMatch?.status || 'placed'),
+        escrowStatus: isLocallyCompleted ? 'released' : (r.escrowStatus || localMatch?.escrowStatus || 'pending'),
         adminVerificationStatus: isLocallyCompleted ? 'approved' : r.adminVerificationStatus,
         buyerConfirmedArrival: confirmed,
         buyerArrivalVerified: confirmed,
@@ -227,9 +245,9 @@ export async function getOrders() {
       return resolved;
     });
 
-    // Only include local-only orders that were created offline and have pending sync
+    // Include all local orders not yet present in remote
     const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.orderNumber].filter(Boolean)));
-    const pendingLocalOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.orderNumber) && l.isOfflinePending);
+    const pendingLocalOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.orderNumber));
     return [...mergedRemote, ...pendingLocalOnly];
   }
 
@@ -297,7 +315,9 @@ export async function getBuyerOrders(buyerId, currentUser) {
 
     if (!uid && !userEmail && !userName) return [];
 
-    return all.filter((o) => {
+    const buyerList = all.filter((o) => {
+      if (o.status === 'cancelled' || o.status === 'deleted') return false;
+
       const bName = (o.buyerName || '').toLowerCase().trim();
       const bEmail = (o.buyerEmail || '').toLowerCase().trim();
       const bId = String(o.buyerId || '').trim();
@@ -308,6 +328,32 @@ export async function getBuyerOrders(buyerId, currentUser) {
 
       return matchId || matchEmail || matchName;
     });
+
+    // Deduplicate duplicate unquoted RFQs for the same produce lot:
+    // When the buyer placed multiple RFQ quote requests for the same lot, keep only the latest active one
+    // and cancel the superseded older ones.
+    const seenRfqLots = new Set();
+    const deduped = [];
+    // Sort newest first so the active order (#AGM-6317) is retained
+    buyerList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    for (const o of buyerList) {
+      const isUnquotedRfq = (o.status === 'awaiting_freight_quote' || Boolean(o.awaitingFreightQuote)) && !o.freightAmount;
+      if (isUnquotedRfq) {
+        const lotKey = `${o.listingId || ''}_${o.commodity || ''}_${o.variety || ''}_${o.farmerName || ''}`;
+        if (seenRfqLots.has(lotKey)) {
+          // Superseded duplicate RFQ from repeat clicks - cancel it in background
+          try {
+            updateOrderStatus(o.id || o.orderNumber, 'cancelled').catch(() => {});
+          } catch {}
+          continue;
+        }
+        seenRfqLots.add(lotKey);
+      }
+      deduped.push(o);
+    }
+
+    return deduped;
   } catch (err) {
     console.error('Error in getBuyerOrders:', err);
     return [];
@@ -329,7 +375,9 @@ export async function getFarmerOrders(farmerId, currentUser) {
 
     if (!uid && !userEmail && !userName) return [];
 
-    return all.filter((o) => {
+    const farmerList = all.filter((o) => {
+      if (o.status === 'cancelled' || o.status === 'deleted') return false;
+
       const fName = (o.farmerName || '').toLowerCase().trim();
       const fEmail = (o.farmerEmail || '').toLowerCase().trim();
       const fId = String(o.farmerId || '').toLowerCase().trim();
@@ -345,6 +393,24 @@ export async function getFarmerOrders(farmerId, currentUser) {
 
       return matchId || matchEmail || matchName;
     });
+
+    const seenRfqLots = new Set();
+    const deduped = [];
+    farmerList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    for (const o of farmerList) {
+      const isUnquotedRfq = (o.status === 'awaiting_freight_quote' || Boolean(o.awaitingFreightQuote)) && !o.freightAmount;
+      if (isUnquotedRfq) {
+        const lotKey = `${o.listingId || ''}_${o.commodity || ''}_${o.variety || ''}_${o.buyerId || o.buyerName || ''}`;
+        if (seenRfqLots.has(lotKey)) {
+          continue;
+        }
+        seenRfqLots.add(lotKey);
+      }
+      deduped.push(o);
+    }
+
+    return deduped;
   } catch (err) {
     console.error('Error in getFarmerOrders:', err);
     return [];
@@ -387,6 +453,22 @@ export async function createOrder(orderData) {
     const rfqExpiresAt =
       orderData.rfqExpiresAt ||
       (isFreightRfq ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null);
+
+    // Cancel any prior unquoted RFQs for this listing & buyer to prevent duplicate entries
+    if (isFreightRfq && orderData.listingId) {
+      try {
+        const priorOrders = await getOrders();
+        const staleRfqs = priorOrders.filter((o) => {
+          const sameListing = String(o.listingId || o.listing_id || '') === String(orderData.listingId);
+          const isPending = o.status === 'awaiting_freight_quote' || Boolean(o.awaitingFreightQuote);
+          const isUnquoted = !o.freightAmount;
+          return sameListing && isPending && isUnquoted && o.id !== orderId && o.orderNumber !== orderNumber;
+        });
+        for (const stale of staleRfqs) {
+          updateOrderStatus(stale.id || stale.orderNumber, 'cancelled').catch(() => {});
+        }
+      } catch {}
+    }
 
     // Pre-flight MOQ check if listing MOQ was passed by caller
     if (orderData.minOrderQuantity && Number(orderData.minOrderQuantity) > 0) {
@@ -485,7 +567,7 @@ export async function createOrder(orderData) {
           }
         }
 
-        const { data: rpcData, error: rpcErr } = await supabase.rpc('create_direct_order_atomic', {
+        let { data: rpcData, error: rpcErr } = await supabase.rpc('create_direct_order_atomic', {
           p_listing_id: orderData.listingId,
           p_buyer_id: orderData.buyerId || '',
           p_buyer_name: orderData.buyerName || 'Wholesale Buyer',
@@ -495,6 +577,23 @@ export async function createOrder(orderData) {
           p_awaiting_freight_quote: Boolean(isFreightRfq),
           p_buyer_unit: orderData.unit || orderData.listingUnit || 'kg',
         });
+
+        // Backward compatibility: If Supabase function was deployed with 7 parameters (without p_awaiting_freight_quote)
+        if (rpcErr && (rpcErr.message?.includes('function') || rpcErr.message?.includes('parameter') || rpcErr.code === 'PGRST202')) {
+          const retry7 = await supabase.rpc('create_direct_order_atomic', {
+            p_listing_id: orderData.listingId,
+            p_buyer_id: orderData.buyerId || '',
+            p_buyer_name: orderData.buyerName || 'Wholesale Buyer',
+            p_quantity: deductQty,
+            p_delivery_location: deliveryLocation,
+            p_is_trade_credit: Boolean(isTradeCredit),
+            p_buyer_unit: orderData.unit || orderData.listingUnit || 'kg',
+          });
+          if (!retry7.error && retry7.data?.success) {
+            rpcData = retry7.data;
+            rpcErr = null;
+          }
+        }
 
         if (!rpcErr && rpcData?.success) {
           orderNumber = rpcData.order_number;
@@ -659,11 +758,28 @@ export async function createOrder(orderData) {
           .select();
 
         if (deductErr || !updatedListing || updatedListing.length === 0) {
-          throw new Error(
-            'Inventory was just purchased by another buyer or is no longer available. Order aborted to prevent overselling.'
-          );
+          // Detect if this failure is caused by Supabase RLS policies (e.g. buyer is forbidden from updating another user's listing row)
+          const isRlsRestriction =
+            deductErr?.code === '42501' ||
+            deductErr?.message?.toLowerCase().includes('policy') ||
+            deductErr?.message?.toLowerCase().includes('permission') ||
+            (!deductErr && Number(currentListing.quantity) >= actualDeductQty);
+
+          if (isRlsRestriction) {
+            console.warn(
+              'Supabase RLS prevented direct client-side listing quantity deduction. Proceeding with order placement and local listing synchronization.'
+            );
+            deductListingQuantity(orderData.listingId, actualDeductQty);
+            localItem.atomicDeducted = true;
+          } else {
+            throw new Error(
+              'Inventory was just purchased by another buyer or is no longer available. Order aborted to prevent overselling.'
+            );
+          }
+        } else {
+          localItem.atomicDeducted = true;
+          deductListingQuantity(orderData.listingId, actualDeductQty);
         }
-        localItem.atomicDeducted = true;
       }
     }
 

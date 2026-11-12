@@ -59,6 +59,9 @@ function mapInspectionFromDb(row) {
     feePaymentMethod: row.fee_payment_method,
     disputeReason: row.dispute_reason,
     arbitration: row.arbitration || {},
+    certificate: row.arbitration?.certificate || null,
+    labName: row.arbitration?.labName || null,
+    labCertNumber: row.arbitration?.labCertNumber || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -295,6 +298,125 @@ export async function requestQualityInspection(data) {
 }
 
 /**
+ * Lab Certificate Attachments (PDF / Image)
+ */
+export const CERTIFICATE_ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+export const CERTIFICATE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const CERTIFICATE_INLINE_MAX_BYTES = 1.5 * 1024 * 1024; // inline fallback limit (keeps DB row & localStorage small)
+const CERTIFICATE_BUCKET = 'proof';
+
+export function validateCertificateFile(file) {
+  if (!file) return 'No file selected.';
+  const name = String(file.name || '').toLowerCase();
+  const extOk = /\.(pdf|jpe?g|png|webp)$/.test(name);
+  if (!CERTIFICATE_ALLOWED_TYPES.includes(file.type) && !extOk) {
+    return 'Only PDF, JPG, PNG or WEBP files are allowed.';
+  }
+  if (file.size > CERTIFICATE_MAX_BYTES) {
+    return 'File is too large. Maximum size is 10 MB.';
+  }
+  if (file.size === 0) return 'The selected file is empty.';
+  return null;
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Could not read the selected file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Uploads a lab certificate to the private `proof` bucket inside the buyer's folder,
+ * so only platform admins and that buyer can read it (existing storage RLS).
+ * Falls back to an inline data URL for small files when storage is unavailable.
+ */
+export async function uploadInspectionCertificate(file, inspection = {}) {
+  const validationError = validateCertificateFile(file);
+  if (validationError) throw new Error(validationError);
+
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+  const meta = {
+    name: file.name || (isPdf ? 'lab-certificate.pdf' : 'lab-certificate.jpg'),
+    type: file.type || (isPdf ? 'application/pdf' : 'image/jpeg'),
+    size: file.size,
+    uploadedAt: new Date().toISOString(),
+  };
+
+  const safe = (v) => String(v || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const folder = safe(inspection.buyerId) || 'inspections';
+  const safeName = String(meta.name).replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
+  const path = `${folder}/inspection_cert_${safe(inspection.id) || 'report'}_${Date.now()}_${safeName}`;
+
+  try {
+    const { error } = await supabase.storage.from(CERTIFICATE_BUCKET).upload(path, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: meta.type,
+    });
+    if (!error) {
+      return { ...meta, storage: 'supabase', bucket: CERTIFICATE_BUCKET, path };
+    }
+    console.warn('Certificate storage upload notice:', error);
+  } catch (err) {
+    console.warn('Certificate storage upload failed:', err);
+  }
+
+  if (file.size <= CERTIFICATE_INLINE_MAX_BYTES) {
+    const dataUrl = await readFileAsDataUrl(file);
+    return { ...meta, storage: 'inline', dataUrl };
+  }
+
+  throw new Error('Cloud upload failed and the file is too large for offline backup (max 1.5 MB). Please compress the file or try again.');
+}
+
+/**
+ * Resolves a viewable URL for a stored certificate.
+ * Supabase files get a fresh short-lived signed URL; inline files become a blob URL
+ * (browsers block opening raw data: URLs in new tabs).
+ */
+export async function getInspectionCertificateUrl(certificate, { download = false } = {}) {
+  if (!certificate) return null;
+  try {
+    if (certificate.storage === 'supabase' && certificate.path) {
+      const { data, error } = await supabase.storage
+        .from(certificate.bucket || CERTIFICATE_BUCKET)
+        .createSignedUrl(
+          certificate.path,
+          60 * 30,
+          download ? { download: certificate.name || 'lab-certificate' } : undefined
+        );
+      if (error) {
+        console.warn('Certificate signed URL notice:', error);
+        return null;
+      }
+      return data?.signedUrl || null;
+    }
+    if (certificate.dataUrl) {
+      // Decode locally (fetch() on data: URLs is blocked by our CSP connect-src)
+      const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(certificate.dataUrl);
+      if (!match) return null;
+      const mime = match[1] || certificate.type || 'application/octet-stream';
+      const payload = match[3] || '';
+      let bytes;
+      if (match[2]) {
+        const binary = atob(payload);
+        bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      } else {
+        bytes = new TextEncoder().encode(decodeURIComponent(payload));
+      }
+      return URL.createObjectURL(new Blob([bytes], { type: mime }));
+    }
+  } catch (err) {
+    console.warn('Could not resolve certificate URL:', err);
+  }
+  return null;
+}
+
+/**
  * Admin assigns Inspector & Inspector submits official Assay Report with Inspection Fee
  */
 export async function sendInspectionReportToBuyer(inspectionId, reportData) {
@@ -303,8 +425,18 @@ export async function sendInspectionReportToBuyer(inspectionId, reportData) {
   
   let target = index >= 0 ? all[index] : { id: inspectionId };
 
+  // Certificate + lab credentials live inside the existing `arbitration` JSONB column (no schema change needed)
+  const prevArbitration = target.arbitration && typeof target.arbitration === 'object' ? target.arbitration : {};
+  const certificate = reportData.certificate !== undefined ? reportData.certificate : (prevArbitration.certificate || null);
+  const labName = (reportData.labName || '').trim() || prevArbitration.labName || null;
+  const labCertNumber = (reportData.labCertNumber || '').trim() || prevArbitration.labCertNumber || null;
+
   const updated = {
     ...target,
+    arbitration: { ...prevArbitration, certificate, labName, labCertNumber },
+    certificate,
+    labName,
+    labCertNumber,
     inspectorName: reportData.inspectorName || 'AgroLnk Certified Assayer',
     grade: reportData.grade || 'A',
     moisture: Number(reportData.moisture || 10.5),
@@ -403,6 +535,8 @@ export async function arbitrateDispute(reportId, arbitrationData) {
     ...all[index],
     status: 'resolved',
     arbitration: {
+      // Preserve lab certificate & credentials stored alongside the ruling
+      ...(all[index].arbitration && typeof all[index].arbitration === 'object' ? all[index].arbitration : {}),
       action: arbitrationData.action,
       refundAmount: arbitrationData.refundAmount || 0,
       notes: arbitrationData.notes || '',

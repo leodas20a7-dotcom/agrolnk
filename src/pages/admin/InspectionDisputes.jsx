@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { 
   AlertTriangle, ShieldCheck, CheckCircle2, 
-  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck, RefreshCw, Info, Trash2
+  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck, RefreshCw, Info, Trash2,
+  Paperclip, UploadCloud, FileText, Loader2, X
 } from 'lucide-react';
-import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer, subscribeToInspections, deleteInspectionRecord } from '../../utils/inspection';
+import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer, subscribeToInspections, deleteInspectionRecord, uploadInspectionCertificate, validateCertificateFile } from '../../utils/inspection';
 import { formatINR } from '../../utils/commission';
 import InspectionStatusBadge from '../../components/inspection/InspectionStatusBadge';
 import Button from '../../components/ui/Button';
@@ -44,6 +45,61 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
   const [assayForeign, setAssayForeign] = useState('');
   const [inspectionFee, setInspectionFee] = useState('500');
   const [assayNotes, setAssayNotes] = useState('');
+
+  // Lab certificate attachment states
+  const [certFile, setCertFile] = useState(null);
+  const [certPreviewUrl, setCertPreviewUrl] = useState('');
+  const [certError, setCertError] = useState('');
+  const [labName, setLabName] = useState('');
+  const [labCertNumber, setLabCertNumber] = useState('');
+  const [isSendingReport, setIsSendingReport] = useState(false);
+  const [isDraggingCert, setIsDraggingCert] = useState(false);
+  const certInputRef = useRef(null);
+
+  // Reset attachment whenever a different request is opened / modal closed
+  useEffect(() => {
+    setCertFile(null);
+    setCertError('');
+    setLabName('');
+    setLabCertNumber('');
+    setIsDraggingCert(false);
+    if (certInputRef.current) certInputRef.current.value = '';
+  }, [selectedRequestToInspect?.id]);
+
+  // Local preview for images (revoked on change/unmount to avoid memory leaks)
+  useEffect(() => {
+    if (!certFile || !String(certFile.type).startsWith('image/')) {
+      setCertPreviewUrl('');
+      return undefined;
+    }
+    const url = URL.createObjectURL(certFile);
+    setCertPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [certFile]);
+
+  const handleCertSelect = (file) => {
+    if (!file) return;
+    const err = validateCertificateFile(file);
+    if (err) {
+      setCertError(err);
+      setCertFile(null);
+      if (certInputRef.current) certInputRef.current.value = '';
+      return;
+    }
+    setCertError('');
+    setCertFile(file);
+  };
+
+  const handleRemoveCert = () => {
+    setCertFile(null);
+    setCertError('');
+    if (certInputRef.current) certInputRef.current.value = '';
+  };
+
+  const formatFileSize = (bytes = 0) => {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  };
 
   const loadInspections = async (showFlash = false) => {
     setIsLoading(true);
@@ -130,8 +186,22 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
   const handleSendReport = async (e) => {
     e.preventDefault();
     if (!selectedRequestToInspect) return;
+    if (isSendingReport) return;
 
+    setIsSendingReport(true);
     try {
+      let certificate;
+      if (certFile) {
+        try {
+          certificate = await uploadInspectionCertificate(certFile, selectedRequestToInspect);
+        } catch (uploadErr) {
+          console.error('Certificate upload failed:', uploadErr);
+          setCertError(uploadErr?.message || 'Certificate upload failed.');
+          toast.error(uploadErr?.message || 'Certificate upload failed. Remove the file or try again.');
+          return;
+        }
+      }
+
       await sendInspectionReportToBuyer(selectedRequestToInspect.id, {
         inspectorName,
         grade: assayGrade,
@@ -140,14 +210,21 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
         inspectionFee: Number(inspectionFee) || 500,
         inspectorNotes: assayNotes,
         verdict: 'approved',
+        labName,
+        labCertNumber,
+        ...(certificate ? { certificate } : {}),
       });
 
-      toast.success('Inspection report and assay grade delivered to buyer!');
+      toast.success(certificate
+        ? 'Assay report & lab certificate delivered to buyer!'
+        : 'Inspection report and assay grade delivered to buyer!');
       setSelectedRequestToInspect(null);
       loadInspections();
     } catch (err) {
       console.error('Failed to send inspection report:', err);
       toast.error(err?.message || 'Failed to send inspection report.');
+    } finally {
+      setIsSendingReport(false);
     }
   };
 
@@ -600,6 +677,131 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   />
                 </div>
 
+                {/* Lab Credentials (optional) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="font-bold text-[#0B3326] block mb-1">
+                      Testing Lab / Agency <span className="font-normal text-[#566861]">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={labName}
+                      onChange={(e) => setLabName(e.target.value)}
+                      maxLength={120}
+                      placeholder="e.g. NABL Accredited Lab, Salem"
+                      className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-[#0B3326] block mb-1">
+                      Certificate / Sample No. <span className="font-normal text-[#566861]">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={labCertNumber}
+                      onChange={(e) => setLabCertNumber(e.target.value)}
+                      maxLength={60}
+                      placeholder="e.g. NABL/2026/TN-8492"
+                      className="w-full px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs focus:ring-2 focus:ring-[#10B981]"
+                    />
+                  </div>
+                </div>
+
+                {/* Lab Certificate Attachment */}
+                <div>
+                  <label className="font-bold text-[#0B3326] mb-1 flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-[#10B981]" />
+                    Attach Lab Certificate / Test Photo
+                    <span className="font-normal text-[#566861]">(Recommended)</span>
+                  </label>
+
+                  <input
+                    ref={certInputRef}
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp"
+                    className="hidden"
+                    onChange={(e) => handleCertSelect(e.target.files?.[0])}
+                  />
+
+                  {!certFile ? (
+                    <button
+                      type="button"
+                      onClick={() => certInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingCert(true); }}
+                      onDragLeave={() => setIsDraggingCert(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingCert(false);
+                        handleCertSelect(e.dataTransfer?.files?.[0]);
+                      }}
+                      className={`w-full rounded-xl border-2 border-dashed px-3 py-3.5 flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-all ${
+                        isDraggingCert
+                          ? 'border-[#10B981] bg-[#EBF5F0]'
+                          : certError
+                            ? 'border-red-300 bg-red-50/50'
+                            : 'border-[#CFE3D8] bg-[#F8FAF8] hover:border-[#10B981] hover:bg-[#F2FBF6]'
+                      }`}
+                    >
+                      <UploadCloud className="w-5 h-5 text-[#10B981]" />
+                      <span className="text-xs font-semibold text-[#0B3326]">
+                        Click to upload or drag & drop
+                      </span>
+                      <span className="text-[10px] text-[#566861]">
+                        Stamped PDF certificate or photo (JPG, PNG, WEBP) • Max 10 MB
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl border border-[#A7F3D0] bg-[#F2FBF6]">
+                      {certPreviewUrl ? (
+                        <img
+                          src={certPreviewUrl}
+                          alt="Certificate preview"
+                          className="w-12 h-12 rounded-lg object-cover border border-[#E5EDE8] shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-red-50 border border-red-200 flex flex-col items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-red-600" />
+                          <span className="text-[8px] font-bold text-red-700 leading-none mt-0.5">PDF</span>
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-[#0B3326] truncate" title={certFile.name}>
+                          {certFile.name}
+                        </p>
+                        <p className="text-[10px] text-[#566861]">
+                          {formatFileSize(certFile.size)} • Ready to send
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => certInputRef.current?.click()}
+                        disabled={isSendingReport}
+                        className="text-[11px] font-semibold text-[#0B3326] px-2 py-1 rounded-lg hover:bg-white cursor-pointer disabled:opacity-50"
+                      >
+                        Replace
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCert}
+                        disabled={isSendingReport}
+                        title="Remove file"
+                        aria-label="Remove attached file"
+                        className="p-1 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer disabled:opacity-50"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {certError ? (
+                    <p className="text-[10px] text-red-600 font-semibold mt-1">{certError}</p>
+                  ) : (
+                    <p className="text-[10px] text-[#566861] mt-1">
+                      Buyers trust stamped lab documents. The file stays private and unlocks only after the buyer pays the lab fee.
+                    </p>
+                  )}
+                </div>
+
                 <div className="pt-3 border-t border-[#E5EDE8] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
                   <button
                     type="button"
@@ -610,10 +812,15 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
+                    disabled={isSendingReport}
+                    className="px-5 py-2 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Send className="w-3.5 h-3.5 text-[#34D399]" />
-                    <span>Send Report to Buyer</span>
+                    {isSendingReport ? (
+                      <Loader2 className="w-3.5 h-3.5 text-[#34D399] animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5 text-[#34D399]" />
+                    )}
+                    <span>{isSendingReport ? (certFile ? 'Uploading & Sending...' : 'Sending...') : 'Send Report to Buyer'}</span>
                   </button>
                 </div>
               </form>

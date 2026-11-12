@@ -8,12 +8,12 @@ import { createFinancingRequest, getFinancingRequests } from '../../utils/financ
 import { getResolvedUserKycStatus, isUserKycVerified } from '../../utils/auth';
 import { convertVolume, getRateInUnit } from '../../utils/pricingUnits';
 import { ESCROW_NODAL_ACCOUNT, generateOrderSmartVAN, processSmartVanWebhookCredit } from '../../utils/escrowApi';
-import { createOrder, completeBuyerOrderWithFreightPayment } from '../../utils/orders';
+import { createOrder, completeBuyerOrderWithFreightPayment, getOrders } from '../../utils/orders';
 import { deductListingQuantity } from '../../utils/listings';
 import { getDeliveryForOrder, calculateTransportFinancials } from '../../utils/deliveries';
 import { supabase } from '../../lib/supabase';
 
-export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser }) {
+export default function OrderModal({ listing, isOpen, onClose, onConfirm, currentUser, initialOrder = null }) {
   const [purchaseUnit, setPurchaseUnit] = useState(listing?.unit === 'MT' ? 'Quintal' : (listing?.unit || 'Quintal'));
   const [purchaseQty, setPurchaseQty] = useState(1);
   const [paymentMode, setPaymentMode] = useState('direct_razorpay'); // 'direct_razorpay' | 'escrow_van' | 'trade_credit'
@@ -30,8 +30,12 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   const [existingCreditReq, setExistingCreditReq] = useState(null);
 
   // 2-Stage Competitive Freight RFQ State ('configure' -> 'waiting_quote')
-  const [rfqStage, setRfqStage] = useState('configure');
-  const [reservedOrder, setReservedOrder] = useState(null);
+  const isInitialRfq = Boolean(
+    initialOrder &&
+    (initialOrder.status === 'awaiting_freight_quote' || initialOrder.status === 'freight_quoted' || initialOrder.awaitingFreightQuote)
+  );
+  const [rfqStage, setRfqStage] = useState(isInitialRfq ? 'waiting_quote' : 'configure');
+  const [reservedOrder, setReservedOrder] = useState(initialOrder || null);
   const [liveDelivery, setLiveDelivery] = useState(null);
   const [remainingSec, setRemainingSec] = useState(30 * 60);
 
@@ -45,28 +49,55 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
   );
 
   useEffect(() => {
-    if (listing?.quantity) {
-      const defaultUnit = listing.unit === 'MT' ? 'Quintal' : (listing.unit || 'kg');
-      setPurchaseUnit(defaultUnit);
-      const maxInUnit = convertVolume(listing.quantity, listing.unit, defaultUnit);
-      const minInUnit = convertVolume(effectiveMoqInListingUnit, listing.unit, defaultUnit);
-      const initialQty = defaultUnit === 'MT' ? Math.min(1, maxInUnit) : (defaultUnit === 'Quintal' ? Math.min(10, maxInUnit) : Math.min(100, maxInUnit));
-      const targetQty = Math.min(maxInUnit, Math.max(minInUnit, initialQty > 0 ? initialQty : minInUnit));
-      setPurchaseQty(targetQty);
-      const estRate = getRateInUnit(listing.price, listing.unit, defaultUnit);
-      const estTotal = Math.round(targetQty * estRate);
-      const estFin = calculateOrderFinancials(estTotal);
-      setPaymentMode(estFin.totalBuyerPayable >= 50000 ? 'escrow_van' : 'direct_razorpay');
+    if (!isOpen) return;
+
+    // Check if initialOrder is provided with an active RFQ
+    const activeOrderToResume = initialOrder;
+
+    if (activeOrderToResume && (
+      activeOrderToResume.status === 'awaiting_freight_quote' ||
+      activeOrderToResume.status === 'freight_quoted' ||
+      Boolean(activeOrderToResume.awaitingFreightQuote)
+    )) {
+      setReservedOrder(activeOrderToResume);
+      setRfqStage('waiting_quote');
+      if (activeOrderToResume.quantity) setPurchaseQty(Number(activeOrderToResume.quantity));
+      if (activeOrderToResume.unit) setPurchaseUnit(activeOrderToResume.unit);
+      if (activeOrderToResume.deliveryLocation) {
+        setDeliveryDistrict(activeOrderToResume.deliveryLocation.district || currentUser?.district || 'Chennai');
+        setDeliveryState(activeOrderToResume.deliveryLocation.state || currentUser?.state || 'Tamil Nadu');
+        setDeliveryAddress(activeOrderToResume.deliveryLocation.address || currentUser?.address || 'Wholesale Market Hub');
+        setDeliveryPincode(activeOrderToResume.deliveryLocation.pincode || currentUser?.pincode || '600001');
+      }
+      getDeliveryForOrder(activeOrderToResume.orderNumber || activeOrderToResume.id).then((dlv) => {
+        if (dlv) setLiveDelivery(dlv);
+      }).catch(() => {});
     } else {
-      setPaymentMode('direct_razorpay');
+      // Normal configure mode
+      if (listing?.quantity) {
+        const defaultUnit = listing.unit === 'MT' ? 'Quintal' : (listing.unit || 'kg');
+        setPurchaseUnit(defaultUnit);
+        const maxInUnit = convertVolume(listing.quantity, listing.unit, defaultUnit);
+        const minInUnit = convertVolume(effectiveMoqInListingUnit, listing.unit, defaultUnit);
+        const initialQty = defaultUnit === 'MT' ? Math.min(1, maxInUnit) : (defaultUnit === 'Quintal' ? Math.min(10, maxInUnit) : Math.min(100, maxInUnit));
+        const targetQty = Math.min(maxInUnit, Math.max(minInUnit, initialQty > 0 ? initialQty : minInUnit));
+        setPurchaseQty(targetQty);
+        const estRate = getRateInUnit(listing.price, listing.unit, defaultUnit);
+        const estTotal = Math.round(targetQty * estRate);
+        const estFin = calculateOrderFinancials(estTotal);
+        setPaymentMode(estFin.totalBuyerPayable >= 50000 ? 'escrow_van' : 'direct_razorpay');
+      } else {
+        setPaymentMode('direct_razorpay');
+      }
+      setRfqStage('configure');
+      setReservedOrder(null);
+      setLiveDelivery(null);
+      setRemainingSec(30 * 60);
     }
+
     setCreditSuccessMsg(null);
     setVanSession(null);
     setIsAwaitingWebhook(false);
-    setRfqStage('configure');
-    setReservedOrder(null);
-    setLiveDelivery(null);
-    setRemainingSec(30 * 60);
     setError('');
 
     if (currentUser) {
@@ -102,11 +133,53 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     return () => {
       isMounted = false;
     };
-  }, [listing, currentUser, isOpen]);
+  }, [listing, currentUser, isOpen, initialOrder]);
 
-  const qty = Math.max(0, Number(purchaseQty || 0));
-  const activeRate = listing ? getRateInUnit(listing.price, listing.unit, purchaseUnit) : 0;
-  const subtotal = Math.round(qty * activeRate);
+  // If initialOrder was not provided directly, auto-detect active RFQ order from store on open
+  useEffect(() => {
+    if (!isOpen || initialOrder || !listing?.id) return;
+    let isMounted = true;
+    getOrders().then((all) => {
+      if (!isMounted) return;
+      const found = all.find((o) => {
+        const matchesListing = String(o.listingId || o.listing_id || '') === String(listing.id);
+        const isRfq = o.status === 'awaiting_freight_quote' || o.status === 'freight_quoted' || Boolean(o.awaitingFreightQuote);
+        return matchesListing && isRfq;
+      });
+      if (found) {
+        setReservedOrder(found);
+        setRfqStage('waiting_quote');
+        if (found.quantity) setPurchaseQty(Number(found.quantity));
+        if (found.unit) setPurchaseUnit(found.unit);
+        getDeliveryForOrder(found.orderNumber || found.id).then((dlv) => {
+          if (isMounted && dlv) setLiveDelivery(dlv);
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, initialOrder, listing?.id]);
+
+  const displayQty = (rfqStage === 'waiting_quote' && reservedOrder?.quantity)
+    ? Number(reservedOrder.quantity)
+    : Math.max(0, Number(purchaseQty || 0));
+
+  const displayUnit = (rfqStage === 'waiting_quote' && reservedOrder?.unit)
+    ? reservedOrder.unit
+    : purchaseUnit;
+
+  const displayRate = (rfqStage === 'waiting_quote' && reservedOrder?.pricePerUnit)
+    ? Number(reservedOrder.pricePerUnit)
+    : (listing ? getRateInUnit(listing.price, listing.unit, displayUnit) : 0);
+
+  const displaySubtotal = (rfqStage === 'waiting_quote' && reservedOrder?.totalAmount)
+    ? Number(reservedOrder.totalAmount)
+    : Math.round(displayQty * displayRate);
+
+  const qty = displayQty;
+  const activeRate = displayRate;
+  const subtotal = displaySubtotal;
   const financials = calculateOrderFinancials(subtotal);
 
   // Live Freight Quote & Combined Escrow Calculations
@@ -251,8 +324,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       setError(`Cannot purchase more than available quantity (${maxInSelectedUnit.toLocaleString('en-IN')} ${purchaseUnit}).`);
       return;
     }
-    if (!deliveryDistrict.trim() || !deliveryAddress.trim()) {
-      setError('Please provide your delivery destination district and address.');
+    if (!deliveryDistrict.trim() || !deliveryState.trim() || !deliveryAddress.trim()) {
+      setError('Please provide your delivery destination district, state, and address.');
       return;
     }
 
@@ -685,25 +758,21 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                       ? hasFreightQuote
                         ? 'Freight Quote Ready • Combined Escrow'
                         : 'Live 30-Min Freight Bidding'
-                      : 'Confirm Purchase & Request Freight Quote'}
+                      : 'Confirm Order & Request Freight'}
                   </h3>
                   <span className="text-xs text-[#566861]">
                     {rfqStage === 'waiting_quote'
                       ? `Order ${reservedOrder?.orderNumber || ''} • Step 2 of 2: Freight Quote & Combined Escrow`
-                      : 'Step 1 of 2: Select Volume (≥ MOQ) & Request 30-Min Freight Quotes'}
+                      : 'Step 1 of 2: Select Quantity & Delivery Location'}
                   </span>
                 </div>
               </div>
 
               <button
-                onClick={() => {
-                  if (rfqStage === 'waiting_quote' && reservedOrder) {
-                    handleTrackRfqInMyOrders();
-                  } else {
-                    onClose?.();
-                  }
-                }}
+                type="button"
+                onClick={onClose}
                 className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -720,58 +789,44 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
               )}
 
               {/* Produce Overview Snapshot */}
-              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-base font-bold text-[#0B3326] font-heading">
+                    <h4 className="text-base font-bold text-[#0B3326] font-heading truncate">
                       {listing.commodity}
                     </h4>
                     <Badge variant="emerald" size="sm">
                       Grade {listing.grade}
                     </Badge>
-                    <Badge variant="amber" size="sm">
-                      Min Order (MOQ): {minInSelectedUnit.toLocaleString('en-IN')} {purchaseUnit}
-                    </Badge>
                   </div>
                   <p className="text-xs text-[#566861] mt-0.5">
-                    Available lot: <strong className="text-[#14211D]">{listing.quantity} {listing.unit}</strong>
-                    {listing.unit === 'MT' && (
-                      <span className="text-[#10B981] ml-1 font-semibold">
-                        ({(listing.quantity * 10).toLocaleString('en-IN')} Quintals)
-                      </span>
-                    )}
+                    Available: <strong className="text-[#0B3326]">{listing.quantity} {listing.unit}</strong>
+                    <span className="mx-1.5 text-[#CBD5E1]">•</span>
+                    Min Order: <strong className="text-amber-800">{minInSelectedUnit.toLocaleString('en-IN')} {purchaseUnit}</strong>
                   </p>
                 </div>
 
-                <div className="text-left sm:text-right">
-                  <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Fixed Unit Rate</span>
-                  <div className="space-y-0.5">
-                    <span className="text-base font-bold text-[#0B3326] block">
-                      ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}
-                    </span>
-                    {listing.unit === 'MT' && (
-                      <span className="text-[11px] font-semibold text-[#10B981] block">
-                        (₹{Math.round(listing.price / 10).toLocaleString('en-IN')} / Quintal)
-                      </span>
-                    )}
-                  </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Fixed Rate</span>
+                  <span className="text-base font-bold text-[#0B3326]">
+                    ₹{activeRate.toLocaleString('en-IN')} <span className="text-xs font-normal text-[#566861]">/ {purchaseUnit}</span>
+                  </span>
                 </div>
               </div>
 
               {rfqStage === 'configure' ? (
                 <>
-                  {/* Quantity & Unit Selection Bay */}
-                  <div className="space-y-3 p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs">
+                  {/* Section 1: Purchase Quantity */}
+                  <div className="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs">
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <label className="text-xs font-bold text-[#14211D] block">
-                        Select Purchase Unit &amp; Volume (≥ MOQ)
+                      <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
+                        1. Purchase Quantity
                       </label>
 
                       {/* Unit Toggle Pill Buttons */}
-                      <div className="flex items-center gap-1.5 p-1 bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl text-xs font-semibold">
+                      <div className="flex items-center gap-1 p-0.5 bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl text-xs font-semibold">
                         {['Quintal', 'MT', 'kg'].map((u) => {
                           const isSelected = purchaseUnit === u;
-                          const label = u === 'Quintal' ? 'Quintal (Qtl)' : u === 'MT' ? 'Metric Tonne (MT)' : 'kg';
                           return (
                             <button
                               key={u}
@@ -779,11 +834,11 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                               onClick={() => handleUnitSwitch(u)}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                 isSelected
-                                  ? 'bg-[#10B981] text-white shadow-xs'
-                                  : 'text-[#566861] hover:text-[#0B3326] hover:bg-white'
+                                  ? 'bg-[#10B981] text-white shadow-2xs'
+                                  : 'text-[#566861] hover:text-[#0B3326]'
                               }`}
                             >
-                              {label}
+                              {u}
                             </button>
                           );
                         })}
@@ -800,7 +855,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                           max={maxInSelectedUnit}
                           value={purchaseQty}
                           onChange={(e) => setPurchaseQty(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all"
+                          className="w-full pl-3.5 pr-14 py-2.5 rounded-xl border border-[#E5EDE8] text-base font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981] transition-all bg-[#F8FAF8] focus:bg-white"
                           placeholder={`Min ${minInSelectedUnit}`}
                         />
                         <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#566861] pointer-events-none">
@@ -822,50 +877,29 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                         onClick={() => setPurchaseQty(maxInSelectedUnit)}
                         className="px-3 py-2.5 rounded-xl text-xs font-bold bg-[#EBF5F0] text-[#0B3326] hover:bg-[#10B981] hover:text-white transition-colors cursor-pointer shrink-0"
                       >
-                        Buy Entire Lot
+                        Entire Lot
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-[#566861] flex-wrap gap-1">
+                    <div className="flex items-center justify-between text-[11px] text-[#566861] pt-0.5">
                       <span>
-                        Min (MOQ): <strong className="text-amber-800">{minInSelectedUnit.toLocaleString('en-IN')} {purchaseUnit}</strong> • Max available: <strong className="text-[#0B3326]">{maxInSelectedUnit.toLocaleString('en-IN')} {purchaseUnit}</strong>
+                        Min: <strong className="text-amber-800">{minInSelectedUnit.toLocaleString('en-IN')}</strong> • Max: <strong className="text-[#0B3326]">{maxInSelectedUnit.toLocaleString('en-IN')} {purchaseUnit}</strong>
                       </span>
-                      <span>
-                        Rate in {purchaseUnit}: <strong className="text-[#0B3326]">₹{activeRate.toLocaleString('en-IN')}/{purchaseUnit}</strong>
+                      <span className="font-semibold text-[#0B3326]">
+                        Produce Subtotal: <strong className="text-sm font-bold text-[#0B3326]">{formatINR(subtotal)}</strong>
                       </span>
                     </div>
-
-                    {/* Real-time Multi-Unit Conversion Breakdown Pill */}
-                    {qty > 0 && (
-                      <div className="p-3 rounded-xl bg-gradient-to-r from-[#F2FBF6] to-white border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in">
-                        <div className="space-y-0.5">
-                          <span className="text-[11px] font-bold text-[#0B3326] flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
-                            Order Lot Conversion:
-                          </span>
-                          <p className="text-[11px] text-[#2D5A47]">
-                            <strong className="text-[#0B3326]">{qty} {purchaseUnit}</strong> = {totalQuintals.toLocaleString('en-IN')} Quintals ({totalMT.toLocaleString('en-IN')} MT • {totalKg.toLocaleString('en-IN')} kg)
-                          </p>
-                        </div>
-                        <div className="text-left sm:text-right shrink-0">
-                          <span className="text-[10px] text-[#566861] block">Crop Subtotal:</span>
-                          <span className="font-extrabold text-[#0B3326] text-sm">
-                            ₹{subtotal.toLocaleString('en-IN')}
-                          </span>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Delivery Destination Confirmation */}
-                  <div className="p-3.5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5">
-                    <div className="flex items-center justify-between flex-wrap gap-1">
+                  {/* Section 2: Delivery Destination */}
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5 uppercase tracking-wider">
                         <MapPin className="w-3.5 h-3.5 text-[#10B981]" />
-                        Delivery Destination (Your Shop / Hub)
+                        2. Delivery Destination
                       </span>
                       <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-semibold">
-                        🔒 Street Address Hidden Until Escrow Lock
+                        🔒 Address Private Until Escrow
                       </span>
                     </div>
 
@@ -875,7 +909,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                         value={deliveryDistrict}
                         onChange={(e) => setDeliveryDistrict(e.target.value)}
                         placeholder="District (e.g. Chennai)"
-                        className="px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                        className="px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         required
                       />
                       <input
@@ -883,7 +917,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                         value={deliveryState}
                         onChange={(e) => setDeliveryState(e.target.value)}
                         placeholder="State (e.g. Tamil Nadu)"
-                        className="px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                        className="px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         required
                       />
                     </div>
@@ -894,7 +928,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                         value={deliveryAddress}
                         onChange={(e) => setDeliveryAddress(e.target.value)}
                         placeholder="Shop / Hub / Street Address"
-                        className="col-span-2 px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                        className="col-span-2 px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                         required
                       />
                       <input
@@ -902,43 +936,42 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                         value={deliveryPincode}
                         onChange={(e) => setDeliveryPincode(e.target.value)}
                         placeholder="PIN Code"
-                        className="px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                        className="px-3 py-2 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                       />
                     </div>
                   </div>
 
-                  {/* Step 1 Estimate & 30-Min Freight Bidding Notice */}
-                  <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
-                    <div className="flex items-center justify-between text-xs text-[#DCFCE7]/80">
+                  {/* Section 3: Order Summary Card */}
+                  <div className="p-4 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] shadow-xs space-y-2">
+                    <div className="flex items-center justify-between text-xs text-[#DCFCE7]/85">
                       <span>Produce Value ({qty} {purchaseUnit} × ₹{activeRate.toLocaleString('en-IN')})</span>
                       <span className="font-semibold text-white">{formatINR(subtotal)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-[#DCFCE7]/80">
-                      <span>Buyer Platform Fee (0.25%)</span>
+                    <div className="flex items-center justify-between text-xs text-[#DCFCE7]/85">
+                      <span>Platform Fee (0.25%)</span>
                       <span className="font-semibold text-[#34D399]">+{formatINR(financials.buyerFee)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-amber-300 pt-1 border-t border-[#14624A]/80">
+                    <div className="flex items-center justify-between text-xs text-amber-300 pt-1.5 border-t border-[#14624A]/70">
                       <span className="flex items-center gap-1.5">
                         <Truck className="w-3.5 h-3.5" />
-                        Freight Quote ({listing.district || 'Origin'} → {deliveryDistrict || 'Destination'})
+                        Freight ({listing.district || 'Origin'} → {deliveryDistrict || 'Destination'})
                       </span>
-                      <span className="font-bold">Quoted Live (30-Min RFQ)</span>
+                      <span className="font-bold">Quoted Live (30 Mins)</span>
                     </div>
                     <div className="flex items-baseline justify-between pt-2 border-t border-[#14624A]">
-                      <span className="text-xs font-semibold text-white">
-                        Crop Escrow Subtotal (Before Freight Quote)
+                      <span className="text-xs font-bold text-white">
+                        Total Escrow Subtotal
                       </span>
-                      <span className="text-xl font-extrabold font-heading text-[#34D399]">
-                        {formatINR(financials.totalBuyerPayable)} + Freight
+                      <span className="text-lg sm:text-xl font-extrabold font-heading text-[#34D399]">
+                        {formatINR(financials.totalBuyerPayable)} <span className="text-xs font-normal text-white/70">+ Freight</span>
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
-                    <Clock className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
-                    <span>
-                      <strong>How 30-Min Freight Bidding Works:</strong> Clicking below reserves your lot and broadcasts your route (District &amp; State only) to verified transporters. Within <strong>30 minutes</strong>, the lowest freight quote appears here so you pay <strong>Crop + Freight together in one Escrow checkout</strong>.
-                    </span>
+                  {/* Crisp 1-Line Explanation */}
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326]">
+                    <Clock className="w-4 h-4 text-[#10B981] shrink-0" />
+                    <span>Transporters submit competitive live bids for your route within <strong>30 minutes</strong>.</span>
                   </div>
                 </>
               ) : (
@@ -1015,6 +1048,25 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                           🛡️ <strong>30-Min Admin Concierge Guarantee:</strong> If no transporter bids within 30 minutes, AgroLnk Admin is alerted immediately, calls you, and assigns a verified fleet quote manually.
                         </p>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Switch Back to Step 1 CTA */}
+                  <div className="flex items-center justify-between px-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRfqStage('configure');
+                        setReservedOrder(null);
+                      }}
+                      className="text-[#566861] hover:text-[#0B3326] underline font-medium cursor-pointer"
+                    >
+                      ← Change quantity or delivery destination
+                    </button>
+                    {reservedOrder?.orderNumber && (
+                      <span className="text-[10px] text-[#566861] font-mono font-bold bg-[#E5EDE8] px-2 py-0.5 rounded-md">
+                        {reservedOrder.orderNumber}
+                      </span>
                     )}
                   </div>
 
@@ -1361,8 +1413,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                     className="flex-1 justify-center font-bold text-xs py-2.5 sm:py-3 shadow-xs cursor-pointer w-full sm:w-auto text-white bg-[#0B3326] hover:bg-[#0A261D]"
                   >
                     {isSubmitting
-                      ? 'Broadcasting 30-Min Freight RFQ...'
-                      : 'Request 30-Min Freight Quotes & Reserve Lot'}
+                      ? 'Requesting Live Freight Quotes...'
+                      : 'Request Freight & Continue →'}
                   </Button>
                 </>
               ) : !hasFreightQuote ? (

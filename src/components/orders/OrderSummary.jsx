@@ -29,7 +29,7 @@ import { hasSpecificVariety } from '../../data/commodityTaxonomy';
 import { formatDualVolume } from '../../utils/pricingUnits';
 import { getCurrentUser } from '../../utils/auth';
 import { toast } from '../../context/ToastContext';
-import { depositOrderEscrow, completeBuyerOrderWithFreightPayment } from '../../utils/orders';
+import { depositOrderEscrow, completeBuyerOrderWithFreightPayment, updateOrderStatus } from '../../utils/orders';
 import { calculateOrderFinancials } from '../../utils/commission';
 import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
 
@@ -236,6 +236,25 @@ export default function OrderSummary({
     }
   };
 
+  const handleCancelRfqOrder = async () => {
+    if (!window.confirm(`Are you sure you want to cancel quote request ${order.orderNumber}? The reserved lot will be returned to inventory.`)) {
+      return;
+    }
+    try {
+      setIsDepositing(true);
+      await updateOrderStatus(order.id || order.orderNumber, 'cancelled');
+      toast.success(`Order ${order.orderNumber} cancelled and lot returned to inventory.`);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: { id: order.id, orderNumber: order.orderNumber, status: 'cancelled' } }));
+        window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to cancel order request.');
+    } finally {
+      setIsDepositing(false);
+    }
+  };
+
   return (
     <div className="space-y-4 text-left">
 
@@ -290,8 +309,8 @@ export default function OrderSummary({
               )}
             </div>
           </div>
-          {hasFreightQuote && (
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {hasFreightQuote && (
               <Button
                 variant="accent"
                 size="sm"
@@ -303,8 +322,17 @@ export default function OrderSummary({
                   ? 'Opening Payment...'
                   : `Pay Combined Escrow (₹${combinedEscrowPayable.toLocaleString('en-IN')})`}
               </Button>
-            </div>
-          )}
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isDepositing}
+              onClick={handleCancelRfqOrder}
+              className="text-xs font-semibold py-2 px-3 border-amber-300 text-amber-900 hover:bg-amber-100 cursor-pointer whitespace-nowrap"
+            >
+              Cancel Request
+            </Button>
+          </div>
         </div>
       )}
 

@@ -13,11 +13,16 @@ import {
   CreditCard,
   Lock,
   Sparkles,
-  Zap
+  Zap,
+  FileText,
+  Download,
+  ExternalLink,
+  Loader2,
+  Paperclip
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { getInspectionForOrder, requestQualityInspection, payInspectionFee } from '../../utils/inspection';
+import { getInspectionForOrder, requestQualityInspection, payInspectionFee, getInspectionCertificateUrl } from '../../utils/inspection';
 import { initiateRazorpayInspectionFeeCheckout } from '../../utils/razorpayRouteClient';
 import { toast } from '../../context/ToastContext';
 import { getCurrentUser } from '../../utils/auth';
@@ -138,6 +143,55 @@ export default function BuyerInspectionModal({
     }
   }, [isOpen, autoOpenPayment, inspection, handlePayInspectionFee]);
 
+  // Lab certificate (PDF / image) — URL resolved ONLY after the lab fee is paid
+  const certificate = inspection?.certificate || inspection?.arbitration?.certificate || null;
+  const labName = inspection?.labName || inspection?.arbitration?.labName || null;
+  const labCertNumber = inspection?.labCertNumber || inspection?.arbitration?.labCertNumber || null;
+  const certFeePaid = inspection?.feeStatus === 'paid';
+  const certKey = certificate ? (certificate.path || certificate.uploadedAt || certificate.name) : null;
+  const [certUrl, setCertUrl] = useState(null);
+  const [certDownloadUrl, setCertDownloadUrl] = useState(null);
+  const [certLoading, setCertLoading] = useState(false);
+  const [certFailed, setCertFailed] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !certFeePaid || !certificate) {
+      setCertUrl(null);
+      setCertDownloadUrl(null);
+      setCertFailed(false);
+      return undefined;
+    }
+    let cancelled = false;
+    let createdBlobUrl = null;
+    setCertLoading(true);
+    setCertFailed(false);
+    getInspectionCertificateUrl(certificate)
+      .then(async (url) => {
+        if (url && url.startsWith('blob:')) createdBlobUrl = url;
+        if (cancelled) {
+          // Modal closed before the link was ready — release the blob immediately
+          if (createdBlobUrl) URL.revokeObjectURL(createdBlobUrl);
+          return;
+        }
+        // Supabase files get a dedicated "attachment" link so Download saves instead of opening
+        const dlUrl = url && certificate.storage === 'supabase'
+          ? (await getInspectionCertificateUrl(certificate, { download: true })) || url
+          : url;
+        if (cancelled) return;
+        setCertUrl(url || null);
+        setCertDownloadUrl(dlUrl || null);
+        setCertFailed(!url);
+      })
+      .finally(() => {
+        if (!cancelled) setCertLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (createdBlobUrl) URL.revokeObjectURL(createdBlobUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, certFeePaid, certKey]);
+
   if (!isOpen || !order) return null;
 
   const handleAcceptReport = () => {
@@ -153,7 +207,7 @@ export default function BuyerInspectionModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-[#E5EDE8] shadow-2xl space-y-5 text-left animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-[#E5EDE8] shadow-2xl space-y-5 text-left animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
@@ -312,6 +366,88 @@ export default function BuyerInspectionModal({
                   <p className="text-[11px] text-emerald-800 italic pt-1">
                     "{inspection.inspectorNotes || 'Physical quality and assay parameters confirmed matching agreement at farmgate hub.'}"
                   </p>
+
+                  {(labName || labCertNumber) && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] pt-1 border-t border-emerald-200">
+                      {labName && (
+                        <span className="text-emerald-800">
+                          Testing Lab: <span className="font-bold text-[#0B3326]">{labName}</span>
+                        </span>
+                      )}
+                      {labCertNumber && (
+                        <span className="text-emerald-800">
+                          Certificate No: <span className="font-mono font-bold text-[#0B3326]">{labCertNumber}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {certificate && (() => {
+                    const isImageCert = String(certificate.type || '').startsWith('image/');
+                    return (
+                      <div className="p-3 rounded-xl bg-white border border-emerald-200 space-y-2.5">
+                        <div className="flex items-center gap-2.5">
+                          {isImageCert && certUrl ? (
+                            <a href={certUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                              <img
+                                src={certUrl}
+                                alt="Lab certificate"
+                                className="w-12 h-12 rounded-lg object-cover border border-emerald-200"
+                              />
+                            </a>
+                          ) : (
+                            <div className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center shrink-0 border ${
+                              isImageCert ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
+                            }`}>
+                              <FileText className={`w-5 h-5 ${isImageCert ? 'text-emerald-700' : 'text-red-600'}`} />
+                              <span className={`text-[8px] font-bold leading-none mt-0.5 ${isImageCert ? 'text-emerald-800' : 'text-red-700'}`}>
+                                {isImageCert ? 'IMAGE' : 'PDF'}
+                              </span>
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold text-[#0B3326] text-xs flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              Official Lab Certificate
+                            </span>
+                            <span className="text-[10px] text-[#566861] block truncate" title={certificate.name}>
+                              {certificate.name || 'lab-certificate'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {certLoading ? (
+                          <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-800 py-1.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Preparing secure document link...
+                          </div>
+                        ) : certUrl ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            <a
+                              href={certUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#0B3326] hover:bg-[#07241A] text-white text-[11px] font-bold transition-colors"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 text-[#34D399]" /> View
+                            </a>
+                            <a
+                              href={certDownloadUrl || certUrl}
+                              download={certificate.name || 'lab-certificate'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-[11px] font-bold transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Download
+                            </a>
+                          </div>
+                        ) : certFailed ? (
+                          <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                            The certificate is attached but could not be opened right now. Please refresh, or use Secure Chat to request a copy from AgroLnk support.
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <div className="pt-2 border-t border-amber-200/70 space-y-2.5">
@@ -347,6 +483,24 @@ export default function BuyerInspectionModal({
                       </span>
                     </div>
                   </div>
+
+                  {certificate && (
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/90 border border-amber-200/80">
+                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 shrink-0">
+                        <Paperclip className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-bold text-amber-950 block">
+                          Official Lab Certificate Attached
+                        </span>
+                        <span className="text-[10px] text-amber-800 block">
+                          {String(certificate.type || '').startsWith('image/') ? 'Stamped test photo' : 'Stamped PDF certificate'}
+                          {labName ? ` • ${labName}` : ''} • unlocks after fee payment
+                        </span>
+                      </div>
+                      <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

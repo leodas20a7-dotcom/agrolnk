@@ -79,8 +79,8 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
         </div>
       </div>
 
-      {/* Middle: Lot Breakdown & Amount (Evenly locked 3-column bay) */}
-      <div className="w-full md:w-[270px] lg:w-[310px] shrink-0 grid grid-cols-3 gap-2 sm:gap-4 py-2.5 md:py-0 border-y md:border-y-0 md:border-x border-[#E5EDE8] md:px-4 lg:px-5 text-xs">
+      {/* Middle: Lot Breakdown & Amount (Spacious 3-column bay preventing number truncation) */}
+      <div className="w-full md:w-[360px] lg:w-[420px] shrink-0 grid grid-cols-3 gap-2 sm:gap-4 py-2.5 md:py-0 border-y md:border-y-0 md:border-x border-[#E5EDE8] md:px-4 lg:px-5 text-xs">
         <div className="min-w-0" title={formatDualVolume(order.quantity, order.unit)}>
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Volume</span>
           <span className="font-extrabold text-sm text-[#0B3326] block truncate">
@@ -100,8 +100,9 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
 
         <div className="min-w-0">
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">Rate</span>
-          <span className="font-bold text-sm text-[#566861] block truncate">
-            ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}/{order.unit || 'kg'}
+          <span className="font-bold text-sm text-[#566861] block whitespace-nowrap">
+            ₹{Number(order.pricePerUnit || 0).toLocaleString('en-IN')}
+            <span className="text-[10px] text-[#566861] font-normal">/{order.unit || 'kg'}</span>
           </span>
         </div>
 
@@ -109,7 +110,7 @@ export default function OrderRow({ order, viewerRole = 'farmer', onView }) {
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block truncate">
             {(viewerRole === 'farmer' || viewerRole === 'fpo') ? 'Payout' : 'Order Total'}
           </span>
-          <span className="font-extrabold text-base text-[#10B981] font-heading block truncate">
+          <span className="font-extrabold text-base text-[#10B981] font-heading block whitespace-nowrap">
             ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
           </span>
         </div>
