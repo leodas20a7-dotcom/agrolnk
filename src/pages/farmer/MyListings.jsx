@@ -360,7 +360,7 @@ export default function MyListings({ currentUser, onNavigate }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center justify-end gap-2.5 sm:gap-3 shrink-0 w-full sm:w-auto">
             {/* 1. Actions / Tools Dropdown */}
             <div className="relative" ref={actionsMenuRef}>
               <button
@@ -380,7 +380,7 @@ export default function MyListings({ currentUser, onNavigate }) {
 
               {/* Dropdown Menu */}
               {isActionsMenuOpen && (
-                <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xl py-2 z-30 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-56 sm:w-60 max-w-[calc(100vw-2rem)] rounded-2xl bg-white border border-[#E5EDE8] shadow-2xl py-2 z-30 animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3.5 py-1 text-[10px] font-bold text-[#566861] uppercase tracking-wider border-b border-[#E5EDE8]/60 mb-1">
                     Listing Tools
                   </div>
