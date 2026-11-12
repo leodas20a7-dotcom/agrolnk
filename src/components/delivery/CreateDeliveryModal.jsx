@@ -19,6 +19,7 @@ export default function CreateDeliveryModal({
   const defaultPickupState = order?.pickupLocation?.state || order?.state || user?.state || 'Tamil Nadu';
   const defaultPickupDistrict = order?.pickupLocation?.district || order?.district || user?.district || 'Salem';
   const defaultPickupAddress = order?.pickupLocation?.address || order?.village || user?.address || 'Farmgate Primary Packing Yard';
+  const defaultPickupLandmark = order?.pickupLocation?.landmark || order?.landmark || '';
 
   const defaultDestState =
     order?.deliveryLocation?.state ||
@@ -54,6 +55,7 @@ export default function CreateDeliveryModal({
   const [pickupState, setPickupState] = useState(defaultPickupState);
   const [pickupDistrict, setPickupDistrict] = useState(defaultPickupDistrict);
   const [pickupAddress, setPickupAddress] = useState(defaultPickupAddress);
+  const [pickupLandmark, setPickupLandmark] = useState(defaultPickupLandmark);
 
   const [deliveryState, setDeliveryState] = useState(defaultDestState);
   const [deliveryDistrict, setDeliveryDistrict] = useState(defaultDestDistrict);
@@ -102,10 +104,14 @@ export default function CreateDeliveryModal({
         unit: order.unit || 'kg',
         estimatedDistanceKm: distanceKm,
         freightAmount: fareEstimate.estimatedFare,
+        farmerPhone: order?.farmerPhone || order?.pickupLocation?.phone || user?.phone || '',
+        buyerPhone: order?.buyerPhone || order?.deliveryLocation?.phone || '',
         pickupLocation: {
           state: pickupState,
           district: pickupDistrict,
           address: finalPickup,
+          landmark: pickupLandmark.trim(),
+          phone: order?.farmerPhone || order?.pickupLocation?.phone || user?.phone || '',
         },
         deliveryLocation: {
           state: deliveryState,
@@ -228,6 +234,14 @@ export default function CreateDeliveryModal({
                 placeholder="Exact Farmgate / Depot Address"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 required
+              />
+
+              <input
+                type="text"
+                value={pickupLandmark}
+                onChange={(e) => setPickupLandmark(e.target.value)}
+                placeholder="Nearby Landmark / Road Directions (e.g. Near HP Petrol Bunk)"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
               />
             </div>
 

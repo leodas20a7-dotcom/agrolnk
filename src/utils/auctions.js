@@ -33,7 +33,17 @@ function mapAuctionFromDb(row) {
     if (revReserveMatch && revReserveMatch[1]) {
       reservePrice = Number(revReserveMatch[1]);
     }
+    const landmarkMatch = row.description.match(/<!--agrolnk:landmark:(.*?)-->/);
+    if (landmarkMatch && landmarkMatch[1]) {
+      try {
+        landmark = decodeURIComponent(landmarkMatch[1]);
+      } catch {
+        landmark = landmarkMatch[1];
+      }
+    }
   }
+
+  let landmark = row.landmark || '';
 
   const cleanDescription = (row.description || '')
     .replace(/<!--agrolnk:village:.*?-->\n?/g, '')
@@ -41,6 +51,7 @@ function mapAuctionFromDb(row) {
     .replace(/<!--agrolnk:auction_type:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:bid_step:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:reverse_reserve_price:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:landmark:.*?-->\n?/g, '')
     .trim();
 
   return {
@@ -67,6 +78,7 @@ function mapAuctionFromDb(row) {
     state: row.state,
     district: row.district,
     village: row.village || '',
+    landmark: landmark || '',
     description: cleanDescription,
     images: Array.isArray(row.images) && row.images.length > 0
       ? row.images
@@ -405,6 +417,9 @@ export async function createAuction(auctionData) {
     if (orgName) {
       metaTags += `\n<!--agrolnk:org_name:${encodeURIComponent(orgName)}-->`;
     }
+    if (auctionData.landmark) {
+      metaTags += `\n<!--agrolnk:landmark:${encodeURIComponent(auctionData.landmark)}-->`;
+    }
     const fullDesc = auctionData.description ? `${metaTags}\n${auctionData.description}` : metaTags;
 
     const dbRow = {
@@ -715,11 +730,15 @@ export async function updateAuction(auctionId, auctionData) {
   if (auctionType === 'reverse') {
     metaTags += `\n<!--agrolnk:reverse_reserve_price:${reservePrice}-->`;
   }
+  if (auctionData.landmark) {
+    metaTags += `\n<!--agrolnk:landmark:${encodeURIComponent(auctionData.landmark)}-->`;
+  }
   const cleanDesc = (auctionData.description || '')
     .replace(/<!--agrolnk:village:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:auction_type:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:bid_step:.*?-->\n?/g, '')
     .replace(/<!--agrolnk:reverse_reserve_price:.*?-->\n?/g, '')
+    .replace(/<!--agrolnk:landmark:.*?-->\n?/g, '')
     .trim();
   const fullDesc = cleanDesc ? `${metaTags}\n${cleanDesc}` : metaTags;
 

@@ -256,6 +256,20 @@ export default function ProduceForm({ formData, onChange, onImageChange, isEditi
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
             />
           </div>
+
+          <div className="sm:col-span-3">
+            <label className="block text-xs font-bold text-[#14211D] mb-1.5">
+              Nearby Landmark / Directions
+            </label>
+            <input
+              type="text"
+              name="landmark"
+              value={formData.landmark || ''}
+              onChange={onChange}
+              placeholder="e.g. Near HP Petrol Bunk, 500m past Primary Health Centre"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
+            />
+          </div>
         </div>
       </div>
 

@@ -776,7 +776,11 @@ export async function createOrder(orderData) {
           pickupLocation: {
             state: localItem.state || '',
             district: localItem.district || '',
-            address: orderData.pickupAddress || `${localItem.district || ''}, ${localItem.state || ''}`,
+            address:
+              orderData.pickupAddress ||
+              [orderData.village || localItem.village, localItem.district, localItem.state].filter(Boolean).join(', ') ||
+              `${localItem.district || ''}, ${localItem.state || ''}`,
+            landmark: orderData.landmark || localItem.landmark || '',
             contactName: localItem.farmerName || 'Verified Producer',
             phone: orderData.farmerPhone || '',
           },

@@ -137,6 +137,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     state: initialSource?.state || '',
     district: initialSource?.district || '',
     village: initialSource?.village || '',
+    landmark: initialSource?.landmark || '',
     harvestDate: initialSource?.harvestDate || '',
     description: initialSource?.description || '',
     productType: initialSource?.productType || (isFoodProcessor ? 'processed' : 'raw'),
@@ -149,6 +150,34 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [isDetectingGps, setIsDetectingGps] = useState(false);
+
+  const handleDetectGpsLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        const gpsTag = `GPS: ${lat}, ${lng}`;
+        setFormData((prev) => ({
+          ...prev,
+          landmark: prev.landmark ? `${prev.landmark} • ${gpsTag}` : gpsTag,
+        }));
+        toast.success(`GPS Location attached (${lat}, ${lng})!`);
+        setIsDetectingGps(false);
+      },
+      (err) => {
+        console.warn('GPS location error:', err);
+        toast.error('Could not detect location. Please allow browser location access.');
+        setIsDetectingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Auto-save draft when fields are filled
   React.useEffect(() => {
@@ -484,6 +513,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
           state: formData.state,
           district: formData.district,
           village: formData.village,
+          landmark: formData.landmark || '',
           description: formData.description || '',
           images: formData.images,
         };
@@ -523,6 +553,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
             state: formData.state,
             district: formData.district,
             village: formData.village,
+            landmark: formData.landmark || '',
             harvestDate: formData.harvestDate || null,
             description: formData.description || '',
             productType: formData.productType || 'raw',
@@ -549,6 +580,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
             state: formData.state,
             district: formData.district,
             village: formData.village,
+            landmark: formData.landmark || '',
             harvestDate: formData.harvestDate || null,
             description: formData.description || '',
             productType: formData.productType || 'raw',
@@ -1470,6 +1502,34 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                 />
               </div>
 
+              {/* Landmark & GPS Pin */}
+              <div className="space-y-1 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#0B3326] block">
+                    Nearby Landmark / Road Directions
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleDetectGpsLocation}
+                    disabled={isDetectingGps}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#10B981] hover:text-[#0B3326] transition-colors cursor-pointer bg-[#EBF5F0] px-2.5 py-1 rounded-lg"
+                  >
+                    <MapPin className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-bounce text-amber-500' : 'text-[#10B981]'}`} />
+                    <span>{isDetectingGps ? 'Detecting GPS...' : '📍 Use Current GPS Pin'}</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={formData.landmark || ''}
+                  onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
+                  placeholder="e.g. Near HP Petrol Bunk, 500m past Primary Health Centre"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-semibold text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
+                <p className="text-[11px] text-[#566861]">
+                  Helps transporters and truck drivers locate your pickup gate without getting lost.
+                </p>
+              </div>
+
             </div>
           </Card>
         )}
@@ -1524,7 +1584,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                       Variety: <strong>{formData.variety}</strong> •{' '}
                     </>
                   )}
-                  Location: <strong>{formData.village ? `${formData.village}, ` : ''}{formData.district || 'Unspecified'}, {formData.state || 'India'}</strong>
+                  Location: <strong>{formData.village ? `${formData.village}, ` : ''}{formData.landmark ? `(Near: ${formData.landmark}), ` : ''}{formData.district || 'Unspecified'}, {formData.state || 'India'}</strong>
                 </p>
               </div>
 

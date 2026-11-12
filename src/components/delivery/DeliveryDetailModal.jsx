@@ -13,7 +13,8 @@ import {
   FileText,
   AlertCircle,
   Check,
-  XCircle
+  XCircle,
+  MessageCircle
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -94,6 +95,10 @@ export default function DeliveryDetailModal({
     canViewFullDestAddress,
     'Buyer Destination'
   );
+
+  const rawFarmerPhone = currentDelivery.farmerPhone || currentDelivery.pickupLocation?.phone || '';
+  const rawBuyerPhone = currentDelivery.buyerPhone || currentDelivery.deliveryLocation?.phone || '';
+  const pickupLandmarkStr = currentDelivery.pickupLocation?.landmark || currentDelivery.landmark || '';
 
   const handleFarmerAcceptPrice = () => {
     // Open Freight Escrow Modal for farmer to deposit freight under dual-tier model
@@ -278,12 +283,65 @@ export default function DeliveryDetailModal({
                 <span className="font-bold text-[#14211D] text-sm block">
                   {pickupStr}
                 </span>
+
+                {/* Prominent Landmark Badge */}
+                {canViewFullPickupAddress && pickupLandmarkStr && (
+                  <div className="inline-flex items-center gap-1.5 text-xs text-amber-900 bg-amber-50/90 border border-amber-200/90 px-2.5 py-1 rounded-lg mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span><strong>Landmark:</strong> {pickupLandmarkStr}</span>
+                  </div>
+                )}
+
                 <span className="text-[#566861] text-[11px] block mt-0.5">
                   Producer: {currentDelivery.farmerName || 'Producer'}
-                  {canViewFullPickupAddress && (currentDelivery.farmerPhone || currentDelivery.pickupLocation?.phone)
-                    ? ` • Phone: ${currentDelivery.farmerPhone || currentDelivery.pickupLocation?.phone}`
+                  {canViewFullPickupAddress && rawFarmerPhone
+                    ? ` • Phone: ${rawFarmerPhone}`
                     : ''}
                 </span>
+
+                {/* Transporter Quick Connect: WhatsApp Location, Direct Call, Google Maps */}
+                {canViewFullPickupAddress && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
+                    {rawFarmerPhone && (
+                      <a
+                        href={`https://wa.me/91${rawFarmerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
+                          `Vanakkam / Hello ${currentDelivery.farmerName || 'Farmer'}, I am the assigned AgroLnk transporter for consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please share your live GPS location on WhatsApp so I can navigate straight to your pickup gate.`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                        title="Ask farmer to share exact WhatsApp live pin"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
+                        <span>WhatsApp Location</span>
+                      </a>
+                    )}
+
+                    {rawFarmerPhone && (
+                      <a
+                        href={`tel:${rawFarmerPhone}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#14211D] text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                        title="Call farmer directly"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Call Producer</span>
+                      </a>
+                    )}
+
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        [pickupLandmarkStr, pickupStr].filter(Boolean).join(', ')
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD7D0] hover:bg-[#F8FAF8] text-[#0B3326] text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                      title="Open farmgate navigation in Google Maps"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Google Maps</span>
+                    </a>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -302,10 +360,50 @@ export default function DeliveryDetailModal({
                 </span>
                 <span className="text-[#566861] text-[11px] block mt-0.5">
                   Buyer: {currentDelivery.buyerName || 'Buyer'}
-                  {canViewFullDestAddress && (currentDelivery.buyerPhone || currentDelivery.deliveryLocation?.phone)
-                    ? ` • Phone: ${currentDelivery.buyerPhone || currentDelivery.deliveryLocation?.phone}`
+                  {canViewFullDestAddress && rawBuyerPhone
+                    ? ` • Phone: ${rawBuyerPhone}`
                     : ''}
                 </span>
+
+                {/* Transporter Quick Connect for Buyer Destination */}
+                {canViewFullDestAddress && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
+                    {rawBuyerPhone && (
+                      <a
+                        href={`tel:${rawBuyerPhone}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#14211D] text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                        title="Call buyer directly"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Call Buyer</span>
+                      </a>
+                    )}
+
+                    {rawBuyerPhone && (
+                      <a
+                        href={`https://wa.me/91${rawBuyerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
+                          `Hello ${currentDelivery.buyerName || 'Buyer'}, I am the assigned AgroLnk transporter for your consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please confirm your unloading depot instructions.`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
+                        <span>WhatsApp Buyer</span>
+                      </a>
+                    )}
+
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destStr)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD7D0] hover:bg-[#F8FAF8] text-[#0B3326] text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Navigate Depot</span>
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -247,6 +247,19 @@ function mapListingFromDb(row) {
     setCachedListingVillage(row.id, extractedVillage);
   }
 
+  let extractedLandmark = row.landmark || '';
+  if (!extractedLandmark && cleanDescription) {
+    const matchLandmark = cleanDescription.match(/<!--agrolnk:landmark:(.*?)-->/);
+    if (matchLandmark) {
+      try {
+        extractedLandmark = decodeURIComponent(matchLandmark[1]);
+      } catch {
+        extractedLandmark = matchLandmark[1];
+      }
+      cleanDescription = cleanDescription.replace(/<!--agrolnk:landmark:(.*?)-->\s*/, '').trim();
+    }
+  }
+
   let extractedPriceUnit = row.price_unit || '';
   if (!extractedPriceUnit && cleanDescription) {
     const matchPriceUnit = cleanDescription.match(/<!--agrolnk:priceUnit:(.*?)-->/);
@@ -329,6 +342,7 @@ function mapListingFromDb(row) {
     state: row.state,
     district: row.district,
     village: extractedVillage,
+    landmark: extractedLandmark,
     harvestDate: row.harvest_date,
     description: cleanDescription,
     images: sanitizeImages(row.images, row.commodity),
@@ -448,8 +462,12 @@ export async function createListing(listingData) {
     const rawMoq = Number(listingData.minOrderQuantity);
     const validMoq = rawMoq > 0 ? Math.min(rawMoq, totalQuantityNum) : Math.min(defaultMoqVal, totalQuantityNum);
 
-    const rawDesc = (listingData.description || '').replace(/<!--agrolnk:minOrderQty:.*?-->\s*/g, '').trim();
-    const descWithMoq = `<!--agrolnk:minOrderQty:${validMoq}-->\n${rawDesc}`.trim();
+    const rawDesc = (listingData.description || '').replace(/<!--agrolnk:minOrderQty:.*?-->\s*/g, '').replace(/<!--agrolnk:landmark:.*?-->\s*/g, '').trim();
+    const landmark = (listingData.landmark || '').trim();
+    let descWithMetadata = `<!--agrolnk:minOrderQty:${validMoq}-->\n${rawDesc}`.trim();
+    if (landmark) {
+      descWithMetadata = `<!--agrolnk:landmark:${encodeURIComponent(landmark)}-->\n${descWithMetadata}`.trim();
+    }
 
     const dbRow = {
       id: listingId,
@@ -467,7 +485,7 @@ export async function createListing(listingData) {
       district: listingData.district || '',
       village: village || null,
       harvest_date: listingData.harvestDate || null,
-      description: descWithMoq || null,
+      description: descWithMetadata || null,
       product_type: listingData.productType || 'raw',
       images: imagesArray,
       status: 'active',
@@ -580,8 +598,12 @@ export async function updateListing(listingId, listingData) {
     const rawMoq = Number(listingData.minOrderQuantity);
     const validMoq = rawMoq > 0 ? Math.min(rawMoq, totalQuantityNum) : Math.min(defaultMoqVal, totalQuantityNum);
 
-    const rawDesc = (listingData.description || '').replace(/<!--agrolnk:minOrderQty:.*?-->\s*/g, '').trim();
-    const descWithMoq = `<!--agrolnk:minOrderQty:${validMoq}-->\n${rawDesc}`.trim();
+    const rawDesc = (listingData.description || '').replace(/<!--agrolnk:minOrderQty:.*?-->\s*/g, '').replace(/<!--agrolnk:landmark:.*?-->\s*/g, '').trim();
+    const landmark = (listingData.landmark || '').trim();
+    let descWithMetadata = `<!--agrolnk:minOrderQty:${validMoq}-->\n${rawDesc}`.trim();
+    if (landmark) {
+      descWithMetadata = `<!--agrolnk:landmark:${encodeURIComponent(landmark)}-->\n${descWithMetadata}`.trim();
+    }
 
     const dbRow = {
       commodity: listingData.commodity || 'Tomato',
@@ -596,7 +618,7 @@ export async function updateListing(listingId, listingData) {
       district: listingData.district || '',
       village: village || null,
       harvest_date: listingData.harvestDate || null,
-      description: descWithMoq || null,
+      description: descWithMetadata || null,
       images: imagesArray,
       updated_at: new Date().toISOString(),
     };
