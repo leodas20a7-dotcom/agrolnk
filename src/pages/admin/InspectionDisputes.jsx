@@ -84,7 +84,9 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     };
   }, []);
 
-  const filteredList = inspections.filter(i => {
+  const activeInspections = inspections.filter(i => i.status !== 'cancelled' && i.status !== 'deleted');
+
+  const filteredList = activeInspections.filter(i => {
     if (filter === 'requested') return i.status === 'requested';
     if (filter === 'disputed') return i.status === 'disputed';
     if (filter === 'passed') return i.status === 'passed' || i.status === 'resolved';
@@ -151,15 +153,21 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
 
   const handleConfirmDelete = async () => {
     if (!requestToDelete) return;
+    const targetId = requestToDelete.id;
+    const orderRef = requestToDelete.orderId || requestToDelete.orderNumber;
     setIsDeleting(true);
     try {
-      await deleteInspectionRecord(
-        requestToDelete.id,
-        requestToDelete.orderId || requestToDelete.orderNumber
+      // Optimistically remove from state immediately so the row vanishes with zero delay
+      setInspections((prev) =>
+        prev.filter(
+          (i) => i.id !== targetId && i.orderId !== orderRef && i.orderNumber !== orderRef
+        )
       );
+
+      await deleteInspectionRecord(targetId, orderRef);
       toast.success('Inspection request cancelled and removed. Product listing is ready for Buy Now.');
       setRequestToDelete(null);
-      loadInspections();
+      await loadInspections();
     } catch (err) {
       console.error('Failed to delete inspection:', err);
       toast.error('Failed to cancel inspection request.');
@@ -218,7 +226,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   filter === 'all' ? 'bg-[#0B3326] text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                All ({inspections.length})
+                All ({activeInspections.length})
               </button>
               <button
                 onClick={() => { setFilter('requested'); setCurrentPage(1); }}
@@ -226,7 +234,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   filter === 'requested' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                Requested ({inspections.filter(i => i.status === 'requested').length})
+                Requested ({activeInspections.filter(i => i.status === 'requested').length})
               </button>
               <button
                 onClick={() => { setFilter('passed'); setCurrentPage(1); }}
@@ -234,7 +242,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   filter === 'passed' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                Certified ({inspections.filter(i => i.status === 'passed' || i.status === 'resolved').length})
+                Certified ({activeInspections.filter(i => i.status === 'passed' || i.status === 'resolved').length})
               </button>
               <button
                 onClick={() => { setFilter('disputed'); setCurrentPage(1); }}
@@ -242,7 +250,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   filter === 'disputed' ? 'bg-red-600 text-white shadow-xs' : 'text-[#566861] hover:text-[#0B3326]'
                 }`}
               >
-                Disputed ({inspections.filter(i => i.status === 'disputed').length})
+                Disputed ({activeInspections.filter(i => i.status === 'disputed').length})
               </button>
             </div>
           </div>
@@ -254,7 +262,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
             <div>
               <p className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">Awaiting Assayer</p>
               <p className="text-2xl font-extrabold text-amber-600 font-heading mt-0.5">
-                {inspections.filter(i => i.status === 'requested').length}
+                {activeInspections.filter(i => i.status === 'requested').length}
               </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
@@ -266,7 +274,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
             <div>
               <p className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">Assays Certified</p>
               <p className="text-2xl font-extrabold text-emerald-700 font-heading mt-0.5">
-                {inspections.filter(i => i.status === 'passed' || i.status === 'resolved').length}
+                {activeInspections.filter(i => i.status === 'passed' || i.status === 'resolved').length}
               </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
@@ -278,7 +286,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
             <div>
               <p className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">Active Disputes</p>
               <p className="text-2xl font-extrabold text-red-600 font-heading mt-0.5">
-                {inspections.filter(i => i.status === 'disputed').length}
+                {activeInspections.filter(i => i.status === 'disputed').length}
               </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">

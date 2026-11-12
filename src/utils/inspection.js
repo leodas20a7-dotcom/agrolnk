@@ -3,6 +3,32 @@
 import { supabase } from '../lib/supabase';
 
 const INSPECTION_STORAGE_KEY = 'agrolnk_inspection_reports';
+const INSPECTION_DELETED_KEY = 'agrolnk_deleted_inspection_ids';
+
+function getDeletedInspectionIds() {
+  try {
+    const raw = localStorage.getItem(INSPECTION_DELETED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function markInspectionDeletedLocally(...ids) {
+  try {
+    const existing = new Set(getDeletedInspectionIds());
+    ids.filter(Boolean).forEach((id) => existing.add(String(id)));
+    localStorage.setItem(INSPECTION_DELETED_KEY, JSON.stringify(Array.from(existing)));
+  } catch (err) {
+    console.error('Failed to mark inspection as deleted:', err);
+  }
+}
+
+function isInspectionDeletedLocally(idOrOrder) {
+  if (!idOrOrder) return false;
+  const deleted = getDeletedInspectionIds();
+  return deleted.includes(String(idOrOrder));
+}
 
 function mapInspectionFromDb(row) {
   if (!row) return null;
@@ -75,7 +101,16 @@ function getStoredInspections() {
   try {
     const raw = localStorage.getItem(INSPECTION_STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const list = JSON.parse(raw);
+    const deleted = getDeletedInspectionIds();
+    return list.filter(
+      (r) =>
+        !deleted.includes(String(r.id)) &&
+        !deleted.includes(String(r.orderId)) &&
+        !deleted.includes(String(r.orderNumber)) &&
+        r.status !== 'cancelled' &&
+        r.status !== 'deleted'
+    );
   } catch {
     return [];
   }
@@ -83,7 +118,16 @@ function getStoredInspections() {
 
 function saveStoredInspections(reports) {
   try {
-    localStorage.setItem(INSPECTION_STORAGE_KEY, JSON.stringify(reports));
+    const deleted = getDeletedInspectionIds();
+    const clean = reports.filter(
+      (r) =>
+        !deleted.includes(String(r.id)) &&
+        !deleted.includes(String(r.orderId)) &&
+        !deleted.includes(String(r.orderNumber)) &&
+        r.status !== 'cancelled' &&
+        r.status !== 'deleted'
+    );
+    localStorage.setItem(INSPECTION_STORAGE_KEY, JSON.stringify(clean));
     window.dispatchEvent(new Event('agrolnk_inspections_updated'));
   } catch (err) {
     console.error('Failed to save inspection reports:', err);
@@ -94,22 +138,27 @@ function saveStoredInspections(reports) {
  * Fetch all inspection records from Supabase with Local Cache Fallback
  */
 export async function getInspectionRecords() {
+  const deleted = getDeletedInspectionIds();
+
   try {
     const { data, error } = await supabase
       .from('inspections')
       .select('*')
+      .neq('status', 'cancelled')
+      .neq('status', 'deleted')
       .order('created_at', { ascending: false });
 
     if (!error && Array.isArray(data)) {
-      if (data.length === 0) {
-        // Database is online and empty! Purge stale local cache so deleted inspections do not resurrect
-        try {
-          localStorage.removeItem(INSPECTION_STORAGE_KEY);
-        } catch {}
-        return [];
-      }
+      const activeData = data.filter(
+        (row) =>
+          !deleted.includes(String(row.id)) &&
+          !deleted.includes(String(row.order_id)) &&
+          !deleted.includes(String(row.order_number)) &&
+          row.status !== 'cancelled' &&
+          row.status !== 'deleted'
+      );
 
-      const mapped = data.map(mapInspectionFromDb);
+      const mapped = activeData.map(mapInspectionFromDb);
       saveStoredInspections(mapped);
       return mapped;
     }
@@ -125,6 +174,7 @@ export async function getInspectionRecords() {
  */
 export async function getInspectionForOrder(orderNumberOrId) {
   if (!orderNumberOrId) return null;
+  if (isInspectionDeletedLocally(orderNumberOrId)) return null;
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(orderNumberOrId));
@@ -136,14 +186,22 @@ export async function getInspectionForOrder(orderNumberOrId) {
       .from('inspections')
       .select('*')
       .or(orFilter)
+      .neq('status', 'cancelled')
+      .neq('status', 'deleted')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (!error) {
-      if (data) {
+      if (
+        data &&
+        !isInspectionDeletedLocally(data.id) &&
+        !isInspectionDeletedLocally(data.order_id) &&
+        !isInspectionDeletedLocally(data.order_number) &&
+        data.status !== 'cancelled' &&
+        data.status !== 'deleted'
+      ) {
         const mapped = mapInspectionFromDb(data);
-        // Update local storage
         const all = getStoredInspections();
         const idx = all.findIndex((r) => r.id === mapped.id || r.orderNumber === mapped.orderNumber);
         if (idx >= 0) all[idx] = mapped;
@@ -151,7 +209,7 @@ export async function getInspectionForOrder(orderNumberOrId) {
         saveStoredInspections(all);
         return mapped;
       }
-      // If deleted/not found in Supabase, purge from local storage cache
+      // If deleted/not found in Supabase or marked deleted, purge from local storage cache
       const all = getStoredInspections();
       const filtered = all.filter((r) => r.orderId !== orderNumberOrId && r.orderNumber !== orderNumberOrId && r.id !== orderNumberOrId);
       if (filtered.length !== all.length) {
@@ -164,7 +222,11 @@ export async function getInspectionForOrder(orderNumberOrId) {
   }
 
   const all = getStoredInspections();
-  return all.find((r) => r.orderId === orderNumberOrId || r.orderNumber === orderNumberOrId || r.id === orderNumberOrId) || null;
+  return all.find(
+    (r) =>
+      (r.orderId === orderNumberOrId || r.orderNumber === orderNumberOrId || r.id === orderNumberOrId) &&
+      !isInspectionDeletedLocally(r.id)
+  ) || null;
 }
 
 /**
@@ -203,6 +265,14 @@ export async function requestQualityInspection(data) {
     disputeReason: null,
     createdAt: new Date().toISOString(),
   };
+
+  // Un-blacklist if this order had a previously cancelled request
+  try {
+    const deleted = getDeletedInspectionIds().filter(
+      (d) => d !== newInspection.orderNumber && d !== newInspection.orderId && d !== newInspection.id
+    );
+    localStorage.setItem(INSPECTION_DELETED_KEY, JSON.stringify(deleted));
+  } catch {}
 
   const existingIdx = all.findIndex((r) => r.orderNumber === newInspection.orderNumber || r.orderId === newInspection.orderId);
   if (existingIdx >= 0) {
@@ -384,7 +454,10 @@ export function subscribeToInspections(callback) {
 export async function deleteInspectionRecord(inspectionId, orderRef = null) {
   if (!inspectionId) return false;
 
-  // 1. Remove from local cache immediately
+  // 1. Mark in deleted blacklist so it NEVER resurrects in this browser
+  markInspectionDeletedLocally(inspectionId, orderRef);
+
+  // 2. Remove from local cache immediately
   const all = getStoredInspections();
   const filtered = all.filter(
     (r) =>
@@ -395,20 +468,24 @@ export async function deleteInspectionRecord(inspectionId, orderRef = null) {
   );
   saveStoredInspections(filtered);
 
-  // 2. Remove from Supabase safely
+  // 3. Remove / cancel from Supabase
   try {
-    // Delete by primary key
+    // Primary: Hard DELETE from Supabase
     await supabase.from('inspections').delete().eq('id', inspectionId);
-
-    // If orderRef is present, delete by order_number as well
     if (orderRef) {
       await supabase.from('inspections').delete().eq('order_number', String(orderRef));
     }
+
+    // Fallback: If RLS prevents hard delete, update status to 'cancelled' so it's ignored
+    await supabase.from('inspections').update({ status: 'cancelled' }).eq('id', inspectionId);
+    if (orderRef) {
+      await supabase.from('inspections').update({ status: 'cancelled' }).eq('order_number', String(orderRef));
+    }
   } catch (err) {
-    console.warn('Could not delete inspection from Supabase:', err);
+    console.warn('Could not delete/cancel inspection from Supabase:', err);
   }
 
-  // 3. Dispatch event for instant UI sync across all open pages
+  // 4. Dispatch event for instant UI sync across all open pages
   window.dispatchEvent(new Event('agrolnk_inspections_updated'));
   return true;
 }
