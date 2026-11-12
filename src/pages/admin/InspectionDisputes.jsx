@@ -153,7 +153,10 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
     if (!requestToDelete) return;
     setIsDeleting(true);
     try {
-      await deleteInspectionRecord(requestToDelete.id);
+      await deleteInspectionRecord(
+        requestToDelete.id,
+        requestToDelete.orderId || requestToDelete.orderNumber
+      );
       toast.success('Inspection request cancelled and removed. Product listing is ready for Buy Now.');
       setRequestToDelete(null);
       loadInspections();

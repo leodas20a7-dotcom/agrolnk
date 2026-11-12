@@ -127,10 +127,15 @@ export async function getInspectionForOrder(orderNumberOrId) {
   if (!orderNumberOrId) return null;
 
   try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(orderNumberOrId));
+    const orFilter = isUuid
+      ? `id.eq.${orderNumberOrId},order_id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`
+      : `id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`;
+
     const { data, error } = await supabase
       .from('inspections')
       .select('*')
-      .or(`id.eq.${orderNumberOrId},order_id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`)
+      .or(orFilter)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -376,22 +381,29 @@ export function subscribeToInspections(callback) {
 /**
  * Admin cancels / deletes an inspection request cleanly
  */
-export async function deleteInspectionRecord(inspectionId) {
+export async function deleteInspectionRecord(inspectionId, orderRef = null) {
   if (!inspectionId) return false;
 
   // 1. Remove from local cache immediately
   const all = getStoredInspections();
   const filtered = all.filter(
-    (r) => r.id !== inspectionId && r.orderId !== inspectionId && r.orderNumber !== inspectionId
+    (r) =>
+      r.id !== inspectionId &&
+      r.orderId !== inspectionId &&
+      r.orderNumber !== inspectionId &&
+      (orderRef ? r.orderId !== orderRef && r.orderNumber !== orderRef : true)
   );
   saveStoredInspections(filtered);
 
-  // 2. Remove from Supabase
+  // 2. Remove from Supabase safely
   try {
-    await supabase
-      .from('inspections')
-      .delete()
-      .or(`id.eq.${inspectionId},order_id.eq.${inspectionId},order_number.eq.${inspectionId}`);
+    // Delete by primary key
+    await supabase.from('inspections').delete().eq('id', inspectionId);
+
+    // If orderRef is present, delete by order_number as well
+    if (orderRef) {
+      await supabase.from('inspections').delete().eq('order_number', String(orderRef));
+    }
   } catch (err) {
     console.warn('Could not delete inspection from Supabase:', err);
   }
