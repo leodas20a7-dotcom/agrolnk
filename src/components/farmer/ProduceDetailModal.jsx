@@ -291,13 +291,13 @@ export default function ProduceDetailModal({
               </div>
             </div>
 
-            {listing.village && Boolean(onEdit) && (
+            {(listing.village || listing.landmark) && Boolean(onEdit) && (
               <div className="flex items-center gap-2.5 text-[#14211D]">
                 <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
                 <div>
                   <span className="text-[#566861] block text-[11px]">Pickup Address / Depot (Private)</span>
                   <span className="font-semibold">
-                    {listing.village}{listing.landmark ? ` (Near: ${listing.landmark})` : ''}
+                    {[listing.village, listing.landmark ? `(Near: ${listing.landmark})` : ''].filter(Boolean).join(' ')}
                   </span>
                 </div>
               </div>

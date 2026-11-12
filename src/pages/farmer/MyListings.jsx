@@ -406,6 +406,7 @@ export default function MyListings({ currentUser, onNavigate }) {
                     type="button"
                     disabled={safeListings.length === 0}
                     onClick={() => {
+                      if (safeListings.length === 0) return;
                       setIsActionsMenuOpen(false);
                       handleExportToExcel();
                     }}
