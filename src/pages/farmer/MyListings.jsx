@@ -25,8 +25,7 @@ import {
   X,
   FileSpreadsheet,
   Download,
-  ChevronDown,
-  MoreVertical
+  ChevronDown
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import BulkUploadExcelModal from '../../components/farmer/BulkUploadExcelModal';
@@ -375,7 +374,6 @@ export default function MyListings({ currentUser, onNavigate }) {
                 title="Manage listings, Excel export/import & tools"
                 aria-expanded={isActionsMenuOpen}
               >
-                <MoreVertical className="w-4 h-4 text-[#566861]" />
                 <span>Actions</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-[#566861] transition-transform duration-200 ${isActionsMenuOpen ? 'rotate-180' : ''}`} />
               </button>
