@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import ListingCard from '../../components/farmer/ListingCard';
 import ListingRow from '../../components/farmer/ListingRow';
@@ -24,7 +24,9 @@ import {
   Search,
   X,
   FileSpreadsheet,
-  Download
+  Download,
+  ChevronDown,
+  MoreVertical
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import BulkUploadExcelModal from '../../components/farmer/BulkUploadExcelModal';
@@ -60,6 +62,8 @@ export default function MyListings({ currentUser, onNavigate }) {
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [deleteSuccessMsg, setDeleteSuccessMsg] = useState(null);
   const [savedDraft, setSavedDraft] = useState(() => getListingDraft(user.id));
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef(null);
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem('agrolnk_farmer_listings_viewmode') || 'rows';
@@ -115,6 +119,28 @@ export default function MyListings({ currentUser, onNavigate }) {
       window.removeEventListener('storage', handleListingsUpdate);
     };
   }, [user.id]);
+
+  // Click outside to dismiss Actions dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setIsActionsMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsActionsMenuOpen(false);
+      }
+    };
+    if (isActionsMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isActionsMenuOpen]);
 
   const handleDeleteClick = async (lot) => {
     if (!lot) return;
@@ -335,57 +361,111 @@ export default function MyListings({ currentUser, onNavigate }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 flex-wrap sm:flex-nowrap">
-            {safeListings.length > 0 && (
-              <Button
-                variant="outline"
-                size="md"
-                icon={Download}
-                iconPosition="left"
-                onClick={handleExportToExcel}
-                className="font-bold py-2.5 px-4 shadow-xs shrink-0 cursor-pointer text-xs sm:text-sm text-[#0B3326] border-[#CBD7D0] hover:bg-[#F2FBF6]"
-                title="Download safe offline backup of all produce listings to Excel"
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* 1. Actions / Tools Dropdown */}
+            <div className="relative" ref={actionsMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsActionsMenuOpen((prev) => !prev)}
+                className={`inline-flex items-center gap-2 py-2.5 px-3.5 sm:px-4 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-xs cursor-pointer ${
+                  isActionsMenuOpen
+                    ? 'bg-[#EBF5F0] border-[#10B981] text-[#0B3326]'
+                    : 'bg-white border-[#E5EDE8] text-[#0B3326] hover:bg-[#F8FAF8] hover:border-[#CBD7D0]'
+                }`}
+                title="Manage listings, Excel export/import & tools"
+                aria-expanded={isActionsMenuOpen}
               >
-                Export Excel ({safeListings.length})
-              </Button>
-            )}
+                <MoreVertical className="w-4 h-4 text-[#566861]" />
+                <span>Actions</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-[#566861] transition-transform duration-200 ${isActionsMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-            {safeListings.length > 0 && (
-              <Button
-                variant="danger-outline"
-                size="md"
-                icon={Trash2}
-                iconPosition="left"
-                onClick={() => {
-                  setDeleteAllConfirmInput('');
-                  setIsDeleteAllModalOpen(true);
-                }}
-                className="font-bold py-2.5 px-4 shadow-xs shrink-0 cursor-pointer text-xs sm:text-sm text-rose-700 border-rose-300 hover:bg-rose-50 hover:border-rose-400"
-              >
-                Delete All Produce
-              </Button>
-            )}
+              {/* Dropdown Menu */}
+              {isActionsMenuOpen && (
+                <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-white border border-[#E5EDE8] shadow-2xl py-2 z-30 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3.5 py-1 text-[10px] font-bold text-[#566861] uppercase tracking-wider border-b border-[#E5EDE8]/60 mb-1">
+                    Listing Tools
+                  </div>
 
-            <Button
-              variant="secondary"
-              size="md"
-              icon={FileSpreadsheet}
-              iconPosition="left"
-              onClick={() => setIsBulkUploadModalOpen(true)}
-              className="font-bold py-2.5 px-4 shadow-xs shrink-0 cursor-pointer text-xs sm:text-sm text-[#0B3326] border-[#E5EDE8] hover:bg-[#F2FBF6]"
-            >
-              Bulk Upload Excel
-            </Button>
+                  {/* 1.1 Bulk Upload Excel */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      setIsBulkUploadModalOpen(true);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-[#0B3326] hover:bg-[#F2FBF6] flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-[#10B981] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="block font-bold">Bulk Upload Excel</span>
+                      <span className="text-[10px] text-[#566861] block font-normal">Import multiple produce lots</span>
+                    </div>
+                  </button>
 
+                  {/* 1.2 Export Excel */}
+                  <button
+                    type="button"
+                    disabled={safeListings.length === 0}
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      handleExportToExcel();
+                    }}
+                    className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center gap-2.5 transition-colors ${
+                      safeListings.length === 0
+                        ? 'opacity-40 cursor-not-allowed text-[#566861]'
+                        : 'text-[#0B3326] hover:bg-[#F2FBF6] cursor-pointer'
+                    }`}
+                  >
+                    <Download className="w-4 h-4 text-[#10B981] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold">Export to Excel</span>
+                        {safeListings.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326] text-[10px] font-bold">
+                            {safeListings.length}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-[#566861] block font-normal">Download offline backup</span>
+                    </div>
+                  </button>
+
+                  {/* 1.3 Delete All Produce (Destructive, safely partitioned) */}
+                  {safeListings.length > 0 && (
+                    <>
+                      <div className="my-1.5 border-t border-[#E5EDE8]" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsActionsMenuOpen(false);
+                          setDeleteAllConfirmInput('');
+                          setIsDeleteAllModalOpen(true);
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="block font-bold text-rose-700">Delete All Produce</span>
+                          <span className="text-[10px] text-rose-500 block font-normal">Clear all exchange listings</span>
+                        </div>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Primary Highlight Action */}
             <Button
               variant="accent"
               size="md"
               icon={Plus}
               iconPosition="left"
               onClick={() => onNavigate('farmer-create-listing')}
-              className="font-bold py-2.5 px-5 shadow-xs shrink-0 cursor-pointer"
+              className="font-bold py-2.5 px-4 sm:px-5 shadow-xs shrink-0 cursor-pointer text-xs sm:text-sm"
             >
-              List New Produce
+              List Produce
             </Button>
           </div>
         </div>
