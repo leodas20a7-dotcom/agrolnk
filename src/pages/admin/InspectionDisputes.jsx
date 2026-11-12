@@ -2,15 +2,24 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { 
   AlertTriangle, ShieldCheck, CheckCircle2, 
-  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck, RefreshCw
+  XCircle, ArrowRight, ArrowLeft, DollarSign, Scale, Filter, Send, Clock, UserCheck, FileCheck, RefreshCw, Info
 } from 'lucide-react';
 import { getInspectionRecords, arbitrateDispute, sendInspectionReportToBuyer, subscribeToInspections } from '../../utils/inspection';
 import { formatINR } from '../../utils/commission';
 import InspectionStatusBadge from '../../components/inspection/InspectionStatusBadge';
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
+import CopyButton from '../../components/ui/CopyButton';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { toast } from '../../context/ToastContext';
+
+const formatShortId = (id) => {
+  if (!id) return '';
+  if (id.startsWith('insp_')) {
+    return `#INSP-${id.slice(-6).toUpperCase()}`;
+  }
+  return `#${id.slice(0, 8).toUpperCase()}`;
+};
 
 export default function InspectionDisputes({ currentUser, onNavigate }) {
   const user = currentUser || {};
@@ -157,14 +166,14 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
             <div className="space-y-0.5 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0B3326] font-heading tracking-tight">
-                  Quality Inspection & Assay Desk
+                  Quality & Assay Desk
                 </h1>
-                <span className="bg-amber-100 text-amber-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <Scale className="w-3.5 h-3.5" /> Ombudsman & Quality Assays
+                <span className="bg-[#EBF5F0] text-[#0B3326] border border-[#A7F3D0] text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" /> Verified Lab Assays
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-[#566861] hidden sm:block">
-                Review buyer inspection requests, dispatch certified assayer reports, and arbitrate escrow releases.
+                Manage pre-purchase quality checks, dispatch certified assayers, and arbitrate dispute cases.
               </p>
             </div>
           </div>
@@ -218,16 +227,51 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
           </div>
         </div>
 
-        {/* Info Banner */}
-        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
-          <div className="p-2.5 bg-amber-500 text-white rounded-xl shrink-0">
-            <ShieldCheck className="w-5 h-5" />
+        {/* At-a-Glance KPI Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white border border-[#E5EDE8] rounded-2xl p-4 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">Awaiting Assayer</p>
+              <p className="text-2xl font-extrabold text-amber-600 font-heading mt-0.5">
+                {inspections.filter(i => i.status === 'requested').length}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+              <Clock className="w-5 h-5" />
+            </div>
           </div>
-          <div className="text-xs text-amber-950">
-            <span className="font-bold block">Pre-Purchase Quality Verification Workflow:</span>
-            When a buyer requests inspection before buying, Admin dispatches an official assayer.
-            Once the report is sent to the buyer, they verify grade and continue with delivery.
+
+          <div className="bg-white border border-[#E5EDE8] rounded-2xl p-4 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">Assays Certified</p>
+              <p className="text-2xl font-extrabold text-emerald-700 font-heading mt-0.5">
+                {inspections.filter(i => i.status === 'passed' || i.status === 'resolved').length}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
           </div>
+
+          <div className="bg-white border border-[#E5EDE8] rounded-2xl p-4 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-[#566861] uppercase tracking-wider">Active Disputes</p>
+              <p className="text-2xl font-extrabold text-red-600 font-heading mt-0.5">
+                {inspections.filter(i => i.status === 'disputed').length}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Discreet Workflow Hint */}
+        <div className="bg-[#F8FAF8] border border-[#E5EDE8] rounded-xl px-4 py-2.5 flex items-center gap-2.5 text-xs text-[#566861]">
+          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-[11px] shrink-0">i</span>
+          <span>
+            <strong className="text-[#0B3326]">Workflow:</strong> When a buyer requests a quality check before purchase, dispatch an official assayer. Once certified, the buyer verifies grade and unlocks escrow checkout.
+          </span>
         </div>
 
         {/* Table & Pagination */}
@@ -244,70 +288,111 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                 <table className="w-full text-left text-xs text-[#566861]">
                   <thead className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[11px] font-bold text-[#0B3326] uppercase tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-4">Inspection / Order</th>
-                      <th className="py-3.5 px-4">Commodity & Quantity</th>
-                      <th className="py-3.5 px-4">Buyer & Seller</th>
-                      <th className="py-3.5 px-4">Quality Assay</th>
-                      <th className="py-3.5 px-4">Status</th>
-                      <th className="py-3.5 px-4">Escrow Value</th>
+                      <th className="py-3.5 px-4">Produce & Reference</th>
+                      <th className="py-3.5 px-4">Parties</th>
+                      <th className="py-3.5 px-4">Lot Value</th>
+                      <th className="py-3.5 px-4">Assay Status</th>
                       <th className="py-3.5 px-4 text-right">Admin Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5EDE8]">
                     {paginatedInspections.map((item) => (
                       <tr key={item.id} className="hover:bg-[#F8FAF8]/60 transition-colors">
-                        <td className="py-3.5 px-4 font-mono text-xs">
-                          <span className="font-bold text-[#0B3326]">#{item.id}</span>
-                          <div className="text-[#566861] text-[11px] mt-0.5">Order #{item.orderId}</div>
-                        </td>
+                        {/* 1. Produce & Reference */}
                         <td className="py-3.5 px-4">
-                          <span className="font-bold text-[#0B3326]">{item.cropName}</span>
-                          <div className="text-[11px] text-[#566861]">{item.quantity} MT</div>
+                          <div className="font-bold text-[#0B3326] text-sm flex items-center gap-2">
+                            <span>{item.cropName || 'Produce Lot'}</span>
+                            <span className="text-[11px] font-semibold text-[#0B3326] bg-[#F2FBF6] px-2 py-0.5 rounded-full border border-[#A7F3D0]">
+                              {item.quantity} MT
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#566861]">
+                            <span className="font-mono font-semibold text-[#0B3326]" title={`Full ID: ${item.id}`}>
+                              {formatShortId(item.id)}
+                            </span>
+                            <CopyButton text={item.id} title="Copy inspection ID" className="text-[#566861] hover:text-[#0B3326]" />
+                            {item.orderId && (
+                              <span className="text-[#566861]/70 truncate max-w-[120px]" title={`Order ID: ${item.orderId}`}>
+                                &bull; Ord #{item.orderId.slice(0, 8)}
+                              </span>
+                            )}
+                          </div>
                         </td>
+
+                        {/* 2. Parties */}
                         <td className="py-3.5 px-4 text-xs">
-                          <div className="text-[#0B3326] font-semibold">B: {item.buyerName}</div>
-                          <div className="text-[#566861]">S: {item.sellerName}</div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-xs text-[#0B3326]">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                                Buyer
+                              </span>
+                              <span className="font-semibold truncate max-w-[180px]">{item.buyerName || 'Verified Buyer'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-[#566861]">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                                Farmer
+                              </span>
+                              <span className="truncate max-w-[180px]" title={item.sellerName}>{item.sellerName || 'Verified Farmer'}</span>
+                            </div>
+                          </div>
                         </td>
+
+                        {/* 3. Lot Value */}
+                        <td className="py-3.5 px-4 font-bold text-[#0B3326] text-sm whitespace-nowrap">
+                          {formatINR(item.orderAmount || 0)}
+                        </td>
+
+                        {/* 4. Assay Status */}
                         <td className="py-3.5 px-4 text-xs">
                           {item.status === 'requested' ? (
-                            <span className="text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                              Awaiting Inspector
-                            </span>
+                            <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-full text-xs font-bold">
+                              <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Awaiting Assayer</span>
+                            </div>
+                          ) : item.status === 'disputed' ? (
+                            <div className="inline-flex items-center gap-1.5 bg-red-50 text-red-800 border border-red-200 px-2.5 py-1 rounded-full text-xs font-bold">
+                              <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                              <span>Disputed Quality</span>
+                            </div>
                           ) : item.grade ? (
                             <div>
-                              <span className="font-semibold text-[#0B3326]">Grade {item.grade}</span>
-                              <div className="text-[#566861] text-[11px]">
-                                Moisture: {item.moisture || '11.0'}% | Foreign: {item.foreignMatter || '0.4'}%
+                              <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Grade {item.grade} Certified</span>
+                              </div>
+                              <div className="text-[11px] text-[#566861] mt-1">
+                                Moisture: {item.moisture || '11.0'}% &bull; Foreign: {item.foreignMatter || '0.4'}%
                               </div>
                             </div>
                           ) : (
-                            <span className="text-[#566861] italic">Not tested</span>
+                            <InspectionStatusBadge status={item.status} />
                           )}
                         </td>
-                        <td className="py-3.5 px-4">
-                          <InspectionStatusBadge status={item.status} />
-                        </td>
-                        <td className="py-3.5 px-4 font-bold text-[#0B3326] text-xs">
-                          {formatINR(item.orderAmount || 0)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
+
+                        {/* 5. Admin Action */}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           {item.status === 'requested' ? (
-                            <button
+                            <Button
+                              variant="primary"
+                              size="sm"
                               onClick={() => setSelectedRequestToInspect(item)}
-                              className="px-3.5 py-1.5 bg-[#0B3326] hover:bg-[#07241A] text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+                              icon={FileCheck}
+                              iconPosition="left"
+                              className="text-xs font-bold py-1.5 px-3.5 ml-auto"
                             >
-                              <Send className="w-3.5 h-3.5 text-[#34D399]" />
-                              Send Inspector & Report
-                            </button>
+                              Dispatch Assayer
+                            </Button>
                           ) : item.status === 'disputed' ? (
-                            <button
+                            <Button
+                              variant="danger"
+                              size="sm"
                               onClick={() => handleOpenArbitration(item)}
-                              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer ml-auto"
+                              className="text-xs font-bold py-1.5 px-3.5 ml-auto"
                             >
                               Arbitrate
-                            </button>
+                            </Button>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md font-semibold border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-bold border border-emerald-200">
                               <CheckCircle2 className="w-3.5 h-3.5" /> Certified
                             </span>
                           )}
@@ -343,7 +428,9 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
                   </div>
                   <div>
                     <h3 className="font-bold text-[#0B3326] text-base">Send Certified Assay Report to Buyer</h3>
-                    <p className="text-[11px] text-[#566861]">Order #{selectedRequestToInspect.orderId} &bull; {selectedRequestToInspect.cropName}</p>
+                    <p className="text-[11px] text-[#566861]">
+                      {selectedRequestToInspect.cropName} &bull; {selectedRequestToInspect.quantity} MT &bull; {formatShortId(selectedRequestToInspect.id)}
+                    </p>
                   </div>
                 </div>
                 <button
