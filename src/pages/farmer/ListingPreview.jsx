@@ -192,6 +192,7 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
               <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
               <span>
                 {listingData.village ? `${listingData.village}, ` : ''}
+                {listingData.landmark ? `(Near: ${listingData.landmark}), ` : ''}
                 {listingData.district}, {listingData.state}
               </span>
             </p>

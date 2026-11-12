@@ -296,7 +296,9 @@ export default function ProduceDetailModal({
                 <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
                 <div>
                   <span className="text-[#566861] block text-[11px]">Pickup Address / Depot (Private)</span>
-                  <span className="font-semibold">{listing.village}</span>
+                  <span className="font-semibold">
+                    {listing.village}{listing.landmark ? ` (Near: ${listing.landmark})` : ''}
+                  </span>
                 </div>
               </div>
             )}
