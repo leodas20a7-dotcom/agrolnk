@@ -384,10 +384,19 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
     }
 
     if (currentStep === 4) {
-      const stateVal = formData.state.trim();
-      const districtVal = formData.district.trim();
-      if (!stateVal || !districtVal) {
-        setError('Please provide state and district.');
+      const stateVal = (formData.state || '').trim();
+      const districtVal = (formData.district || '').trim();
+      const villageVal = (formData.village || '').trim();
+      if (!districtVal) {
+        setError('Please provide district.');
+        return;
+      }
+      if (!stateVal) {
+        setError('Please provide state.');
+        return;
+      }
+      if (!villageVal) {
+        setError('Please provide the Farmgate / Mandi Pickup Address.');
         return;
       }
       if (/\d/.test(stateVal) || /\d/.test(districtVal)) {
@@ -1449,10 +1458,11 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
 
               <div className="space-y-1 sm:col-span-2">
                 <label className="text-xs font-bold text-[#0B3326] block">
-                  Farmgate / Mandi Pickup Address
+                  Farmgate / Mandi Pickup Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={formData.village}
                   onChange={(e) => setFormData({ ...formData, village: e.target.value })}
                   placeholder="e.g. Attur Farmgate Depot, Salem"
@@ -1514,7 +1524,7 @@ export default function CreateListing({ currentUser, onNavigate, navState }) {
                       Variety: <strong>{formData.variety}</strong> •{' '}
                     </>
                   )}
-                  Location: <strong>{formData.district || 'Unspecified'}, {formData.state || 'India'}</strong>
+                  Location: <strong>{formData.village ? `${formData.village}, ` : ''}{formData.district || 'Unspecified'}, {formData.state || 'India'}</strong>
                 </p>
               </div>
 

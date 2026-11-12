@@ -244,14 +244,15 @@ export default function ProduceForm({ formData, onChange, onImageChange, isEditi
 
           <div>
             <label className="block text-xs font-bold text-[#14211D] mb-1.5">
-              Village / Market
+              Farmgate / Mandi Pickup Address <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="village"
+              required
               value={formData.village}
               onChange={onChange}
-              placeholder="e.g. Attur Mandi"
+              placeholder="e.g. Attur Farmgate Depot, Salem"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
             />
           </div>
