@@ -41,32 +41,28 @@ export default function DocumentViewerModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
-  if (!isOpen || !doc) return null;
-
-  const docType = doc.type || 'Identity / Compliance Document';
-  const docNumber = doc.number && doc.number !== 'Uploaded Document' ? doc.number : (
-    docType.toLowerCase().includes('aadhaar') ? 'XXXX-XXXX-' + (user?.phone ? user.phone.slice(-4) : '4921') :
-    docType.toLowerCase().includes('wdra') ? (user?.wdraCode || 'WDRA-TN-SLM-2024-884') :
-    docType.toLowerCase().includes('gst') ? '33AAACA' + (user?.phone ? user.phone.slice(-4) : '9182') + '1Z5' :
-    'AGR-KYC-' + Math.floor(100000 + Math.random() * 900000)
-  );
-
-  const [resolvedFileUrl, setResolvedFileUrl] = useState(doc.fileUrl || '');
+  const [resolvedFileUrl, setResolvedFileUrl] = useState(doc?.fileUrl || '');
   const [isLoadingFile, setIsLoadingFile] = useState(false);
 
   React.useEffect(() => {
     let isMounted = true;
     async function resolveSignedUrl() {
-      const initial = doc?.fileUrl || '';
+      const initial = (isOpen && doc?.fileUrl) ? doc.fileUrl : '';
       if (!initial) {
-        setResolvedFileUrl('');
+        if (isMounted) {
+          setResolvedFileUrl('');
+          setIsLoadingFile(false);
+        }
         return;
       }
       if (initial.startsWith('data:') || initial.startsWith('blob:')) {
-        setResolvedFileUrl(initial);
+        if (isMounted) {
+          setResolvedFileUrl(initial);
+          setIsLoadingFile(false);
+        }
         return;
       }
-      setIsLoadingFile(true);
+      if (isMounted) setIsLoadingFile(true);
       try {
         const signed = await getSecureDocumentUrl(initial, 900);
         if (isMounted) setResolvedFileUrl(signed || initial);
@@ -78,7 +74,17 @@ export default function DocumentViewerModal({
     }
     resolveSignedUrl();
     return () => { isMounted = false; };
-  }, [doc?.fileUrl]);
+  }, [isOpen, doc?.fileUrl]);
+
+  if (!isOpen || !doc) return null;
+
+  const docType = doc.type || 'Identity / Compliance Document';
+  const docNumber = doc.number && doc.number !== 'Uploaded Document' ? doc.number : (
+    docType.toLowerCase().includes('aadhaar') ? 'XXXX-XXXX-' + (user?.phone ? user.phone.slice(-4) : '4921') :
+    docType.toLowerCase().includes('wdra') ? (user?.wdraCode || 'WDRA-TN-SLM-2024-884') :
+    docType.toLowerCase().includes('gst') ? '33AAACA' + (user?.phone ? user.phone.slice(-4) : '9182') + '1Z5' :
+    'AGR-KYC-' + Math.floor(100000 + Math.random() * 900000)
+  );
 
   const fileUrl = resolvedFileUrl;
   const isPdf = Boolean(
