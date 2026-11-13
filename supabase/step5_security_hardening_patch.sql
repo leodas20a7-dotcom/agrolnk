@@ -31,15 +31,24 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    -- Block non-admin from self-releasing freight escrow or marking completed
+    -- Block non-admin/non-gateway from locking, funding, or releasing freight escrow
     IF (NEW.freight_escrow_status IS DISTINCT FROM OLD.freight_escrow_status)
-       AND NEW.freight_escrow_status = 'released' THEN
-        RAISE EXCEPTION 'Security Policy Violation: Only AgroLnk Admin can release freight escrow funds.';
+       AND COALESCE(NEW.freight_escrow_status, '') IN ('escrow_locked', 'locked', 'funded', 'held', 'released') THEN
+        RAISE EXCEPTION 'Security Policy Violation: Freight escrow state (%) can only be set by the verified payment gateway or AgroLnk Admin.', NEW.freight_escrow_status;
     END IF;
 
     IF (NEW.status IS DISTINCT FROM OLD.status)
        AND NEW.status = 'completed' THEN
         RAISE EXCEPTION 'Security Policy Violation: Only AgroLnk Admin can mark a delivery completed and settled.';
+    END IF;
+
+    -- Block client-side tampering with freight fee breakdown columns
+    IF (NEW.freight_base_amount IS DISTINCT FROM OLD.freight_base_amount)
+       OR (NEW.consignor_freight_fee IS DISTINCT FROM OLD.consignor_freight_fee)
+       OR (NEW.total_freight_payable IS DISTINCT FROM OLD.total_freight_payable)
+       OR (NEW.transporter_commission_fee IS DISTINCT FROM OLD.transporter_commission_fee)
+       OR (NEW.transporter_net_payout IS DISTINCT FROM OLD.transporter_net_payout) THEN
+        RAISE EXCEPTION 'Security Policy Violation: Freight commission and escrow breakdown columns cannot be modified directly.';
     END IF;
 
     -- Once freight escrow is locked, block anyone (except Admin/RPC) from altering the agreed freight_amount or winning transporter
@@ -224,7 +233,7 @@ CREATE OR REPLACE FUNCTION public.lock_buyer_order_and_freight_escrow_atomic(
     p_payment_mode TEXT DEFAULT 'direct_razorpay',
     p_payment_id TEXT DEFAULT NULL,
     p_bank_utr TEXT DEFAULT NULL,
-    p_auto_verified BOOLEAN DEFAULT true
+    p_auto_verified BOOLEAN DEFAULT false
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -233,6 +242,7 @@ AS $$
 DECLARE
     v_order RECORD;
     v_delivery RECORD;
+    v_fin RECORD;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
     v_freight_amt NUMERIC;
     v_freight_fee NUMERIC;
@@ -240,12 +250,19 @@ DECLARE
     v_transporter_net NUMERIC;
     v_buyer_fee NUMERIC;
     v_grand_total NUMERIC;
+    v_is_privileged BOOLEAN;
     v_is_bank_pending BOOLEAN;
     v_order_escrow_status TEXT;
     v_order_status TEXT;
     v_del_status TEXT;
     v_del_escrow_status TEXT;
 BEGIN
+    v_is_privileged := (
+        public.is_admin()
+        OR (auth.jwt() ->> 'role') = 'service_role'
+        OR auth.role() = 'service_role'
+    );
+
     PERFORM set_config('agrolnk.trusted_rpc', 'true', true);
 
     SELECT * INTO v_order
@@ -257,10 +274,32 @@ BEGIN
         RAISE EXCEPTION 'Order % not found.', p_order_id;
     END IF;
 
-    -- Verify only the order's Buyer or Admin can lock this order's escrow
-    IF auth.uid() IS NOT NULL AND NOT public.is_admin() THEN
+    -- Verify only the order's Buyer, Admin, or Service Role can operate on this order
+    IF auth.uid() IS NOT NULL AND NOT v_is_privileged THEN
         IF v_order.buyer_id IS NOT NULL AND v_order.buyer_id <> auth.uid()::text THEN
             RAISE EXCEPTION 'Security Policy Violation: You can only lock escrow for your own purchase orders.';
+        END IF;
+    END IF;
+
+    IF COALESCE(v_order.escrow_status, '') IN ('funded', 'held', 'escrow_secured', 'released') THEN
+        SELECT * INTO v_delivery
+        FROM public.deliveries
+        WHERE order_id = v_order.id OR order_number = v_order.order_number
+        ORDER BY created_at DESC
+        LIMIT 1;
+
+        IF v_delivery.id IS NULL OR COALESCE(v_delivery.freight_escrow_status, '') IN ('escrow_locked', 'locked', 'released') THEN
+            RETURN jsonb_build_object(
+                'success', true,
+                'already_funded', true,
+                'order_id', v_order.id,
+                'order_number', v_order.order_number,
+                'delivery_id', v_delivery.id,
+                'freight_amount', COALESCE(v_order.freight_amount, v_delivery.freight_amount, 0),
+                'grand_total_amount', COALESCE(v_order.grand_total_amount, v_order.total_amount),
+                'escrow_status', v_order.escrow_status,
+                'status', v_order.status
+            );
         END IF;
     END IF;
 
@@ -283,19 +322,49 @@ BEGIN
     v_buyer_fee := COALESCE(NULLIF(v_order.buyer_fee_amount, 0), ROUND(v_order.total_amount * 0.0025, 2));
     v_grand_total := ROUND(v_order.total_amount + v_buyer_fee + v_freight_amt + v_freight_fee, 2);
 
-    v_is_bank_pending := (p_payment_mode = 'escrow_van' AND NOT COALESCE(p_auto_verified, false));
-
     IF p_payment_mode = 'trade_credit' THEN
+        SELECT * INTO v_fin
+        FROM public.financing_requests
+        WHERE (order_id = v_order.id OR order_number = v_order.order_number)
+          AND (
+              v_is_privileged
+              OR applicant_id = v_order.buyer_id
+              OR (auth.uid() IS NOT NULL AND applicant_id = auth.uid()::text)
+          )
+        ORDER BY created_at DESC
+        LIMIT 1;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Security Policy Violation: No trade credit financing request exists for order %.', v_order.order_number;
+        END IF;
+
         v_order_escrow_status := 'financing_pending';
         v_order_status := 'order_placed';
-        v_del_status := 'assigned';
-        v_del_escrow_status := 'escrow_locked';
-    ELSIF v_is_bank_pending THEN
-        v_order_escrow_status := 'pending';
-        v_order_status := 'pending';
-        v_del_status := 'price_offered';
-        v_del_escrow_status := 'pending_bank_check';
+        IF v_is_privileged OR COALESCE(v_fin.status, '') IN ('approved', 'disbursed', 'escrow_secured') THEN
+            v_del_status := 'assigned';
+            v_del_escrow_status := 'escrow_locked';
+        ELSE
+            v_del_status := COALESCE(v_delivery.status, 'price_offered');
+            v_del_escrow_status := 'financing_pending';
+        END IF;
+    ELSIF p_payment_mode = 'escrow_van' THEN
+        v_is_bank_pending := NOT (v_is_privileged AND COALESCE(p_auto_verified, false));
+        IF v_is_bank_pending THEN
+            v_order_escrow_status := 'pending';
+            v_order_status := 'pending';
+            v_del_status := 'price_offered';
+            v_del_escrow_status := 'pending_bank_check';
+        ELSE
+            v_order_escrow_status := 'funded';
+            v_order_status := 'order_placed';
+            v_del_status := 'assigned';
+            v_del_escrow_status := 'escrow_locked';
+        END IF;
     ELSE
+        IF NOT v_is_privileged AND COALESCE(v_order.escrow_status, '') NOT IN ('funded', 'held', 'escrow_secured') THEN
+            RAISE EXCEPTION 'Security Policy Violation: Direct client funding of Razorpay escrow is forbidden. Payment must be verified server-side via the payment gateway.';
+        END IF;
+
         v_order_escrow_status := 'funded';
         v_order_status := 'order_placed';
         v_del_status := 'assigned';
@@ -310,6 +379,7 @@ BEGIN
         payment_id = COALESCE(p_payment_id, payment_id),
         bank_utr = COALESCE(p_bank_utr, bank_utr),
         escrow_status = v_order_escrow_status,
+        settlement_status = CASE WHEN v_order_escrow_status = 'funded' THEN 'captured_on_hold' ELSE COALESCE(settlement_status, 'pending_deposit') END,
         status = v_order_status,
         updated_at = v_now
     WHERE id = v_order.id;
@@ -327,43 +397,43 @@ BEGIN
             transporter_net_payout = v_transporter_net,
             freight_payment_mode = p_payment_mode,
             freight_bank_utr = COALESCE(p_bank_utr, p_payment_id),
-            freight_deposited_at = v_now,
+            freight_deposited_at = CASE WHEN v_del_escrow_status = 'escrow_locked' THEN v_now ELSE freight_deposited_at END,
             updated_at = v_now
         WHERE id = v_delivery.id;
     END IF;
 
-    -- Notify Farmer that Order & Freight Escrow are Confirmed
-    IF v_order.farmer_id IS NOT NULL THEN
-        INSERT INTO public.notifications (
-            id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
-        ) VALUES (
-            'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
-            v_order.farmer_id,
-            'farmer',
-            'Order & Freight Confirmed (' || v_order.order_number || ')',
-            'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgroLnk Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
-            'order',
-            '/farmer-orders',
-            false,
-            v_now
-        );
-    END IF;
+    IF v_order_escrow_status = 'funded' AND v_del_escrow_status = 'escrow_locked' THEN
+        IF v_order.farmer_id IS NOT NULL THEN
+            INSERT INTO public.notifications (
+                id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+            ) VALUES (
+                'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
+                v_order.farmer_id,
+                'farmer',
+                'Order & Freight Confirmed (' || v_order.order_number || ')',
+                'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgroLnk Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
+                'order',
+                '/farmer-orders',
+                false,
+                v_now
+            );
+        END IF;
 
-    -- Notify Winning Transporter to Dispatch Truck
-    IF v_delivery.transporter_id IS NOT NULL THEN
-        INSERT INTO public.notifications (
-            id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
-        ) VALUES (
-            'notif_' || (extract(epoch from v_now)::bigint + 1) || '_' || substr(md5(random()::text), 1, 6),
-            v_delivery.transporter_id,
-            'transporter',
-            'Freight Quote Won & Escrow Locked! (' || v_delivery.delivery_number || ')',
-            'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgroLnk Escrow. Pickup address is now unlocked in My Active Trips.',
-            'delivery',
-            '/transporter-dashboard',
-            false,
-            v_now
-        );
+        IF v_delivery.transporter_id IS NOT NULL THEN
+            INSERT INTO public.notifications (
+                id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+            ) VALUES (
+                'notif_' || (extract(epoch from v_now)::bigint + 1) || '_' || substr(md5(random()::text), 1, 6),
+                v_delivery.transporter_id,
+                'transporter',
+                'Freight Quote Won & Escrow Locked! (' || v_delivery.delivery_number || ')',
+                'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgroLnk Escrow. Pickup address is now unlocked in My Active Trips.',
+                'delivery',
+                '/transporter-dashboard',
+                false,
+                v_now
+            );
+        END IF;
     END IF;
 
     RETURN jsonb_build_object(

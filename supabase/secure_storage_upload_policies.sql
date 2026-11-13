@@ -1,79 +1,110 @@
 -- ============================================================================
 -- AGROLNK SECURITY HARDENING: SECURE STORAGE UPLOAD PERMISSIONS
 -- File: supabase/secure_storage_upload_policies.sql
--- Description:
---   Prevents authenticated users from uploading or overwriting files in
---   other users' private KYC and dispute proof directories.
---   Enforces user isolation on 'proof' and 'kyc' buckets while keeping
---   'listings' open for marketplace produce media uploads.
+-- Order-Independent & Idempotent:
+--   Can safely be run in ANY order relative to storage_buckets_setup.sql or
+--   lock_down_storage_objects_security.sql without leaving duplicate/legacy
+--   policies or losing SELECT / INSERT permissions.
 -- ============================================================================
 
--- 1. Ensure private buckets remain private
-UPDATE storage.buckets 
-SET public = false 
-WHERE id IN ('proof', 'kyc');
+UPDATE storage.buckets SET public = false WHERE id IN ('proof', 'kyc');
+UPDATE storage.buckets SET public = true WHERE id = 'listings';
 
-UPDATE storage.buckets 
-SET public = true 
-WHERE id = 'listings';
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT policyname
+        FROM pg_policies
+        WHERE schemaname = 'storage' AND tablename = 'objects'
+    ) LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', r.policyname);
+    END LOOP;
+END $$;
 
--- 2. Drop existing upload policy
-DROP POLICY IF EXISTS "AgroLnk Authenticated Document Upload" ON storage.objects;
+CREATE POLICY "agrolnk_public_listings_select"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'listings');
 
--- 3. Create hardened upload policy with user path isolation
-CREATE POLICY "AgroLnk Authenticated Document Upload"
+CREATE POLICY "agrolnk_private_documents_select"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+    bucket_id IN ('proof', 'kyc')
+    AND (
+        (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+        OR (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com')
+        OR EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid()::text AND role = 'admin'
+        )
+        OR owner::text = auth.uid()::text
+        OR (storage.foldername(name))[1] = auth.uid()::text
+        OR (storage.foldername(name))[2] = auth.uid()::text
+        OR name LIKE (auth.uid()::text || '/%')
+        OR name LIKE ('%/' || auth.uid()::text || '/%')
+        OR name LIKE ('%' || auth.uid()::text || '%')
+    )
+);
+
+CREATE POLICY "agrolnk_documents_insert"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
-  -- Marketplace listings: Any authenticated participant can upload produce photos/videos
-  bucket_id = 'listings'
-  OR
-  -- Private proof and KYC buckets: Caller must be admin or upload only to their own user path
-  (
-    bucket_id IN ('proof', 'kyc')
-    AND (
-      (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
-      OR (auth.jwt() ->> 'email') = 'admin@agrolnk.com'
-      OR EXISTS (
-          SELECT 1 FROM public.profiles 
-          WHERE id = auth.uid()::text AND role = 'admin'
-      )
-      OR owner::text = auth.uid()::text
-      OR (storage.foldername(name))[1] = auth.uid()::text
-      OR name LIKE ('%' || auth.uid()::text || '%')
+    bucket_id = 'listings'
+    OR (
+        bucket_id IN ('proof', 'kyc')
+        AND (
+            (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+            OR (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com')
+            OR EXISTS (
+                SELECT 1 FROM public.profiles
+                WHERE id = auth.uid()::text AND role = 'admin'
+            )
+            OR owner::text = auth.uid()::text
+            OR (storage.foldername(name))[1] = auth.uid()::text
+            OR (storage.foldername(name))[2] = auth.uid()::text
+            OR name LIKE (auth.uid()::text || '/%')
+            OR name LIKE ('%/' || auth.uid()::text || '/%')
+            OR name LIKE ('%' || auth.uid()::text || '%')
+        )
     )
-  )
 );
 
--- 4. Re-enforce update policy (only admin or file owner can update)
-DROP POLICY IF EXISTS "AgroLnk Document Update" ON storage.objects;
-CREATE POLICY "AgroLnk Document Update"
+CREATE POLICY "agrolnk_documents_update"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (
-  (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
-  OR (auth.jwt() ->> 'email') = 'admin@agrolnk.com'
-  OR EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid()::text AND role = 'admin'
-  )
-  OR owner::text = auth.uid()::text
-  OR name LIKE ('%' || auth.uid()::text || '%')
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+    OR (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com')
+    OR EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid()::text AND role = 'admin'
+    )
+    OR owner::text = auth.uid()::text
+    OR (storage.foldername(name))[1] = auth.uid()::text
+    OR (storage.foldername(name))[2] = auth.uid()::text
+    OR name LIKE (auth.uid()::text || '/%')
+    OR name LIKE ('%/' || auth.uid()::text || '/%')
+    OR name LIKE ('%' || auth.uid()::text || '%')
 );
 
--- 5. Re-enforce delete policy (only admin or file owner can delete)
-DROP POLICY IF EXISTS "AgroLnk Document Delete" ON storage.objects;
-CREATE POLICY "AgroLnk Document Delete"
+CREATE POLICY "agrolnk_documents_delete"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (
-  (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
-  OR (auth.jwt() ->> 'email') = 'admin@agrolnk.com'
-  OR EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid()::text AND role = 'admin'
-  )
-  OR owner::text = auth.uid()::text
-  OR name LIKE ('%' || auth.uid()::text || '%')
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+    OR (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com')
+    OR EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid()::text AND role = 'admin'
+    )
+    OR owner::text = auth.uid()::text
+    OR (storage.foldername(name))[1] = auth.uid()::text
+    OR (storage.foldername(name))[2] = auth.uid()::text
+    OR name LIKE (auth.uid()::text || '/%')
+    OR name LIKE ('%/' || auth.uid()::text || '/%')
+    OR name LIKE ('%' || auth.uid()::text || '%')
 );
-

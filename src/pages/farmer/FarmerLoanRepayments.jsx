@@ -118,32 +118,39 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
       amount: maturity.totalDue,
       currentUser: user,
       onSuccess: async (rzpRes) => {
-        showGlobalLoader('Verifying Settlement...', 'Confirming Razorpay transaction & releasing loan lien...');
-        const txnId = rzpRes.razorpay_payment_id || `PAY_${Date.now()}`;
-        await repayFinancingLoan(loan.id || loan.requestNumber, {
-          method: 'razorpay',
-          txnId,
-          amount: maturity.totalDue,
-          notes: `Razorpay Online Settlement (Payment ID: ${txnId})`,
-        });
+        try {
+          showGlobalLoader('Verifying Settlement...', 'Confirming Razorpay transaction & releasing loan lien...');
+          const txnId = rzpRes.razorpay_payment_id || `PAY_${Date.now()}`;
+          await repayFinancingLoan(loan.id || loan.requestNumber, {
+            method: 'razorpay',
+            txnId,
+            amount: maturity.totalDue,
+            verified: Boolean(rzpRes?.verified),
+            serverUpdated: Boolean(rzpRes?.serverUpdated),
+            notes: `Razorpay Online Settlement (Payment ID: ${txnId})`,
+          });
 
-        const receipt = {
-          txnId,
-          loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
-          orderNumber: loan.orderNumber || 'Working Capital Facility',
-          borrowerName: user.name || loan.applicantName || 'Farmer Partner',
-          institutionName: loan.financierName || 'Institutional Lender Desk',
-          principalAmount: maturity.principal,
-          interestAmount: maturity.interest,
-          totalPaid: maturity.totalDue,
-          paidAt: new Date().toISOString(),
-          paymentMethod: `Razorpay Online (${txnId})`,
-        };
+          const receipt = {
+            txnId,
+            loanNumber: loan.requestNumber || `#FIN-${String(loan.id || '').slice(0, 6)}`,
+            orderNumber: loan.orderNumber || 'Working Capital Facility',
+            borrowerName: user.name || loan.applicantName || 'Farmer Partner',
+            institutionName: loan.financierName || 'Institutional Lender Desk',
+            principalAmount: maturity.principal,
+            interestAmount: maturity.interest,
+            totalPaid: maturity.totalDue,
+            paidAt: new Date().toISOString(),
+            paymentMethod: `Razorpay Online (${txnId})`,
+          };
 
-        setRepaymentReceipt(receipt);
-        await loadData(false);
-        setIsProcessing(false);
-        hideGlobalLoader();
+          setRepaymentReceipt(receipt);
+          await loadData(false);
+        } catch (err) {
+          console.error('Loan repayment finalization failed:', err);
+        } finally {
+          setIsProcessing(false);
+          hideGlobalLoader();
+        }
       },
       onFailure: (err) => {
         console.warn('Razorpay checkout window note:', err);

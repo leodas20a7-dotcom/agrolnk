@@ -13,7 +13,7 @@ function mapFinancingFromDb(row) {
     } catch {}
   }
 
-  const status = extra.status || row.status;
+  const status = row.status || extra.status;
   const offeredAmount = Number(extra.offeredAmount || row.offered_amount || row.approved_amount || row.requested_amount || 0);
   const interestRate = extra.interestRate !== undefined ? Number(extra.interestRate) : Number(row.interest_rate || 0.85);
   const tenorDays = extra.tenorDays !== undefined ? Number(extra.tenorDays) : Number(row.tenor_days || 30);
@@ -769,6 +769,10 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
 
       const { error: updateErr } = await runUpdate(updatePayload);
       if (updateErr) {
+        const errMsg = String(updateErr.message || '');
+        if (errMsg.includes('Security Policy') || errMsg.includes('Double-Pledging') || updateErr.code === '42501') {
+          throw new Error(errMsg);
+        }
         console.warn('Full payload update error, retrying with structured notes:', updateErr);
         const basicPayload = {
           review_notes: structuredNotesJson,
@@ -778,12 +782,29 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
         if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
           basicPayload.approved_amount = Number(approvalData.approvedAmount);
         }
-        await runUpdate(basicPayload);
+        const { error: retryErr } = await runUpdate(basicPayload);
+        if (retryErr) {
+          const retryMsg = String(retryErr.message || '');
+          if (retryMsg.includes('Security Policy') || retryMsg.includes('Double-Pledging') || retryErr.code === '42501') {
+            throw new Error(retryMsg);
+          }
+        }
       }
     } catch (dbErr) {
+      const msg = String(dbErr?.message || '');
+      if (msg.includes('Security Policy') || msg.includes('Double-Pledging')) {
+        try {
+          localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(local));
+        } catch {}
+        throw dbErr;
+      }
       console.warn('Supabase financing table update note:', dbErr);
     }
   } catch (err) {
+    const msg = String(err?.message || '');
+    if (msg.includes('Security Policy') || msg.includes('Double-Pledging')) {
+      throw err;
+    }
     console.error('Error underwriting request:', err);
   }
 
@@ -893,6 +914,10 @@ export async function disburseAcceptedLoan(requestId, paymentData = {}) {
  */
 export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
   try {
+    if (!repaymentDetails?.verified) {
+      throw new Error('Security Policy Violation: Loan repayment must be verified via the payment gateway before settling or releasing collateral.');
+    }
+
     const all = await getFinancingRequests();
     const existing = all.find((r) => r.id === requestId || r.requestNumber === requestId || r.orderNumber === requestId);
     const maturity = calculateLoanMaturity(existing);
@@ -934,6 +959,37 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
         window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updatedPool }));
         syncLiquidityPoolToDb(targetFinancierId, updatedPool);
       } catch {}
+    }
+
+    // When the Edge Function already persisted status='repaid' and released collateral via service_role,
+    // refresh the authoritative list and sync local state cleanly without attempting a restricted client update.
+    if (repaymentDetails.serverUpdated) {
+      const refreshedAll = await getFinancingRequests();
+      const matchedServer =
+        refreshedAll.find((r) => r.id === requestId || r.requestNumber === requestId || r.orderNumber === requestId) ||
+        { ...(existing || { id: requestId }), ...repaymentData };
+      saveLocalFinancingRequest(matchedServer);
+      if (typeof window !== 'undefined') {
+        broadcastDataChange('financing', 'UPDATE', matchedServer);
+        window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: matchedServer }));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return matchedServer;
+    }
+
+    // Non-server path (only permitted for Admin/Financier or local DEV fallback when Edge Function is offline)
+    const { data: verifyRow } = existing?.id
+      ? await supabase.from('financing_requests').select('id, status').eq('id', existing.id).maybeSingle()
+      : { data: null };
+
+    if (verifyRow && ['repaid', 'settled'].includes(verifyRow.status)) {
+      const refreshedAll = await getFinancingRequests();
+      const matched = refreshedAll.find((r) => r.id === verifyRow.id) || existing;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: matched }));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return matched;
     }
 
     const updated = await underwriteFinancingRequest(requestId, repaymentData);

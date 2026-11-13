@@ -54,11 +54,19 @@ export default function NotificationBell({ currentUser, onNavigate }) {
     });
 
     window.addEventListener('agrolnk_notifications_updated', handleUpdate);
+    window.addEventListener('agrolnk_deliveries_updated', handleUpdate);
+    window.addEventListener('agrolnk_orders_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
+
+    const isAdminUser = user.role === 'admin' || user.role === 'super_admin';
+    const pollId = isAdminUser ? setInterval(handleUpdate, 30000) : null;
 
     return () => {
       unsubscribe();
+      if (pollId) clearInterval(pollId);
       window.removeEventListener('agrolnk_notifications_updated', handleUpdate);
+      window.removeEventListener('agrolnk_deliveries_updated', handleUpdate);
+      window.removeEventListener('agrolnk_orders_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, [user.id, user.role, user.email]);

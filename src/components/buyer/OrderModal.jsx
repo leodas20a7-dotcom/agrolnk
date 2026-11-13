@@ -434,6 +434,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     // Launch Razorpay Route Checkout for Combined Crop + Freight Escrow
     initiateRazorpayRouteCheckout({
       listing,
+      existingOrderId: reservedOrder?.id || null,
       quantity: qty,
       pricePerUnit: activeRate,
       customTradeValue: subtotal + quotedFreightAmount,
@@ -465,7 +466,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
           orderId: paymentData?.razorpay_order_id || null,
           signature: paymentData?.razorpay_signature || null,
           bankUtr: paymentData?.bankUtr || paymentData?.razorpay_payment_id || null,
-          autoVerified: Boolean(paymentData?.autoVerified),
+          autoVerified: false,
+          verified: Boolean(paymentData?.verified),
           deliveryId: liveDelivery?.id || reservedOrder?.deliveryId || null,
         });
         if (res) {
@@ -544,14 +546,13 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       }));
       setIsSubmitting(false);
 
-      // Auto-confirm order with captured bank UTR
+      // Auto-confirm bank UTR submission (remains pending verification until server webhook or Admin confirms)
       setTimeout(() => {
         executeOrderPlacement({
           bankUtr: simulatedUtr,
           razorpay_payment_id: `pay_van_${Date.now()}`,
-          autoVerified: true,
-          escrowStatus: 'funded',
-          status: 'order_placed',
+          autoVerified: false,
+          status: 'pending',
         });
       }, 1600);
     } catch (_err) {
@@ -1301,18 +1302,20 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                                   <p className="text-[11px] text-amber-900 leading-snug">
                                     Transfer ₹{vanSession?.amount?.toLocaleString('en-IN')} via RTGS/NEFT to your Order Virtual Account above.
                                   </p>
-                                  <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between">
-                                    <span className="text-[10px] text-amber-700 italic">Dev Sandbox Mode:</span>
-                                    <button
-                                      type="button"
-                                      onClick={handleSimulateBankCredit}
-                                      disabled={isSubmitting}
-                                      className="text-[10px] font-bold px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700 transition cursor-pointer shadow-xs inline-flex items-center gap-1"
-                                    >
-                                      <Zap className="w-3 h-3" />
-                                      {isSubmitting ? 'Simulating Credit...' : 'Simulate Bank Credit Webhook'}
-                                    </button>
-                                  </div>
+                                  {import.meta.env.DEV && (
+                                    <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between">
+                                      <span className="text-[10px] text-amber-700 italic">Dev Sandbox Mode:</span>
+                                      <button
+                                        type="button"
+                                        onClick={handleSimulateBankCredit}
+                                        disabled={isSubmitting}
+                                        className="text-[10px] font-bold px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700 transition cursor-pointer shadow-xs inline-flex items-center gap-1"
+                                      >
+                                        <Zap className="w-3 h-3" />
+                                        {isSubmitting ? 'Simulating Credit...' : 'Simulate Bank Credit Webhook'}
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>

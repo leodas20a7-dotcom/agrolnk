@@ -19,9 +19,8 @@ BEGIN
         SELECT schemaname, tablename, policyname
         FROM pg_policies
         WHERE schemaname = 'public'
-          AND cmd IN ('ALL', 'INSERT', 'UPDATE')
+          AND cmd IN ('ALL', 'INSERT', 'UPDATE', 'DELETE')
           AND (qual = 'true' OR with_check = 'true')
-          AND tablename NOT IN ('listings', 'commodities')
     ) LOOP
         EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
     END LOOP;
@@ -94,6 +93,46 @@ BEGIN
                 public.is_admin()
             );
     END IF;
+    -- Listings (Public marketplace read, authenticated owner or admin write)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'listings') THEN
+        DROP POLICY IF EXISTS "listings_read_policy" ON public.listings;
+        CREATE POLICY "listings_read_policy" ON public.listings FOR SELECT USING (true);
+
+        DROP POLICY IF EXISTS "listings_write_policy" ON public.listings;
+        CREATE POLICY "listings_write_policy" ON public.listings
+            FOR ALL TO authenticated
+            USING (
+                auth.uid()::text = farmer_id OR
+                public.is_admin()
+            ) WITH CHECK (
+                auth.uid()::text = farmer_id OR
+                public.is_admin()
+            );
+    END IF;
+
+    -- Commodities Catalog (Public read, admin-only write)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'commodities') THEN
+        ALTER TABLE public.commodities ENABLE ROW LEVEL SECURITY;
+
+        DROP POLICY IF EXISTS "commodities_select_all" ON public.commodities;
+        CREATE POLICY "commodities_select_all" ON public.commodities FOR SELECT USING (true);
+
+        DROP POLICY IF EXISTS "commodities_insert_admin_only" ON public.commodities;
+        CREATE POLICY "commodities_insert_admin_only" ON public.commodities
+            FOR INSERT TO authenticated
+            WITH CHECK (public.is_admin());
+
+        DROP POLICY IF EXISTS "commodities_update_admin_only" ON public.commodities;
+        CREATE POLICY "commodities_update_admin_only" ON public.commodities
+            FOR UPDATE TO authenticated
+            USING (public.is_admin())
+            WITH CHECK (public.is_admin());
+
+        DROP POLICY IF EXISTS "commodities_delete_admin_only" ON public.commodities;
+        CREATE POLICY "commodities_delete_admin_only" ON public.commodities
+            FOR DELETE TO authenticated
+            USING (public.is_admin());
+    END IF;
 END $$;
 
 -- ----------------------------------------------------------------------------
@@ -108,6 +147,5 @@ SELECT
     END AS status
 FROM pg_policies
 WHERE schemaname = 'public'
-  AND cmd IN ('ALL', 'INSERT', 'UPDATE')
-  AND (qual = 'true' OR with_check = 'true')
-  AND tablename NOT IN ('listings', 'commodities');
+  AND cmd IN ('ALL', 'INSERT', 'UPDATE', 'DELETE')
+  AND (qual = 'true' OR with_check = 'true');

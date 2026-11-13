@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Check,
   XCircle,
-  MessageCircle
+  MessageCircle,
+  Clock
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -300,7 +301,7 @@ export default function DeliveryDetailModal({
                 </span>
 
                 {/* Transporter Quick Connect: WhatsApp Location, Direct Call, Google Maps */}
-                {canViewFullPickupAddress && (
+                {(isTransporter || isAdmin) && canViewFullPickupAddress && (
                   <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
                     {rawFarmerPhone && (
                       <a
@@ -366,7 +367,7 @@ export default function DeliveryDetailModal({
                 </span>
 
                 {/* Transporter Quick Connect for Buyer Destination */}
-                {canViewFullDestAddress && (
+                {(isTransporter || isAdmin) && canViewFullDestAddress && (
                   <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
                     {rawBuyerPhone && (
                       <a
@@ -444,7 +445,17 @@ export default function DeliveryDetailModal({
           <h4 className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
             Real-Time Physical Dispatch Timeline
           </h4>
-          <DeliveryTimeline currentStatus={currentDelivery.status} delivery={currentDelivery} />
+          {currentDelivery.status === 'transport_requested' &&
+          (!currentDelivery.freightAmount || Number(currentDelivery.freightAmount) === 0) ? (
+            <div className="p-3 rounded-xl bg-white border border-[#E5EDE8] text-xs text-[#566861] flex items-center gap-2.5">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>On Hold:</strong> Awaiting 30-min freight quote &amp; buyer escrow deposit before dispatch begins.
+              </span>
+            </div>
+          ) : (
+            <DeliveryTimeline currentStatus={currentDelivery.status} delivery={currentDelivery} />
+          )}
         </div>
 
         {/* Farmer Price Quote Info Bar (Buyer Pays 100% Freight) */}

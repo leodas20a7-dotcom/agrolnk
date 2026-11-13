@@ -111,7 +111,8 @@ CREATE TRIGGER trg_protect_profile_registration
 
 DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
 CREATE POLICY "profiles_select_policy" ON public.profiles
-    FOR SELECT USING (
+    FOR SELECT TO authenticated
+    USING (
         auth.uid()::text = id OR
         public.is_admin()
     );
@@ -120,13 +121,17 @@ DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
 CREATE POLICY "profiles_insert_policy" ON public.profiles
     FOR INSERT TO authenticated
     WITH CHECK (
-        auth.uid()::text = id AND
-        (role <> 'admin' OR public.is_admin())
+        (
+            auth.uid()::text = id AND
+            COALESCE(LOWER(role), '') <> 'admin'
+        ) OR
+        public.is_admin()
     );
 
 DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
 CREATE POLICY "profiles_update_policy" ON public.profiles
-    FOR UPDATE USING (
+    FOR UPDATE TO authenticated
+    USING (
         auth.uid()::text = id OR
         public.is_admin()
     ) WITH CHECK (
@@ -294,35 +299,118 @@ CREATE POLICY "financing_borrower_update_policy" ON public.financing_requests
         auth.uid()::text = applicant_id
     );
 
--- Anti-self-approval trigger: Strictly blocks borrowers from self-approving or altering loan terms
+-- Anti-self-approval & anti-collateral-unlock trigger: Strictly blocks borrowers from self-approving, self-marking loans repaid, or cancelling pledged loans
 CREATE OR REPLACE FUNCTION public.protect_financing_approval_fields()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 BEGIN
-    -- Permit all underwriting actions by Verified Financier, Admin, Service Role, or trusted RPC routines
+    -- Permit all underwriting & verified settlement actions by Verified Financier, Admin, Service Role, or trusted nested RPC routines
     IF public.is_verified_financier() OR public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role' OR pg_trigger_depth() > 1 THEN
         RETURN NEW;
     END IF;
 
-    -- If a regular applicant attempts to modify approval status, amounts, rates, or tenor
-    IF (NEW.status IN ('approved', 'disbursed') AND OLD.status NOT IN ('approved', 'disbursed')) OR
-       (NEW.approved_amount IS DISTINCT FROM OLD.approved_amount) OR
+    -- 1. Borrowers can NEVER self-approve, disburse, secure escrow, or self-mark a loan as repaid/settled
+    IF (NEW.status IS DISTINCT FROM OLD.status) THEN
+        IF NEW.status IN ('approved', 'disbursed', 'escrow_secured', 'repaid', 'settled') THEN
+            RAISE EXCEPTION 'Security Policy Violation: Borrowers are not permitted to set loan status to % directly.', NEW.status;
+        END IF;
+
+        -- Once terms are accepted, approved, or disbursed (and collateral is pledged), borrowers cannot cancel/reject/revert status
+        IF OLD.status IN ('borrower_accepted', 'approved', 'disbursed', 'escrow_secured', 'repaid', 'settled') THEN
+            RAISE EXCEPTION 'Security Policy Violation: Cannot modify active/locked financing request from status % to %.', OLD.status, NEW.status;
+        END IF;
+
+        -- Before acceptance/approval, borrowers may only decline/cancel pending/offered requests or accept a received offer
+        IF NOT (
+            (OLD.status = 'offer_received' AND NEW.status = 'borrower_accepted') OR
+            (OLD.status IN ('pending', 'under_review', 'offer_received') AND NEW.status IN ('rejected', 'cancelled'))
+        ) THEN
+            RAISE EXCEPTION 'Security Policy Violation: Unauthorized borrower financing status transition from % to %.', OLD.status, NEW.status;
+        END IF;
+    END IF;
+
+    -- 2. Block borrowers from altering underwriting terms, lender binding, collateral linkage, or repayment fields
+    IF (NEW.approved_amount IS DISTINCT FROM OLD.approved_amount) OR
        (NEW.offered_amount IS DISTINCT FROM OLD.offered_amount) OR
        (NEW.interest_rate IS DISTINCT FROM OLD.interest_rate) OR
        (NEW.tenor_days IS DISTINCT FROM OLD.tenor_days) OR
        (NEW.disbursed_at IS DISTINCT FROM OLD.disbursed_at) OR
-       (NEW.bank_utr IS DISTINCT FROM OLD.bank_utr) THEN
-        RAISE EXCEPTION 'Security Policy: Borrowers are not permitted to approve loans or modify underwriting terms.';
+       (NEW.bank_utr IS DISTINCT FROM OLD.bank_utr) OR
+       (NEW.financier_id IS DISTINCT FROM OLD.financier_id) OR
+       (NEW.financier_name IS DISTINCT FROM OLD.financier_name) OR
+       (NEW.financier_email IS DISTINCT FROM OLD.financier_email) OR
+       (NEW.receipt_id IS DISTINCT FROM OLD.receipt_id) OR
+       (NEW.receipt_number IS DISTINCT FROM OLD.receipt_number) OR
+       (NEW.order_id IS DISTINCT FROM OLD.order_id) OR
+       (NEW.order_number IS DISTINCT FROM OLD.order_number) OR
+       (NEW.applicant_id IS DISTINCT FROM OLD.applicant_id) OR
+       (NEW.repaid_at IS DISTINCT FROM OLD.repaid_at) OR
+       (NEW.repayment_method IS DISTINCT FROM OLD.repayment_method) OR
+       (NEW.repayment_transaction_id IS DISTINCT FROM OLD.repayment_transaction_id) OR
+       (NEW.repayment_amount IS DISTINCT FROM OLD.repayment_amount) OR
+       (NEW.repayment_principal IS DISTINCT FROM OLD.repayment_principal) OR
+       (NEW.repayment_interest IS DISTINCT FROM OLD.repayment_interest) OR
+       (NEW.repayment_notes IS DISTINCT FROM OLD.repayment_notes) THEN
+        RAISE EXCEPTION 'Security Policy: Borrowers are not permitted to modify underwriting terms, collateral links, or settlement fields.';
     END IF;
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS trg_protect_financing_approval_fields ON public.financing_requests;
 CREATE TRIGGER trg_protect_financing_approval_fields
     BEFORE UPDATE ON public.financing_requests
     FOR EACH ROW
     EXECUTE FUNCTION public.protect_financing_approval_fields();
+
+-- Prevent borrowers from inserting pre-approved/repaid financing rows or deleting active/pledged loans
+CREATE OR REPLACE FUNCTION public.protect_financing_insert_and_delete()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+    IF public.is_verified_financier() OR public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role' OR pg_trigger_depth() > 1 THEN
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        IF COALESCE(NEW.status, 'pending') <> 'pending' THEN
+            RAISE EXCEPTION 'Security Policy Violation: New financing requests must start in pending status.';
+        END IF;
+        IF NEW.approved_amount IS NOT NULL AND NEW.approved_amount IS DISTINCT FROM NEW.requested_amount THEN
+            RAISE EXCEPTION 'Security Policy Violation: Borrowers cannot pre-set approved_amount.';
+        END IF;
+        IF NEW.financier_id IS NOT NULL OR NEW.disbursed_at IS NOT NULL OR NEW.repaid_at IS NOT NULL THEN
+            RAISE EXCEPTION 'Security Policy Violation: Borrowers cannot pre-populate institutional disbursement or repayment fields.';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.status IN ('offer_received', 'borrower_accepted', 'approved', 'disbursed', 'escrow_secured') THEN
+            RAISE EXCEPTION 'Security Policy Violation: Cannot delete an active or collateral-locked financing record.';
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_financing_insert_and_delete ON public.financing_requests;
+CREATE TRIGGER trg_protect_financing_insert_and_delete
+    BEFORE INSERT OR DELETE ON public.financing_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION public.protect_financing_insert_and_delete();
 
 -- ----------------------------------------------------------------------------
 -- 5. CHAT MESSAGES TABLE RLS (Thread Privacy & Anti-Leakage)
@@ -378,18 +466,22 @@ CREATE POLICY "inspections_select_policy" ON public.inspections
 DROP POLICY IF EXISTS "inspections_insert_update_policy" ON public.inspections;
 DROP POLICY IF EXISTS "inspections_insert_policy" ON public.inspections;
 CREATE POLICY "inspections_insert_policy" ON public.inspections
-    FOR INSERT WITH CHECK (
+    FOR INSERT TO authenticated WITH CHECK (
         auth.uid()::text = buyer_id OR
         public.is_admin()
     );
 
 DROP POLICY IF EXISTS "inspections_update_policy" ON public.inspections;
 CREATE POLICY "inspections_update_policy" ON public.inspections
-    FOR UPDATE USING (
-        auth.uid()::text = buyer_id OR
+    FOR UPDATE TO authenticated USING (
         public.is_admin()
     ) WITH CHECK (
-        auth.uid()::text = buyer_id OR
+        public.is_admin()
+    );
+
+DROP POLICY IF EXISTS "inspections_delete_policy" ON public.inspections;
+CREATE POLICY "inspections_delete_policy" ON public.inspections
+    FOR DELETE TO authenticated USING (
         public.is_admin()
     );
 
@@ -425,12 +517,14 @@ ALTER TABLE IF EXISTS public.auctions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.auction_bids ENABLE ROW LEVEL SECURITY;
 
 -- Listings
+DROP POLICY IF EXISTS "Allow public insert/update listings" ON public.listings;
 DROP POLICY IF EXISTS "listings_read_policy" ON public.listings;
 CREATE POLICY "listings_read_policy" ON public.listings FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "listings_write_policy" ON public.listings;
 CREATE POLICY "listings_write_policy" ON public.listings
-    FOR ALL USING (
+    FOR ALL TO authenticated
+    USING (
         auth.uid()::text = farmer_id OR public.is_admin()
     ) WITH CHECK (
         auth.uid()::text = farmer_id OR public.is_admin()

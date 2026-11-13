@@ -123,23 +123,29 @@ BEGIN
     END LOOP;
 END $$;
 
--- Strict SELECT: User sees own profile; Admin sees all
+-- Strict SELECT: Authenticated user sees own profile; Admin sees all
 CREATE POLICY "profiles_select_policy" ON public.profiles
-    FOR SELECT USING (
+    FOR SELECT TO authenticated
+    USING (
         auth.uid()::text = id OR
         public.is_admin()
     );
 
--- Strict INSERT: Registered user creates own profile with non-admin role
+-- Strict INSERT: Authenticated user creates only their own non-admin profile (no anon inserts)
 CREATE POLICY "profiles_insert_policy" ON public.profiles
-    FOR INSERT WITH CHECK (
-        (auth.uid()::text = id OR auth.role() IN ('authenticated', 'anon')) AND
-        (role <> 'admin' OR public.is_admin())
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        (
+            auth.uid()::text = id AND
+            COALESCE(LOWER(role), '') <> 'admin'
+        ) OR
+        public.is_admin()
     );
 
--- Strict UPDATE: User updates own profile; Admin updates all; Role & KYC escalation blocked by trigger
+-- Strict UPDATE: Authenticated user updates own profile; Admin updates all; Role & KYC escalation blocked by trigger
 CREATE POLICY "profiles_update_policy" ON public.profiles
-    FOR UPDATE USING (
+    FOR UPDATE TO authenticated
+    USING (
         auth.uid()::text = id OR
         public.is_admin()
     ) WITH CHECK (
@@ -149,7 +155,8 @@ CREATE POLICY "profiles_update_policy" ON public.profiles
 
 -- Strict DELETE: Admin only
 CREATE POLICY "profiles_delete_policy" ON public.profiles
-    FOR DELETE USING (
+    FOR DELETE TO authenticated
+    USING (
         public.is_admin()
     );
 

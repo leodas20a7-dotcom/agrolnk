@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getCurrentUser, isAuthenticated, getUserRole, logoutUser } from '../utils/auth';
 import { supabase } from '../lib/supabase';
 
@@ -7,7 +7,9 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
   const user = getCurrentUser();
   const currentRole = getUserRole();
   const effectiveRole = currentRole || user?.role;
+  const isAdminRoute = requiredRole === 'admin' || (Array.isArray(allowedRoles) && allowedRoles.includes('admin'));
   const hasRedirectedRef = useRef(false);
+  const [adminVerified, setAdminVerified] = useState(false);
 
   const isRoleAllowed = () => {
     if (!effectiveRole) return false;
@@ -28,6 +30,7 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
 
   useEffect(() => {
     let isMounted = true;
+    setAdminVerified(false);
 
     if (!authenticated || !user) {
       if (!hasRedirectedRef.current) {
@@ -49,61 +52,59 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
       return;
     }
 
-    // Critical Security: For Admin routes, verify active Supabase Auth session with the server
-    if (requiredRole === 'admin' || (allowedRoles && allowedRoles.includes('admin'))) {
+    // Critical Security: Admin UI never mounts until Supabase Auth & DB profile strictly verify admin role.
+    // Fail closed on expired, offline, tampered, or non-admin sessions (no localStorage email fallback).
+    if (isAdminRoute) {
+      const failAdminVerification = () => {
+        if (isMounted) setAdminVerified(false);
+        if (!hasRedirectedRef.current) {
+          hasRedirectedRef.current = true;
+          logoutUser();
+          onNavigate('login', { user: null }, true);
+        }
+      };
+
       const verifyServerAdmin = async () => {
         try {
           let { data: { session }, error } = await supabase.auth.getSession();
           if (error || !session) {
-            // Attempt background session refresh before assuming session is expired
             const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: {} }));
-            if (refreshData?.session) {
-              session = refreshData.session;
-              error = null;
-            } else {
-              const cached = getCurrentUser();
-              const adminEmail = (cached?.email || '').toLowerCase().trim();
-              const hasSupabaseToken = Object.keys(localStorage).some(
-                (k) => k.startsWith('sb-') && k.endsWith('-auth-token') && Boolean(localStorage.getItem(k))
-              );
-              if (
-                hasSupabaseToken &&
-                (adminEmail === 'agrolnkadmin@gmail.com' || adminEmail === 'admin@agrolnk.com')
-              ) {
-                // Legitimate platform admin with active token: preserve session against temporary server rate-limits/throttling
-                return;
-              }
-              console.warn('Unauthorized admin access attempt: No active Supabase server session.');
-              if (isMounted && !hasRedirectedRef.current) {
-                hasRedirectedRef.current = true;
-                logoutUser();
-                onNavigate('login', { user: null }, true);
-              }
-              return;
-            }
+            session = refreshData?.session || null;
           }
 
-          if (!session?.user?.id) return;
+          if (!session?.access_token) {
+            console.warn('Unauthorized admin access attempt: No active Supabase server session.');
+            failAdminVerification();
+            return;
+          }
+
+          // Cryptographically verify session against Supabase Auth server (blocks expired/forged local tokens)
+          const { data: userData, error: userErr } = await supabase.auth.getUser(session.access_token);
+          if (userErr || !userData?.user?.id) {
+            console.warn('Unauthorized admin access attempt: Supabase token validation failed.');
+            failAdminVerification();
+            return;
+          }
 
           // Verify authoritative role from profiles table
           const { data: profile, error: profErr } = await supabase
             .from('profiles')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', userData.user.id)
             .maybeSingle();
 
-          // Only reject if the server definitively confirmed an active non-admin role
-          if (!profErr && profile && profile.role !== 'admin') {
+          if (profErr || !profile || profile.role !== 'admin') {
             console.warn('Unauthorized admin access attempt: User does not hold server admin role.');
-            if (isMounted && !hasRedirectedRef.current) {
-              hasRedirectedRef.current = true;
-              logoutUser();
-              onNavigate('login', { user: null }, true);
-            }
+            failAdminVerification();
+            return;
+          }
+
+          if (isMounted) {
+            setAdminVerified(true);
           }
         } catch (err) {
-          console.warn('Admin session validation network notice (session preserved):', err);
-          // Do not kick out admin on transient network or rate-limit exceptions
+          console.warn('Admin session validation failed closed:', err);
+          failAdminVerification();
         }
       };
 
@@ -113,7 +114,7 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
     return () => {
       isMounted = false;
     };
-  }, [authenticated, user?.id, effectiveRole, requiredRole, onNavigate]);
+  }, [authenticated, user?.id, effectiveRole, requiredRole, isAdminRoute, onNavigate]);
 
   if (!authenticated || !user) {
     return (
@@ -134,6 +135,17 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
           <p className="text-xs font-semibold text-[#566861]">
             Redirecting to your <span className="capitalize font-bold">{effectiveRole || 'user'}</span> dashboard...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAdminRoute && !adminVerified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAF8]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-3 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs font-semibold text-[#566861]">Verifying Administrator Session...</p>
         </div>
       </div>
     );

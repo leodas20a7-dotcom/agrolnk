@@ -113,15 +113,15 @@ export default function FinancingReviewModal({
           setIsPayingMargin(false);
           const targetKey = curr.id || curr.requestNumber || curr.orderNumber;
           const updatedPayload = {
-            ...curr,
             status: curr.status === 'disbursed' ? 'disbursed' : 'approved',
             marginPaid: true,
             escrowFunded: true,
             marginPaidAt: new Date().toISOString(),
             paymentId: res.razorpay_payment_id,
+            reviewNotes: `Buyer 20% margin deposit verified (Payment ID: ${res.razorpay_payment_id}).`,
           };
           const updated = await underwriteFinancingRequest(targetKey, updatedPayload);
-          const resolved = updated || updatedPayload;
+          const resolved = updated || { ...curr, ...updatedPayload };
 
           // Materialize / update order in orders table and local cache as funded
           try {

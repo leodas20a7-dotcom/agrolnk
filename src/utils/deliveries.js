@@ -220,6 +220,97 @@ export function calculateEstimatedFare(weightKg, _distanceKm = null, vehicleKey 
 /**
  * Get all deliveries from Supabase (deduplicated by order)
  */
+function dedupeDeliveriesList(rawList) {
+  const seenKeys = new Set();
+  const seenRfqRoutes = new Set();
+  const deduped = [];
+  const sorted = [...(rawList || [])].sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
+
+  for (const d of sorted) {
+    if (d.status === 'cancelled' || d.status === 'deleted') continue;
+    const key = d.orderNumber || d.orderId || d.id;
+    if (key && seenKeys.has(key)) continue;
+
+    // Collapse duplicate unquoted transport_requested RFQs for the same buyer + commodity + farmer + quantity
+    const isUnquotedRfq =
+      d.status === 'transport_requested' &&
+      (!d.freightAmount || Number(d.freightAmount) === 0) &&
+      (!d.quotesCount || d.quotesCount === 0);
+
+    if (isUnquotedRfq) {
+      const rfqKey = `${d.commodity || ''}_${d.quantity || ''}_${d.unit || ''}_${d.buyerId || d.buyerName || ''}_${d.farmerId || d.farmerName || ''}`;
+      if (seenRfqRoutes.has(rfqKey)) continue;
+      seenRfqRoutes.add(rfqKey);
+    }
+
+    if (key) seenKeys.add(key);
+    deduped.push(d);
+  }
+  return deduped;
+}
+
+const LOCAL_DELIVERIES_KEY = 'agrolnk_deliveries_local';
+
+function getDeliveryCacheOwnerId() {
+  try {
+    const u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    return u?.id || u?.email || 'anon';
+  } catch {
+    return 'anon';
+  }
+}
+
+function readScopedLocalDeliveries(scopeKey) {
+  try {
+    const raw = localStorage.getItem(LOCAL_DELIVERIES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const activeOwner = getDeliveryCacheOwnerId();
+    if (!parsed || typeof parsed !== 'object' || parsed.ownerId !== activeOwner) {
+      return [];
+    }
+    const items = parsed.scopes?.[scopeKey];
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
+function replaceScopedLocalDeliveries(scopeKey, items = []) {
+  try {
+    const activeOwner = getDeliveryCacheOwnerId();
+    const raw = localStorage.getItem(LOCAL_DELIVERIES_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    const prevScopes =
+      parsed && typeof parsed === 'object' && parsed.ownerId === activeOwner && parsed.scopes
+        ? parsed.scopes
+        : {};
+    localStorage.setItem(
+      LOCAL_DELIVERIES_KEY,
+      JSON.stringify({
+        ownerId: activeOwner,
+        scopes: {
+          ...prevScopes,
+          [scopeKey]: Array.isArray(items) ? items : [],
+        },
+      })
+    );
+  } catch {}
+}
+
+function emitDeliveryUpdated(mapped) {
+  if (!mapped) return null;
+  broadcastDataChange('deliveries', 'UPDATE', mapped);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: mapped }));
+    window.dispatchEvent(new CustomEvent('agrolnk_delivery_updated', { detail: mapped }));
+    window.dispatchEvent(new Event('agrolnk_orders_updated'));
+  }
+  return mapped;
+}
+
 export async function getDeliveries() {
   try {
     const { data, error } = await supabase
@@ -229,23 +320,15 @@ export async function getDeliveries() {
 
     if (error) {
       console.error('Failed to fetch deliveries from Supabase:', error);
-      return [];
+      return readScopedLocalDeliveries('all');
     }
 
-    const rawList = (data || []).map(mapDeliveryFromDb);
-    const seen = new Set();
-    const deduped = [];
-    for (const d of rawList) {
-      const key = d.orderNumber || d.orderId || d.id;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(d);
-      }
-    }
-    return deduped;
+    const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
+    replaceScopedLocalDeliveries('all', authoritative);
+    return authoritative;
   } catch (err) {
     console.error('Error in getDeliveries:', err);
-    return [];
+    return readScopedLocalDeliveries('all');
   }
 }
 
@@ -264,23 +347,15 @@ export async function getFarmerDeliveries(farmerId) {
 
     if (error) {
       console.error('Failed to fetch farmer deliveries:', error);
-      return [];
+      return readScopedLocalDeliveries(`farmer_${farmerId}`);
     }
 
-    const rawList = (data || []).map(mapDeliveryFromDb);
-    const seen = new Set();
-    const deduped = [];
-    for (const d of rawList) {
-      const key = d.orderNumber || d.orderId || d.id;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(d);
-      }
-    }
-    return deduped;
+    const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
+    replaceScopedLocalDeliveries(`farmer_${farmerId}`, authoritative);
+    return authoritative;
   } catch (err) {
     console.error('Error in getFarmerDeliveries:', err);
-    return [];
+    return readScopedLocalDeliveries(`farmer_${farmerId}`);
   }
 }
 
@@ -299,23 +374,15 @@ export async function getBuyerDeliveries(buyerId) {
 
     if (error) {
       console.error('Failed to fetch buyer deliveries:', error);
-      return [];
+      return readScopedLocalDeliveries(`buyer_${buyerId}`);
     }
 
-    const rawList = (data || []).map(mapDeliveryFromDb);
-    const seen = new Set();
-    const deduped = [];
-    for (const d of rawList) {
-      const key = d.orderNumber || d.orderId || d.id;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(d);
-      }
-    }
-    return deduped;
+    const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
+    replaceScopedLocalDeliveries(`buyer_${buyerId}`, authoritative);
+    return authoritative;
   } catch (err) {
     console.error('Error in getBuyerDeliveries:', err);
-    return [];
+    return readScopedLocalDeliveries(`buyer_${buyerId}`);
   }
 }
 
@@ -789,7 +856,7 @@ export async function depositFreightEscrow({
       window.dispatchEvent(new Event('storage'));
     }
 
-    return mapDeliveryFromDb(data);
+    return emitDeliveryUpdated(mapDeliveryFromDb(data));
   } catch (err) {
     console.error('depositFreightEscrow error:', err);
     throw err;
@@ -825,7 +892,7 @@ export async function verifyFreightBankDeposit(deliveryId, adminName = 'AgroLnk 
       window.dispatchEvent(new Event('storage'));
     }
 
-    return mapDeliveryFromDb(data);
+    return emitDeliveryUpdated(mapDeliveryFromDb(data));
   } catch (err) {
     console.error('verifyFreightBankDeposit error:', err);
     throw err;
@@ -867,7 +934,7 @@ export async function adminReleaseFreightEscrow({
       window.dispatchEvent(new Event('storage'));
     }
 
-    return mapDeliveryFromDb(data);
+    return emitDeliveryUpdated(mapDeliveryFromDb(data));
   } catch (err) {
     console.error('adminReleaseFreightEscrow error:', err);
     throw err;
@@ -923,7 +990,7 @@ export async function declineTransportPrice(deliveryId) {
       console.error('Error declining transport price:', error);
       throw error;
     }
-    return mapDeliveryFromDb(data);
+    return emitDeliveryUpdated(mapDeliveryFromDb(data));
   } catch (err) {
     console.error('Error in declineTransportPrice:', err);
     throw err;
@@ -959,7 +1026,7 @@ export async function confirmPickup(deliveryId) {
       .single();
 
     if (error) throw error;
-    return mapDeliveryFromDb(data);
+    return emitDeliveryUpdated(mapDeliveryFromDb(data));
   } catch (err) {
     console.error('Error confirming pickup:', err);
     throw err;
@@ -1166,7 +1233,7 @@ export async function updateDeliveryStatus(deliveryId, newStatus) {
       console.warn('Linked order auto-sync notice:', orderSyncErr);
     }
 
-    return mapDeliveryFromDb(data);
+    return emitDeliveryUpdated(mapDeliveryFromDb(data));
   } catch (err) {
     console.error('Error updating delivery status:', err);
     throw err;

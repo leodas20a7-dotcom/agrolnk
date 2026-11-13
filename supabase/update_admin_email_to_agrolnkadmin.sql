@@ -86,9 +86,26 @@ BEGIN
 END;
 $$;
 
--- 6. Update storage policies to recognize the new admin email
-DROP POLICY IF EXISTS "AgroLnk Authenticated Document Access" ON storage.objects;
-CREATE POLICY "AgroLnk Authenticated Document Access"
+-- 6. Reconcile canonical storage policies cleanly (no duplicate legacy policy names)
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT policyname
+        FROM pg_policies
+        WHERE schemaname = 'storage' AND tablename = 'objects'
+    ) LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', r.policyname);
+    END LOOP;
+END $$;
+
+CREATE POLICY "agrolnk_public_listings_select"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'listings');
+
+CREATE POLICY "agrolnk_private_documents_select"
 ON storage.objects FOR SELECT
 TO authenticated
 USING (
@@ -98,12 +115,15 @@ USING (
     OR (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com')
     OR public.is_admin()
     OR owner::text = auth.uid()::text
+    OR (storage.foldername(name))[1] = auth.uid()::text
+    OR (storage.foldername(name))[2] = auth.uid()::text
+    OR name LIKE (auth.uid()::text || '/%')
+    OR name LIKE ('%/' || auth.uid()::text || '/%')
     OR name LIKE ('%' || auth.uid()::text || '%')
   )
 );
 
-DROP POLICY IF EXISTS "AgroLnk Authenticated Document Upload" ON storage.objects;
-CREATE POLICY "AgroLnk Authenticated Document Upload"
+CREATE POLICY "agrolnk_documents_insert"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
@@ -117,8 +137,41 @@ WITH CHECK (
       OR public.is_admin()
       OR owner::text = auth.uid()::text
       OR (storage.foldername(name))[1] = auth.uid()::text
+      OR (storage.foldername(name))[2] = auth.uid()::text
+      OR name LIKE (auth.uid()::text || '/%')
+      OR name LIKE ('%/' || auth.uid()::text || '/%')
       OR name LIKE ('%' || auth.uid()::text || '%')
     )
   )
+);
+
+CREATE POLICY "agrolnk_documents_update"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (
+  (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  OR (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com')
+  OR public.is_admin()
+  OR owner::text = auth.uid()::text
+  OR (storage.foldername(name))[1] = auth.uid()::text
+  OR (storage.foldername(name))[2] = auth.uid()::text
+  OR name LIKE (auth.uid()::text || '/%')
+  OR name LIKE ('%/' || auth.uid()::text || '/%')
+  OR name LIKE ('%' || auth.uid()::text || '%')
+);
+
+CREATE POLICY "agrolnk_documents_delete"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  OR (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com')
+  OR public.is_admin()
+  OR owner::text = auth.uid()::text
+  OR (storage.foldername(name))[1] = auth.uid()::text
+  OR (storage.foldername(name))[2] = auth.uid()::text
+  OR name LIKE (auth.uid()::text || '/%')
+  OR name LIKE ('%/' || auth.uid()::text || '/%')
+  OR name LIKE ('%' || auth.uid()::text || '%')
 );
 

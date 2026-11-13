@@ -421,61 +421,107 @@ ALTER TABLE public.financing_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inspections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
--- Allow public read and write access for development, testing & API sync
+-- Core admin check helper (must exist before RLS policies reference public.is_admin())
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public, auth
+AS $$
+BEGIN
+    RETURN (
+        (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
+        (auth.jwt() ->> 'email') IN ('agrolnkadmin@gmail.com', 'admin@agrolnk.com') OR
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid()::text AND role = 'admin'
+        )
+    );
+END;
+$$;
+
+-- Restricted RLS policies for profiles & listings
 DROP POLICY IF EXISTS "Allow public read profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow public insert/update profiles" ON public.profiles;
-CREATE POLICY "Allow public read profiles" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update profiles" ON public.profiles FOR ALL USING (true);
+DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
+CREATE POLICY "profiles_select_policy" ON public.profiles FOR SELECT TO authenticated USING (auth.uid()::text = id OR public.is_admin());
+CREATE POLICY "profiles_insert_policy" ON public.profiles FOR INSERT TO authenticated WITH CHECK ((auth.uid()::text = id AND COALESCE(LOWER(role), '') <> 'admin') OR public.is_admin());
+CREATE POLICY "profiles_update_policy" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid()::text = id OR public.is_admin()) WITH CHECK (auth.uid()::text = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read listings" ON public.listings;
 DROP POLICY IF EXISTS "Allow public insert/update listings" ON public.listings;
-CREATE POLICY "Allow public read listings" ON public.listings FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update listings" ON public.listings FOR ALL USING (true);
+DROP POLICY IF EXISTS "listings_read_policy" ON public.listings;
+DROP POLICY IF EXISTS "listings_write_policy" ON public.listings;
+CREATE POLICY "listings_read_policy" ON public.listings FOR SELECT USING (true);
+CREATE POLICY "listings_write_policy" ON public.listings FOR ALL TO authenticated USING (auth.uid()::text = farmer_id OR public.is_admin()) WITH CHECK (auth.uid()::text = farmer_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read auctions" ON public.auctions;
 DROP POLICY IF EXISTS "Allow public insert/update auctions" ON public.auctions;
-CREATE POLICY "Allow public read auctions" ON public.auctions FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update auctions" ON public.auctions FOR ALL USING (true);
+DROP POLICY IF EXISTS "auctions_read_policy" ON public.auctions;
+DROP POLICY IF EXISTS "auctions_write_policy" ON public.auctions;
+CREATE POLICY "auctions_read_policy" ON public.auctions FOR SELECT USING (true);
+CREATE POLICY "auctions_write_policy" ON public.auctions FOR ALL TO authenticated USING (auth.uid()::text = farmer_id OR public.is_admin()) WITH CHECK (auth.uid()::text = farmer_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read auction_bids" ON public.auction_bids;
 DROP POLICY IF EXISTS "Allow public insert/update auction_bids" ON public.auction_bids;
-CREATE POLICY "Allow public read auction_bids" ON public.auction_bids FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update auction_bids" ON public.auction_bids FOR ALL USING (true);
+DROP POLICY IF EXISTS "bids_read_policy" ON public.auction_bids;
+DROP POLICY IF EXISTS "bids_insert_policy" ON public.auction_bids;
+CREATE POLICY "bids_read_policy" ON public.auction_bids FOR SELECT USING (true);
+CREATE POLICY "bids_insert_policy" ON public.auction_bids FOR INSERT TO authenticated WITH CHECK (auth.uid()::text = bidder_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read orders" ON public.orders;
 DROP POLICY IF EXISTS "Allow public insert/update orders" ON public.orders;
-CREATE POLICY "Allow public read orders" ON public.orders FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update orders" ON public.orders FOR ALL USING (true);
+DROP POLICY IF EXISTS "orders_select_policy" ON public.orders;
+DROP POLICY IF EXISTS "orders_insert_policy" ON public.orders;
+DROP POLICY IF EXISTS "orders_update_policy" ON public.orders;
+CREATE POLICY "orders_select_policy" ON public.orders FOR SELECT TO authenticated USING (auth.uid()::text = buyer_id OR auth.uid()::text = farmer_id OR public.is_admin());
+CREATE POLICY "orders_insert_policy" ON public.orders FOR INSERT TO authenticated WITH CHECK (auth.uid()::text = buyer_id OR public.is_admin());
+CREATE POLICY "orders_update_policy" ON public.orders FOR UPDATE TO authenticated USING (auth.uid()::text = buyer_id OR auth.uid()::text = farmer_id OR public.is_admin()) WITH CHECK (auth.uid()::text = buyer_id OR auth.uid()::text = farmer_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read deliveries" ON public.deliveries;
 DROP POLICY IF EXISTS "Allow public insert/update deliveries" ON public.deliveries;
-CREATE POLICY "Allow public read deliveries" ON public.deliveries FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update deliveries" ON public.deliveries FOR ALL USING (true);
+DROP POLICY IF EXISTS "deliveries_select_policy" ON public.deliveries;
+DROP POLICY IF EXISTS "deliveries_insert_policy" ON public.deliveries;
+DROP POLICY IF EXISTS "deliveries_update_policy" ON public.deliveries;
+CREATE POLICY "deliveries_select_policy" ON public.deliveries FOR SELECT TO authenticated USING (auth.uid()::text = farmer_id OR auth.uid()::text = buyer_id OR auth.uid()::text = transporter_id OR status IN ('transport_requested', 'price_offered') OR public.is_admin());
+CREATE POLICY "deliveries_insert_policy" ON public.deliveries FOR INSERT TO authenticated WITH CHECK (auth.uid()::text = buyer_id OR auth.uid()::text = farmer_id OR public.is_admin());
+CREATE POLICY "deliveries_update_policy" ON public.deliveries FOR UPDATE TO authenticated USING (auth.uid()::text = farmer_id OR auth.uid()::text = buyer_id OR auth.uid()::text = transporter_id OR public.is_admin()) WITH CHECK (auth.uid()::text = farmer_id OR auth.uid()::text = buyer_id OR auth.uid()::text = transporter_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read warehouses" ON public.warehouses;
 DROP POLICY IF EXISTS "Allow public insert/update warehouses" ON public.warehouses;
-CREATE POLICY "Allow public read warehouses" ON public.warehouses FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update warehouses" ON public.warehouses FOR ALL USING (true);
+DROP POLICY IF EXISTS "warehouses_select_policy" ON public.warehouses;
+DROP POLICY IF EXISTS "warehouses_write_policy" ON public.warehouses;
+CREATE POLICY "warehouses_select_policy" ON public.warehouses FOR SELECT USING (true);
+CREATE POLICY "warehouses_write_policy" ON public.warehouses FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read warehouse_receipts" ON public.warehouse_receipts;
 DROP POLICY IF EXISTS "Allow public insert/update warehouse_receipts" ON public.warehouse_receipts;
-CREATE POLICY "Allow public read warehouse_receipts" ON public.warehouse_receipts FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update warehouse_receipts" ON public.warehouse_receipts FOR ALL USING (true);
+DROP POLICY IF EXISTS "warehouse_receipts_select_policy" ON public.warehouse_receipts;
+DROP POLICY IF EXISTS "warehouse_receipts_write_policy" ON public.warehouse_receipts;
+CREATE POLICY "warehouse_receipts_select_policy" ON public.warehouse_receipts FOR SELECT TO authenticated USING (auth.uid()::text = farmer_id OR public.is_admin());
+CREATE POLICY "warehouse_receipts_write_policy" ON public.warehouse_receipts FOR ALL TO authenticated USING (auth.uid()::text = farmer_id OR public.is_admin()) WITH CHECK (auth.uid()::text = farmer_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read financing_requests" ON public.financing_requests;
 DROP POLICY IF EXISTS "Allow public insert/update financing_requests" ON public.financing_requests;
-CREATE POLICY "Allow public read financing_requests" ON public.financing_requests FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update financing_requests" ON public.financing_requests FOR ALL USING (true);
+DROP POLICY IF EXISTS "financing_select_policy" ON public.financing_requests;
+DROP POLICY IF EXISTS "financing_insert_policy" ON public.financing_requests;
+DROP POLICY IF EXISTS "financing_update_policy" ON public.financing_requests;
+CREATE POLICY "financing_select_policy" ON public.financing_requests FOR SELECT TO authenticated USING (auth.uid()::text = applicant_id OR auth.uid()::text = financier_id OR public.is_admin());
+CREATE POLICY "financing_insert_policy" ON public.financing_requests FOR INSERT TO authenticated WITH CHECK (auth.uid()::text = applicant_id OR public.is_admin());
+CREATE POLICY "financing_update_policy" ON public.financing_requests FOR UPDATE TO authenticated USING (auth.uid()::text = applicant_id OR auth.uid()::text = financier_id OR public.is_admin()) WITH CHECK (auth.uid()::text = applicant_id OR auth.uid()::text = financier_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read inspections" ON public.inspections;
 DROP POLICY IF EXISTS "Allow public insert/update inspections" ON public.inspections;
-CREATE POLICY "Allow public read inspections" ON public.inspections FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update inspections" ON public.inspections FOR ALL USING (true);
+DROP POLICY IF EXISTS "inspections_select_policy" ON public.inspections;
+DROP POLICY IF EXISTS "inspections_write_policy" ON public.inspections;
+CREATE POLICY "inspections_select_policy" ON public.inspections FOR SELECT TO authenticated USING (auth.uid()::text = buyer_id OR public.is_admin());
+CREATE POLICY "inspections_write_policy" ON public.inspections FOR INSERT TO authenticated WITH CHECK (auth.uid()::text = buyer_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Allow public read chat_messages" ON public.chat_messages;
 DROP POLICY IF EXISTS "Allow public insert/update chat_messages" ON public.chat_messages;
-CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
-CREATE POLICY "Allow public insert/update chat_messages" ON public.chat_messages FOR ALL USING (true);
 
 -- ============================================================================
 -- 11. INITIAL SEED DATA (Ready for Immediate Testing)
@@ -549,9 +595,17 @@ CREATE TABLE IF NOT EXISTS public.commodities (
 );
 
 ALTER TABLE public.commodities ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public read commodities" ON public.commodities FOR SELECT USING (true);
-CREATE POLICY "Allow public insert commodities" ON public.commodities FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update commodities" ON public.commodities FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public read commodities" ON public.commodities;
+DROP POLICY IF EXISTS "Allow public insert commodities" ON public.commodities;
+DROP POLICY IF EXISTS "Allow public update commodities" ON public.commodities;
+DROP POLICY IF EXISTS "commodities_select_all" ON public.commodities;
+DROP POLICY IF EXISTS "commodities_insert_admin_only" ON public.commodities;
+DROP POLICY IF EXISTS "commodities_update_admin_only" ON public.commodities;
+DROP POLICY IF EXISTS "commodities_delete_admin_only" ON public.commodities;
+CREATE POLICY "commodities_select_all" ON public.commodities FOR SELECT USING (true);
+CREATE POLICY "commodities_insert_admin_only" ON public.commodities FOR INSERT TO authenticated WITH CHECK (public.is_admin());
+CREATE POLICY "commodities_update_admin_only" ON public.commodities FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "commodities_delete_admin_only" ON public.commodities FOR DELETE TO authenticated USING (public.is_admin());
 
 -- Enable Supabase Realtime for commodities
 ALTER PUBLICATION supabase_realtime ADD TABLE public.commodities;
@@ -668,10 +722,18 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 );
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public read notifications" ON public.notifications FOR SELECT USING (true);
-CREATE POLICY "Allow public insert notifications" ON public.notifications FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update notifications" ON public.notifications FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete notifications" ON public.notifications FOR DELETE USING (true);
+DROP POLICY IF EXISTS "Allow public read notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Allow public insert notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Allow public update notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Allow public delete notifications" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_select_policy" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_insert_policy" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_update_policy" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_delete_policy" ON public.notifications;
+CREATE POLICY "notifications_select_policy" ON public.notifications FOR SELECT TO authenticated USING (recipient_id = auth.uid()::text OR (recipient_id IS NULL AND recipient_role = (SELECT role FROM public.profiles WHERE id = auth.uid()::text)) OR public.is_admin());
+CREATE POLICY "notifications_insert_policy" ON public.notifications FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "notifications_update_policy" ON public.notifications FOR UPDATE TO authenticated USING (recipient_id = auth.uid()::text OR public.is_admin()) WITH CHECK (recipient_id = auth.uid()::text OR public.is_admin());
+CREATE POLICY "notifications_delete_policy" ON public.notifications FOR DELETE TO authenticated USING (recipient_id = auth.uid()::text OR public.is_admin());
 
 -- ============================================================================
 -- 15. CHAT MESSAGES REGISTRY TABLE
@@ -691,10 +753,14 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 );
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public read chat_messages" ON public.chat_messages FOR SELECT USING (true);
-CREATE POLICY "Allow public insert chat_messages" ON public.chat_messages FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update chat_messages" ON public.chat_messages FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete chat_messages" ON public.chat_messages FOR DELETE USING (true);
+DROP POLICY IF EXISTS "Allow public read chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Allow public insert chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Allow public update chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Allow public delete chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "chat_messages_select_policy" ON public.chat_messages;
+DROP POLICY IF EXISTS "chat_messages_insert_policy" ON public.chat_messages;
+CREATE POLICY "chat_messages_select_policy" ON public.chat_messages FOR SELECT TO authenticated USING (sender_id = auth.uid()::text OR thread_key LIKE '%' || auth.uid()::text || '%' OR public.is_admin());
+CREATE POLICY "chat_messages_insert_policy" ON public.chat_messages FOR INSERT TO authenticated WITH CHECK (sender_id = auth.uid()::text OR public.is_admin());
 
 -- ============================================================================
 -- 16. DUPLICATE ORDER PREVENTION & DEDUPLICATION

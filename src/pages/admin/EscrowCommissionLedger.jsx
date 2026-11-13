@@ -157,19 +157,49 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
       };
     });
 
-  const ledgerItems = safeOrders.map((ord) => {
+  const activeOrders = safeOrders.filter((ord) => ord.status !== 'cancelled' && ord.status !== 'deleted');
+
+  // Deduplicate unquoted duplicate RFQs for the same lot & buyer in Admin ledger
+  const seenRfqLots = new Set();
+  const dedupedAdminOrders = [...activeOrders]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .filter((ord) => {
+      const isUnquotedRfq =
+        (ord.status === 'awaiting_freight_quote' || Boolean(ord.awaitingFreightQuote)) &&
+        !ord.freightAmount;
+      if (isUnquotedRfq) {
+        const key = `${ord.listingId || ''}_${ord.commodity || ''}_${ord.variety || ''}_${ord.buyerId || ord.buyerName || ''}_${ord.farmerName || ''}`;
+        if (seenRfqLots.has(key)) return false;
+        seenRfqLots.add(key);
+      }
+      return true;
+    });
+
+  const ledgerItems = dedupedAdminOrders.map((ord) => {
     const fin = calculateOrderFinancials(ord.totalAmount);
-    const isSettled = ord.status === 'completed';
-    const isPendingVerification = 
-      ord.escrowStatus === 'pending' || 
-      ord.escrowStatus === 'pending_verification' || 
-      ord.status === 'pending' || 
-      ord.status === 'payment_verification_pending';
+    const isSettled = ord.status === 'completed' || ord.escrowStatus === 'released';
+    const isAwaitingRfq =
+      ord.status === 'awaiting_freight_quote' ||
+      ord.status === 'freight_quoted' ||
+      ord.escrowStatus === 'awaiting_freight_quote' ||
+      ord.escrowStatus === 'freight_quoted';
+    const isPendingVerification =
+      !isAwaitingRfq &&
+      (ord.escrowStatus === 'pending' ||
+        ord.escrowStatus === 'pending_verification' ||
+        ord.status === 'pending' ||
+        ord.status === 'payment_verification_pending');
 
     return {
       ...ord,
       ...fin,
-      escrowState: isPendingVerification ? 'pending_verification' : (isSettled ? 'released' : 'locked'),
+      escrowState: isSettled
+        ? 'released'
+        : isAwaitingRfq
+        ? 'awaiting_rfq'
+        : isPendingVerification
+        ? 'pending_verification'
+        : 'locked',
     };
   });
 
@@ -246,14 +276,15 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
     currentPage * pageSize
   );
 
-  // Totals across all 4 Ecosystem Pillars
-  const totalTradeGMV = ledgerItems.reduce((sum, item) => sum + item.tradeValue, 0);
+  // Totals across all 4 Ecosystem Pillars (only count funded/locked or settled trade orders)
+  const fundedTradeItems = ledgerItems.filter((item) => item.escrowState === 'locked' || item.escrowState === 'released');
+  const totalTradeGMV = fundedTradeItems.reduce((sum, item) => sum + item.tradeValue, 0);
   const totalFreightGMV = freightItems.reduce((sum, item) => sum + (item.baseFare || 0), 0);
   const totalWarehouseGMV = warehouseItems.reduce((sum, item) => sum + (item.baseRent || 0), 0);
   const totalFinancingGMV = financingItems.reduce((sum, item) => sum + (item.principal || 0), 0);
   const totalEcosystemGMV = totalTradeGMV + totalFreightGMV + totalWarehouseGMV + totalFinancingGMV;
 
-  const totalAgroLnkTradeRevenue = ledgerItems.reduce((sum, item) => sum + item.totalPlatformCommission, 0);
+  const totalAgroLnkTradeRevenue = fundedTradeItems.reduce((sum, item) => sum + item.totalPlatformCommission, 0);
   const totalAgroLnkFreightRevenue = freightItems.reduce((sum, item) => sum + (item.totalAgroLnkFreightRevenue || 0), 0);
   const totalAgroLnkWarehouseRevenue = warehouseItems.reduce((sum, item) => sum + (item.totalAgroLnkWarehouseRevenue || 0), 0);
   const totalAgroLnkFinancingRevenue = financingItems.reduce((sum, item) => sum + (item.totalAgroLnkFinancingRevenue || 0), 0);
@@ -717,7 +748,11 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             </td>
 
                             <td className="py-3.5 px-4">
-                              {item.escrowState === 'pending_verification' ? (
+                              {item.escrowState === 'awaiting_rfq' ? (
+                                <Badge variant="amber" size="sm" dot={true}>
+                                  {item.status === 'freight_quoted' ? 'Freight Quoted (Unpaid)' : 'Awaiting 30m Freight Quote'}
+                                </Badge>
+                              ) : item.escrowState === 'pending_verification' ? (
                                 <div className="space-y-1">
                                   <Badge variant="amber" size="sm" dot={true}>
                                     Bank UTR Pending
@@ -740,7 +775,11 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
-                              {item.escrowState === 'pending_verification' ? (
+                              {item.escrowState === 'awaiting_rfq' ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800">
+                                  <Clock className="w-3.5 h-3.5" /> Awaiting Buyer Checkout
+                                </span>
+                              ) : item.escrowState === 'pending_verification' ? (
                                 <Button
                                   variant="primary"
                                   size="sm"
@@ -1075,7 +1114,11 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             </span>
                           </div>
                           <div>
-                            {item.escrowState === 'pending_verification' ? (
+                            {item.escrowState === 'awaiting_rfq' ? (
+                              <Badge variant="amber" size="sm" dot={true}>
+                                {item.status === 'freight_quoted' ? 'Freight Quoted' : 'Awaiting Freight'}
+                              </Badge>
+                            ) : item.escrowState === 'pending_verification' ? (
                               <Badge variant="amber" size="sm" dot={true}>
                                 UTR Pending
                               </Badge>
@@ -1128,7 +1171,12 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                         )}
 
                         <div className="pt-0.5">
-                          {item.escrowState === 'pending_verification' ? (
+                          {item.escrowState === 'awaiting_rfq' ? (
+                            <div className="py-2 text-center text-xs font-semibold text-amber-800 flex items-center justify-center gap-1.5 bg-amber-50 rounded-xl border border-amber-200">
+                              <Clock className="w-4 h-4" />
+                              <span>Awaiting Freight Quote &amp; Buyer Checkout</span>
+                            </div>
+                          ) : item.escrowState === 'pending_verification' ? (
                             <Button
                               variant="primary"
                               size="sm"

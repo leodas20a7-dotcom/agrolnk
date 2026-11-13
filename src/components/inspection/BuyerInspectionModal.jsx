@@ -106,13 +106,20 @@ export default function BuyerInspectionModal({
       },
       onSuccess: async (paymentData) => {
         setIsPayingFee(false);
-        const updated = await payInspectionFee(inspection.id, {
-          paymentId: paymentData.razorpay_payment_id,
-          method: 'Razorpay Gateway',
-        });
-        const finalRecord = updated || { ...inspection, feeStatus: 'paid', feePaymentId: paymentData.razorpay_payment_id };
-        setInspection(finalRecord);
-        if (onSuccess) onSuccess(finalRecord);
+        try {
+          const updated = await payInspectionFee(inspection.id, {
+            paymentId: paymentData.razorpay_payment_id,
+            method: 'Razorpay Gateway',
+            verified: Boolean(paymentData?.verified),
+            serverUpdated: Boolean(paymentData?.serverUpdated),
+          });
+          const finalRecord = updated || { ...inspection, feeStatus: 'paid', feePaymentId: paymentData.razorpay_payment_id };
+          setInspection(finalRecord);
+          if (onSuccess) onSuccess(finalRecord);
+        } catch (err) {
+          console.error('Failed to finalize inspection fee payment:', err);
+          setPaymentError(err?.message || 'Payment verification could not be completed.');
+        }
       },
       onFailure: (err) => {
         setIsPayingFee(false);

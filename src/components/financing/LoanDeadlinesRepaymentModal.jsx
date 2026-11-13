@@ -65,37 +65,44 @@ export default function LoanDeadlinesRepaymentModal({
       const maturity = calculateLoanMaturity(selectedLoan);
 
       await initiateRazorpayLoanRepaymentCheckout({
-        loan: selectedLoan,
+        request: selectedLoan,
         amount: maturity.totalDue,
-        borrowerUser: user,
+        currentUser: user,
         onSuccess: async (rzpRes) => {
-          const txnId = rzpRes?.razorpay_payment_id || `TXN${Date.now()}`;
-          await repayFinancingLoan(selectedLoan.id || selectedLoan.requestNumber, {
-            method: 'Razorpay Gateway',
-            txnId,
-            amount: maturity.totalDue,
-            notes: `Direct institutional loan repayment via Razorpay (${txnId}) by ${user.name}`,
-          });
+          try {
+            const txnId = rzpRes?.razorpay_payment_id || `TXN${Date.now()}`;
+            await repayFinancingLoan(selectedLoan.id || selectedLoan.requestNumber, {
+              method: 'Razorpay Gateway',
+              txnId,
+              amount: maturity.totalDue,
+              verified: Boolean(rzpRes?.verified),
+              serverUpdated: Boolean(rzpRes?.serverUpdated),
+              notes: `Direct institutional loan repayment via Razorpay (${txnId}) by ${user.name}`,
+            });
 
-          const receipt = {
-            txnId,
-            loanNumber: selectedLoan.requestNumber || `#FIN-${String(selectedLoan.id || '').slice(0, 6)}`,
-            orderNumber: selectedLoan.orderNumber || 'General Working Capital',
-            borrowerName: user.name || selectedLoan.applicantName || 'Borrower',
-            borrowerRole: isFarmer ? 'Producer / Farmer' : 'Wholesale Buyer',
-            institutionName: 'Samunnati / NABARD Agri-Finance Desk',
-            principalAmount: maturity.principal,
-            interestAmount: maturity.interest,
-            totalPaid: maturity.totalDue,
-            paidAt: new Date().toISOString(),
-            paymentMethod: `Razorpay Online (${txnId})`,
-          };
+            const receipt = {
+              txnId,
+              loanNumber: selectedLoan.requestNumber || `#FIN-${String(selectedLoan.id || '').slice(0, 6)}`,
+              orderNumber: selectedLoan.orderNumber || 'General Working Capital',
+              borrowerName: user.name || selectedLoan.applicantName || 'Borrower',
+              borrowerRole: isFarmer ? 'Producer / Farmer' : 'Wholesale Buyer',
+              institutionName: 'Samunnati / NABARD Agri-Finance Desk',
+              principalAmount: maturity.principal,
+              interestAmount: maturity.interest,
+              totalPaid: maturity.totalDue,
+              paidAt: new Date().toISOString(),
+              paymentMethod: `Razorpay Online (${txnId})`,
+            };
 
-          setRepaymentReceipt(receipt);
-          setPaymentStep('success');
-          onRepaymentSuccess?.();
-          setIsProcessing(false);
-          hideGlobalLoader();
+            setRepaymentReceipt(receipt);
+            setPaymentStep('success');
+            onRepaymentSuccess?.();
+          } catch (err) {
+            console.error('Repayment modal finalization failed:', err);
+          } finally {
+            setIsProcessing(false);
+            hideGlobalLoader();
+          }
         },
         onFailure: (err) => {
           console.warn('Razorpay repayment window note:', err);

@@ -40,13 +40,15 @@ export async function verifyPaymentOnServer({
   expectedAmountPaise,
   expectedCurrency = 'INR',
   paymentContext = 'order',
+  loanId = null,
+  inspectionId = null,
 }) {
   if (!razorpay_payment_id) {
     throw new Error('Payment gateway response did not return a valid payment ID.');
   }
 
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
-  const isTestMode = String(razorpayKeyId).startsWith('rzp_test_');
+  const isTestMode = Boolean(import.meta.env?.DEV) && String(razorpayKeyId).startsWith('rzp_test_');
 
   try {
     const { data: verifyRes, error: verifyErr } = await supabase.functions.invoke('razorpay-route', {
@@ -58,6 +60,8 @@ export async function verifyPaymentOnServer({
         expected_amount_paise: expectedAmountPaise,
         expected_currency: expectedCurrency,
         payment_context: paymentContext,
+        loan_id: loanId,
+        inspection_id: inspectionId,
       },
     });
 
@@ -73,15 +77,13 @@ export async function verifyPaymentOnServer({
     if (verifyErr) {
       const errMsg = String(verifyErr.message || '');
       const isEdgeUnavailable =
-        errMsg.includes('Edge Function') ||
+        verifyErr.name === 'FunctionsFetchError' ||
         errMsg.includes('Failed to send a request') ||
-        verifyErr.status === 404 ||
-        verifyErr.status === 502 ||
-        verifyErr.status === 503;
+        verifyErr.status === 404;
 
-      if (isTestMode || isEdgeUnavailable) {
+      if (isTestMode && isEdgeUnavailable) {
         console.warn(
-          'Supabase Edge Function "razorpay-route" is not deployed yet or unreachable. Gracefully confirming payment in test mode:',
+          'DEV test mode: Supabase Edge Function "razorpay-route" unreachable. Confirming payment in local dev only:',
           razorpay_payment_id
         );
         return {
@@ -95,17 +97,20 @@ export async function verifyPaymentOnServer({
       throw new Error(errMsg || 'Payment verification request failed on server.');
     }
 
+    if (!verifyRes?.verified) {
+      throw new Error(verifyRes?.error || 'Server did not confirm payment verification.');
+    }
+
     return verifyRes;
   } catch (err) {
     const errMsg = String(err?.message || '');
     const isEdgeUnavailable =
-      errMsg.includes('Edge Function') ||
-      errMsg.includes('Failed to send a request') ||
-      err?.name === 'FunctionsFetchError';
+      err?.name === 'FunctionsFetchError' ||
+      errMsg.includes('Failed to send a request');
 
-    if (isTestMode || isEdgeUnavailable) {
+    if (isTestMode && isEdgeUnavailable) {
       console.warn(
-        'Supabase Edge Function unavailable. Gracefully confirming payment in test mode:',
+        'DEV test mode: Supabase Edge Function unavailable. Confirming payment in local dev only:',
         razorpay_payment_id
       );
       return {
@@ -125,6 +130,7 @@ export async function verifyPaymentOnServer({
  */
 export async function initiateRazorpayRouteCheckout({
   listing,
+  existingOrderId = null,
   quantity = 100,
   pricePerUnit,
   customTradeValue,
@@ -160,12 +166,14 @@ export async function initiateRazorpayRouteCheckout({
     return;
   }
 
-  // 2. Request Server-Created Order ID (Calls Supabase Edge Function if deployed, or generates test receipt)
+  // 2. Request Server-Created Order ID (Calls Supabase Edge Function)
   let serverOrderId = null;
+  let serverOrderAmount = null;
   try {
     const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('razorpay-route', {
       body: {
         action: 'create_order',
+        existingOrderId: existingOrderId || undefined,
         listingId: listing?.id,
         quantity: qty,
         buyerId: buyerUser?.id,
@@ -175,16 +183,25 @@ export async function initiateRazorpayRouteCheckout({
 
     if (!edgeErr && edgeRes?.orderId) {
       serverOrderId = edgeRes.orderId;
+      if (edgeRes?.amount) serverOrderAmount = Number(edgeRes.amount);
+    } else if (!import.meta.env?.DEV) {
+      onFailure?.(new Error(edgeRes?.error || edgeErr?.message || 'Unable to initialize secure payment order on server.'));
+      return;
     }
-  } catch (_e) {
-    // Edge function will be active once deployed to Supabase CLI
+  } catch (createOrderErr) {
+    if (!import.meta.env?.DEV) {
+      onFailure?.(new Error(createOrderErr?.message || 'Payment server is unreachable. Please try again.'));
+      return;
+    }
   }
+
+  const checkoutAmountPaise = serverOrderAmount || totalAmountInPaise;
 
   // 3. Configure Razorpay Standard Checkout Options
   const activeUnit = purchaseUnit || listing?.unit || 'kg';
   const options = {
     key: razorpayKeyId,
-    amount: totalAmountInPaise,
+    amount: checkoutAmountPaise,
     currency: 'INR',
     name: 'AgroLnk Agri-Exchange',
     description: `Procurement: ${listing?.commodity || 'Produce'} (${qty} ${activeUnit})`,
@@ -222,9 +239,9 @@ export async function initiateRazorpayRouteCheckout({
           razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
-          expectedAmountPaise: totalAmountInPaise,
+          expectedAmountPaise: checkoutAmountPaise,
           expectedCurrency: 'INR',
-          paymentContext: 'order_checkout',
+          paymentContext: existingOrderId ? 'combined_escrow' : 'order_checkout',
         });
 
         onSuccess?.({
@@ -455,15 +472,67 @@ export async function initiateRazorpayInspectionFeeCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
+  const targetInspectionId = inspection?.id || inspection?.reportNumber || null;
+  if (!targetInspectionId) {
+    onFailure?.(new Error('Inspection reference ID is missing for fee payment.'));
+    return;
+  }
+
+  const razorpayKeyIdFallback = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
+  const isDevTestMode = Boolean(import.meta.env?.DEV) && String(razorpayKeyIdFallback).startsWith('rzp_test_');
   const feeAmount = Number(inspection?.inspectionFee) || 500;
-  const totalAmountInPaise = Math.round(feeAmount * 100);
-  const testOrderId = `insp_fee_${Date.now()}`;
+  let totalAmountInPaise = Math.round(feeAmount * 100);
+  let serverOrderId = null;
+  let serverInspectionId = targetInspectionId;
+  let resolvedKeyId = razorpayKeyIdFallback;
+
+  try {
+    const { data: orderRes, error: orderErr } = await supabase.functions.invoke('razorpay-route', {
+      body: {
+        action: 'create_order',
+        payment_context: 'inspection_fee',
+        inspectionId: targetInspectionId,
+      },
+    });
+
+    if (!orderErr && orderRes?.orderId) {
+      serverOrderId = orderRes.orderId;
+      serverInspectionId = orderRes.inspectionId || targetInspectionId;
+      if (Number(orderRes.amount) > 0) totalAmountInPaise = Number(orderRes.amount);
+      if (orderRes.keyId) resolvedKeyId = orderRes.keyId;
+    } else {
+      const errMsg = String(orderErr?.message || orderRes?.error || '');
+      const isEdgeUnavailable =
+        orderErr?.name === 'FunctionsFetchError' ||
+        errMsg.includes('Failed to send a request') ||
+        orderErr?.status === 404;
+
+      if (!isDevTestMode || !isEdgeUnavailable) {
+        onFailure?.(new Error(errMsg || 'Could not initialize server-side inspection fee order.'));
+        return;
+      }
+      serverOrderId = `insp_fee_dev_${Date.now()}`;
+    }
+  } catch (invokeErr) {
+    const errMsg = String(invokeErr?.message || '');
+    const isEdgeUnavailable =
+      invokeErr?.name === 'FunctionsFetchError' ||
+      errMsg.includes('Failed to send a request');
+    if (!isDevTestMode || !isEdgeUnavailable) {
+      onFailure?.(invokeErr instanceof Error ? invokeErr : new Error(errMsg || 'Inspection fee payment setup failed.'));
+      return;
+    }
+    serverOrderId = `insp_fee_dev_${Date.now()}`;
+  }
+
+  const fallbackOrderId = `insp_fee_${Date.now()}`;
+  const isLiveServerOrder = Boolean(serverOrderId && !String(serverOrderId).startsWith('insp_fee_'));
 
   const options = {
-    key: razorpayKeyId,
+    key: resolvedKeyId,
     amount: totalAmountInPaise,
     currency: 'INR',
+    ...(isLiveServerOrder ? { order_id: serverOrderId } : {}),
     name: 'AgroLnk Quality & Lab Assay',
     description: `Assay & Inspection Fee: ${inspection?.cropName || inspection?.commodity || 'Produce'} (Report: ${inspection?.reportNumber || inspection?.id})`,
     image: '/assets/Logo.jpeg',
@@ -495,21 +564,23 @@ export async function initiateRazorpayInspectionFeeCheckout({
           throw new Error('Payment gateway response did not return a valid payment ID.');
         }
 
-        await verifyPaymentOnServer({
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+        const verifyRes = await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || serverOrderId || fallbackOrderId,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           expectedAmountPaise: totalAmountInPaise,
           expectedCurrency: 'INR',
           paymentContext: 'inspection_fee',
+          inspectionId: serverInspectionId,
         });
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId || fallbackOrderId,
           razorpay_signature: response.razorpay_signature,
-          feeAmount: feeAmount,
-          verified: true,
+          feeAmount: Math.round(totalAmountInPaise) / 100,
+          verified: Boolean(verifyRes?.verified),
+          serverUpdated: Boolean(verifyRes?.inspectionUpdated),
         });
       } catch (err) {
         console.error('Inspection fee payment verification failed:', err);
@@ -709,12 +780,14 @@ export async function initiateBuyerMarginDepositCheckout({
 
 /**
  * Launch Razorpay Checkout for Institutional Loan & Trade Credit Repayment
- * @param {object} params - { request, amount, currentUser, onSuccess, onFailure }
+ * @param {object} params - { request, loan, amount, currentUser, borrowerUser, onSuccess, onFailure }
  */
 export async function initiateRazorpayLoanRepaymentCheckout({
   request,
+  loan,
   amount,
   currentUser,
+  borrowerUser,
   onSuccess,
   onFailure,
 }) {
@@ -724,30 +797,85 @@ export async function initiateRazorpayLoanRepaymentCheckout({
     return;
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
-  const repayAmount = Number(amount) || Number(request?.approvedAmount) || 1000;
-  const totalAmountInPaise = Math.round(repayAmount * 100);
-  const testOrderId = `repay_${Date.now()}`;
+  const loanObj = request || loan || {};
+  const userObj = currentUser || borrowerUser || {};
+  const targetLoanId = loanObj?.id || loanObj?.requestNumber || null;
+
+  const razorpayKeyIdFallback = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
+  const isDevTestMode = Boolean(import.meta.env?.DEV) && String(razorpayKeyIdFallback).startsWith('rzp_test_');
+  const repayAmount = Number(amount) || Number(loanObj?.approvedAmount) || 1000;
+  let totalAmountInPaise = Math.round(repayAmount * 100);
+  let serverOrderId = null;
+  let serverLoanId = targetLoanId;
+  let resolvedKeyId = razorpayKeyIdFallback;
+
+  if (targetLoanId) {
+    try {
+      const { data: orderRes, error: orderErr } = await supabase.functions.invoke('razorpay-route', {
+        body: {
+          action: 'create_order',
+          payment_context: 'loan_repayment',
+          loanId: targetLoanId,
+        },
+      });
+
+      if (!orderErr && orderRes?.orderId) {
+        serverOrderId = orderRes.orderId;
+        serverLoanId = orderRes.loanId || targetLoanId;
+        if (Number(orderRes.amount) > 0) totalAmountInPaise = Number(orderRes.amount);
+        if (orderRes.keyId) resolvedKeyId = orderRes.keyId;
+      } else {
+        const errMsg = String(orderErr?.message || orderRes?.error || '');
+        const isEdgeUnavailable =
+          orderErr?.name === 'FunctionsFetchError' ||
+          errMsg.includes('Failed to send a request') ||
+          orderErr?.status === 404;
+
+        if (!isDevTestMode || !isEdgeUnavailable) {
+          onFailure?.(new Error(errMsg || 'Could not initialize server-side loan repayment order.'));
+          return;
+        }
+        serverOrderId = `repay_dev_${Date.now()}`;
+      }
+    } catch (invokeErr) {
+      const errMsg = String(invokeErr?.message || '');
+      const isEdgeUnavailable =
+        invokeErr?.name === 'FunctionsFetchError' ||
+        errMsg.includes('Failed to send a request');
+      if (!isDevTestMode || !isEdgeUnavailable) {
+        onFailure?.(invokeErr instanceof Error ? invokeErr : new Error(errMsg || 'Loan repayment setup failed.'));
+        return;
+      }
+      serverOrderId = `repay_dev_${Date.now()}`;
+    }
+  } else {
+    onFailure?.(new Error('Loan reference ID is missing for repayment.'));
+    return;
+  }
+
+  const fallbackOrderId = `repay_${Date.now()}`;
+  const isLiveServerOrder = Boolean(serverOrderId && !String(serverOrderId).startsWith('repay_'));
 
   const options = {
-    key: razorpayKeyId,
+    key: resolvedKeyId,
     amount: totalAmountInPaise,
     currency: 'INR',
+    ...(isLiveServerOrder ? { order_id: serverOrderId } : {}),
     name: 'AgroLnk Agri-Credit Repayment',
-    description: `Loan Repayment: ${request?.requestNumber || request?.orderNumber || '#FIN-LOAN'} (${request?.purposeLabel || 'Agri Working Capital'})`,
+    description: `Loan Repayment: ${loanObj?.requestNumber || loanObj?.orderNumber || '#FIN-LOAN'} (${loanObj?.purposeLabel || 'Agri Working Capital'})`,
     image: '/assets/Logo.jpeg',
     prefill: {
-      name: currentUser?.name || request?.applicantName || 'Borrower',
-      email: currentUser?.email || 'borrower@agrolnk.com',
-      contact: currentUser?.phone || '9876543210',
+      name: userObj?.name || loanObj?.applicantName || 'Borrower',
+      email: userObj?.email || 'borrower@agrolnk.com',
+      contact: userObj?.phone || '9876543210',
     },
     notes: {
-      financing_request_id: request?.id,
-      request_number: request?.requestNumber,
-      order_number: request?.orderNumber,
-      repayment_amount: `₹${repayAmount}`,
-      borrower_name: currentUser?.name || request?.applicantName,
-      borrower_role: currentUser?.role || request?.applicantRole || 'farmer',
+      financing_request_id: serverLoanId,
+      request_number: loanObj?.requestNumber,
+      order_number: loanObj?.orderNumber,
+      repayment_amount: `₹${Math.round(totalAmountInPaise / 100)}`,
+      borrower_name: userObj?.name || loanObj?.applicantName,
+      borrower_role: userObj?.role || loanObj?.applicantRole || 'farmer',
       type: 'Institutional Loan Repayment',
       settlement_target: 'Samunnati / NABARD Agri-Credit Vault',
     },
@@ -765,21 +893,23 @@ export async function initiateRazorpayLoanRepaymentCheckout({
           throw new Error('Payment gateway response did not return a valid payment ID.');
         }
 
-        await verifyPaymentOnServer({
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+        const verifyRes = await verifyPaymentOnServer({
+          razorpay_order_id: response.razorpay_order_id || serverOrderId || fallbackOrderId,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           expectedAmountPaise: totalAmountInPaise,
           expectedCurrency: 'INR',
           paymentContext: 'loan_repayment',
+          loanId: serverLoanId,
         });
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId || fallbackOrderId,
           razorpay_signature: response.razorpay_signature,
-          repaymentAmount: repayAmount,
-          verified: true,
+          repaymentAmount: Math.round(totalAmountInPaise) / 100,
+          verified: Boolean(verifyRes?.verified),
+          serverUpdated: Boolean(verifyRes?.loanUpdated),
         });
       } catch (err) {
         console.error('Loan repayment payment verification failed:', err);

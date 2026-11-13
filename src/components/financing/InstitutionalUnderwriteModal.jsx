@@ -217,7 +217,10 @@ export default function InstitutionalUnderwriteModal({
   const handleReject = async () => {
     setIsSubmitting(true);
     try {
-      await updateFinancingStatus(request, 'rejected', reviewNotes || 'Application declined by risk policy.');
+      await updateFinancingStatus(request, {
+        status: 'rejected',
+        reviewNotes: reviewNotes || 'Application declined by risk policy.',
+      });
       setActionSuccess('Application marked as declined.');
       setTimeout(() => {
         onUpdated?.();

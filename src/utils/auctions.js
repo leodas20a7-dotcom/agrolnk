@@ -605,104 +605,35 @@ export async function finalizeAuction(auctionId) {
 }
 
 /**
- * Early Knockdown: Farmer accepts a fair bid immediately and closes the auction before timer expiry
+ * Early Knockdown: Farmer accepts the winning live bid atomically via Postgres FOR UPDATE row lock
  */
 export async function acceptAuctionBidEarly(auctionId, options = {}) {
   try {
-    // 1. Fetch current auction to verify state
-    const { data: currentAuction, error: fetchErr } = await supabase
-      .from('auctions')
-      .select('*')
-      .eq('id', auctionId)
-      .single();
-
-    if (fetchErr || !currentAuction) {
-      throw new Error('Auction lot not found.');
+    if (!auctionId) {
+      throw new Error('Auction ID is required.');
     }
 
-    const acceptedBid = Number(options.acceptedBid || currentAuction.current_bid);
-    const winnerId = options.bidderId || currentAuction.highest_bidder_id;
-    const winnerName = options.bidderName || currentAuction.highest_bidder_name || 'Buyer Partner';
+    const expectedBid =
+      options.acceptedBid !== undefined && options.acceptedBid !== null && options.acceptedBid !== ''
+        ? Number(options.acceptedBid)
+        : null;
 
-    if (!winnerId) {
-      throw new Error('No bids have been placed on this auction yet.');
+    const { data, error } = await supabase.rpc('accept_auction_bid_early_atomic', {
+      p_auction_id: auctionId,
+      p_expected_bid: Number.isFinite(expectedBid) ? expectedBid : null,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to accept bid early.');
     }
 
-    const nowIso = new Date().toISOString();
-
-    // 2. Mark auction completed early with valid schema columns
-    const { data: updatedAuction, error: updateErr } = await supabase
-      .from('auctions')
-      .update({
-        status: 'completed',
-        current_bid: acceptedBid,
-        highest_bidder_id: winnerId,
-        highest_bidder_name: winnerName,
-        end_time: nowIso,
-        updated_at: nowIso,
-      })
-      .eq('id', auctionId)
-      .select()
-      .single();
-
-    if (updateErr) {
-      console.error('Auction status update error:', updateErr);
-      throw updateErr;
-    }
-
-    // 3. Create Escrow Order & Delivery
-    const { data: existingOrders } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('auction_id', auctionId);
-
-    let createdOrder = null;
-    if (!existingOrders || existingOrders.length === 0) {
-      const orderNum = `#AGM-${Math.floor(1000 + Math.random() * 9000)}`;
-      const totalAmt = Number(updatedAuction.quantity) * acceptedBid;
-      const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      const { data: newOrder, error: orderErr } = await supabase
-        .from('orders')
-        .insert([
-          {
-            id: orderId,
-            order_number: orderNum,
-            auction_id: updatedAuction.id,
-            listing_id: null,
-            buyer_id: winnerId,
-            buyer_name: winnerName,
-            farmer_id: updatedAuction.farmer_id,
-            farmer_name: updatedAuction.farmer_name || 'Farmer Partner',
-            commodity: updatedAuction.commodity,
-            variety: updatedAuction.variety,
-            grade: updatedAuction.grade,
-            quantity: Number(updatedAuction.quantity),
-            unit: updatedAuction.unit,
-            price_per_unit: acceptedBid,
-            total_amount: totalAmt,
-            state: updatedAuction.state,
-            district: updatedAuction.district,
-            escrow_status: 'pending',
-            status: 'pending',
-            created_at: nowIso,
-            updated_at: nowIso,
-          },
-        ])
-        .select()
-        .single();
-
-      if (orderErr) {
-        console.warn('Order creation error on early accept:', orderErr);
-      } else {
-        createdOrder = newOrder;
-        // Note: Delivery is NOT scheduled until buyer completes escrow funding
-      }
+    if (!data?.success || !data?.auction) {
+      throw new Error(data?.message || 'Atomic early knockdown did not return auction state.');
     }
 
     return {
-      auction: mapAuctionFromDb(updatedAuction),
-      order: createdOrder,
+      auction: mapAuctionFromDb(data.auction),
+      order: data.order || null,
     };
   } catch (err) {
     console.error('Error in acceptAuctionBidEarly:', err);

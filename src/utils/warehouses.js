@@ -653,7 +653,7 @@ export async function listProduceFromInventory(receiptId, listData, currentUser 
 
     if (updateErr) {
       console.error('Error updating receipt for listing in database:', updateErr);
-      return null;
+      throw new Error(updateErr.message || 'Database rejected listing pledged warehouse receipt.');
     }
 
     // Create the actual marketplace trade item (Direct Listing or Live Clock Auction)
@@ -712,7 +712,7 @@ export async function listProduceFromInventory(receiptId, listData, currentUser 
     return mapped;
   } catch (err) {
     console.error('listProduceFromInventory error:', err);
-    return null;
+    throw err;
   }
 }
 
@@ -730,11 +730,11 @@ export async function dispatchProduceFromWarehouse(receiptId, dispatchData = {})
 
     if (fetchErr || !receipt) {
       console.error('Receipt not found for dispatch:', fetchErr);
-      return null;
+      throw new Error(fetchErr?.message || 'Warehouse receipt not found for dispatch.');
     }
 
-    // Security Check: Block physical withdrawal if active institutional lien exists
-    if (receipt.lien_status === 'pledged' && !dispatchData.isAuthorizedLienRelease) {
+    // Security Check: Block physical withdrawal if active institutional lien exists (DB triggers also enforce this)
+    if (receipt.lien_status === 'pledged') {
       const lender = receipt.lien_holder_name || 'an institutional financier';
       throw new Error(`Cannot release produce: Warehouse receipt #${receipt.receipt_number || receiptId} has an active institutional lien held by ${lender}. Physical withdrawal is prohibited until loan clearance.`);
     }
@@ -759,13 +759,13 @@ export async function dispatchProduceFromWarehouse(receiptId, dispatchData = {})
 
     if (updateErr) {
       console.error('Error updating receipt for dispatch in database:', updateErr);
-      return null;
+      throw new Error(updateErr.message || 'Database rejected dispatch of warehouse receipt.');
     }
 
     return mapReceiptFromDb(updated);
   } catch (err) {
     console.error('dispatchProduceFromWarehouse error:', err);
-    return null;
+    throw err;
   }
 }
 

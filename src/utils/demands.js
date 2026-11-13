@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { getCurrentUser } from './auth';
+import { calculateOrderFinancials } from './commission';
+import { broadcastDataChange } from './syncChannel';
+import { createDelivery } from './deliveries';
 
 const LOCAL_STORAGE_DEMANDS_KEY = 'agrolnk_buyer_demands_v1';
 const LOCAL_STORAGE_OFFERS_KEY = 'agrolnk_demand_offers_v1';
@@ -282,63 +285,204 @@ export async function getDemandOffers(demandId) {
 }
 
 /**
- * Accept a Farmer's Offer -> Awards the demand and automatically spawns an Escrow Order!
+ * Accept a Farmer's Offer -> Atomically awards demand, computes 0.25%+0.25% fees,
+ * creates an order in 'awaiting_freight_quote' (never pre-placed), and opens a 30-min freight RFQ.
  */
 export async function acceptDemandOffer(demandId, offer) {
   const demand = await getDemandById(demandId);
   if (!demand) throw new Error('Requirement not found.');
 
+  const qty = Number(offer.quantity_offered ?? demand.quantity ?? 0);
+  const unitPrice = Number(offer.offer_price ?? 0);
+  if (!(qty > 0) || !(unitPrice > 0)) {
+    throw new Error('Invalid offer quantity or price.');
+  }
+
+  const unit = offer.unit || demand.unit || 'kg';
+  const fin = calculateOrderFinancials(qty * unitPrice);
+  const rfqExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const nowIso = new Date().toISOString();
+
+  // 1. Authoritative atomic PostgreSQL RPC
+  try {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('accept_demand_offer_atomic', {
+      p_demand_id: demandId,
+      p_offer_id: offer.id,
+    });
+
+    if (!rpcErr && rpcData?.success) {
+      // Sync local caches cleanly
+      const demands = getLocalDemands();
+      const dIdx = demands.findIndex((d) => d.id === demandId);
+      if (dIdx !== -1) {
+        demands[dIdx].status = 'awarded';
+        demands[dIdx].updated_at = nowIso;
+        saveLocalDemands(demands);
+      }
+
+      const offers = getLocalOffers();
+      let offersChanged = false;
+      const nextOffers = offers.map((o) => {
+        if (o.id === offer.id) {
+          offersChanged = true;
+          return { ...o, status: 'accepted' };
+        }
+        if (o.demand_id === demandId && o.status === 'submitted') {
+          offersChanged = true;
+          return { ...o, status: 'rejected' };
+        }
+        return o;
+      });
+      if (offersChanged) saveLocalOffers(nextOffers);
+
+      const syncedOrder = {
+        ...rpcData,
+        id: rpcData.order_id || rpcData.id,
+        orderNumber: rpcData.order_number,
+        buyerId: rpcData.buyer_id,
+        buyerName: rpcData.buyer_name,
+        farmerId: rpcData.farmer_id,
+        farmerName: rpcData.farmer_name,
+        pricePerUnit: Number(rpcData.price_per_unit ?? unitPrice),
+        totalAmount: Number(rpcData.total_amount ?? fin.tradeValue),
+        buyerFeeAmount: Number(rpcData.buyer_fee_amount ?? fin.buyerFee),
+        sellerFeeAmount: Number(rpcData.seller_fee_amount ?? fin.sellerFee),
+        platformCommissionAmount: Number(rpcData.platform_commission_amount ?? fin.totalPlatformCommission),
+        netSellerAmount: Number(rpcData.net_seller_amount ?? fin.netSellerReceivable),
+        freightAmount: 0,
+        freightFeeAmount: 0,
+        grandTotalAmount: Number(rpcData.grand_total_amount ?? fin.totalBuyerPayable),
+        rfqExpiresAt: rpcData.rfq_expires_at || rfqExpiresAt,
+        deliveryId: rpcData.delivery_id || null,
+        escrowStatus: 'awaiting_freight_quote',
+        status: 'awaiting_freight_quote',
+        createdAt: rpcData.created_at || nowIso,
+        updatedAt: rpcData.updated_at || nowIso,
+      };
+
+      broadcastDataChange('orders', 'INSERT', syncedOrder);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: syncedOrder }));
+        window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: syncedOrder }));
+        window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: syncedOrder }));
+        window.dispatchEvent(new Event('storage'));
+      }
+
+      return syncedOrder;
+    }
+
+    if (rpcErr) {
+      const msg = String(rpcErr.message || '');
+      const isMissingRpc =
+        rpcErr.code === 'PGRST202' ||
+        msg.includes('Could not find the function');
+      if (!isMissingRpc) {
+        throw new Error(msg || 'Failed to accept offer.');
+      }
+    }
+  } catch (err) {
+    const msg = String(err?.message || '');
+    const isOfflineOrMissingRpc =
+      msg.includes('Failed to fetch') ||
+      msg.includes('NetworkError') ||
+      msg.includes('Could not find the function') ||
+      err?.code === 'PGRST202';
+    if (!isOfflineOrMissingRpc) {
+      throw err;
+    }
+    console.warn('acceptDemandOffer falling back to local mode (RPC unavailable):', msg);
+  }
+
+  // 2. Offline / pre-migration fallback (still enforces awaiting_freight_quote, fees & delivery RFQ)
   const orderNum = `#AGM-${Math.floor(1000 + Math.random() * 9000)}`;
-  const totalAmt = Number(offer.quantity_offered) * Number(offer.offer_price);
   const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  const createdOrderRow = {
+  const fallbackOrder = {
     id: orderId,
     order_number: orderNum,
+    orderNumber: orderNum,
     auction_id: null,
     listing_id: null,
     buyer_id: demand.buyer_id,
+    buyerId: demand.buyer_id,
     buyer_name: demand.buyer_name || 'Buyer Partner',
+    buyerName: demand.buyer_name || 'Buyer Partner',
     farmer_id: offer.farmer_id,
+    farmerId: offer.farmer_id,
     farmer_name: offer.farmer_name || 'Farmer Partner',
+    farmerName: offer.farmer_name || 'Farmer Partner',
     commodity: demand.commodity,
     variety: demand.variety || 'None',
     grade: demand.grade || 'A',
-    quantity: Number(offer.quantity_offered),
-    unit: offer.unit || demand.unit || 'kg',
-    price_per_unit: Number(offer.offer_price),
-    total_amount: totalAmt,
+    quantity: qty,
+    unit,
+    price_per_unit: unitPrice,
+    pricePerUnit: unitPrice,
+    total_amount: fin.tradeValue,
+    totalAmount: fin.tradeValue,
+    buyer_fee_amount: fin.buyerFee,
+    buyerFeeAmount: fin.buyerFee,
+    seller_fee_amount: fin.sellerFee,
+    sellerFeeAmount: fin.sellerFee,
+    platform_commission_amount: fin.totalPlatformCommission,
+    platformCommissionAmount: fin.totalPlatformCommission,
+    net_seller_amount: fin.netSellerReceivable,
+    netSellerAmount: fin.netSellerReceivable,
+    freight_amount: 0,
+    freightAmount: 0,
+    freight_fee_amount: 0,
+    freightFeeAmount: 0,
+    grand_total_amount: fin.totalBuyerPayable,
+    grandTotalAmount: fin.totalBuyerPayable,
+    rfq_expires_at: rfqExpiresAt,
+    rfqExpiresAt,
     state: demand.delivery_state || '',
     district: demand.delivery_district || '',
-    escrow_status: 'pending',
-    status: 'order_placed',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    escrow_status: 'awaiting_freight_quote',
+    escrowStatus: 'awaiting_freight_quote',
+    status: 'awaiting_freight_quote',
+    created_at: nowIso,
+    createdAt: nowIso,
+    updated_at: nowIso,
+    updatedAt: nowIso,
   };
 
-  // 1. Try Supabase
   try {
-    // Insert order
-    await supabase.from('orders').insert([createdOrderRow]);
+    const existingLocalOrders = JSON.parse(localStorage.getItem('agrolnk_orders_local') || '[]');
+    localStorage.setItem('agrolnk_orders_local', JSON.stringify([fallbackOrder, ...existingLocalOrders]));
+  } catch {}
 
-    // Update offer status
-    await supabase
-      .from('demand_offers')
-      .update({ status: 'accepted' })
-      .eq('id', offer.id);
-
-    // Update demand status
-    await supabase
-      .from('buyer_demands')
-      .update({ status: 'awarded', updated_at: new Date().toISOString() })
-      .eq('id', demandId);
-
-    return createdOrderRow;
-  } catch (err) {
-    console.warn('acceptDemandOffer supabase error, updating locally:', err);
+  try {
+    await createDelivery({
+      orderId,
+      orderNumber: orderNum,
+      farmerId: offer.farmer_id,
+      farmerName: offer.farmer_name || 'Farmer Partner',
+      buyerId: demand.buyer_id,
+      buyerName: demand.buyer_name || 'Buyer Partner',
+      commodity: demand.commodity,
+      variety: demand.variety || 'None',
+      grade: demand.grade || 'A',
+      quantity: qty,
+      unit,
+      pickupLocation: {
+        state: demand.delivery_state || '',
+        district: demand.delivery_district || '',
+        address: 'Verified Producer Farmgate Hub',
+      },
+      deliveryLocation: {
+        state: demand.delivery_state || '',
+        district: demand.delivery_district || '',
+        pincode: demand.delivery_pincode || '',
+        address: demand.delivery_address || demand.delivery_district || 'Buyer Delivery Hub',
+      },
+      rfqExpiresAt,
+      status: 'transport_requested',
+    });
+  } catch (delErr) {
+    console.warn('Offline delivery RFQ fallback notice:', delErr);
   }
 
-  // 2. Local fallback
   const demands = getLocalDemands();
   const dIdx = demands.findIndex((d) => d.id === demandId);
   if (dIdx !== -1) {
@@ -347,13 +491,20 @@ export async function acceptDemandOffer(demandId, offer) {
   }
 
   const offers = getLocalOffers();
-  const oIdx = offers.findIndex((o) => o.id === offer.id);
-  if (oIdx !== -1) {
-    offers[oIdx].status = 'accepted';
-    saveLocalOffers(offers);
+  const nextOffers = offers.map((o) => {
+    if (o.id === offer.id) return { ...o, status: 'accepted' };
+    if (o.demand_id === demandId && o.status === 'submitted') return { ...o, status: 'rejected' };
+    return o;
+  });
+  saveLocalOffers(nextOffers);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: fallbackOrder }));
+    window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: fallbackOrder }));
+    window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: fallbackOrder }));
   }
 
-  return createdOrderRow;
+  return fallbackOrder;
 }
 
 /**

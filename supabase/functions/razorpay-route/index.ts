@@ -57,6 +57,136 @@ function getRazorpayAuthHeader(keyId: string, keySecret: string): string {
   return `Basic ${btoa(credentials)}`;
 }
 
+// Helper: Compute Authoritative Order Total (Crop + Buyer Fee + Freight + Freight Fee) in Paise
+async function computeAuthoritativeOrderTotal(supabase: any, order: any) {
+  let { data: linkedDelivery } = await supabase
+    .from("deliveries")
+    .select("id, freight_amount, freight_escrow_status, status")
+    .eq("order_id", order.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!linkedDelivery && order.order_number) {
+    const delByNum = await supabase
+      .from("deliveries")
+      .select("id, freight_amount, freight_escrow_status, status")
+      .eq("order_number", order.order_number)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    linkedDelivery = delByNum.data;
+  }
+
+  const freightAmt = Number(linkedDelivery?.freight_amount || order.freight_amount || 0);
+  const cropAmt = Number(order.total_amount || 0);
+  const buyerCropFee = Number(order.buyer_fee_amount ?? Math.round(cropAmt * 0.0025 * 100) / 100);
+  const freightFee = Number(order.freight_fee_amount ?? Math.round(freightAmt * 0.0025 * 100) / 100);
+
+  const computedPaise =
+    freightAmt > 0
+      ? Math.round((cropAmt + buyerCropFee + freightAmt + freightFee) * 100)
+      : Math.round((cropAmt + buyerCropFee) * 100);
+  const storedGrandTotalPaise = Math.round((Number(order.grand_total_amount) || 0) * 100);
+  const authoritativeTotalPaise = Math.max(computedPaise, storedGrandTotalPaise);
+
+  return { linkedDelivery, freightAmt, authoritativeTotalPaise };
+}
+
+// Helper: Persist verified escrow funding on public.orders AND unlock linked public.deliveries
+async function fundOrderAndUnlockDelivery(
+  supabase: any,
+  {
+    order,
+    linkedDelivery,
+    freightAmt,
+    paymentMode,
+    paymentMethod,
+    paymentId,
+    bankUtr,
+    razorpaySignature,
+    transferId,
+  }: {
+    order: any;
+    linkedDelivery: any;
+    freightAmt: number;
+    paymentMode: string;
+    paymentMethod?: string;
+    paymentId?: string | null;
+    bankUtr?: string | null;
+    razorpaySignature?: string | null;
+    transferId?: string | null;
+  }
+) {
+  if (
+    ["released", "refunded", "cancelled"].includes(order.escrow_status || "") ||
+    ["completed", "cancelled"].includes(order.status || "")
+  ) {
+    return { skipped: true, reason: `Order is already in terminal state (${order.escrow_status || order.status}).` };
+  }
+
+  const nowIso = new Date().toISOString();
+  const orderPatch: Record<string, any> = {
+    escrow_status: "funded",
+    settlement_status: "captured_on_hold",
+    status: "order_placed",
+    escrow_deposited_at: order.escrow_deposited_at || nowIso,
+    updated_at: nowIso,
+  };
+  if (paymentMode) orderPatch.payment_mode = paymentMode;
+  if (paymentMethod) orderPatch.payment_method = paymentMethod;
+  if (paymentId) {
+    orderPatch.razorpay_payment_id = paymentId;
+    orderPatch.payment_id = paymentId;
+  }
+  if (bankUtr) orderPatch.bank_utr = bankUtr;
+  if (razorpaySignature) orderPatch.razorpay_signature = razorpaySignature;
+  if (transferId) orderPatch.razorpay_transfer_id = transferId;
+
+  const { error: orderUpdateErr } = await supabase
+    .from("orders")
+    .update(orderPatch)
+    .eq("id", order.id);
+
+  if (orderUpdateErr) {
+    throw new Error(`Failed to persist verified order escrow status: ${orderUpdateErr.message}`);
+  }
+
+  if (freightAmt > 0) {
+    const { error: lockErr } = await supabase.rpc("lock_buyer_order_and_freight_escrow_atomic", {
+      p_order_id: order.id,
+      p_payment_mode: paymentMode,
+      p_payment_id: paymentId || bankUtr || order.payment_id || null,
+      p_bank_utr: bankUtr || paymentId || order.bank_utr || null,
+      p_auto_verified: true,
+    });
+    if (lockErr) {
+      throw new Error(`Failed to lock combined freight escrow atomically: ${lockErr.message}`);
+    }
+  } else if (
+    linkedDelivery?.id &&
+    !["escrow_locked", "locked", "released"].includes(linkedDelivery.freight_escrow_status || "")
+  ) {
+    const { error: delUpdateErr } = await supabase
+      .from("deliveries")
+      .update({
+        status: "assigned",
+        freight_escrow_status: "escrow_locked",
+        freight_payment_mode: paymentMode,
+        freight_bank_utr: bankUtr || paymentId || null,
+        freight_deposited_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", linkedDelivery.id);
+
+    if (delUpdateErr) {
+      throw new Error(`Failed to unlock linked delivery status: ${delUpdateErr.message}`);
+    }
+  }
+
+  return { skipped: false };
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -122,7 +252,7 @@ serve(async (req: Request) => {
     // ACTION 1: CREATE RAZORPAY ORDER (Authoritative Stock, Pricing & Identity)
     // =========================================================================
     if (action === "create_order") {
-      const { listingId, quantity } = body;
+      const { listingId, quantity, existingOrderId, loanId, inspectionId, inspection_id, payment_context } = body;
 
       // Issue 6: Enforce authenticated buyer identity from caller session (Never trust body.buyerId)
       const buyerId = callerUser.id;
@@ -133,7 +263,323 @@ serve(async (req: Request) => {
         .maybeSingle();
       const buyerName = buyerProfile?.name || buyerProfile?.full_name || callerUser.user_metadata?.full_name || "Verified Wholesale Buyer";
 
-      // Issue 9: Reject order creation without a valid listingId (Remove fallback testing ₹4200 orders)
+      // Authoritative Server-Side Quality Lab Inspection Fee Order Creation
+      if (payment_context === "inspection_fee" || inspectionId || inspection_id) {
+        const targetInspectionId = inspectionId || inspection_id;
+        if (!targetInspectionId) {
+          throw new Error("A valid inspectionId is required to initiate lab inspection fee payment.");
+        }
+
+        let { data: inspection, error: inspErr } = await supabase
+          .from("inspections")
+          .select("*")
+          .eq("id", targetInspectionId)
+          .maybeSingle();
+
+        if (!inspErr && !inspection) {
+          const byReportNum = await supabase
+            .from("inspections")
+            .select("*")
+            .eq("report_number", targetInspectionId)
+            .maybeSingle();
+          inspection = byReportNum.data;
+          inspErr = byReportNum.error;
+        }
+
+        if (inspErr || !inspection) {
+          throw new Error("Inspection record not found for fee payment.");
+        }
+
+        if (callerRole !== "admin" && inspection.buyer_id && inspection.buyer_id !== callerUser.id) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Forbidden: You can only pay lab inspection fees for your own inspection requests." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (inspection.fee_status === "paid") {
+          throw new Error("This inspection lab fee has already been paid.");
+        }
+        if (["cancelled", "resolved"].includes(inspection.status || "")) {
+          throw new Error(`Cannot pay inspection fee when status is ${inspection.status}.`);
+        }
+
+        const feeRupees = Number(inspection.inspection_fee) > 0 ? Number(inspection.inspection_fee) : 500;
+        const feePaise = Math.round(feeRupees * 100);
+
+        const rzpRes = await fetch(`${RAZORPAY_API_BASE}/orders`, {
+          method: "POST",
+          headers: {
+            Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: feePaise,
+            currency: "INR",
+            receipt: `insp_${inspection.report_number || inspection.id}_${Date.now()}`.slice(0, 40),
+            notes: {
+              platform: "AgroLnk",
+              payment_context: "inspection_fee",
+              inspection_id: inspection.id,
+              report_number: inspection.report_number || "",
+              order_id: inspection.order_id || "",
+              order_number: inspection.order_number || "",
+              buyer_id: callerUser.id,
+            },
+          }),
+        });
+
+        const rzpOrder = await rzpRes.json();
+        if (!rzpRes.ok) {
+          throw new Error(rzpOrder.error?.description || "Failed to create Razorpay Order for inspection fee.");
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            keyId: razorpayKeyId,
+            orderId: rzpOrder.id,
+            inspectionId: inspection.id,
+            amount: feePaise,
+            currency: "INR",
+            feeRupees,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Authoritative Server-Side Loan Repayment Order Creation (e-NWR & Trade Credit Settlement)
+      if (payment_context === "loan_repayment" || loanId) {
+        if (!loanId) {
+          throw new Error("A valid loanId is required to initiate institutional loan repayment.");
+        }
+
+        let { data: loan, error: loanErr } = await supabase
+          .from("financing_requests")
+          .select("*")
+          .eq("id", loanId)
+          .maybeSingle();
+
+        if (!loanErr && !loan) {
+          const byReqNum = await supabase
+            .from("financing_requests")
+            .select("*")
+            .eq("request_number", loanId)
+            .maybeSingle();
+          loan = byReqNum.data;
+          loanErr = byReqNum.error;
+        }
+
+        if (loanErr || !loan) {
+          throw new Error("Loan record not found for repayment.");
+        }
+
+        if (callerRole !== "admin" && loan.applicant_id && loan.applicant_id !== callerUser.id) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Forbidden: You can only repay your own loan." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (["repaid", "settled"].includes(loan.status || "")) {
+          throw new Error("This loan has already been repaid and settled.");
+        }
+        if (["rejected", "cancelled"].includes(loan.status || "")) {
+          throw new Error(`Cannot repay loan in ${loan.status} status.`);
+        }
+        if (!["approved", "disbursed", "escrow_secured", "active"].includes(loan.status || "")) {
+          throw new Error(`Loan is not in an active repayable state (status: ${loan.status}).`);
+        }
+
+        const principal = Number(loan.approved_amount || loan.offered_amount || loan.requested_amount || 0);
+        if (!Number.isFinite(principal) || principal <= 0) {
+          throw new Error("Invalid loan principal amount.");
+        }
+
+        const tenureDays = Number(loan.tenor_days) || (loan.repayment_option === "60_day_extended" ? 60 : 30);
+        const monthlyRate = loan.interest_rate ? Number(loan.interest_rate) / 100 : 0.012;
+        const interest = Math.round(principal * monthlyRate * (tenureDays / 30));
+        const totalDueRupees = principal + interest;
+        const totalDuePaise = Math.round(totalDueRupees * 100);
+
+        const rzpRes = await fetch(`${RAZORPAY_API_BASE}/orders`, {
+          method: "POST",
+          headers: {
+            Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: totalDuePaise,
+            currency: "INR",
+            receipt: `repay_${loan.request_number || loan.id}_${Date.now()}`.slice(0, 40),
+            notes: {
+              platform: "AgroLnk",
+              payment_context: "loan_repayment",
+              loan_id: loan.id,
+              request_number: loan.request_number || "",
+              receipt_id: loan.receipt_id || "",
+              receipt_number: loan.receipt_number || "",
+              borrower_id: callerUser.id,
+            },
+          }),
+        });
+
+        const rzpOrder = await rzpRes.json();
+        if (!rzpRes.ok) {
+          throw new Error(rzpOrder.error?.description || "Failed to create Razorpay Order for loan repayment.");
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            keyId: razorpayKeyId,
+            orderId: rzpOrder.id,
+            loanId: loan.id,
+            amount: totalDuePaise,
+            currency: "INR",
+            financials: {
+              principal,
+              interest,
+              totalDue: totalDueRupees,
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Combined Crop + Freight Checkout for an existing reserved/quoted order
+      if (existingOrderId) {
+        let { data: existingOrder, error: existingErr } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", existingOrderId)
+          .maybeSingle();
+
+        if (!existingErr && !existingOrder) {
+          const byNumber = await supabase
+            .from("orders")
+            .select("*")
+            .eq("order_number", existingOrderId)
+            .maybeSingle();
+          existingOrder = byNumber.data;
+          existingErr = byNumber.error;
+        }
+
+        if (existingErr || !existingOrder) {
+          throw new Error("Order record not found for combined escrow checkout.");
+        }
+
+        if (callerRole !== "admin" && existingOrder.buyer_id && existingOrder.buyer_id !== buyerId) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Forbidden: You can only pay for your own orders." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (["funded", "held", "escrow_secured", "released"].includes(existingOrder.escrow_status || "")) {
+          throw new Error("Escrow for this order is already funded.");
+        }
+        if (["cancelled", "completed"].includes(existingOrder.status || "")) {
+          throw new Error(`Order is ${existingOrder.status} and cannot accept payment.`);
+        }
+
+        let { data: linkedDelivery } = await supabase
+          .from("deliveries")
+          .select("*")
+          .eq("order_id", existingOrder.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!linkedDelivery && existingOrder.order_number) {
+          const delByNum = await supabase
+            .from("deliveries")
+            .select("*")
+            .eq("order_number", existingOrder.order_number)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          linkedDelivery = delByNum.data;
+        }
+
+        const cropAmount = Number(existingOrder.total_amount || 0);
+        if (!Number.isFinite(cropAmount) || cropAmount <= 0) {
+          throw new Error("Invalid order crop amount.");
+        }
+
+        const freightAmount = Number(linkedDelivery?.freight_amount || existingOrder.freight_amount || 0);
+        if (existingOrder.status === "awaiting_freight_quote" && !(freightAmount > 0)) {
+          throw new Error("Cannot start combined escrow checkout before a transporter freight quote (> ₹0) is recorded.");
+        }
+
+        const cropValuePaise = Math.round(cropAmount * 100);
+        const buyerCropFeePaise = Math.round(cropValuePaise * 0.0025);
+        const sellerCropFeePaise = Math.round(cropValuePaise * 0.0025);
+        const freightPaise = Math.round(freightAmount * 100);
+        const freightFeePaise = Math.round(freightPaise * 0.0025);
+        const totalBuyerPayablePaise = cropValuePaise + buyerCropFeePaise + freightPaise + freightFeePaise;
+
+        const rzpRes = await fetch(`${RAZORPAY_API_BASE}/orders`, {
+          method: "POST",
+          headers: {
+            Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: totalBuyerPayablePaise,
+            currency: "INR",
+            receipt: `rcpt_${existingOrder.order_number || existingOrder.id}_${Date.now()}`.slice(0, 40),
+            notes: {
+              platform: "AgroLnk",
+              existing_order_id: existingOrder.id,
+              order_number: existingOrder.order_number,
+              crop_value_inr: cropAmount.toFixed(2),
+              freight_inr: freightAmount.toFixed(2),
+              total_payable_inr: (totalBuyerPayablePaise / 100).toFixed(2),
+            },
+          }),
+        });
+
+        const rzpOrder = await rzpRes.json();
+        if (!rzpRes.ok) {
+          throw new Error(rzpOrder.error?.description || "Failed to create Razorpay Order for combined escrow.");
+        }
+
+        await supabase
+          .from("orders")
+          .update({
+            razorpay_order_id: rzpOrder.id,
+            buyer_fee_amount: buyerCropFeePaise / 100,
+            seller_fee_amount: sellerCropFeePaise / 100,
+            platform_commission_amount: (buyerCropFeePaise + sellerCropFeePaise) / 100,
+            net_seller_amount: (cropValuePaise - sellerCropFeePaise) / 100,
+            freight_amount: freightAmount,
+            freight_fee_amount: freightFeePaise / 100,
+            grand_total_amount: totalBuyerPayablePaise / 100,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingOrder.id);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            keyId: razorpayKeyId,
+            orderId: rzpOrder.id,
+            existingOrderId: existingOrder.id,
+            amount: totalBuyerPayablePaise,
+            currency: "INR",
+            financials: {
+              tradeValue: cropAmount,
+              freightAmount,
+              buyerFee: (buyerCropFeePaise + freightFeePaise) / 100,
+              totalPayable: totalBuyerPayablePaise / 100,
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Issue 9: Reject new order creation without a valid listingId (Remove fallback testing ₹4200 orders)
       if (!listingId) {
         return new Response(
           JSON.stringify({
@@ -371,7 +817,16 @@ serve(async (req: Request) => {
 
       // Issue 8: Validate Payment Amount Against Authoritative Database Order
       let transferId = null;
-      if (!payment_context || payment_context === "order_checkout" || payment_context === "order") {
+      let loanUpdated = false;
+      let verifiedLoanId = null;
+      let inspectionUpdated = false;
+      let verifiedInspectionId = null;
+      if (
+        !payment_context ||
+        payment_context === "order_checkout" ||
+        payment_context === "order" ||
+        payment_context === "combined_escrow"
+      ) {
         const { data: order, error: orderLookupErr } = await supabase
           .from("orders")
           .select("*")
@@ -400,9 +855,9 @@ serve(async (req: Request) => {
           );
         }
 
-        // Authoritative amount calculation in Paise from DB row
-        const authoritativeTotalPaise = Math.round((Number(order.total_amount) + Number(order.buyer_fee_amount || 0)) * 100);
-        if (Number(payData.amount) !== authoritativeTotalPaise) {
+        const { linkedDelivery, freightAmt, authoritativeTotalPaise } = await computeAuthoritativeOrderTotal(supabase, order);
+
+        if (Math.abs(Number(payData.amount) - authoritativeTotalPaise) > 2) {
           return new Response(
             JSON.stringify({
               success: false,
@@ -454,18 +909,252 @@ serve(async (req: Request) => {
           }
         }
 
-        // Update Order in Supabase to funded & captured_on_hold
-        await supabase
-          .from("orders")
-          .update({
-            razorpay_payment_id,
-            razorpay_signature,
-            razorpay_transfer_id: transferId,
-            escrow_status: "funded",
-            settlement_status: "captured_on_hold",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("razorpay_order_id", razorpay_order_id);
+        // Persist verified order funding and atomically unlock linked freight delivery
+        await fundOrderAndUnlockDelivery(supabase, {
+          order,
+          linkedDelivery,
+          freightAmt,
+          paymentMode: "direct_razorpay",
+          paymentMethod: "razorpay_route",
+          paymentId: razorpay_payment_id,
+          bankUtr: razorpay_payment_id,
+          razorpaySignature: razorpay_signature,
+          transferId,
+        });
+      } else if (payment_context === "loan_repayment") {
+        // Authoritative Server-Side Loan Repayment & Collateral Lien Release
+        const orderRes = await fetch(`${RAZORPAY_API_BASE}/orders/${razorpay_order_id}`, {
+          method: "GET",
+          headers: {
+            Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!orderRes.ok) {
+          const orderErrData = await orderRes.json().catch(() => ({}));
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Failed to verify Razorpay loan repayment order: ${orderErrData.error?.description || orderRes.statusText}`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const rzpOrderData = await orderRes.json();
+        const orderLoanId = rzpOrderData?.notes?.loan_id || null;
+        const orderContext = rzpOrderData?.notes?.payment_context || null;
+        const requestedLoanId = body.loan_id || body.loanId || null;
+
+        if (orderContext !== "loan_repayment" || !orderLoanId) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Razorpay order is not bound to an AgroLnk loan repayment.",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (requestedLoanId && requestedLoanId !== orderLoanId && requestedLoanId !== rzpOrderData?.notes?.request_number) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Loan ID mismatch between verification request and payment order.",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: loan, error: loanLookupErr } = await supabase
+          .from("financing_requests")
+          .select("*")
+          .eq("id", orderLoanId)
+          .maybeSingle();
+
+        if (loanLookupErr || !loan) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Associated financing loan record not found for repayment verification.",
+            }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (callerRole !== "admin" && loan.applicant_id && loan.applicant_id !== callerUser.id) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Forbidden: You are not authorized to verify repayment for another user's loan.",
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const principal = Number(loan.approved_amount || loan.offered_amount || loan.requested_amount || 0);
+        const tenureDays = Number(loan.tenor_days) || (loan.repayment_option === "60_day_extended" ? 60 : 30);
+        const monthlyRate = loan.interest_rate ? Number(loan.interest_rate) / 100 : 0.012;
+        const interest = Math.round(principal * monthlyRate * (tenureDays / 30));
+        const authoritativeDuePaise = Math.round((principal + interest) * 100);
+
+        if (Number(payData.amount) < authoritativeDuePaise - 200) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Repayment amount insufficient: expected at least ${authoritativeDuePaise} paise (₹${(authoritativeDuePaise / 100).toFixed(2)}), but gateway captured ${payData.amount} paise.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const paidRupees = Math.round(Number(payData.amount)) / 100;
+        const nowIso = new Date().toISOString();
+
+        if (!["repaid", "settled"].includes(loan.status || "")) {
+          const { error: loanUpdateErr } = await supabase
+            .from("financing_requests")
+            .update({
+              status: "repaid",
+              repaid_at: nowIso,
+              repayment_method: "razorpay",
+              repayment_transaction_id: razorpay_payment_id,
+              repayment_amount: paidRupees,
+              repayment_principal: principal,
+              repayment_interest: interest,
+              repayment_notes: `Verified Razorpay loan settlement (Payment ID: ${razorpay_payment_id}, Order ID: ${razorpay_order_id}).`,
+              updated_at: nowIso,
+            })
+            .eq("id", loan.id);
+
+          if (loanUpdateErr) {
+            throw new Error(`Failed to persist verified loan repayment status: ${loanUpdateErr.message}`);
+          }
+        }
+
+        // Explicitly invoke collateral release (idempotent with trg_sync_financing_receipt_lien)
+        if (loan.receipt_id || loan.receipt_number) {
+          const { error: releaseErr } = await supabase.rpc("release_warehouse_receipt_lien_atomic", {
+            p_loan_id: loan.id,
+            p_receipt_id: loan.receipt_id || loan.receipt_number,
+          });
+          if (releaseErr) {
+            throw new Error(`Failed to release pledged warehouse receipt lien: ${releaseErr.message}`);
+          }
+        }
+
+        loanUpdated = true;
+        verifiedLoanId = loan.id;
+      } else if (payment_context === "inspection_fee") {
+        // Authoritative Server-Side Lab Inspection Fee Verification & Fee Status Update
+        const orderRes = await fetch(`${RAZORPAY_API_BASE}/orders/${razorpay_order_id}`, {
+          method: "GET",
+          headers: {
+            Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!orderRes.ok) {
+          const orderErrData = await orderRes.json().catch(() => ({}));
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Failed to verify Razorpay inspection fee order: ${orderErrData.error?.description || orderRes.statusText}`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const rzpOrderData = await orderRes.json();
+        const orderInspectionId = rzpOrderData?.notes?.inspection_id || null;
+        const orderContext = rzpOrderData?.notes?.payment_context || null;
+        const requestedInspectionId = body.inspection_id || body.inspectionId || null;
+
+        if (orderContext !== "inspection_fee" || !orderInspectionId) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Razorpay order is not bound to an AgroLnk inspection fee payment.",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (
+          requestedInspectionId &&
+          requestedInspectionId !== orderInspectionId &&
+          requestedInspectionId !== rzpOrderData?.notes?.report_number
+        ) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Inspection ID mismatch between verification request and payment order.",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: inspection, error: inspLookupErr } = await supabase
+          .from("inspections")
+          .select("*")
+          .eq("id", orderInspectionId)
+          .maybeSingle();
+
+        if (inspLookupErr || !inspection) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Associated inspection record not found for fee verification.",
+            }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (callerRole !== "admin" && inspection.buyer_id && inspection.buyer_id !== callerUser.id) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Forbidden: You are not authorized to verify inspection fee payment for another buyer.",
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const feeRupees = Number(inspection.inspection_fee) > 0 ? Number(inspection.inspection_fee) : 500;
+        const authoritativeFeePaise = Math.round(feeRupees * 100);
+
+        if (Math.abs(Number(payData.amount) - authoritativeFeePaise) > 2) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Inspection fee amount mismatch: expected ${authoritativeFeePaise} paise (₹${feeRupees.toFixed(2)}), but gateway captured ${payData.amount} paise.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const nowIso = new Date().toISOString();
+        if (inspection.fee_status !== "paid") {
+          const { error: inspUpdateErr } = await supabase
+            .from("inspections")
+            .update({
+              fee_status: "paid",
+              fee_paid_at: nowIso,
+              fee_payment_id: razorpay_payment_id,
+              fee_payment_method: "Razorpay Gateway",
+              updated_at: nowIso,
+            })
+            .eq("id", inspection.id);
+
+          if (inspUpdateErr) {
+            throw new Error(`Failed to persist verified inspection fee status: ${inspUpdateErr.message}`);
+          }
+        }
+
+        inspectionUpdated = true;
+        verifiedInspectionId = inspection.id;
       }
 
       return new Response(
@@ -473,9 +1162,13 @@ serve(async (req: Request) => {
           success: true,
           verified: true,
           transferId,
+          loanUpdated,
+          loanId: verifiedLoanId,
+          inspectionUpdated,
+          inspectionId: verifiedInspectionId,
           amount: payData.amount,
           currency: payData.currency,
-          status: "captured_on_hold",
+          status: loanUpdated ? "repaid" : inspectionUpdated ? "fee_paid" : "captured_on_hold",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -624,58 +1317,198 @@ serve(async (req: Request) => {
       const event = body.event;
       if (event === "payment.captured" || event === "order.paid") {
         const paymentEntity = body.payload?.payment?.entity;
-        const rzpOrderId = paymentEntity?.order_id || body.payload?.order?.entity?.id;
+        const orderEntity = body.payload?.order?.entity;
+        const rzpOrderId = paymentEntity?.order_id || orderEntity?.id;
+        const eventNotes = orderEntity?.notes || paymentEntity?.notes || {};
+
+        // Non-marketplace contexts (loan_repayment, inspection_fee) are handled by their dedicated flows
+        if (["loan_repayment", "inspection_fee"].includes(eventNotes?.payment_context || "")) {
+          return new Response(JSON.stringify({ received: true, ignored: true, reason: "non_order_context" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (paymentEntity?.status && event === "payment.captured" && paymentEntity.status !== "captured") {
+          return new Response(
+            JSON.stringify({
+              received: true,
+              verified: false,
+              funded: false,
+              error: `Payment status is ${paymentEntity.status}; only captured payments can fund escrow.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const currency = paymentEntity?.currency || orderEntity?.currency || "INR";
+        if (currency !== "INR") {
+          return new Response(
+            JSON.stringify({
+              received: true,
+              verified: false,
+              funded: false,
+              error: `Currency mismatch: expected INR, received ${currency}.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         if (rzpOrderId) {
-          await supabase
+          let { data: order } = await supabase
             .from("orders")
-            .update({
-              escrow_status: "funded",
-              settlement_status: "captured_on_hold",
-              bank_utr: paymentEntity?.acquirer_data?.bank_transaction_id || paymentEntity?.acquirer_data?.rrn || paymentEntity?.id || null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("razorpay_order_id", rzpOrderId);
+            .select("*")
+            .eq("razorpay_order_id", rzpOrderId)
+            .maybeSingle();
+
+          if (!order && (eventNotes.existing_order_id || eventNotes.order_id || eventNotes.orderId)) {
+            const noteOrderId = eventNotes.existing_order_id || eventNotes.order_id || eventNotes.orderId;
+            const byId = await supabase.from("orders").select("*").eq("id", noteOrderId).maybeSingle();
+            if (byId.data && (!byId.data.razorpay_order_id || byId.data.razorpay_order_id === rzpOrderId)) {
+              order = byId.data;
+            }
+          }
+
+          if (order) {
+            const { linkedDelivery, freightAmt, authoritativeTotalPaise } = await computeAuthoritativeOrderTotal(supabase, order);
+            const paidPaise = Number(paymentEntity?.amount ?? orderEntity?.amount_paid ?? orderEntity?.amount ?? 0);
+
+            if (
+              !Number.isFinite(authoritativeTotalPaise) ||
+              authoritativeTotalPaise <= 0 ||
+              !Number.isFinite(paidPaise) ||
+              paidPaise + 2 < authoritativeTotalPaise
+            ) {
+              return new Response(
+                JSON.stringify({
+                  received: true,
+                  verified: false,
+                  funded: false,
+                  error: `Webhook payment amount insufficient: expected at least ${authoritativeTotalPaise} paise (₹${(authoritativeTotalPaise / 100).toFixed(2)}), received ${paidPaise} paise (₹${(paidPaise / 100).toFixed(2)}).`,
+                }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+
+            const bankUtr =
+              paymentEntity?.acquirer_data?.bank_transaction_id ||
+              paymentEntity?.acquirer_data?.rrn ||
+              paymentEntity?.id ||
+              null;
+
+            await fundOrderAndUnlockDelivery(supabase, {
+              order,
+              linkedDelivery,
+              freightAmt,
+              paymentMode: "direct_razorpay",
+              paymentMethod: "razorpay_route",
+              paymentId: paymentEntity?.id || null,
+              bankUtr,
+            });
+          }
         }
       } else if (event === "virtual_account.credited") {
         // Smart Collect VAN Bank Transfer Credit (NEFT / RTGS / IMPS)
         const vaEntity = body.payload?.virtual_account?.entity;
         const paymentEntity = body.payload?.payment?.entity;
-        const vaNotes = vaEntity?.notes || paymentEntity?.notes || {};
+        const bankTransferEntity = body.payload?.bank_transfer?.entity;
+        const vaNotes = vaEntity?.notes || paymentEntity?.notes || bankTransferEntity?.notes || {};
         const targetOrderId = vaNotes.orderId || vaNotes.order_id;
         const targetOrderNumber = vaNotes.orderNumber || vaNotes.order_number;
-        
-        // Extract authentic bank UTR from acquirer data
-        const bankUtr = paymentEntity?.acquirer_data?.bank_transaction_id || 
-                        paymentEntity?.acquirer_data?.rrn || 
-                        paymentEntity?.acquirer_data?.bank_reference || 
-                        paymentEntity?.id || 
-                        `UTR_${Date.now()}`;
+        const targetVanNumber =
+          vaEntity?.receivers?.[0]?.account_number ||
+          vaEntity?.account_number ||
+          bankTransferEntity?.virtual_account?.receivers?.[0]?.account_number ||
+          null;
 
-        if (targetOrderId) {
-          await supabase
-            .from("orders")
-            .update({
-              escrow_status: "held",
-              settlement_status: "captured_on_hold",
-              bank_utr: bankUtr,
-              payment_method: "escrow_van",
-              status: "order_placed",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", targetOrderId);
-        } else if (targetOrderNumber) {
-          await supabase
-            .from("orders")
-            .update({
-              escrow_status: "held",
-              settlement_status: "captured_on_hold",
-              bank_utr: bankUtr,
-              payment_method: "escrow_van",
-              status: "order_placed",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("order_number", targetOrderNumber);
+        const currency = paymentEntity?.currency || bankTransferEntity?.currency || "INR";
+        if (currency !== "INR") {
+          return new Response(
+            JSON.stringify({
+              received: true,
+              verified: false,
+              funded: false,
+              error: `VAN currency mismatch: expected INR, received ${currency}.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
+
+        if (paymentEntity?.status && !["captured", "authorized"].includes(paymentEntity.status)) {
+          return new Response(
+            JSON.stringify({
+              received: true,
+              verified: false,
+              funded: false,
+              error: `VAN payment is not settled (status: ${paymentEntity.status}).`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        let order: any = null;
+        if (targetOrderId) {
+          const { data } = await supabase.from("orders").select("*").eq("id", targetOrderId).maybeSingle();
+          order = data;
+        }
+        if (!order && targetOrderNumber) {
+          const { data } = await supabase.from("orders").select("*").eq("order_number", targetOrderNumber).maybeSingle();
+          order = data;
+        }
+        if (!order && targetVanNumber) {
+          const { data } = await supabase.from("orders").select("*").eq("virtual_account_number", targetVanNumber).maybeSingle();
+          order = data;
+        }
+
+        if (!order) {
+          return new Response(
+            JSON.stringify({
+              received: true,
+              verified: false,
+              funded: false,
+              error: "Associated order record not found for VAN credit webhook.",
+            }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { linkedDelivery, freightAmt, authoritativeTotalPaise } = await computeAuthoritativeOrderTotal(supabase, order);
+        const paidPaise = Number(paymentEntity?.amount ?? bankTransferEntity?.amount ?? vaEntity?.amount_paid ?? 0);
+
+        if (
+          !Number.isFinite(authoritativeTotalPaise) ||
+          authoritativeTotalPaise <= 0 ||
+          !Number.isFinite(paidPaise) ||
+          paidPaise + 2 < authoritativeTotalPaise
+        ) {
+          return new Response(
+            JSON.stringify({
+              received: true,
+              verified: false,
+              funded: false,
+              error: `VAN credit amount insufficient: expected at least ${authoritativeTotalPaise} paise (₹${(authoritativeTotalPaise / 100).toFixed(2)}), but received ${paidPaise} paise (₹${(paidPaise / 100).toFixed(2)}). Order and delivery remain pending.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Extract authentic bank UTR from acquirer data
+        const bankUtr =
+          paymentEntity?.acquirer_data?.bank_transaction_id ||
+          paymentEntity?.acquirer_data?.rrn ||
+          paymentEntity?.acquirer_data?.bank_reference ||
+          bankTransferEntity?.utr ||
+          paymentEntity?.id ||
+          `UTR_${Date.now()}`;
+
+        await fundOrderAndUnlockDelivery(supabase, {
+          order,
+          linkedDelivery,
+          freightAmt,
+          paymentMode: "escrow_van",
+          paymentMethod: "escrow_van",
+          paymentId: paymentEntity?.id || bankUtr,
+          bankUtr,
+        });
       } else if (event === "transfer.processed") {
         const transferEntity = body.payload?.transfer?.entity;
         const transferId = transferEntity?.id;

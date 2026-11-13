@@ -489,16 +489,44 @@ export async function getAdminMetrics() {
       getAllKYCUsers().catch(() => INITIAL_KYC_USERS),
     ]);
 
-    const safeOrders = Array.isArray(orders) ? orders : [];
-    const totalGMV = safeOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    const rawOrders = (Array.isArray(orders) ? orders : []).filter(
+      (o) => o.status !== 'cancelled' && o.status !== 'deleted'
+    );
+    const seenAdminRfqLots = new Set();
+    const safeOrders = [...rawOrders]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .filter((o) => {
+        const isUnquotedRfq =
+          (o.status === 'awaiting_freight_quote' || Boolean(o.awaitingFreightQuote)) &&
+          !o.freightAmount;
+        if (isUnquotedRfq) {
+          const key = `${o.listingId || ''}_${o.commodity || ''}_${o.variety || ''}_${o.buyerId || o.buyerName || ''}_${o.farmerName || ''}`;
+          if (seenAdminRfqLots.has(key)) return false;
+          seenAdminRfqLots.add(key);
+        }
+        return true;
+      });
+
+    const isUnpaidOrder = (o) =>
+      o.status === 'awaiting_freight_quote' ||
+      o.status === 'freight_quoted' ||
+      o.escrowStatus === 'awaiting_freight_quote' ||
+      o.escrowStatus === 'freight_quoted' ||
+      o.escrowStatus === 'pending' ||
+      o.escrowStatus === 'pending_verification' ||
+      o.status === 'pending' ||
+      o.status === 'payment_verification_pending';
+
+    const fundedOrders = safeOrders.filter((o) => !isUnpaidOrder(o));
+    const totalGMV = fundedOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
     
     // Revenue calculations (0.25% Buyer + 0.25% Seller = 0.50% Total Take-Rate)
     const totalCommissionsEarned = Math.round(totalGMV * 0.0050 * 100) / 100;
     const buyerCommissions = Math.round(totalGMV * BUYER_COMMISSION_RATE * 100) / 100;
     const sellerCommissions = Math.round(totalGMV * SELLER_COMMISSION_RATE * 100) / 100;
 
-    // Escrow Locked Metrics
-    const activeEscrowOrders = safeOrders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
+    // Escrow Locked Metrics (exclude completed, cancelled, and unpaid/pending orders)
+    const activeEscrowOrders = fundedOrders.filter((o) => o.status !== 'completed');
     const totalEscrowLocked = activeEscrowOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
     // KYC Metrics

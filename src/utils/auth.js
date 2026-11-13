@@ -119,23 +119,17 @@ export async function registerUser({ name, phone, email, password, role, state, 
     // 4. Attempt native Supabase Auth user registration (Fail Closed)
     const { data: authData, error: authErr } = await supabase.auth.signUp({
       email: normalizedEmail,
-
       password: trimmedPassword,
-
       options: {
-
         data: {
-
           name: (name || '').trim(),
-
           phone: rawPhone,
-
           role: requestedRole,
-
+          state: (state || '').trim() || 'Tamil Nadu',
+          district: (district || '').trim() || 'Coimbatore',
+          company_name: (companyName || '').trim(),
         },
-
       },
-
     });
 
 
@@ -256,92 +250,57 @@ export async function registerUser({ name, phone, email, password, role, state, 
 
 
 
-    // 4. Insert into Supabase Profiles table (Fail Closed - strictly verified)
+    // 4. Insert/sync Supabase Profiles row (Fail Closed when authenticated;
+    // when email confirmation leaves session null, auth.users trigger creates it)
+    let resolvedRecord = null;
 
-    const { data, error: insertError } = await supabase
-
-      .from('profiles')
-
-      .insert([newProfile])
-
-      .select()
-
-      .maybeSingle();
-
-
-
-    if (insertError) {
-
-      // Check if profile was inserted by trigger or already exists
-
-      const { data: existingProfile } = await supabase
-
+    if (authData?.session) {
+      const { data, error: upsertError } = await supabase
         .from('profiles')
-
-        .select('*')
-
-        .eq('id', authUserId)
-
+        .upsert([newProfile], { onConflict: 'id' })
+        .select()
         .maybeSingle();
 
+      if (upsertError) {
+        // Check if profile was already inserted by on_auth_user_created trigger
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUserId)
+          .maybeSingle();
 
-
-      if (!existingProfile) {
-
-        console.error('Profile insertion error:', insertError);
-
-        throw new Error(`Authentication succeeded, but profile creation failed: ${insertError.message}`);
-
+        if (!existingProfile) {
+          console.error('Profile insertion error:', upsertError);
+          throw new Error(`Authentication succeeded, but profile creation failed: ${upsertError.message}`);
+        }
+        resolvedRecord = existingProfile;
+      } else {
+        resolvedRecord = data || newProfile;
       }
-
-
-
-      const userObj = {
-        id: existingProfile.id,
-        name: existingProfile.name,
-        email: existingProfile.email,
-        phone: existingProfile.phone,
-        role: existingProfile.role,
-        state: existingProfile.state || '',
-        district: existingProfile.district || '',
-        address: existingProfile.address || '',
-        pincode: existingProfile.pincode || '',
-        landmark: existingProfile.landmark || '',
-        companyName: existingProfile.company_name || '',
-        kycStatus: existingProfile.kyc_status || 'pending',
-        verificationStatus: existingProfile.kyc_status || 'pending',
-        vanStatus: resolveProfileVanStatus(existingProfile),
-        virtualAccountNumber: existingProfile.virtual_account_number || existingProfile.meta?.virtual_account_number || '',
-        virtualAccountIfsc: existingProfile.virtual_account_ifsc || existingProfile.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-        vanBankName: existingProfile.van_bank_name || existingProfile.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
-        vanNotes: existingProfile.van_notes || existingProfile.meta?.van_notes || '',
-        createdAt: existingProfile.created_at,
-      };
-      setCurrentUser(userObj);
-      return userObj;
+    } else {
+      resolvedRecord = newProfile;
     }
 
-    const createdRecord = data || newProfile;
     const userObj = {
-      id: createdRecord.id,
-      name: createdRecord.name,
-      email: createdRecord.email,
-      phone: createdRecord.phone,
-      role: createdRecord.role,
-      state: createdRecord.state || '',
-      district: createdRecord.district || '',
-      address: createdRecord.address || '',
-      pincode: createdRecord.pincode || '',
-      landmark: createdRecord.landmark || '',
-      companyName: createdRecord.company_name || '',
-      kycStatus: createdRecord.kyc_status || 'pending',
-      verificationStatus: createdRecord.kyc_status || 'pending',
-      vanStatus: resolveProfileVanStatus(createdRecord),
-      virtualAccountNumber: createdRecord.virtual_account_number || createdRecord.meta?.virtual_account_number || '',
-      virtualAccountIfsc: createdRecord.virtual_account_ifsc || createdRecord.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-      vanBankName: createdRecord.van_bank_name || createdRecord.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
-      vanNotes: createdRecord.van_notes || createdRecord.meta?.van_notes || '',
-      createdAt: createdRecord.created_at,
+      id: resolvedRecord.id,
+      name: resolvedRecord.name,
+      email: resolvedRecord.email,
+      phone: resolvedRecord.phone,
+      role: resolvedRecord.role,
+      state: resolvedRecord.state || '',
+      district: resolvedRecord.district || '',
+      address: resolvedRecord.address || '',
+      pincode: resolvedRecord.pincode || '',
+      landmark: resolvedRecord.landmark || '',
+      companyName: resolvedRecord.company_name || '',
+      kycStatus: resolvedRecord.kyc_status || 'pending',
+      verificationStatus: resolvedRecord.kyc_status || 'pending',
+      vanStatus: resolveProfileVanStatus(resolvedRecord),
+      virtualAccountNumber: resolvedRecord.virtual_account_number || resolvedRecord.meta?.virtual_account_number || '',
+      virtualAccountIfsc: resolvedRecord.virtual_account_ifsc || resolvedRecord.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+      vanBankName: resolvedRecord.van_bank_name || resolvedRecord.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      vanNotes: resolvedRecord.van_notes || resolvedRecord.meta?.van_notes || '',
+      createdAt: resolvedRecord.created_at,
     };
 
 
@@ -765,24 +724,19 @@ export async function syncAuthenticatedUserWithServer() {
     // 1. Check active cryptographic Supabase session
     let { data: { session }, error: sessionErr } = await supabase.auth.getSession();
     if (sessionErr || !session?.user) {
-      // If error was a transient network or rate-limit issue, preserve current cached session
-      if (sessionErr) {
-        return getCurrentUser();
-      }
-      // Attempt background token refresh
+      // Attempt background token refresh before resolving offline/expired state
       const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: {} }));
       if (refreshData?.session?.user) {
         session = refreshData.session;
       } else {
         const cached = getCurrentUser();
-        const adminEmail = (cached?.email || '').toLowerCase().trim();
-        // Only purge if an unverified user was claiming admin, not legitimate known administrator
-        if (cached && cached.role === 'admin' && adminEmail !== 'agrolnkadmin@gmail.com' && adminEmail !== 'admin@agrolnk.com') {
+        // Never allow a client-side cached admin session without a live verified Supabase session
+        if (cached && cached.role === 'admin') {
           localStorage.removeItem(AGROLNK_USER_KEY);
           localStorage.removeItem(IS_AUTH_KEY);
           return null;
         }
-        return cached;
+        return sessionErr ? getCurrentUser() : cached;
       }
     }
 
@@ -1117,10 +1071,23 @@ export function logoutUser() {
     localStorage.removeItem(IS_AUTH_KEY);
     localStorage.removeItem('selectedRole');
     localStorage.removeItem('agrolnk_orders_local');
+    localStorage.removeItem('agrolnk_deliveries_local');
     localStorage.removeItem('agrolnk_user_notifications');
+    localStorage.removeItem('agrolnk_dismissed_notifications');
+    localStorage.removeItem('agrolnk_read_notifications');
+    localStorage.removeItem('agrolnk_seeded_user_roles');
     localStorage.removeItem('agrolnk_chat_threads_v4');
     localStorage.removeItem('agrolnk_financing_requests_local');
     localStorage.removeItem('agrolnk_inspection_reports');
+    Object.keys(localStorage).forEach((k) => {
+      if (
+        k.startsWith('agrolnk_order_status_') ||
+        k.startsWith('agrolnk_order_escrow_') ||
+        k.startsWith('agrolnk_buyer_verified_')
+      ) {
+        localStorage.removeItem(k);
+      }
+    });
     try {
       supabase.auth.signOut().catch(() => {});
     } catch {}

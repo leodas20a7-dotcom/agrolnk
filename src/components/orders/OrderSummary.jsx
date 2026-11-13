@@ -186,6 +186,7 @@ export default function OrderSummary({
 
     try {
       await initiateRazorpayRouteCheckout({
+        existingOrderId: order.id,
         listing: {
           id: order.listingId || order.listing_id || order.auctionId || order.auction_id || 'lot',
           commodity: order.commodity,
@@ -205,6 +206,7 @@ export default function OrderSummary({
                 paymentId: payRes?.razorpay_payment_id,
                 orderId: payRes?.razorpay_order_id,
                 signature: payRes?.razorpay_signature,
+                verified: Boolean(payRes?.verified),
               });
               toast.success('Combined Crop + Freight Escrow locked! Seller & Transporter notified immediately.');
             } else {
@@ -213,6 +215,7 @@ export default function OrderSummary({
                 paymentId: payRes?.razorpay_payment_id,
                 orderId: payRes?.razorpay_order_id,
                 signature: payRes?.razorpay_signature,
+                verified: Boolean(payRes?.verified),
               });
               toast.success('Escrow deposit secured via Razorpay! Transport dispatch is now authorized.');
             }
@@ -338,25 +341,25 @@ export default function OrderSummary({
 
       {/* Farmer Cautionary Banner - Buyer Awaiting Freight Quote / Escrow Deposit */}
       {!isBuyer && isPendingEscrow && (
-        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs flex items-center gap-3 text-left animate-in fade-in">
-          <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 shrink-0">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
+        <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs flex items-center gap-3 text-left animate-in fade-in">
+          <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
           </div>
           <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-extrabold text-amber-950 text-sm">
                 {hasFreightQuote
-                  ? 'Freight Quoted — Awaiting Buyer Combined Escrow Payment'
-                  : 'Buyer Awaiting 30-Min Transporter Freight Quote'}
+                  ? 'Freight Quoted — Awaiting Buyer Escrow'
+                  : 'Awaiting 30-Min Freight Quote'}
               </span>
               <Badge variant="amber" size="xs">
-                ₹0 Farmer Freight • Do Not Dispatch Yet
+                ₹0 Farmer Freight • Do Not Dispatch
               </Badge>
             </div>
             <p className="text-amber-900">
               {hasFreightQuote
-                ? `A verified transporter quoted ₹${quotedFreightAmount.toLocaleString('en-IN')}. Waiting for the buyer to lock Combined Crop + Freight Escrow.`
-                : 'Verified transporters are currently bidding on the buyer’s delivery route. Once the buyer locks Combined Escrow, you and the winning transporter will be notified immediately.'}
+                ? `Quote: ₹${quotedFreightAmount.toLocaleString('en-IN')}. Dispatch unlocks once buyer funds escrow.`
+                : 'Transporters are bidding on delivery. Dispatch unlocks once buyer funds escrow.'}
             </p>
           </div>
         </div>
@@ -463,24 +466,11 @@ export default function OrderSummary({
                 ? `UTR: ${order.bankUtr} • ${order.escrowStatus === 'funded' ? 'Verified ✓' : 'Verifying ⏳'}`
                 : isBuyer && isBuyerFinanced 
                 ? '30 Days Net Repayment' 
+                : isPendingEscrow
+                ? (hasFreightQuote ? 'Pending Buyer Escrow' : 'Awaiting Freight Quote')
                 : 'Held safely in AgroLnk Escrow'}
             </span>
           </div>
-        </div>
-
-        {/* Privacy-Protected Delivery Route & Destination (District, State Only) */}
-        <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-[#10B981] shrink-0" />
-            <span className="text-[#566861]">
-              <strong>{viewerRole === 'farmer' ? 'Delivery Destination' : 'Farmgate Pickup'}:</strong>{' '}
-              {viewerRole === 'farmer' ? destStr : pickupStr}{' '}
-              <span className="text-[11px] text-[#566861]/80">(Street Address Protected)</span>
-            </span>
-          </div>
-          <Badge variant="blue" size="sm">
-            <span>{viewerRole === 'farmer' ? destStr : pickupStr}</span>
-          </Badge>
         </div>
 
         {/* Sleek Credit Facility Tag (If credit is active) */}
@@ -637,7 +627,7 @@ export default function OrderSummary({
             </span>
           </div>
 
-          {onViewDelivery && existingDelivery && (
+          {onViewDelivery && existingDelivery && !isPendingEscrow && (
             <Button
               variant="ghost"
               size="sm"
@@ -651,11 +641,11 @@ export default function OrderSummary({
           )}
         </div>
 
-        {isPendingEscrow && !existingDelivery ? (
-          <div className="p-3.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#566861] flex items-center gap-2.5">
+        {isPendingEscrow ? (
+          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#566861] flex items-center gap-2.5">
             <Clock className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              <strong>Logistics on Hold:</strong> Farmgate collection and transporter dispatch will activate automatically once buyer escrow deposit is completed.
+              <strong>On Hold:</strong> Dispatch activates once buyer locks Combined Escrow.
             </span>
           </div>
         ) : (

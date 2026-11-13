@@ -247,7 +247,8 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
       await loadInspections();
     } catch (err) {
       console.error('Failed to delete inspection:', err);
-      toast.error('Failed to cancel inspection request.');
+      toast.error(err?.message || 'Failed to cancel inspection request.');
+      await loadInspections();
     } finally {
       setIsDeleting(false);
     }

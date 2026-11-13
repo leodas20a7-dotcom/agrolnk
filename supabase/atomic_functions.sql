@@ -241,20 +241,20 @@ BEGIN
         RAISE EXCEPTION 'Cannot release escrow in current state: %', v_order.escrow_status;
     END IF;
 
-    -- Generate bank UTR if not supplied
-    v_utr := COALESCE(p_utr, v_order.bank_utr);
+    -- Set bank UTR if supplied (treat empty/whitespace as NULL until settlement confirms)
+    v_utr := COALESCE(NULLIF(TRIM(p_utr), ''), NULLIF(TRIM(v_order.bank_utr), ''));
 
     -- 4. Update Order atomically
     UPDATE public.orders SET
         status = 'completed',
         escrow_status = 'released',
-        admin_verified_by = p_admin_name,
+        admin_verified_by = COALESCE(NULLIF(TRIM(p_admin_name), ''), 'AgroLnk Operations Ombudsman'),
         admin_verification_status = 'approved',
-        admin_call_notes = p_admin_notes,
+        admin_call_notes = COALESCE(NULLIF(TRIM(p_admin_notes), ''), 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.'),
         admin_verified_at = v_now,
-        payout_bank_name = COALESCE(p_bank_name, v_order.payout_bank_name, 'Bank Account'),
-        payout_account_number = COALESCE(p_account_number, v_order.payout_account_number, '—'),
-        payout_ifsc = COALESCE(p_ifsc, v_order.payout_ifsc, '—'),
+        payout_bank_name = COALESCE(NULLIF(TRIM(p_bank_name), ''), NULLIF(TRIM(v_order.payout_bank_name), ''), 'Bank Account'),
+        payout_account_number = COALESCE(NULLIF(TRIM(p_account_number), ''), NULLIF(TRIM(v_order.payout_account_number), ''), '—'),
+        payout_ifsc = COALESCE(NULLIF(TRIM(p_ifsc), ''), NULLIF(TRIM(v_order.payout_ifsc), ''), '—'),
         bank_utr = v_utr,
         disbursed_at = v_now,
         updated_at = v_now
@@ -266,7 +266,7 @@ BEGIN
         updated_at = v_now
     WHERE order_id = v_order.id OR order_number = v_order.order_number;
 
-    -- 6. Notify farmer of bank disbursement
+    -- 6. Notify farmer of bank disbursement (NULL-safe when bank_utr is not yet available)
     IF v_order.farmer_id IS NOT NULL THEN
         INSERT INTO public.notifications (
             id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
@@ -274,8 +274,11 @@ BEGIN
             'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
             v_order.farmer_id,
             'farmer',
-            'Payment Disbursed (UTR ' || v_utr || ')',
-            'Escrow payout of ₹' || v_order.total_amount || ' for ' || v_order.commodity || ' (' || v_order.order_number || ') has been disbursed to your bank account.',
+            CASE
+                WHEN v_utr IS NOT NULL THEN 'Payment Disbursed (UTR ' || v_utr || ')'
+                ELSE 'Payment Disbursed (Bank Settlement Pending UTR)'
+            END,
+            'Escrow payout of ₹' || COALESCE(v_order.total_amount::TEXT, '0') || ' for ' || COALESCE(NULLIF(TRIM(v_order.commodity), ''), 'Produce') || ' (' || COALESCE(NULLIF(TRIM(v_order.order_number), ''), v_order.id) || ') has been disbursed to your bank account.',
             'escrow',
             '/farmer-orders',
             false,
@@ -291,8 +294,8 @@ BEGIN
             'notif_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 6),
             v_order.buyer_id,
             'buyer',
-            'Trade Completed (' || v_order.order_number || ')',
-            'Escrow settlement finalized for your ' || v_order.commodity || ' order. Receipt has been generated.',
+            'Trade Completed (' || COALESCE(NULLIF(TRIM(v_order.order_number), ''), v_order.id) || ')',
+            'Escrow settlement finalized for your ' || COALESCE(NULLIF(TRIM(v_order.commodity), ''), 'Produce') || ' order. Receipt has been generated.',
             'order',
             '/buyer-orders',
             false,
@@ -475,6 +478,187 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- ----------------------------------------------------------------------------
+-- 3A. ATOMIC EARLY AUCTION KNOCKDOWN (FOR UPDATE ROW LOCK)
+-- Serializes strictly against place_auction_bid_atomic() so a concurrent higher
+-- bid can never be overwritten or settled at an outdated price.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.accept_auction_bid_early_atomic(
+    p_auction_id TEXT,
+    p_expected_bid NUMERIC DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+    v_auction RECORD;
+    v_updated_auction RECORD;
+    v_existing_order RECORD;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_privileged BOOLEAN := false;
+    v_order_id TEXT;
+    v_order_num TEXT;
+    v_total_amt NUMERIC;
+    v_buyer_fee NUMERIC;
+    v_seller_fee NUMERIC;
+    v_platform_fee NUMERIC;
+    v_net_seller NUMERIC;
+    v_grand_total NUMERIC;
+BEGIN
+    v_is_privileged := public.is_admin()
+        OR (auth.jwt() ->> 'role') = 'service_role'
+        OR auth.role() = 'service_role';
+
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.';
+    END IF;
+
+    -- 1. Acquire exclusive row lock on the auction (serializes with place_auction_bid_atomic)
+    SELECT * INTO v_auction
+    FROM public.auctions
+    WHERE id = p_auction_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Auction lot not found.';
+    END IF;
+
+    -- 2. Verify caller owns the auction lot or holds admin/service authority
+    IF NOT v_is_privileged AND v_caller_id IS DISTINCT FROM v_auction.farmer_id THEN
+        RAISE EXCEPTION 'Forbidden: Only the auction creator or platform administrator can accept bids early.';
+    END IF;
+
+    -- 3. Guard against stale state or concurrent bid mismatch
+    IF v_auction.status = 'completed' THEN
+        IF p_expected_bid IS NOT NULL AND v_auction.current_bid IS DISTINCT FROM p_expected_bid THEN
+            RAISE EXCEPTION 'Bid update conflict: Auction already concluded at updated bid ₹% by %.',
+                v_auction.current_bid,
+                COALESCE(NULLIF(TRIM(v_auction.highest_bidder_name), ''), 'Leading Buyer');
+        END IF;
+
+        SELECT * INTO v_existing_order
+        FROM public.orders
+        WHERE auction_id = v_auction.id
+        LIMIT 1;
+
+        RETURN jsonb_build_object(
+            'success', true,
+            'already_completed', true,
+            'auction', to_jsonb(v_auction),
+            'order', to_jsonb(v_existing_order)
+        );
+    END IF;
+
+    IF v_auction.status <> 'live' THEN
+        RAISE EXCEPTION 'Cannot accept bid early: auction is no longer live (Status: %).', v_auction.status;
+    END IF;
+
+    IF v_auction.highest_bidder_id IS NULL OR v_auction.current_bid IS NULL THEN
+        RAISE EXCEPTION 'No bids have been placed on this auction yet.';
+    END IF;
+
+    IF p_expected_bid IS NOT NULL AND v_auction.current_bid IS DISTINCT FROM p_expected_bid THEN
+        RAISE EXCEPTION 'Bid update conflict: A newer bid of ₹% by % just arrived. Please review the updated offer before closing the auction.',
+            v_auction.current_bid,
+            COALESCE(NULLIF(TRIM(v_auction.highest_bidder_name), ''), 'Leading Buyer');
+    END IF;
+
+    -- 4. Close auction atomically using ONLY authoritative locked row bid/bidder fields
+    PERFORM set_config('agrolnk.trusted_rpc', 'true', true);
+
+    UPDATE public.auctions SET
+        status = 'completed',
+        end_time = v_now,
+        updated_at = v_now
+    WHERE id = v_auction.id
+    RETURNING * INTO v_updated_auction;
+
+    -- 5. Idempotently create pending escrow order inside the same transaction
+    SELECT * INTO v_existing_order
+    FROM public.orders
+    WHERE auction_id = v_auction.id
+    LIMIT 1;
+
+    IF v_existing_order.id IS NULL THEN
+        v_order_id := 'ord_' || extract(epoch from clock_timestamp())::bigint || '_' || substr(md5(random()::text), 1, 9);
+        v_order_num := '#AGM-' || floor(1000 + random() * 9000)::text;
+        v_total_amt := ROUND(COALESCE(v_auction.quantity, 0) * v_auction.current_bid, 2);
+        v_buyer_fee := ROUND(v_total_amt * 0.0025, 2);
+        v_seller_fee := ROUND(v_total_amt * 0.0025, 2);
+        v_platform_fee := v_buyer_fee + v_seller_fee;
+        v_net_seller := v_total_amt - v_seller_fee;
+        v_grand_total := v_total_amt + v_buyer_fee;
+
+        INSERT INTO public.orders (
+            id, order_number, auction_id, listing_id,
+            buyer_id, buyer_name, farmer_id, farmer_name,
+            commodity, variety, grade, quantity, unit,
+            price_per_unit, total_amount,
+            buyer_fee_amount, seller_fee_amount, platform_commission_amount, net_seller_amount,
+            grand_total_amount, state, district,
+            escrow_status, settlement_status, status,
+            created_at, updated_at
+        ) VALUES (
+            v_order_id, v_order_num, v_auction.id, NULL,
+            v_auction.highest_bidder_id, COALESCE(NULLIF(TRIM(v_auction.highest_bidder_name), ''), 'Buyer Partner'),
+            v_auction.farmer_id, COALESCE(NULLIF(TRIM(v_auction.farmer_name), ''), 'Farmer Partner'),
+            v_auction.commodity, COALESCE(v_auction.variety, 'None'), COALESCE(v_auction.grade, 'A'),
+            v_auction.quantity, v_auction.unit,
+            v_auction.current_bid, v_total_amt,
+            v_buyer_fee, v_seller_fee, v_platform_fee, v_net_seller,
+            v_grand_total, v_auction.state, v_auction.district,
+            'pending', 'pending_deposit', 'pending',
+            v_now, v_now
+        )
+        RETURNING * INTO v_existing_order;
+
+        INSERT INTO public.notifications (
+            id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+        ) VALUES (
+            'notif_' || extract(epoch from clock_timestamp())::bigint || '_' || substr(md5(random()::text), 1, 6),
+            v_auction.highest_bidder_id,
+            'buyer',
+            'Bid Accepted! Escrow Deposit Required (' || COALESCE(NULLIF(TRIM(v_auction.commodity), ''), 'Produce') || ')',
+            'Your offer of ₹' || COALESCE(v_auction.current_bid::TEXT, '0') || '/' || COALESCE(NULLIF(TRIM(v_auction.unit), ''), 'unit') || ' was accepted early! Please complete your escrow deposit of ₹' || COALESCE(v_grand_total::TEXT, '0') || ' for ' || v_order_num || '.',
+            'order',
+            '/buyer-orders',
+            false,
+            v_now
+        );
+
+        IF v_auction.farmer_id IS NOT NULL THEN
+            INSERT INTO public.notifications (
+                id, recipient_id, recipient_role, title, message, type, link, is_read, created_at
+            ) VALUES (
+                'notif_' || extract(epoch from clock_timestamp())::bigint || '_' || substr(md5(random()::text), 1, 6),
+                v_auction.farmer_id,
+                'farmer',
+                'Early Sale Confirmed (' || COALESCE(NULLIF(TRIM(v_auction.commodity), ''), 'Produce') || ')',
+                'You accepted the leading bid of ₹' || COALESCE(v_auction.current_bid::TEXT, '0') || '/' || COALESCE(NULLIF(TRIM(v_auction.unit), ''), 'unit') || '. Order ' || v_order_num || ' is awaiting buyer escrow funding.',
+                'order',
+                '/farmer-orders',
+                false,
+                v_now
+            );
+        END IF;
+    END IF;
+
+    PERFORM set_config('agrolnk.trusted_rpc', 'false', true);
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'auction', to_jsonb(v_updated_auction),
+        'order', to_jsonb(v_existing_order)
+    );
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.accept_auction_bid_early_atomic(TEXT, NUMERIC) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.accept_auction_bid_early_atomic(TEXT, NUMERIC) TO authenticated, service_role;
 
 
 -- ----------------------------------------------------------------------------
@@ -730,16 +914,32 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ----------------------------------------------------------------------------
 -- 5. ATOMIC DISPUTE ESCROW FREEZING
 -- Concurrency lock: FOR UPDATE on orders row
--- Enforces: immediate escrow freeze to 'held' when quality assay dispute is raised
+-- Enforces: caller authorization + active funded escrow preconditions before freezing
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.freeze_order_on_dispute_atomic(
     p_order_id TEXT,
     p_dispute_reason TEXT DEFAULT 'Quality / moisture grade discrepancy reported by buyer'
-) RETURNS JSONB AS $$
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 DECLARE
     v_order RECORD;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_privileged BOOLEAN := false;
+    v_escrow_status TEXT;
+    v_order_status TEXT;
 BEGIN
+    v_is_privileged := public.is_admin()
+        OR (auth.jwt() ->> 'role') = 'service_role'
+        OR auth.role() = 'service_role';
+
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.';
+    END IF;
+
     SELECT * INTO v_order
     FROM public.orders
     WHERE id = p_order_id OR order_number = p_order_id
@@ -749,13 +949,47 @@ BEGIN
         RAISE EXCEPTION 'Order % not found.', p_order_id;
     END IF;
 
+    IF NOT v_is_privileged AND v_caller_id IS DISTINCT FROM v_order.buyer_id THEN
+        RAISE EXCEPTION 'Forbidden: Only the purchasing buyer or platform administrator can initiate an escrow freeze.';
+    END IF;
+
+    v_escrow_status := COALESCE(NULLIF(trim(v_order.escrow_status), ''), 'pending');
+    v_order_status := COALESCE(NULLIF(trim(v_order.status), ''), 'pending');
+
+    IF v_escrow_status IN ('released', 'refunded', 'settled')
+       OR v_order_status IN ('completed', 'cancelled', 'refunded') THEN
+        RAISE EXCEPTION 'Security Policy Violation: Cannot freeze order % because settlement is already closed (escrow_status: %, status: %).',
+            v_order.order_number, v_escrow_status, v_order_status;
+    END IF;
+
+    IF v_escrow_status IN ('held', 'disputed') AND v_order_status = 'disputed' THEN
+        RETURN jsonb_build_object(
+            'success', true,
+            'already_disputed', true,
+            'order_id', v_order.id,
+            'order_number', v_order.order_number,
+            'escrow_status', v_escrow_status,
+            'status', 'disputed'
+        );
+    END IF;
+
+    IF v_escrow_status NOT IN ('funded', 'escrow_secured', 'held')
+       OR v_order_status IN ('pending', 'awaiting_freight_quote', 'freight_quoted') THEN
+        RAISE EXCEPTION 'Security Policy Violation: Cannot freeze unpaid or unfunded order % (escrow_status: %, status: %). Only funded escrow orders can be placed on dispute hold.',
+            v_order.order_number, v_escrow_status, v_order_status;
+    END IF;
+
+    PERFORM set_config('agrolnk.trusted_rpc', 'true', true);
+
     -- Freeze escrow and mark dispute
     UPDATE public.orders SET
         escrow_status = 'held',
         status = 'disputed',
-        admin_call_notes = 'DISPUTE ACTIVE: ' || p_dispute_reason,
+        admin_call_notes = 'DISPUTE ACTIVE: ' || COALESCE(NULLIF(trim(p_dispute_reason), ''), 'Quality / moisture grade discrepancy reported by buyer'),
         updated_at = v_now
     WHERE id = v_order.id;
+
+    PERFORM set_config('agrolnk.trusted_rpc', 'false', true);
 
     RETURN jsonb_build_object(
         'success', true,
@@ -765,4 +999,7 @@ BEGIN
         'status', 'disputed'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.freeze_order_on_dispute_atomic(TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.freeze_order_on_dispute_atomic(TEXT, TEXT) TO authenticated, service_role;

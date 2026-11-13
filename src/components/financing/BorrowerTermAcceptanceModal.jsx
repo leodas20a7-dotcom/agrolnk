@@ -67,11 +67,10 @@ export default function BorrowerTermAcceptanceModal({
   const handleDecline = async () => {
     setIsSubmitting(true);
     try {
-      await updateFinancingStatus(
-        request,
-        'rejected',
-        'Borrower declined lender term-sheet offer.'
-      );
+      await updateFinancingStatus(request, {
+        status: 'rejected',
+        reviewNotes: 'Borrower declined lender term-sheet offer.',
+      });
       setActionSuccess('Offer declined.');
       setTimeout(() => {
         onUpdated?.();

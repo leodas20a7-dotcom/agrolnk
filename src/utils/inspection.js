@@ -284,16 +284,22 @@ export async function requestQualityInspection(data) {
     all.unshift(newInspection);
   }
 
-  saveStoredInspections(all);
-
   // Sync to Supabase
   try {
     const dbPayload = mapInspectionToDb(newInspection);
-    await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
+    const { error } = await supabase.from('inspections').insert(dbPayload);
+    if (error) {
+      if (isSupabaseSecurityError(error)) {
+        throw new Error(error.message || 'Security Policy: Unauthorized to create inspection request.');
+      }
+      console.warn('Could not sync requested inspection to Supabase:', error);
+    }
   } catch (err) {
+    if (isSupabaseSecurityError(err)) throw err;
     console.warn('Could not sync requested inspection to Supabase:', err);
   }
 
+  saveStoredInspections(all);
   return newInspection;
 }
 
@@ -455,42 +461,59 @@ export async function sendInspectionReportToBuyer(inspectionId, reportData) {
     all.unshift(updated);
   }
 
-  saveStoredInspections(all);
-
   // Sync to Supabase
   try {
     const dbPayload = mapInspectionToDb(updated);
-    await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
+    const { error } = await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
+    if (error) {
+      if (isSupabaseSecurityError(error)) {
+        throw new Error(error.message || 'Security Policy: Only administrators may issue quality inspection reports.');
+      }
+      console.warn('Could not sync assay report to Supabase:', error);
+    }
 
-    // If dispute is raised, atomically freeze linked order escrow
+    // If dispute is raised, atomically freeze linked order escrow (only succeeds for actively funded orders)
     if (updated.status === 'disputed' && (updated.orderNumber || updated.orderId)) {
-      try {
-        await supabase.rpc('freeze_order_on_dispute_atomic', {
-          p_order_id: updated.orderNumber || updated.orderId,
-          p_dispute_reason: updated.inspectorNotes || 'Assay discrepancy detected during physical inspection',
-        });
-      } catch (_rpcErr) {
-        await supabase
-          .from('orders')
-          .update({
-            escrow_status: 'held',
-            status: 'disputed',
-            updated_at: new Date().toISOString(),
-          })
-          .or(`order_number.eq.${updated.orderNumber},id.eq.${updated.orderId}`);
+      const { error: freezeErr } = await supabase.rpc('freeze_order_on_dispute_atomic', {
+        p_order_id: updated.orderNumber || updated.orderId,
+        p_dispute_reason: updated.inspectorNotes || 'Assay discrepancy detected during physical inspection',
+      });
+      if (freezeErr) {
+        console.warn('Order escrow freeze skipped/rejected by database policy:', freezeErr.message || freezeErr);
       }
     }
   } catch (err) {
+    if (isSupabaseSecurityError(err)) throw err;
     console.warn('Could not sync assay report to Supabase:', err);
   }
 
+  saveStoredInspections(all);
   return updated;
 }
 
 /**
  * Record payment of inspection & assay fee via Razorpay
  */
+function isSupabaseSecurityError(err) {
+  if (!err) return false;
+  const code = String(err.code || '');
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    code === '42501' ||
+    code === 'P0001' ||
+    msg.includes('security policy') ||
+    msg.includes('row-level security') ||
+    msg.includes('unauthorized') ||
+    msg.includes('forbidden') ||
+    msg.includes('permission denied')
+  );
+}
+
 export async function payInspectionFee(inspectionId, paymentDetails = {}) {
+  if (!paymentDetails?.verified) {
+    throw new Error('Security Policy: Inspection fee requires verified Razorpay payment confirmation.');
+  }
+
   const all = getStoredInspections();
   const index = all.findIndex((r) => r.id === inspectionId || r.orderId === inspectionId || r.orderNumber === inspectionId || r.reportNumber === inspectionId);
   if (index === -1) return null;
@@ -503,16 +526,24 @@ export async function payInspectionFee(inspectionId, paymentDetails = {}) {
     feePaymentMethod: paymentDetails.method || 'Razorpay Gateway',
   };
 
-  saveStoredInspections(all);
-
-  // Sync to Supabase
-  try {
-    const dbPayload = mapInspectionToDb(all[index]);
-    await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
-  } catch (err) {
-    console.warn('Could not sync fee payment to Supabase:', err);
+  // Skip redundant client-side .upsert() when razorpay-route Edge Function already updated DB via service_role
+  if (!paymentDetails?.serverUpdated) {
+    try {
+      const dbPayload = mapInspectionToDb(all[index]);
+      const { error } = await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
+      if (error) {
+        if (isSupabaseSecurityError(error)) {
+          throw new Error(error.message || 'Security Policy: Direct client update of inspection fee is forbidden.');
+        }
+        console.warn('Could not sync fee payment to Supabase:', error);
+      }
+    } catch (err) {
+      if (isSupabaseSecurityError(err)) throw err;
+      console.warn('Could not sync fee payment to Supabase:', err);
+    }
   }
 
+  saveStoredInspections(all);
   return all[index];
 }
 
@@ -545,16 +576,22 @@ export async function arbitrateDispute(reportId, arbitrationData) {
     }
   };
 
-  saveStoredInspections(all);
-
   // Sync to Supabase
   try {
     const dbPayload = mapInspectionToDb(all[index]);
-    await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
+    const { error } = await supabase.from('inspections').upsert(dbPayload, { onConflict: 'id' });
+    if (error) {
+      if (isSupabaseSecurityError(error)) {
+        throw new Error(error.message || 'Security Policy: Only administrators may record dispute arbitration decisions.');
+      }
+      console.warn('Could not sync arbitration to Supabase:', error);
+    }
   } catch (err) {
+    if (isSupabaseSecurityError(err)) throw err;
     console.warn('Could not sync arbitration to Supabase:', err);
   }
 
+  saveStoredInspections(all);
   return all[index];
 }
 
@@ -588,10 +625,37 @@ export function subscribeToInspections(callback) {
 export async function deleteInspectionRecord(inspectionId, orderRef = null) {
   if (!inspectionId) return false;
 
-  // 1. Mark in deleted blacklist so it NEVER resurrects in this browser
+  // 1. Delete from Supabase first (Admin only via RLS + trigger — never fake locally if rejected)
+  try {
+    const { error: delErr } = await supabase.from('inspections').delete().eq('id', inspectionId);
+    if (delErr) {
+      if (isSupabaseSecurityError(delErr)) {
+        throw new Error(delErr.message || 'Security Policy: Only administrators may delete inspection records.');
+      }
+      console.warn('Could not delete inspection from Supabase:', delErr);
+    }
+
+    if (orderRef) {
+      const { error: refDelErr } = await supabase
+        .from('inspections')
+        .delete()
+        .eq('order_number', String(orderRef));
+      if (refDelErr) {
+        if (isSupabaseSecurityError(refDelErr)) {
+          throw new Error(refDelErr.message || 'Security Policy: Only administrators may delete inspection records.');
+        }
+        console.warn('Could not delete inspection by orderRef from Supabase:', refDelErr);
+      }
+    }
+  } catch (err) {
+    if (isSupabaseSecurityError(err)) throw err;
+    console.warn('Could not delete inspection from Supabase:', err);
+  }
+
+  // 2. Mark in deleted blacklist so it NEVER resurrects in this browser
   markInspectionDeletedLocally(inspectionId, orderRef);
 
-  // 2. Remove from local cache immediately
+  // 3. Remove from local cache
   const all = getStoredInspections();
   const filtered = all.filter(
     (r) =>
@@ -601,23 +665,6 @@ export async function deleteInspectionRecord(inspectionId, orderRef = null) {
       (orderRef ? r.orderId !== orderRef && r.orderNumber !== orderRef : true)
   );
   saveStoredInspections(filtered);
-
-  // 3. Remove / cancel from Supabase
-  try {
-    // Primary: Hard DELETE from Supabase
-    await supabase.from('inspections').delete().eq('id', inspectionId);
-    if (orderRef) {
-      await supabase.from('inspections').delete().eq('order_number', String(orderRef));
-    }
-
-    // Fallback: If RLS prevents hard delete, update status to 'cancelled' so it's ignored
-    await supabase.from('inspections').update({ status: 'cancelled' }).eq('id', inspectionId);
-    if (orderRef) {
-      await supabase.from('inspections').update({ status: 'cancelled' }).eq('order_number', String(orderRef));
-    }
-  } catch (err) {
-    console.warn('Could not delete/cancel inspection from Supabase:', err);
-  }
 
   // 4. Dispatch event for instant UI sync across all open pages
   window.dispatchEvent(new Event('agrolnk_inspections_updated'));

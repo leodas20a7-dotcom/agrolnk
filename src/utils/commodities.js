@@ -160,7 +160,29 @@ export async function getAdminCommoditiesList() {
 }
 
 /**
- * Add / Create a new commodity with varieties and image
+ * Detects Supabase RLS / authorization errors so non-admin catalog mutations fail closed.
+ */
+function isSupabaseSecurityError(err) {
+  if (!err) return false;
+  const code = String(err.code || '').trim();
+  if (code === '42501' || code === 'P0001' || code === '401' || code === '403') return true;
+  if (err.status === 401 || err.status === 403) return true;
+  const msg = String(err.message || err.details || '');
+  return /row-level security|permission denied|not allowed|security policy|forbidden|unauthorized|admin/i.test(msg);
+}
+
+/**
+ * Emits global UI notifications after verified catalog changes.
+ */
+function notifyCommoditiesUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_commodities_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+}
+
+/**
+ * Add / Create a new commodity with varieties and image (Admin-enforced)
  */
 export async function createCommodity({ name, group, imageUrl, varieties = [] }) {
   if (!name || typeof name !== 'string') throw new Error('Commodity name is required.');
@@ -180,14 +202,7 @@ export async function createCommodity({ name, group, imageUrl, varieties = [] })
     createdAt: new Date().toISOString(),
   };
 
-  // 1. Update local custom store
-  const store = getStoredCustomStore();
-  store.additions = (store.additions || []).filter((c) => c.name.toLowerCase() !== cleanName.toLowerCase());
-  store.additions.push(newCommodity);
-  store.deletions = (store.deletions || []).filter((d) => d.toLowerCase() !== cleanName.toLowerCase());
-  saveStoredCustomStore(store);
-
-  // 2. Sync to Supabase commodities table
+  // 1. Persist to Supabase commodities table first so RLS rejects unauthorized users
   try {
     const payload = {
       id,
@@ -197,31 +212,42 @@ export async function createCommodity({ name, group, imageUrl, varieties = [] })
       created_at: new Date().toISOString(),
     };
 
-    // Attempt with varieties column
     const { error } = await supabase.from('commodities').upsert({
       ...payload,
       varieties: cleanVarieties,
     }, { onConflict: 'name' });
 
     if (error) {
-      // If varieties column not yet added to Supabase, fallback to basic upsert
-      await supabase.from('commodities').upsert(payload, { onConflict: 'name' });
+      if (isSupabaseSecurityError(error)) {
+        throw new Error('Permission denied: Only platform administrators can create catalog commodities.');
+      }
+      // Retry without varieties column when schema lacks it
+      const { error: fallbackError } = await supabase.from('commodities').upsert(payload, { onConflict: 'name' });
+      if (isSupabaseSecurityError(fallbackError)) {
+        throw new Error('Permission denied: Only platform administrators can create catalog commodities.');
+      }
+      if (fallbackError) {
+        console.warn('Could not sync created commodity to Supabase:', fallbackError);
+      }
     }
   } catch (err) {
+    if (isSupabaseSecurityError(err)) throw err;
     console.warn('Could not sync created commodity to Supabase:', err);
   }
 
-  // 3. Dispatch global update events so all pages reflect change
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('agrolnk_commodities_updated'));
-    window.dispatchEvent(new Event('storage'));
-  }
+  // 2. Update local custom store after server validation
+  const store = getStoredCustomStore();
+  store.additions = (store.additions || []).filter((c) => c.name.toLowerCase() !== cleanName.toLowerCase());
+  store.additions.push(newCommodity);
+  store.deletions = (store.deletions || []).filter((d) => d.toLowerCase() !== cleanName.toLowerCase());
+  saveStoredCustomStore(store);
 
+  notifyCommoditiesUpdated();
   return newCommodity;
 }
 
 /**
- * Update an existing commodity (Name, Group, Image URL, Varieties)
+ * Update an existing commodity (Name, Group, Image URL, Varieties) (Admin-enforced)
  */
 export async function updateCommodity(id, { name, group, imageUrl, varieties }) {
   if (!name || typeof name !== 'string') throw new Error('Commodity name is required.');
@@ -240,13 +266,7 @@ export async function updateCommodity(id, { name, group, imageUrl, varieties }) 
     updatedAt: new Date().toISOString(),
   };
 
-  // 1. Update local store
-  const store = getStoredCustomStore();
-  if (!store.overrides) store.overrides = {};
-  store.overrides[cleanName.toLowerCase()] = updatedRecord;
-  saveStoredCustomStore(store);
-
-  // 2. Sync to Supabase
+  // 1. Sync to Supabase first so RLS enforces admin privileges
   try {
     const payload = {
       name: cleanName,
@@ -263,42 +283,69 @@ export async function updateCommodity(id, { name, group, imageUrl, varieties }) 
       .or(`id.eq.${safeId},name.eq.${cleanName}`);
 
     if (error) {
-      // Fallback without varieties column
-      await supabase
+      if (isSupabaseSecurityError(error)) {
+        throw new Error('Permission denied: Only platform administrators can update catalog commodities.');
+      }
+      const { error: fallbackError } = await supabase
         .from('commodities')
         .update(payload)
         .or(`id.eq.${safeId},name.eq.${cleanName}`);
+      if (isSupabaseSecurityError(fallbackError)) {
+        throw new Error('Permission denied: Only platform administrators can update catalog commodities.');
+      }
+      if (fallbackError) {
+        console.warn('Could not sync commodity update to Supabase:', fallbackError);
+      }
     }
   } catch (err) {
+    if (isSupabaseSecurityError(err)) throw err;
     console.warn('Could not sync commodity update to Supabase:', err);
   }
 
-  // 3. Update image cache
+  // 2. Update local store & image cache after verification
+  const store = getStoredCustomStore();
+  if (!store.overrides) store.overrides = {};
+  store.overrides[cleanName.toLowerCase()] = updatedRecord;
+  saveStoredCustomStore(store);
+
   COMMODITY_IMAGES[cleanName] = cleanImage;
-
-  // 4. Notify app
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('agrolnk_commodities_updated'));
-    window.dispatchEvent(new Event('storage'));
-  }
-
+  notifyCommoditiesUpdated();
   return updatedRecord;
 }
 
 /**
- * Delete a commodity permanently
+ * Delete a commodity permanently (Admin-enforced)
  */
 export async function deleteCommodity(id, name) {
   if (!name && !id) throw new Error('Commodity identifier required.');
   const cleanName = (name || '').trim();
 
-  // 1. Update local store
+  // 1. Delete from Supabase first so RLS rejects unauthorized users
+  try {
+    let query = supabase.from('commodities').delete();
+    if (id) {
+      query = query.or(`id.eq.${id},name.eq.${cleanName}`);
+    } else {
+      query = query.eq('name', cleanName);
+    }
+    const { error } = await query;
+    if (error) {
+      if (isSupabaseSecurityError(error)) {
+        throw new Error('Permission denied: Only platform administrators can delete catalog commodities.');
+      }
+      console.warn('Could not delete commodity from Supabase:', error);
+    }
+  } catch (err) {
+    if (isSupabaseSecurityError(err)) throw err;
+    console.warn('Could not delete commodity from Supabase:', err);
+  }
+
+  // 2. Update local store after server deletion succeeds
   const store = getStoredCustomStore();
   if (!store.deletions) store.deletions = [];
   if (cleanName && !store.deletions.includes(cleanName.toLowerCase())) {
     store.deletions.push(cleanName.toLowerCase());
   }
-  // Remove from additions or overrides
   if (store.additions) {
     store.additions = store.additions.filter((c) => c.name.toLowerCase() !== cleanName.toLowerCase());
   }
@@ -307,24 +354,6 @@ export async function deleteCommodity(id, name) {
   }
   saveStoredCustomStore(store);
 
-  // 2. Sync deletion to Supabase
-  try {
-    let query = supabase.from('commodities').delete();
-    if (id) {
-      query = query.or(`id.eq.${id},name.eq.${cleanName}`);
-    } else {
-      query = query.eq('name', cleanName);
-    }
-    await query;
-  } catch (err) {
-    console.warn('Could not delete commodity from Supabase:', err);
-  }
-
-  // 3. Notify app
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('agrolnk_commodities_updated'));
-    window.dispatchEvent(new Event('storage'));
-  }
-
+  notifyCommoditiesUpdated();
   return { success: true };
 }

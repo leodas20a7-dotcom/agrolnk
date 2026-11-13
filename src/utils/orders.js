@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { createDelivery, getDeliveryForOrder } from './deliveries';
-import { processLiveEscrowDeposit, processLiveEscrowRelease, isOrderSettledInEscrow } from './escrowApi';
+import { processLiveEscrowDeposit, processLiveEscrowRelease } from './escrowApi';
 import { getUserBankDetails } from './bankDetails';
 import { broadcastDataChange } from './syncChannel';
 import { sendNotification } from './notifications';
@@ -99,24 +99,70 @@ function mapOrderFromDb(row) {
 
 const LOCAL_ORDERS_KEY = 'agrolnk_orders_local';
 
+function getOrderCacheOwnerId() {
+  try {
+    const u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    return u?.id || u?.email || 'anon';
+  } catch {
+    return 'anon';
+  }
+}
+
+function dedupeOrdersList(list = []) {
+  const seen = new Set();
+  const deduped = [];
+  for (const item of list) {
+    if (!item) continue;
+    const key = item.id || item.orderNumber;
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      deduped.push(item);
+    }
+  }
+  return deduped;
+}
+
 function getLocalOrders() {
   try {
     const raw = localStorage.getItem(LOCAL_ORDERS_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    const seen = new Set();
-    const deduped = [];
-    for (const item of list) {
-      if (!item) continue;
-      const key = item.id || item.orderNumber;
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        deduped.push(item);
-      }
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const activeOwner = getOrderCacheOwnerId();
+    // Ignore legacy unscoped arrays or caches belonging to a different user account
+    if (Array.isArray(parsed)) {
+      localStorage.removeItem(LOCAL_ORDERS_KEY);
+      return [];
     }
-    return deduped;
+    if (!parsed || typeof parsed !== 'object' || parsed.ownerId !== activeOwner) {
+      return [];
+    }
+    return dedupeOrdersList(Array.isArray(parsed.items) ? parsed.items : []);
   } catch {
     return [];
   }
+}
+
+function replaceLocalOrders(list = []) {
+  try {
+    const activeOwner = getOrderCacheOwnerId();
+    const cleaned = dedupeOrdersList(Array.isArray(list) ? list : []);
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify({ ownerId: activeOwner, items: cleaned }));
+  } catch {}
+}
+
+function clearLegacyOrderOverrideKeys() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    Object.keys(localStorage).forEach((k) => {
+      if (
+        k.startsWith('agrolnk_order_status_') ||
+        k.startsWith('agrolnk_order_escrow_') ||
+        k.startsWith('agrolnk_buyer_verified_')
+      ) {
+        localStorage.removeItem(k);
+      }
+    });
+  } catch {}
 }
 
 function saveLocalOrder(item) {
@@ -126,7 +172,7 @@ function saveLocalOrder(item) {
     const filtered = existing.filter(
       (o) => o.id !== item.id && o.orderNumber !== item.orderNumber
     );
-    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify([item, ...filtered]));
+    replaceLocalOrders([item, ...filtered]);
   } catch {}
 }
 
@@ -163,10 +209,10 @@ export async function getOrders() {
     console.error('Error in getOrders:', err);
   }
 
-  // When database query succeeds, Supabase is the single source of truth!
+  // When database query succeeds, Supabase is the 100% single source of truth (no split-brain overrides or stale local merges)
   if (isDbSuccess) {
+    clearLegacyOrderOverrideKeys();
     if (remote.length === 0) {
-      // Database is online and empty! Purge stale local cache so deleted/wiped orders do not resurrect
       try {
         localStorage.removeItem(LOCAL_ORDERS_KEY);
         localStorage.removeItem('agrolnk_orders');
@@ -176,82 +222,20 @@ export async function getOrders() {
       return [];
     }
 
-    const local = getLocalOrders();
-    const localMap = new Map();
-    local.forEach((l) => {
-      if (l.id) localMap.set(l.id, l);
-      if (l.orderNumber) localMap.set(l.orderNumber, l);
-    });
+    const authoritative = remote.map((r) => ({
+      ...r,
+      status: r.status || 'pending',
+      escrowStatus: r.escrowStatus || 'pending',
+      buyerConfirmedArrival: Boolean(r.buyerConfirmedArrival || r.buyerArrivalVerified),
+      buyerArrivalVerified: Boolean(r.buyerArrivalVerified || r.buyerConfirmedArrival),
+    }));
 
-    const isConfirmed = (r, localMatch) => Boolean(
-      r.buyerConfirmedArrival ||
-      r.buyerArrivalVerified ||
-      (localMatch && (localMatch.buyerConfirmedArrival || localMatch.buyerArrivalVerified)) ||
-      (typeof window !== 'undefined' && (
-        localStorage.getItem(`agrolnk_buyer_verified_${r.id}`) === 'true' ||
-        localStorage.getItem(`agrolnk_buyer_verified_${r.orderNumber}`) === 'true' ||
-        (localMatch && (
-          localStorage.getItem(`agrolnk_buyer_verified_${localMatch.id}`) === 'true' ||
-          localStorage.getItem(`agrolnk_buyer_verified_${localMatch.orderNumber}`) === 'true'
-        ))
-      ))
-    );
-
-    const mergedRemote = remote.map((r) => {
-      const localMatch = localMap.get(r.id) || (r.orderNumber && localMap.get(r.orderNumber));
-      const confirmed = isConfirmed(r, localMatch);
-
-      // Preserve completed / released status if locally settled in escrow ledger or confirmed by admin
-      const isSettledInEscrow = isOrderSettledInEscrow(r.orderNumber) || isOrderSettledInEscrow(r.id);
-      const isLocallyCompleted =
-        isSettledInEscrow ||
-        localMatch?.status === 'completed' ||
-        localMatch?.escrowStatus === 'released' ||
-        (typeof window !== 'undefined' && (
-          localStorage.getItem(`agrolnk_order_status_${r.id}`) === 'completed' ||
-          localStorage.getItem(`agrolnk_order_status_${r.orderNumber}`) === 'completed' ||
-          localStorage.getItem(`agrolnk_order_escrow_${r.orderNumber}`) === 'released'
-        ));
-
-      const resolved = {
-        ...(localMatch || {}),
-        ...r, // Remote database state
-        listingId: r.listingId || localMatch?.listingId || localMatch?.listing_id || null,
-        auctionId: r.auctionId || localMatch?.auctionId || localMatch?.auction_id || null,
-        buyerId: r.buyerId || localMatch?.buyerId || localMatch?.buyer_id || null,
-        buyerEmail: r.buyerEmail || localMatch?.buyerEmail || null,
-        buyerPhone: r.buyerPhone || localMatch?.buyerPhone || null,
-        buyerName: r.buyerName || localMatch?.buyerName || null,
-        rfqExpiresAt: r.rfqExpiresAt || localMatch?.rfqExpiresAt || null,
-        deliveryLocation: r.deliveryLocation || localMatch?.deliveryLocation || null,
-        buyerAddress: r.buyerAddress || localMatch?.buyerAddress || null,
-        buyerDistrict: r.buyerDistrict || localMatch?.buyerDistrict || null,
-        buyerState: r.buyerState || localMatch?.buyerState || null,
-        buyerPincode: r.buyerPincode || localMatch?.buyerPincode || null,
-        quantityInListingUnit: r.quantityInListingUnit || localMatch?.quantityInListingUnit || null,
-        listingUnit: r.listingUnit || localMatch?.listingUnit || null,
-        totalKg: r.totalKg || localMatch?.totalKg || null,
-        totalMT: r.totalMT || localMatch?.totalMT || null,
-        totalQuintals: r.totalQuintals || localMatch?.totalQuintals || null,
-        status: isLocallyCompleted ? 'completed' : (r.status || localMatch?.status || 'placed'),
-        escrowStatus: isLocallyCompleted ? 'released' : (r.escrowStatus || localMatch?.escrowStatus || 'pending'),
-        adminVerificationStatus: isLocallyCompleted ? 'approved' : r.adminVerificationStatus,
-        buyerConfirmedArrival: confirmed,
-        buyerArrivalVerified: confirmed,
-      };
-
-      // Keep local cache fresh with latest server state
-      saveLocalOrder(resolved);
-      return resolved;
-    });
-
-    // Include all local orders not yet present in remote
-    const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.orderNumber].filter(Boolean)));
-    const pendingLocalOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.orderNumber));
-    return [...mergedRemote, ...pendingLocalOnly];
+    // Replace local offline cache atomically with authoritative server truth
+    replaceLocalOrders(authoritative);
+    return authoritative;
   }
 
-  // True offline fallback when database request failed (network error)
+  // True offline fallback scoped to the active user when database request failed
   return getLocalOrders();
 
   // Guarantee cross-portal sync: If a trade credit application exists in Supabase with an order number,
@@ -996,208 +980,62 @@ export async function completeBuyerOrderWithFreightPayment(orderId, paymentData 
         : rawPaymentMode === 'escrow_van' || String(rawPaymentMode).includes('VAN')
         ? 'escrow_van'
         : 'direct_razorpay';
-    const selectedTransporterId =
-      liveDelivery?.lowestQuote?.transporterId ||
-      liveDelivery?.transporterId ||
-      paymentData.transporterId ||
-      paymentData.selectedTransporterId ||
-      null;
-    const selectedTransporterName =
-      liveDelivery?.lowestQuote?.transporterName ||
-      liveDelivery?.transporterName ||
-      paymentData.transporterName ||
-      'Assigned Fleet';
 
-    // 1. Try Atomic RPC first (matches lock_buyer_order_and_freight_escrow_atomic SQL signature)
-    if (resolvedOrderId) {
-      try {
-        const { data: rpcRes, error: rpcErr } = await supabase.rpc(
-          'lock_buyer_order_and_freight_escrow_atomic',
-          {
-            p_order_id: resolvedOrderId,
-            p_payment_mode: normalizedRpcPaymentMode,
-            p_payment_id: paymentId,
-            p_bank_utr: paymentData.bankUtr || paymentId,
-            p_auto_verified:
-              normalizedRpcPaymentMode !== 'escrow_van' || Boolean(paymentData.autoVerified),
-          }
-        );
-
-        if (!rpcErr && rpcRes?.success) {
-          const finalFreightAmt = Number(rpcRes.freight_amount ?? serverFreightAmount);
-          const freightFin = calculateFreightFinancials(finalFreightAmt);
-          const updatedLocal = {
-            ...(existingOrder || {}),
-            id: resolvedOrderId,
-            deliveryId: rpcRes.delivery_id || resolvedDeliveryId,
-            status: rpcRes.status || 'order_placed',
-            escrowStatus:
-              rpcRes.escrow_status ||
-              (normalizedRpcPaymentMode === 'trade_credit' ? 'financing_pending' : 'funded'),
-            paymentMode: rawPaymentMode,
-            bankUtr: paymentData.bankUtr || paymentId,
-            freightAmount: finalFreightAmt,
-            freightFeeAmount: freightFin.consignorFee,
-            grandTotalAmount: Number(
-              rpcRes.grand_total_amount ?? existingOrder?.totalAmount ?? 0
-            ),
-            updatedAt: new Date().toISOString(),
-          };
-          saveLocalOrder(updatedLocal);
-
-          try {
-            await processLiveEscrowDeposit({
-              orderNumber: updatedLocal.orderNumber,
-              commodity: `${updatedLocal.commodity || 'Produce'} (+ ₹${updatedLocal.freightAmount.toLocaleString('en-IN')} Freight)`,
-              tradeAmount: updatedLocal.totalAmount,
-              buyerName: updatedLocal.buyerName,
-              farmerName: updatedLocal.farmerName,
-              paymentMode:
-                normalizedRpcPaymentMode === 'trade_credit'
-                  ? 'NBFC Institutional Trade Credit'
-                  : 'Combined Crop + Freight Escrow Nodal Deposit',
-            });
-          } catch {}
-
-          broadcastDataChange('orders', 'update');
-          broadcastDataChange('deliveries', 'update');
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: updatedLocal }));
-            window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: updatedLocal }));
-            window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: updatedLocal }));
-            window.dispatchEvent(new Event('storage'));
-          }
-
-          return updatedLocal;
-        }
-      } catch (rpcCatch) {
-        console.warn('lock_buyer_order_and_freight_escrow_atomic fallback:', rpcCatch);
-      }
+    if (normalizedRpcPaymentMode === 'direct_razorpay' && !paymentData?.verified) {
+      throw new Error('Server payment gateway verification is required before locking escrow.');
     }
 
-    // 2. Client-side Fallback (strictly uses authoritative serverFreightAmount & server cropAmount)
-    const freightAmount = serverFreightAmount;
-    const freightFin = calculateFreightFinancials(freightAmount);
-    const cropAmount = Number(existingOrder?.totalAmount || paymentData.totalAmount || 0);
-    const cropFee = Math.round(cropAmount * 0.0025 * 100) / 100;
-    const freightFee = freightFin.consignorFee;
-    const grandTotal = Math.round((cropAmount + cropFee + freightAmount + freightFee) * 100) / 100;
-    const newEscrowStatus =
-      normalizedRpcPaymentMode === 'trade_credit' ? 'financing_pending' : 'funded';
-
-    const orderUpdatePayload = {
-      status: 'order_placed',
-      escrow_status: newEscrowStatus,
-      payment_id: paymentId,
-      bank_utr: paymentData.bankUtr || paymentId,
-      payment_mode: rawPaymentMode,
-      freight_amount: freightAmount,
-      freight_fee_amount: freightFee,
-      grand_total_amount: grandTotal,
-      updated_at: new Date().toISOString(),
-    };
-
-    try {
-      const { error: ordErr } = await supabase
-        .from('orders')
-        .update(orderUpdatePayload)
-        .eq('id', resolvedOrderId);
-
-      if (ordErr) {
-        // Retry with core columns if new freight columns are not yet migrated
-        await supabase
-          .from('orders')
-          .update({
-            status: 'order_placed',
-            escrow_status: newEscrowStatus,
-            payment_id: paymentId,
-            payment_mode: rawPaymentMode,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', resolvedOrderId);
-      }
-    } catch {}
-
-    // Update linked Delivery row to 'assigned' + 'escrow_locked'
-    if (resolvedDeliveryId) {
-      try {
-        const delUpdate = {
-          status: 'assigned',
-          freight_escrow_status: 'escrow_locked',
-          freight_payer_id: existingOrder?.buyerId || null,
-          freight_payer_role: 'buyer',
-          freight_amount: freightAmount,
-          freight_base_amount: freightAmount,
-          consignor_freight_fee: freightFin.consignorFee,
-          total_freight_payable: freightFin.totalFreightDeposit,
-          transporter_commission_fee: freightFin.transporterFee,
-          transporter_net_payout: freightFin.netTransporterPayout,
-          freight_payment_mode: rawPaymentMode,
-          freight_bank_utr: paymentData.bankUtr || paymentId,
-          freight_deposited_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        if (selectedTransporterId) delUpdate.transporter_id = selectedTransporterId;
-        if (selectedTransporterName) delUpdate.transporter_name = selectedTransporterName;
-
-        await supabase.from('deliveries').update(delUpdate).eq('id', resolvedDeliveryId);
-      } catch {}
+    // 1. Authoritative Server-Side Atomic RPC (Never allows client-side funding bypass)
+    if (!resolvedOrderId) {
+      throw new Error('Order identifier is required to lock combined escrow.');
     }
 
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+      'lock_buyer_order_and_freight_escrow_atomic',
+      {
+        p_order_id: resolvedOrderId,
+        p_payment_mode: normalizedRpcPaymentMode,
+        p_payment_id: paymentId,
+        p_bank_utr: paymentData.bankUtr || paymentId,
+        p_auto_verified: false,
+      }
+    );
+
+    if (rpcErr || !rpcRes?.success) {
+      throw new Error(
+        rpcErr?.message ||
+          'Combined escrow lock rejected by server security policy. Payment verification required.'
+      );
+    }
+
+    const finalFreightAmt = Number(rpcRes.freight_amount ?? serverFreightAmount);
+    const freightFin = calculateFreightFinancials(finalFreightAmt);
     const updatedLocal = {
       ...(existingOrder || {}),
       id: resolvedOrderId,
-      deliveryId: resolvedDeliveryId,
-      status: 'order_placed',
-      escrowStatus: newEscrowStatus,
+      deliveryId: rpcRes.delivery_id || resolvedDeliveryId,
+      status: rpcRes.status || 'pending',
+      escrowStatus: rpcRes.escrow_status || 'pending',
       paymentMode: rawPaymentMode,
       bankUtr: paymentData.bankUtr || paymentId,
-      freightAmount: freightAmount,
-      freightFeeAmount: freightFee,
-      grandTotalAmount: grandTotal,
+      freightAmount: finalFreightAmt,
+      freightFeeAmount: freightFin.consignorFee,
+      grandTotalAmount: Number(
+        rpcRes.grand_total_amount ?? existingOrder?.totalAmount ?? 0
+      ),
       updatedAt: new Date().toISOString(),
     };
     saveLocalOrder(updatedLocal);
 
-    // Record deposit in Live Escrow API Engine
-    try {
-      await processLiveEscrowDeposit({
-        orderNumber: updatedLocal.orderNumber,
-        commodity: `${updatedLocal.commodity || 'Produce'} (+ ₹${freightAmount.toLocaleString('en-IN')} Freight)`,
-        tradeAmount: cropAmount,
-        buyerName: updatedLocal.buyerName,
-        farmerName: updatedLocal.farmerName,
-        paymentMode:
-          normalizedRpcPaymentMode === 'trade_credit'
-            ? 'NBFC Institutional Trade Credit'
-            : 'Combined Crop + Freight Escrow Nodal Deposit',
-      });
-    } catch {}
-
-    // Notify Producer (Farmer / FPO / FP) that Crop + Freight Escrow is now 100% funded
-    if (updatedLocal.farmerId) {
+    if (updatedLocal.escrowStatus === 'funded') {
       try {
-        await sendNotification({
-          recipientId: updatedLocal.farmerId,
-          recipientRole: 'farmer',
-          title: `Order & Escrow Funded: ${updatedLocal.orderNumber}`,
-          message: `Buyer funded ₹${cropAmount.toLocaleString('en-IN')} crop escrow + ₹${freightAmount.toLocaleString('en-IN')} freight escrow. Transporter (${selectedTransporterName}) will arrive for pickup.`,
-          type: 'order',
-          link: '/farmer-orders',
-        });
-      } catch {}
-    }
-
-    // Notify Winning Transporter that Freight Escrow is locked and pickup address is unlocked
-    if (selectedTransporterId) {
-      try {
-        await sendNotification({
-          recipientId: selectedTransporterId,
-          recipientRole: 'transporter',
-          title: `Quote Accepted & Freight Escrow Locked!`,
-          message: `Your freight quote of ₹${freightAmount.toLocaleString('en-IN')} for Order ${updatedLocal.orderNumber} (${updatedLocal.commodity}) was funded in escrow! Full pickup & drop details are now unlocked.`,
-          type: 'delivery',
-          link: '/transporter-dashboard',
+        await processLiveEscrowDeposit({
+          orderNumber: updatedLocal.orderNumber,
+          commodity: `${updatedLocal.commodity || 'Produce'} (+ ₹${updatedLocal.freightAmount.toLocaleString('en-IN')} Freight)`,
+          tradeAmount: updatedLocal.totalAmount,
+          buyerName: updatedLocal.buyerName,
+          farmerName: updatedLocal.farmerName,
+          paymentMode: 'Combined Crop + Freight Escrow Nodal Deposit',
         });
       } catch {}
     }
@@ -1385,10 +1223,6 @@ export async function confirmOrderReceipt(orderId) {
     const localOrders = getLocalOrders();
     const updatedLocal = localOrders.map((o) => {
       if (o.id === orderId || o.orderNumber === orderId) {
-        if (typeof window !== 'undefined') {
-          if (o.id) localStorage.setItem(`agrolnk_buyer_verified_${o.id}`, 'true');
-          if (o.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${o.orderNumber}`, 'true');
-        }
         return {
           ...o,
           status: 'delivered',
@@ -1401,7 +1235,7 @@ export async function confirmOrderReceipt(orderId) {
       }
       return o;
     });
-    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updatedLocal));
+    replaceLocalOrders(updatedLocal);
 
     const resolved = updatedLocal.find((o) => o.id === orderId || o.orderNumber === orderId) || {
       id: orderId,
@@ -1443,11 +1277,16 @@ export async function confirmOrderReceipt(orderId) {
  */
 export async function updateOrderStatus(orderId, newStatus) {
   try {
+    const isUuid = (str) =>
+      typeof str === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    const matchCol = isUuid(orderId) ? 'id' : 'order_number';
+
     // 1. Fetch current order state before updating
     const { data: existingOrder } = await supabase
       .from('orders')
       .select('*')
-      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+      .eq(matchCol, orderId)
       .maybeSingle();
 
     const previousStatus = existingOrder?.status;
@@ -1468,9 +1307,9 @@ export async function updateOrderStatus(orderId, newStatus) {
     const { data, error } = await supabase
       .from('orders')
       .update(updatePayload)
-      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+      .eq(matchCol, orderId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
 
@@ -1518,27 +1357,36 @@ export async function updateOrderStatus(orderId, newStatus) {
       else if (newStatus === 'cancelled') linkedDeliveryStatus = 'cancelled';
 
       if (linkedDeliveryStatus) {
+        const delMatchCol = isUuid(orderId) ? 'order_id' : 'order_number';
         await supabase
           .from('deliveries')
           .update({
             status: linkedDeliveryStatus,
             updated_at: new Date().toISOString(),
           })
-          .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
+          .eq(delMatchCol, orderId);
       }
     } catch (delErr) {
       console.warn('Delivery status auto-sync notice:', delErr);
     }
 
-    const mapped = mapOrderFromDb(data);
+    const mapped = data
+      ? mapOrderFromDb(data)
+      : { id: orderId, orderNumber: orderId, status: newStatus, updatedAt: new Date().toISOString() };
 
     // 4. Update local storage cache and notify active views
     try {
       const stored = getLocalOrders();
-      const idx = stored.findIndex((o) => o.id === data.id || o.orderNumber === data.order_number);
+      const idx = stored.findIndex(
+        (o) =>
+          (data?.id && o.id === data.id) ||
+          (data?.order_number && o.orderNumber === data.order_number) ||
+          o.id === orderId ||
+          o.orderNumber === orderId
+      );
       if (idx !== -1) {
         stored[idx] = { ...stored[idx], ...mapped };
-        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(stored));
+        localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(stored));
       }
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
@@ -1627,26 +1475,30 @@ export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
     }
 
     const paymentId = paymentMetadata?.paymentId || paymentMetadata?.razorpay_payment_id;
-    if (!paymentId) {
-      throw new Error('A valid payment identifier from the gateway is required to transition escrow to funded.');
+    if (!paymentId || !paymentMetadata?.verified) {
+      throw new Error('A server-verified payment confirmation from the gateway is required to transition escrow to funded.');
     }
 
     const nowIso = new Date().toISOString();
 
-    const { data: updatedOrder, error: updateErr } = await supabase
-      .from('orders')
-      .update({
-        escrow_status: 'funded',
-        status: 'order_placed',
-        payment_id: paymentId,
-        payment_mode: paymentMetadata.paymentMode || 'Razorpay Route Gateway',
-        updated_at: nowIso,
-      })
-      .eq('id', order.id)
-      .select()
-      .single();
+    let updatedOrder = order;
+    if (order.escrow_status !== 'funded' && order.escrow_status !== 'held') {
+      const { data: rpcUpdated, error: updateErr } = await supabase
+        .from('orders')
+        .update({
+          escrow_status: 'funded',
+          status: 'order_placed',
+          payment_id: paymentId,
+          payment_mode: paymentMetadata.paymentMode || 'Razorpay Route Gateway',
+          updated_at: nowIso,
+        })
+        .eq('id', order.id)
+        .select()
+        .single();
 
-    if (updateErr) throw updateErr;
+      if (updateErr) throw updateErr;
+      updatedOrder = rpcUpdated;
+    }
 
     // Trigger delivery request now that escrow is funded
     try {
@@ -1747,7 +1599,7 @@ export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
       const idx = stored.findIndex((o) => o.id === order.id || o.orderNumber === order.order_number);
       if (idx !== -1) {
         stored[idx] = { ...stored[idx], ...mapped };
-        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(stored));
+        localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(stored));
       }
     } catch {}
 
@@ -1920,19 +1772,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
       ...(data ? mapOrderFromDb(data) : {}),
     };
 
-    // CRITICAL: Persist to local storage cache so all client portals immediately reflect 'completed'
     saveLocalOrder(resolved);
-
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`agrolnk_order_status_${orderKey}`, 'completed');
-        localStorage.setItem(`agrolnk_order_escrow_${orderKey}`, 'released');
-        if (currentOrder?.id) {
-          localStorage.setItem(`agrolnk_order_status_${currentOrder.id}`, 'completed');
-          localStorage.setItem(`agrolnk_order_escrow_${currentOrder.id}`, 'released');
-        }
-      }
-    } catch {}
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: resolved }));
@@ -1955,6 +1795,26 @@ export async function adminHoldOrDisputeOrderEscrow({
   adminUser = null
 }) {
   try {
+    const { data: existingOrder, error: lookupErr } = await supabase
+      .from('orders')
+      .select('id, order_number, escrow_status, status')
+      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+      .maybeSingle();
+
+    if (lookupErr) throw lookupErr;
+    if (!existingOrder) {
+      throw new Error(`Order ${orderId} not found.`);
+    }
+
+    const currentEscrow = existingOrder.escrow_status || 'pending';
+    const currentStatus = existingOrder.status || 'pending';
+    if (['released', 'refunded', 'settled'].includes(currentEscrow) || ['completed', 'cancelled', 'refunded'].includes(currentStatus)) {
+      throw new Error(`Cannot place dispute hold on already closed order (${currentEscrow} / ${currentStatus}).`);
+    }
+    if (!['funded', 'escrow_secured', 'held', 'disputed'].includes(currentEscrow) || ['pending', 'awaiting_freight_quote', 'freight_quoted'].includes(currentStatus)) {
+      throw new Error(`Cannot place dispute hold on unpaid order (${currentEscrow} / ${currentStatus}).`);
+    }
+
     const updatePayload = {
       escrow_status: 'disputed',
       admin_verified_by: adminUser?.name || 'AgroLnk Dispute Desk',
@@ -1967,7 +1827,7 @@ export async function adminHoldOrDisputeOrderEscrow({
     const { data, error } = await supabase
       .from('orders')
       .update(updatePayload)
-      .or(`id.eq.${orderId},order_number.eq.${orderId}`)
+      .eq('id', existingOrder.id)
       .select()
       .single();
 

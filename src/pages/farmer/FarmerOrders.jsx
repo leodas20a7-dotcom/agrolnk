@@ -460,6 +460,14 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                 selectedOrder.status === 'pending' ||
                 selectedOrder.status === 'payment_verification_pending';
 
+              if (
+                isAwaitingFreightRfq ||
+                selectedOrder.escrowStatus === 'pending' ||
+                selectedOrder.status === 'pending'
+              ) {
+                return null;
+              }
+
               return (
               <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-3.5 text-left">
                 <div className="flex items-center justify-between">
@@ -468,28 +476,13 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                     Delivery & Fulfillment Setup
                   </span>
                   <Badge variant={isAwaitingEscrow ? "amber" : "teal"} size="sm">
-                    {isAwaitingFreightRfq
-                      ? "Buyer Awaiting Freight Quote"
-                      : isAwaitingEscrow
+                    {isAwaitingEscrow
                       ? "Awaiting Escrow Verification"
                       : "Crop + Freight Escrow Locked"}
                   </Badge>
                 </div>
 
-                {isAwaitingFreightRfq ? (
-                  <div className="p-4 rounded-xl bg-amber-50 border-2 border-amber-300 space-y-2 text-left">
-                    <div className="flex items-center gap-2 font-bold text-amber-950 text-xs">
-                      <Clock className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
-                      <span>Lot Reserved — Buyer Receiving 30-Min Transporter Quotes</span>
-                    </div>
-                    <p className="text-[11px] text-amber-800 leading-relaxed">
-                      Verified AgroLnk transporters are currently quoting freight for this route. Once the buyer pays the <strong>Combined Crop + Freight Escrow</strong> (100% freight paid by buyer), you will be notified immediately and the assigned carrier will arrive for pickup.
-                    </p>
-                    <div className="p-2.5 rounded-lg bg-amber-100/80 border border-amber-300 text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
-                      <span>⚠️ Sequence Protection: Do not harvest or load produce until Combined Escrow is funded and a verified transporter is assigned.</span>
-                    </div>
-                  </div>
-                ) : isAwaitingEscrow ? (
+                {isAwaitingEscrow ? (
                   <div className="p-4 rounded-xl bg-amber-50 border-2 border-amber-300 space-y-2 text-left">
                     <div className="flex items-center gap-2 font-bold text-amber-950 text-xs">
                       <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />

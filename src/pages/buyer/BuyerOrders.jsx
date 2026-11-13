@@ -516,7 +516,12 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                   </div>
                 </div>
               )
-            ) : selectedOrder.status !== 'completed' && (
+            ) : (
+              selectedOrder.status !== 'completed' &&
+              selectedOrder.status !== 'cancelled' &&
+              selectedOrder.status !== 'awaiting_freight_quote' &&
+              selectedOrder.status !== 'freight_quoted' &&
+              selectedOrder.escrowStatus !== 'pending' && (
               <div className="p-3.5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex items-center justify-between text-xs">
                 <div className="space-y-0.5">
                   <span className="font-bold text-[#34D399] uppercase tracking-wider block text-[10px]">
@@ -529,7 +534,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                         : 'Escrow locked. Waiting for Farmer to confirm order.')}
                     {selectedOrder.status === 'confirmed' &&
                       'Order confirmed. Carrier dispatch is being scheduled.'}
-                    {selectedOrder.status === 'ready_for_delivery' || selectedOrder.status === 'in_transit' &&
+                    {(selectedOrder.status === 'ready_for_delivery' || selectedOrder.status === 'in_transit') &&
                       'Consignment is in transit on vehicle to your facility.'}
                   </span>
                 </div>
@@ -540,6 +545,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                     : "100% Escrow Secured"}
                 </Badge>
               </div>
+              )
             )}
 
           </div>
