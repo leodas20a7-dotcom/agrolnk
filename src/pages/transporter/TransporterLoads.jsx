@@ -156,8 +156,8 @@ export default function TransporterLoads({ currentUser, onNavigate, navState, pa
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start sm:self-auto">
-            {fleetVehicles.length === 0 && (
+          <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5">
+            {fleetVehicles.length === 0 ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -167,7 +167,7 @@ export default function TransporterLoads({ currentUser, onNavigate, navState, pa
                 <Truck className="w-3.5 h-3.5 mr-1.5 text-[#10B981]" />
                 Add Truck ({fleetVehicles.length})
               </Button>
-            )}
+            ) : <span className="sm:hidden" />}
             <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
         </div>

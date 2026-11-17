@@ -126,33 +126,33 @@ export default function TransporterFleet({ currentUser, onNavigate }) {
         />
 
         {/* Fleet Summary KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="p-5 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Registered Vehicles</span>
-              <Truck className="w-4 h-4 text-[#10B981]" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <Card className="p-4 sm:p-5 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-[#566861] truncate">Registered Trucks</span>
+              <Truck className="w-4 h-4 text-[#10B981] shrink-0" />
             </div>
-            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               {fleetVehicles.length}
             </div>
           </Card>
 
-          <Card className="p-5 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Combined Capacity</span>
-              <Package className="w-4 h-4 text-[#10B981]" />
+          <Card className="p-4 sm:p-5 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-[#566861] truncate">Total Capacity</span>
+              <Package className="w-4 h-4 text-[#10B981] shrink-0" />
             </div>
-            <div className="text-2xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               {totalCapacityMt > 0 ? `${totalCapacityMt} MT` : '—'}
             </div>
           </Card>
 
-          <Card className="p-5 bg-white border border-[#E5EDE8] space-y-2 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Primary Dispatch Truck</span>
-              <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+          <Card className="col-span-2 sm:col-span-1 p-4 sm:p-5 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-[#566861] truncate">Primary Dispatch Truck</span>
+              <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
             </div>
-            <div className="text-lg font-extrabold font-mono text-[#0B3326] truncate">
+            <div className="text-base sm:text-lg font-extrabold font-mono text-[#0B3326] truncate">
               {primaryVehicle ? primaryVehicle.vehicleNumber : 'None Set'}
             </div>
           </Card>

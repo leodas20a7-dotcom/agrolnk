@@ -115,59 +115,59 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate} currentPage="transporter-dashboard">
-      <div className="space-y-8 text-left">
+      <div className="space-y-5 sm:space-y-8 text-left">
 
         {/* Top Header Banner */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Truck className="w-3.5 h-3.5" /> Agri Freight &amp; Transport Terminal
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+          <div className="space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
+              <Truck className="w-3.5 h-3.5 shrink-0" /> Agri Freight &amp; Transport Terminal
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
             <p className="text-xs sm:text-sm text-[#DCFCE7]/90 leading-relaxed">
               Find verified farmgate freight loads, manage trucks &amp; drivers, and track delivery milestones.
             </p>
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1.5 w-full sm:w-auto">
               <Button
                 variant="accent"
                 size="sm"
                 onClick={() => onNavigate('transporter-loads')}
-                className="font-bold text-xs cursor-pointer"
+                className="font-bold text-xs cursor-pointer justify-center w-full sm:w-auto"
               >
-                <Compass className="w-3.5 h-3.5 mr-1.5" />
-                Open Load Board ({availableJobs.length})
+                <Compass className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                <span className="truncate">Load Board ({availableJobs.length})</span>
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => onNavigate('transporter-trips')}
-                className="font-bold text-xs cursor-pointer bg-white/15 hover:bg-white/25 text-white border border-white/20"
+                className="font-bold text-xs cursor-pointer justify-center w-full sm:w-auto bg-white/15 hover:bg-white/25 text-white border border-white/20"
               >
-                <Navigation className="w-3.5 h-3.5 mr-1.5 text-[#34D399]" />
-                My Trips ({activeTrips.length})
+                <Navigation className="w-3.5 h-3.5 mr-1.5 text-[#34D399] shrink-0" />
+                <span className="truncate">My Trips ({activeTrips.length})</span>
               </Button>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-right shrink-0 flex flex-col justify-between items-end gap-1.5 min-w-[190px]">
-            <div>
+          <div className="w-full sm:w-auto sm:min-w-[210px] p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs flex flex-row sm:flex-col items-center sm:items-end justify-between text-left sm:text-right gap-3 sm:gap-1.5 shrink-0">
+            <div className="min-w-0">
               <span className="text-white/80 block text-[11px]">Active Dispatch Vehicle</span>
-              <span className="font-bold text-[#34D399] block text-sm font-mono tracking-wider">
+              <span className="font-bold text-[#34D399] block text-sm font-mono tracking-wider truncate">
                 {primaryVehicle ? primaryVehicle.vehicleNumber : (user.vehicleNumber || (isVerified ? 'No Truck Registered' : 'KYC Pending'))}
               </span>
-              <span className="text-[11px] text-white/70 block">
-                {primaryVehicle ? `${primaryVehicle.driverName || 'Driver'} • ${primaryVehicle.vehicleType?.split('(')[0] || ''}` : 'Click below to add truck'}
+              <span className="text-[11px] text-white/70 block truncate">
+                {primaryVehicle ? `${primaryVehicle.driverName || 'Driver'} • ${primaryVehicle.vehicleType?.split('(')[0] || ''}` : 'Add a truck for 1-click quoting'}
               </span>
             </div>
 
             <button
               type="button"
               onClick={() => onNavigate('transporter-fleet')}
-              className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold transition-colors cursor-pointer"
+              className="shrink-0 sm:mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-xl sm:rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Settings2 className="w-3 h-3 text-[#34D399]" />
+              <Settings2 className="w-3.5 h-3.5 text-[#34D399]" />
               <span>Manage Fleet ({fleetVehicles.length})</span>
             </button>
           </div>
@@ -188,93 +188,93 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
           onCloseInspectingDoc={() => setInspectingDoc(null)}
         />
 
-        {/* 4 Core Metric Cards (Clickable Shortcuts) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* 4 Core Metric Cards (2x2 Grid on Mobile, Clickable Shortcuts) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           <Card
             hoverEffect
             onClick={() => onNavigate('transporter-loads', { initialTab: 'available' })}
-            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+            className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3 shadow-xs cursor-pointer"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Available Jobs</span>
-              <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
-                <Clock className="w-4 h-4" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-[#566861] truncate">Available Jobs</span>
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               {stats.availableJobs}
             </div>
-            <div className="text-[11px] text-[#566861] flex items-center justify-between">
-              <span>Awaiting transporter bids</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#10B981]" />
+            <div className="text-[10px] sm:text-[11px] text-[#566861] flex items-center justify-between gap-1">
+              <span className="truncate">Open for bids</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
             </div>
           </Card>
 
           <Card
             hoverEffect
             onClick={() => onNavigate('transporter-trips', { initialTab: 'active' })}
-            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+            className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3 shadow-xs cursor-pointer"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Active Trips</span>
-              <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
-                <Navigation className="w-4 h-4" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-[#566861] truncate">Active Trips</span>
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center shrink-0">
+                <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               {stats.activeDeliveries}
             </div>
-            <div className="text-[11px] text-[#566861] flex items-center justify-between">
-              <span>Assigned or in transit</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#10B981]" />
+            <div className="text-[10px] sm:text-[11px] text-[#566861] flex items-center justify-between gap-1">
+              <span className="truncate">In transit</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
             </div>
           </Card>
 
           <Card
             hoverEffect
             onClick={() => onNavigate('transporter-trips', { initialTab: 'completed' })}
-            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+            className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3 shadow-xs cursor-pointer"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Completed Trips</span>
-              <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-[#566861] truncate">Completed</span>
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               {stats.completedTrips}
             </div>
-            <div className="text-[11px] text-[#566861] flex items-center justify-between">
-              <span>Delivered &amp; verified</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#10B981]" />
+            <div className="text-[10px] sm:text-[11px] text-[#566861] flex items-center justify-between gap-1">
+              <span className="truncate">Delivered</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
             </div>
           </Card>
 
           <Card
             hoverEffect
             onClick={() => onNavigate('transporter-trips', { initialTab: 'completed' })}
-            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+            className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-2 sm:space-y-3 shadow-xs cursor-pointer"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Produce Transported</span>
-              <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
-                <Package className="w-4 h-4 text-[#10B981]" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-[#566861] truncate">Tonnage</span>
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center shrink-0">
+                <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+            <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               {stats.totalTonnes || 0} T
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Verified agricultural tonnage
+            <div className="text-[10px] sm:text-[11px] text-[#566861] truncate">
+              Verified weight
             </div>
           </Card>
         </div>
 
         {/* Quick Overview Dispatch Hub */}
-        <div className="space-y-5">
+        <div className="space-y-4 sm:space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-[#0B3326] font-heading">
+              <h2 className="text-lg sm:text-xl font-bold text-[#0B3326] font-heading">
                 {activeTab === 'fleet' ? 'Fleet & Asset Dispatch Center' : 'Logistics Dispatch Hub'}
               </h2>
               <p className="text-xs text-[#566861]">
@@ -292,19 +292,19 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                   setEditingVehicle(null);
                   setIsVehicleModalOpen(true);
                 }}
-                className="cursor-pointer shadow-xs"
+                className="cursor-pointer shadow-xs self-start sm:self-auto"
               >
                 ✛ Add Truck
               </Button>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onNavigate('transporter-loads')}
                   className="text-xs font-bold cursor-pointer"
                 >
-                  View Full Load Board →
+                  Full Load Board →
                 </Button>
                 <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
               </div>

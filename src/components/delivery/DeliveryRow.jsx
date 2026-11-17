@@ -101,7 +101,7 @@ export default function DeliveryRow({
       </div>
 
       {/* Right: Status & Actions */}
-      <div className="flex items-center justify-between xl:justify-end gap-2.5 shrink-0 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between xl:justify-end gap-2.5 shrink-0">
         <div className="shrink-0 flex items-center gap-1.5 flex-wrap">
           <DeliveryStatusBadge status={delivery.status} size="sm" />
           {myQuoteStanding && (isAvailableJob || isPriceOffered) && (
@@ -113,52 +113,54 @@ export default function DeliveryRow({
           )}
         </div>
 
-        {isTransporter && (isAvailableJob || isPriceOffered) && onAccept && (
-          <Button
-            variant={isVerified ? 'accent' : 'outline'}
-            size="sm"
-            onClick={() => onAccept(delivery)}
-            icon={isVerified ? Truck : ShieldCheck}
-            iconPosition="left"
-            className={`text-xs font-bold py-1.5 px-3 shadow-xs cursor-pointer whitespace-nowrap ${
-              !isVerified ? 'border-[#D97706] text-[#D97706] hover:bg-[#FEF3C7]' : ''
-            }`}
-          >
-            {isVerified ? (isPriceOffered ? 'Submit Lower Quote' : 'Quote Freight') : 'Verify to Quote'}
-          </Button>
-        )}
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+          {isTransporter && (isAvailableJob || isPriceOffered) && onAccept && (
+            <Button
+              variant={isVerified ? 'accent' : 'outline'}
+              size="sm"
+              onClick={() => onAccept(delivery)}
+              icon={isVerified ? Truck : ShieldCheck}
+              iconPosition="left"
+              className={`flex-1 sm:flex-initial justify-center text-xs font-bold py-2 px-3 shadow-xs cursor-pointer whitespace-nowrap ${
+                !isVerified ? 'border-[#D97706] text-[#D97706] hover:bg-[#FEF3C7]' : ''
+              }`}
+            >
+              {isVerified ? (isPriceOffered ? 'Submit Lower Quote' : 'Quote Freight') : 'Verify to Quote'}
+            </Button>
+          )}
 
-        {onConfirmReceipt && delivery.status === 'delivered' && (
-          <Button
-            variant="accent"
-            size="sm"
-            onClick={() => onConfirmReceipt(delivery)}
-            icon={Check}
-            iconPosition="left"
-            className="text-xs font-bold py-1.5 px-3 shadow-xs cursor-pointer whitespace-nowrap"
-          >
-            Confirm Receipt
-          </Button>
-        )}
+          {onConfirmReceipt && delivery.status === 'delivered' && (
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => onConfirmReceipt(delivery)}
+              icon={Check}
+              iconPosition="left"
+              className="flex-1 sm:flex-initial justify-center text-xs font-bold py-2 px-3 shadow-xs cursor-pointer whitespace-nowrap"
+            >
+              Confirm Receipt
+            </Button>
+          )}
 
-        <Button
-          variant={isTransporter && !isAvailableJob ? 'primary' : 'secondary'}
-          size="sm"
-          onClick={() => onView(delivery)}
-          icon={ArrowRight}
-          iconPosition="right"
-          className="text-xs font-bold py-2 cursor-pointer whitespace-nowrap"
-        >
-          {isFarmer
-            ? 'View Details'
-            : isBuyer
-            ? 'Track Trip'
-            : isTransporter && (delivery.status === 'assigned' || delivery.status === 'picked_up' || delivery.status === 'in_transit')
-            ? 'Manage Trip'
-            : isAvailableJob
-            ? 'View Route'
-            : 'View Details'}
-        </Button>
+          <Button
+            variant={isTransporter && !isAvailableJob ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => onView(delivery)}
+            icon={ArrowRight}
+            iconPosition="right"
+            className="flex-1 sm:flex-initial justify-center text-xs font-bold py-2 cursor-pointer whitespace-nowrap"
+          >
+            {isFarmer
+              ? 'View Details'
+              : isBuyer
+              ? 'Track Trip'
+              : isTransporter && (delivery.status === 'assigned' || delivery.status === 'picked_up' || delivery.status === 'in_transit')
+              ? 'Manage Trip'
+              : isAvailableJob
+              ? 'View Route'
+              : 'View Details'}
+          </Button>
+        </div>
       </div>
     </div>
   );

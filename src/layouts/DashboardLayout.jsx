@@ -804,9 +804,25 @@ export default function DashboardLayout({
           {/* Mobile Drawer Menu */}
           {mobileMenuOpen && (
             <div className="lg:hidden py-4 border-t border-[#E5EDE8] space-y-3 text-left">
+              {user.role !== 'admin' && (
+                <div className="px-3 pb-2 border-b border-[#E5EDE8]/70 flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#0B3326] truncate pr-2">{user.name || 'Account'}</span>
+                  {isUserKycVerified(user) || user.kycStatus === 'verified' || user.verificationStatus === 'verified' ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                      ✓ Verified
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">
+                      Pending KYC
+                    </span>
+                  )}
+                </div>
+              )}
+
               {navGroups.map((group, idx) => {
                 if (group.type === 'single') {
                   const Icon = group.icon;
+                  const isActiveMobile = currentPage === group.page;
                   return (
                     <button
                       key={group.page || idx}
@@ -814,9 +830,13 @@ export default function DashboardLayout({
                         setMobileMenuOpen(false);
                         onNavigate(group.page);
                       }}
-                      className="w-full px-3 py-2 rounded-xl text-xs font-bold text-[#14211D] hover:bg-[#F2FBF6] flex items-center gap-2"
+                      className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition-colors cursor-pointer ${
+                        isActiveMobile
+                          ? 'bg-[#0B3326] text-white shadow-xs'
+                          : 'text-[#14211D] hover:bg-[#F2FBF6]'
+                      }`}
                     >
-                      <Icon className="w-4 h-4 text-[#10B981]" />
+                      <Icon className={`w-4 h-4 ${isActiveMobile ? 'text-[#34D399]' : 'text-[#10B981]'}`} />
                       <span>{group.label}</span>
                     </button>
                   );
@@ -866,7 +886,7 @@ export default function DashboardLayout({
       </header>
 
       {/* Main Page Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-20 sm:pb-10">
         {children}
       </main>
 
@@ -885,10 +905,10 @@ export default function DashboardLayout({
       </footer>
 
       {/* Floating Privacy Chatbot Trigger */}
-      <div className="fixed bottom-6 right-6 z-30">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-30">
         <button
           onClick={() => setIsChatOpen(true)}
-          className="flex items-center gap-2 bg-[#0B3326] hover:bg-[#07241A] text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group"
+          className="flex items-center gap-2 bg-[#0B3326] hover:bg-[#07241A] text-white p-3.5 md:px-4 md:py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group"
           title="Open Privacy Chatbot"
         >
           <div className="relative">
