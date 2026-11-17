@@ -450,7 +450,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
             })
           )}
 
-          {totalPages > 1 && (
+          {filteredLoans.length > 0 && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}

@@ -3,11 +3,12 @@ import { Truck, MapPin, ArrowRight, ShieldCheck, Check, Clock } from 'lucide-rea
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import DeliveryStatusBadge from './DeliveryStatusBadge';
-import { getPrivacySafeLocationLabel } from '../../utils/deliveries';
+import { getPrivacySafeLocationLabel, getTransporterQuoteStanding } from '../../utils/deliveries';
 
 export default function DeliveryRow({
   delivery,
   viewerRole = 'farmer',
+  currentUserId = '',
   isVerified = true,
   onView,
   onAccept,
@@ -20,6 +21,9 @@ export default function DeliveryRow({
   const isTransporter = viewerRole === 'transporter';
   const isFarmer = viewerRole === 'farmer' || viewerRole === 'fpo';
   const isBuyer = viewerRole === 'buyer';
+  const myQuoteStanding = isTransporter && currentUserId
+    ? getTransporterQuoteStanding(delivery, currentUserId)
+    : null;
 
   const pickupStr = typeof delivery.pickupLocation === 'object'
     ? getPrivacySafeLocationLabel(
@@ -98,8 +102,15 @@ export default function DeliveryRow({
 
       {/* Right: Status & Actions */}
       <div className="flex items-center justify-between xl:justify-end gap-2.5 shrink-0 flex-wrap">
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-1.5 flex-wrap">
           <DeliveryStatusBadge status={delivery.status} size="sm" />
+          {myQuoteStanding && (isAvailableJob || isPriceOffered) && (
+            <Badge variant={myQuoteStanding.isLowest ? 'emerald' : 'amber'} size="sm">
+              {myQuoteStanding.isLowest
+                ? `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Lowest`
+                : `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Outbid`}
+            </Badge>
+          )}
         </div>
 
         {isTransporter && (isAvailableJob || isPriceOffered) && onAccept && (

@@ -4,6 +4,7 @@ import MarketplaceCard from '../../components/buyer/MarketplaceCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import Pagination from '../../components/ui/Pagination';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import {
@@ -45,6 +46,8 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
   const [deliveries, setDeliveries] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('All');
+  const [listingsPage, setListingsPage] = useState(1);
+  const listingsPerPage = 3;
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [inspectingDoc, setInspectingDoc] = useState(null);
   const sliderRef = useRef(null);
@@ -152,6 +155,12 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
   }, [user.id]);
 
   const safeListings = Array.isArray(listings) ? listings : [];
+  const totalListingsPages = Math.ceil(safeListings.length / listingsPerPage) || 1;
+  const safeListingsPage = Math.min(listingsPage, totalListingsPages);
+  const paginatedListings = safeListings.slice(
+    (safeListingsPage - 1) * listingsPerPage,
+    safeListingsPage * listingsPerPage
+  );
   const totalKg = safeListings.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
 
   const commodities = [
@@ -570,14 +579,23 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
           </div>
 
           {safeListings.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {safeListings.slice(0, 3).map((item) => (
-                <MarketplaceCard
-                  key={item.id}
-                  listing={item}
-                  onSelect={(lot) => onNavigate('buyer-listing-detail', { listing: lot })}
-                />
-              ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {paginatedListings.map((item) => (
+                  <MarketplaceCard
+                    key={item.id}
+                    listing={item}
+                    onSelect={(lot) => onNavigate('buyer-listing-detail', { listing: lot })}
+                  />
+                ))}
+              </div>
+              <Pagination
+                currentPage={safeListingsPage}
+                totalPages={totalListingsPages}
+                totalItems={safeListings.length}
+                itemsPerPage={listingsPerPage}
+                onPageChange={setListingsPage}
+              />
             </div>
           ) : (
             <Card className="p-8 text-center border border-[#E5EDE8] rounded-2xl bg-[#F8FAF8]">

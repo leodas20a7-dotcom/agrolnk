@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
+import Pagination from '../../components/ui/Pagination';
 import PostDemandModal from '../../components/demands/PostDemandModal';
 import {
   Plus,
@@ -43,6 +44,8 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
   const [modeFilter, setModeFilter] = useState('all'); // 'all' | 'direct_offers' | 'reverse_auction'
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   // Modals state
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
@@ -146,6 +149,13 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
   const directOffersCount = demands.filter((d) => d.procurement_mode === 'direct_offers' && d.status === 'open').length;
   const awardedCount = demands.filter((d) => d.status === 'awarded').length;
 
+  const totalPages = Math.ceil(filteredDemands.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedDemands = filteredDemands.slice(
+    (safeCurrentPage - 1) * pageSize,
+    safeCurrentPage * pageSize
+  );
+
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate} currentPage="buyer-demands">
       <div className="max-w-7xl mx-auto space-y-6 pb-12">
@@ -226,7 +236,7 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
           {/* Mode Selector Tabs */}
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg overflow-x-auto">
             <button
-              onClick={() => setModeFilter('all')}
+              onClick={() => { setModeFilter('all'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all whitespace-nowrap ${
                 modeFilter === 'all'
                   ? 'bg-white text-slate-900 shadow-sm'
@@ -236,7 +246,7 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
               All Modes ({demands.length})
             </button>
             <button
-              onClick={() => setModeFilter('direct_offers')}
+              onClick={() => { setModeFilter('direct_offers'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 modeFilter === 'direct_offers'
                   ? 'bg-emerald-600 text-white shadow-sm'
@@ -247,7 +257,7 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
               Direct Offers
             </button>
             <button
-              onClick={() => setModeFilter('reverse_auction')}
+              onClick={() => { setModeFilter('reverse_auction'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 modeFilter === 'reverse_auction'
                   ? 'bg-amber-600 text-white shadow-sm'
@@ -267,14 +277,14 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
                 type="text"
                 placeholder="Search commodity or city..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
 
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-700 font-medium"
             >
               <option value="all">All Status</option>
@@ -316,7 +326,7 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredDemands.map((demand) => {
+            {paginatedDemands.map((demand) => {
               const isReverse = demand.procurement_mode === 'reverse_auction';
               const isOpen = demand.status === 'open';
               const hasOffers = (demand.total_offers || 0) > 0;
@@ -469,6 +479,15 @@ export default function BuyerDemands({ currentUser, onNavigate }) {
                 </div>
               );
             })}
+
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              totalItems={filteredDemands.length}
+              itemsPerPage={pageSize}
+              onPageChange={setCurrentPage}
+              className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs"
+            />
           </div>
         )}
 

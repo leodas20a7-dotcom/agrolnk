@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import Pagination from '../../components/ui/Pagination';
 import InstitutionalUnderwriteModal from '../../components/financing/InstitutionalUnderwriteModal';
 import AddLiquidityModal from '../../components/financing/AddLiquidityModal';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
@@ -60,6 +61,9 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const [isAddLiquidityOpen, setIsAddLiquidityOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [inspectingDoc, setInspectingDoc] = useState(null);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [activeLoansPage, setActiveLoansPage] = useState(1);
+  const [repaidPage, setRepaidPage] = useState(1);
 
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
 
@@ -189,6 +193,21 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const repaidLoans = safeRequests.filter(
     (r) => (r.status === 'repaid' || r.status === 'settled') && isFinancierMatch(r, user)
   );
+
+  const pendingPerPage = 3;
+  const activePerPage = 4;
+  const repaidPerPage = 4;
+  const totalPendingPages = Math.ceil(pendingRequests.length / pendingPerPage) || 1;
+  const safePendingPage = Math.min(pendingPage, totalPendingPages);
+  const paginatedPending = pendingRequests.slice((safePendingPage - 1) * pendingPerPage, safePendingPage * pendingPerPage);
+
+  const totalActiveLoansPages = Math.ceil(activeLoans.length / activePerPage) || 1;
+  const safeActiveLoansPage = Math.min(activeLoansPage, totalActiveLoansPages);
+  const paginatedActiveLoans = activeLoans.slice((safeActiveLoansPage - 1) * activePerPage, safeActiveLoansPage * activePerPage);
+
+  const totalRepaidPages = Math.ceil(repaidLoans.length / repaidPerPage) || 1;
+  const safeRepaidPage = Math.min(repaidPage, totalRepaidPages);
+  const paginatedRepaidLoans = repaidLoans.slice((safeRepaidPage - 1) * repaidPerPage, safeRepaidPage * repaidPerPage);
 
   const totalPool = Number(pool?.totalCommitted) || 0;
   const totalDeployed = activeLoans.reduce(
@@ -547,7 +566,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
               </Card>
             ) : (
               <div className="space-y-3.5">
-                {pendingRequests.slice(0, 3).map((req) => (
+                {paginatedPending.map((req) => (
                   <Card
                     key={req.id}
                     hoverEffect
@@ -610,6 +629,13 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                     </div>
                   </Card>
                 ))}
+                <Pagination
+                  currentPage={safePendingPage}
+                  totalPages={totalPendingPages}
+                  totalItems={pendingRequests.length}
+                  itemsPerPage={pendingPerPage}
+                  onPageChange={setPendingPage}
+                />
               </div>
             )}
           </div>
@@ -646,7 +672,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {activeLoans.slice(0, 4).map((loan) => {
+                  {paginatedActiveLoans.map((loan) => {
                     const principal = Number(loan.approvedAmount || loan.requestedAmount || 0);
                     const estInterest = Math.round(principal * 0.012);
                     const totalDue = principal + estInterest;
@@ -676,6 +702,13 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                       </div>
                     );
                   })}
+                  <Pagination
+                    currentPage={safeActiveLoansPage}
+                    totalPages={totalActiveLoansPages}
+                    totalItems={activeLoans.length}
+                    itemsPerPage={activePerPage}
+                    onPageChange={setActiveLoansPage}
+                  />
                 </div>
               )}
             </Card>
@@ -717,7 +750,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
             </Card>
           ) : (
             <div className="space-y-3">
-              {repaidLoans.slice(0, 4).map((loan) => {
+              {paginatedRepaidLoans.map((loan) => {
                 const principal = Number(loan.repaymentPrincipal || loan.approvedAmount || loan.requestedAmount || 0);
                 const interest = Number(loan.repaymentInterest || (Number(loan.repaymentAmount || 0) - principal) || 0);
                 const totalPaid = Number(loan.repaymentAmount || (principal + interest) || 0);
@@ -785,6 +818,13 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                   </Card>
                 );
               })}
+              <Pagination
+                currentPage={safeRepaidPage}
+                totalPages={totalRepaidPages}
+                totalItems={repaidLoans.length}
+                itemsPerPage={repaidPerPage}
+                onPageChange={setRepaidPage}
+              />
             </div>
           )}
         </div>

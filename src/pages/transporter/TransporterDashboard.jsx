@@ -1,50 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
 import DeliveryCard from '../../components/delivery/DeliveryCard';
 import DeliveryRow from '../../components/delivery/DeliveryRow';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import TransportQuoteModal from '../../components/delivery/TransportQuoteModal';
-import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
-import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import AddEditVehicleModal from '../../components/transporter/AddEditVehicleModal';
 import FleetVehicleCard from '../../components/transporter/FleetVehicleCard';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
+import TransporterKycBanner from '../../components/transporter/TransporterKycBanner';
+import { useTransporterDesk } from '../../hooks/useTransporterDesk';
 import {
   Truck,
-  Package,
   CheckCircle2,
   Navigation,
   Clock,
-  MapPin,
-  TrendingUp,
-  ShieldCheck,
-  Calendar,
-  AlertCircle,
-  FileCheck,
   ArrowRight,
   PlusCircle,
-  Settings2
+  Settings2,
+  Package,
+  Compass
 } from 'lucide-react';
 import {
-  getDeliveries,
-  getAvailableTransportJobs,
-  getTransporterDeliveries,
-  getTransporterStats,
-  acceptDeliveryJob
-} from '../../utils/deliveries';
-import {
-  getTransporterFleet,
   deleteFleetVehicle,
   setPrimaryVehicle
 } from '../../utils/fleet';
 import { getTimeGreeting } from '../../utils/greeting';
-import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
-import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
-import { subscribeToCrossTabSync } from '../../utils/syncChannel';
 
 export default function TransporterDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -54,168 +37,33 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
     role: 'transporter',
   };
 
-  const [deliveries, setDeliveries] = useState([]);
-  const [fleetVehicles, setFleetVehicles] = useState([]);
-  const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'fleet' | 'all'
+  const {
+    fleetVehicles,
+    setFleetVehicles,
+    primaryVehicle,
+    stats,
+    currentKycStatus,
+    setCurrentKycStatus,
+    isVerified,
+    inspectingDoc,
+    setInspectingDoc,
+    isVerificationModalOpen,
+    setIsVerificationModalOpen,
+    handleOpenKycAction,
+    availableJobs,
+    activeTrips,
+    completedTrips,
+    loadData,
+  } = useTransporterDesk(user);
+
+  const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'completed' | 'fleet'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
   const [viewMode, setViewMode] = useState('row');
-  const [stats, setStats] = useState({
-    totalEarnings: 0,
-    activeDeliveries: 0,
-    completedTrips: 0,
-    totalTonnes: 0,
-  });
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [quotingDelivery, setQuotingDelivery] = useState(null);
-  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
-  const [inspectingDoc, setInspectingDoc] = useState(null);
-
-  // Dynamic KYC Status state
-  const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
-
-  const isVerified = currentKycStatus === 'verified';
-
-  const handleOpenKycAction = () => {
-    if (currentKycStatus === 'pending') {
-      try {
-        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-        const registry = storedRaw ? JSON.parse(storedRaw) : [];
-        const found = registry.find((u) => u.id === user.id || u.email === user.email);
-        if (found?.documents && found.documents.length > 0) {
-          setInspectingDoc(found.documents[0]);
-          return;
-        }
-      } catch { }
-      if (user.documents && user.documents.length > 0) {
-        setInspectingDoc(user.documents[0]);
-        return;
-      }
-    }
-    setIsVerificationModalOpen(true);
-  };
-
-  useEffect(() => {
-    const syncKyc = async () => {
-      const status = getResolvedUserKycStatus(user);
-      setCurrentKycStatus(status);
-      try {
-        const profile = await fetchCurrentProfile();
-        if (profile?.kycStatus) {
-          setCurrentKycStatus(profile.kycStatus);
-        }
-      } catch { }
-    };
-
-    const handleVisibilityOrFocus = () => {
-      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        syncKyc();
-      }
-    };
-
-    syncKyc();
-
-    const handleFleetUpdate = (e) => {
-      if (e?.detail?.fleet) {
-        setFleetVehicles(e.detail.fleet);
-      } else {
-        getTransporterFleet(user.id, user.email).then(setFleetVehicles);
-      }
-    };
-
-    window.addEventListener('agrolnk_kyc_updated', syncKyc);
-    window.addEventListener('storage', syncKyc);
-    window.addEventListener('focus', syncKyc);
-    window.addEventListener('agrolnk_user_profile_updated', syncKyc);
-    window.addEventListener('agrolnk_fleet_updated', handleFleetUpdate);
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', handleVisibilityOrFocus);
-    }
-    return () => {
-      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
-      window.removeEventListener('storage', syncKyc);
-      window.removeEventListener('focus', syncKyc);
-      window.removeEventListener('agrolnk_user_profile_updated', syncKyc);
-      window.removeEventListener('agrolnk_fleet_updated', handleFleetUpdate);
-      if (typeof document !== 'undefined') {
-        document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
-      }
-    };
-  }, [user.id, user.email]);
-
-  const loadData = async (showFlash = false) => {
-    if (showFlash) {
-      showGlobalLoader('Loading Freight Corridors & Fleet Telemetry...', 'Fetching available dispatch loads & fleet assets...');
-    }
-    try {
-      const [all, computedStats, fleet] = await Promise.all([
-        getDeliveries(),
-        getTransporterStats(user.id),
-        getTransporterFleet(user.id, user.email),
-      ]);
-      setDeliveries(all || []);
-      setStats(computedStats);
-      setFleetVehicles(fleet || []);
-    } catch (err) {
-      console.error('Error loading transporter data:', err);
-    } finally {
-      if (showFlash) {
-        hideGlobalLoader();
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadData(true);
-
-    const handleDeliverySync = (payload) => {
-      const item = payload?.data || payload?.detail;
-      if (item && item.id) {
-        setDeliveries((prev) =>
-          prev.map((d) => (d.id === item.id || d.deliveryNumber === item.deliveryNumber ? { ...d, ...item } : d))
-        );
-      }
-      loadData(false);
-    };
-
-    const unsubscribeCrossTab = subscribeToCrossTabSync((msg) => {
-      if (msg.domain === 'deliveries' || msg.domain === 'orders') {
-        handleDeliverySync(msg);
-      }
-    });
-
-    window.addEventListener('agrolnk_deliveries_updated', handleDeliverySync);
-    window.addEventListener('agrolnk_delivery_updated', handleDeliverySync);
-    window.addEventListener('agrolnk_orders_updated', handleDeliverySync);
-    window.addEventListener('storage', handleDeliverySync);
-
-    return () => {
-      hideGlobalLoader();
-      unsubscribeCrossTab();
-      window.removeEventListener('agrolnk_deliveries_updated', handleDeliverySync);
-      window.removeEventListener('agrolnk_delivery_updated', handleDeliverySync);
-      window.removeEventListener('agrolnk_orders_updated', handleDeliverySync);
-      window.removeEventListener('storage', handleDeliverySync);
-    };
-  }, [user.id]);
-
-  const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
-
-  const availableJobs = safeDeliveries.filter(
-    (d) =>
-      (d.status === 'transport_requested' || d.status === 'price_offered') &&
-      d.freightEscrowStatus !== 'locked' &&
-      d.freightEscrowStatus !== 'released'
-  );
-  // Strictly match this transporter's ID so unassigned demo orders are not falsely attributed
-  const myDeliveries = safeDeliveries.filter((d) => d.transporterId === user.id);
-  const activeTrips = myDeliveries.filter((d) => d.status === 'assigned' || d.status === 'picked_up' || d.status === 'in_transit');
-  const completedTrips = myDeliveries.filter((d) => d.status === 'delivered' || d.status === 'completed');
-
-  const primaryVehicle =
-    fleetVehicles.find((v) => v.isPrimary) || fleetVehicles[0] || null;
 
   const tabs = [
     { id: 'available', label: 'Available Freight Jobs', count: availableJobs.length },
@@ -225,14 +73,12 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   ];
 
   const getFilteredList = () => {
-    if (activeTab === 'available') return availableJobs;
     if (activeTab === 'active') return activeTrips;
     if (activeTab === 'completed') return completedTrips;
     return availableJobs;
   };
 
   const filteredDeliveries = getFilteredList();
-
   const totalPages = Math.ceil(filteredDeliveries.length / pageSize) || 1;
   const paginatedDeliveries = filteredDeliveries.slice(
     (currentPage - 1) * pageSize,
@@ -245,16 +91,6 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
       return;
     }
     setQuotingDelivery(delivery);
-  };
-
-  const handleAddNewVehicle = () => {
-    setEditingVehicle(null);
-    setIsVehicleModalOpen(true);
-  };
-
-  const handleEditVehicle = (veh) => {
-    setEditingVehicle(veh);
-    setIsVehicleModalOpen(true);
   };
 
   const handleDeleteVehicle = async (vehicleId) => {
@@ -278,21 +114,41 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   };
 
   return (
-    <DashboardLayout currentUser={user} onNavigate={onNavigate}>
+    <DashboardLayout currentUser={user} onNavigate={onNavigate} currentPage="transporter-dashboard">
       <div className="space-y-8 text-left">
 
         {/* Top Header Banner */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
           <div className="space-y-1.5 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Truck className="w-3.5 h-3.5" /> Agri Freight & Transport Terminal
+              <Truck className="w-3.5 h-3.5" /> Agri Freight &amp; Transport Terminal
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
             <p className="text-xs sm:text-sm text-[#DCFCE7]/90 leading-relaxed">
-              Find verified farmgate freight loads, accept delivery routes, and receive guaranteed escrow freight settlements.
+              Find verified farmgate freight loads, manage trucks &amp; drivers, and track delivery milestones.
             </p>
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => onNavigate('transporter-loads')}
+                className="font-bold text-xs cursor-pointer"
+              >
+                <Compass className="w-3.5 h-3.5 mr-1.5" />
+                Open Load Board ({availableJobs.length})
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onNavigate('transporter-trips')}
+                className="font-bold text-xs cursor-pointer bg-white/15 hover:bg-white/25 text-white border border-white/20"
+              >
+                <Navigation className="w-3.5 h-3.5 mr-1.5 text-[#34D399]" />
+                My Trips ({activeTrips.length})
+              </Button>
+            </div>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-right shrink-0 flex flex-col justify-between items-end gap-1.5 min-w-[190px]">
@@ -302,86 +158,43 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                 {primaryVehicle ? primaryVehicle.vehicleNumber : (user.vehicleNumber || (isVerified ? 'No Truck Registered' : 'KYC Pending'))}
               </span>
               <span className="text-[11px] text-white/70 block">
-                {primaryVehicle ? primaryVehicle.vehicleType : (user.vehicleType || 'Click Manage to Add Truck')}
+                {primaryVehicle ? `${primaryVehicle.driverName || 'Driver'} • ${primaryVehicle.vehicleType?.split('(')[0] || ''}` : 'Click below to add truck'}
               </span>
             </div>
+
             <button
               type="button"
-              onClick={() => {
-                setActiveTab('fleet');
-                window.scrollTo({ top: 380, behavior: 'smooth' });
-              }}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#34D399] hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+              onClick={() => onNavigate('transporter-fleet')}
+              className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold transition-colors cursor-pointer"
             >
-              <Settings2 className="w-3 h-3" /> Manage Fleet ({fleetVehicles.length})
+              <Settings2 className="w-3 h-3 text-[#34D399]" />
+              <span>Manage Fleet ({fleetVehicles.length})</span>
             </button>
           </div>
         </div>
 
-        {/* Transporter KYC / Driving License Verification Alert Banner */}
-        {!isVerified && (
-          <div className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-            currentKycStatus === 'pending'
-              ? 'bg-amber-50/80 border-amber-200/80 text-amber-950'
-              : currentKycStatus === 'rejected'
-              ? 'bg-red-50/80 border-red-200/80 text-red-950'
-              : 'bg-purple-50/70 border-purple-200 text-purple-950'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                currentKycStatus === 'pending'
-                  ? 'bg-amber-100 text-amber-800'
-                  : currentKycStatus === 'rejected'
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-purple-100 text-[#0B3326]'
-              }`}>
-                {currentKycStatus === 'pending' ? (
-                  <Clock className="w-4 h-4" />
-                ) : currentKycStatus === 'rejected' ? (
-                  <AlertCircle className="w-4 h-4" />
-                ) : (
-                  <ShieldCheck className="w-4 h-4 text-purple-600" />
-                )}
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs sm:text-sm font-bold">
-                    {currentKycStatus === 'pending'
-                      ? 'KYC Verification Under Review'
-                      : currentKycStatus === 'rejected'
-                      ? 'KYC Documents Rejected'
-                      : 'KYC Verification Required'}
-                  </span>
-                  <Badge variant={currentKycStatus === 'pending' ? 'amber' : currentKycStatus === 'rejected' ? 'red' : 'purple'} size="sm">
-                    {currentKycStatus === 'pending' ? 'Reviewing' : currentKycStatus === 'rejected' ? 'Rejected' : 'Action Required'}
-                  </Badge>
-                </div>
-                <p className="text-xs text-[#566861]">
-                  {currentKycStatus === 'pending'
-                    ? 'Documents are under review. Freight quoting and dispatch loads will activate once approved.'
-                    : currentKycStatus === 'rejected'
-                    ? 'Please review and re-submit your driving credentials.'
-                    : 'Complete driver & vehicle verification to unlock corridor loads and payouts.'}
-                </p>
-              </div>
-            </div>
+        {/* Shared KYC Banner */}
+        <TransporterKycBanner
+          user={user}
+          currentKycStatus={currentKycStatus}
+          onOpenKycAction={handleOpenKycAction}
+          isVerificationModalOpen={isVerificationModalOpen}
+          onCloseVerificationModal={() => setIsVerificationModalOpen(false)}
+          onVerificationSuccess={() => {
+            setIsVerificationModalOpen(false);
+            setCurrentKycStatus('pending');
+          }}
+          inspectingDoc={inspectingDoc}
+          onCloseInspectingDoc={() => setInspectingDoc(null)}
+        />
 
-            <Button
-              variant={currentKycStatus === 'pending' ? 'secondary' : 'primary'}
-              size="sm"
-              onClick={handleOpenKycAction}
-              className="shrink-0 cursor-pointer shadow-xs whitespace-nowrap text-xs font-semibold py-1.5 px-3"
-            >
-              {currentKycStatus === 'pending' ? 'View' : currentKycStatus === 'rejected' ? 'Re-submit Proof' : 'Verify Now'}
-            </Button>
-          </div>
-        )}
-
-        {/* 4 Core Metric Cards */}
+        {/* 4 Core Metric Cards (Clickable Shortcuts) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-
-          {/* Available Jobs */}
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
+          <Card
+            hoverEffect
+            onClick={() => onNavigate('transporter-loads', { initialTab: 'available' })}
+            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#566861]">Available Jobs</span>
               <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
@@ -391,13 +204,17 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
               {stats.availableJobs}
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Awaiting transporter assignment
+            <div className="text-[11px] text-[#566861] flex items-center justify-between">
+              <span>Awaiting transporter bids</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#10B981]" />
             </div>
           </Card>
 
-          {/* Active Deliveries */}
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
+          <Card
+            hoverEffect
+            onClick={() => onNavigate('transporter-trips', { initialTab: 'active' })}
+            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#566861]">Active Trips</span>
               <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] text-[#1E40AF] flex items-center justify-center">
@@ -407,13 +224,17 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
               {stats.activeDeliveries}
             </div>
-            <div className="text-[11px] text-[#566861]">
-              Currently assigned or in transit
+            <div className="text-[11px] text-[#566861] flex items-center justify-between">
+              <span>Assigned or in transit</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#10B981]" />
             </div>
           </Card>
 
-          {/* Completed Trips */}
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
+          <Card
+            hoverEffect
+            onClick={() => onNavigate('transporter-trips', { initialTab: 'completed' })}
+            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#566861]">Completed Trips</span>
               <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
@@ -423,13 +244,17 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
               {stats.completedTrips}
             </div>
-            <div className="text-[11px] text-[#10B981] font-semibold">
-              100% Escrow Freight Paid
+            <div className="text-[11px] text-[#566861] flex items-center justify-between">
+              <span>Delivered &amp; verified</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#10B981]" />
             </div>
           </Card>
 
-          {/* Total Tonnes Moved */}
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
+          <Card
+            hoverEffect
+            onClick={() => onNavigate('transporter-trips', { initialTab: 'completed' })}
+            className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#566861]">Produce Transported</span>
               <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
@@ -437,16 +262,15 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {stats.totalTonnes} T
+              {stats.totalTonnes || 0} T
             </div>
             <div className="text-[11px] text-[#566861]">
               Verified agricultural tonnage
             </div>
           </Card>
-
         </div>
 
-        {/* Deliveries & Fleet Management Hub */}
+        {/* Quick Overview Dispatch Hub */}
         <div className="space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -456,7 +280,7 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
               <p className="text-xs text-[#566861]">
                 {activeTab === 'fleet'
                   ? 'Manage registered commercial trucks, capacities, and assigned drivers'
-                  : 'Accept new delivery jobs and manage live trip milestones'}
+                  : 'Quick preview of open freight loads & active dispatches'}
               </p>
             </div>
 
@@ -464,13 +288,26 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={handleAddNewVehicle}
+                onClick={() => {
+                  setEditingVehicle(null);
+                  setIsVehicleModalOpen(true);
+                }}
                 className="cursor-pointer shadow-xs"
               >
                 ✛ Add Truck
               </Button>
             ) : (
-              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onNavigate('transporter-loads')}
+                  className="text-xs font-bold cursor-pointer"
+                >
+                  View Full Load Board →
+                </Button>
+                <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              </div>
             )}
           </div>
 
@@ -501,16 +338,17 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             })}
           </div>
 
-          {/* Active Tab Content */}
           {activeTab === 'fleet' ? (
-            /* FLEET MANAGEMENT TAB CONTENT */
             fleetVehicles.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {fleetVehicles.map((veh) => (
                   <FleetVehicleCard
                     key={veh.id}
                     vehicle={veh}
-                    onEdit={handleEditVehicle}
+                    onEdit={(v) => {
+                      setEditingVehicle(v);
+                      setIsVehicleModalOpen(true);
+                    }}
                     onDelete={handleDeleteVehicle}
                     onSetPrimary={handleSetPrimary}
                   />
@@ -533,7 +371,10 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                   <Button
                     variant="primary"
                     size="md"
-                    onClick={handleAddNewVehicle}
+                    onClick={() => {
+                      setEditingVehicle(null);
+                      setIsVehicleModalOpen(true);
+                    }}
                     className="cursor-pointer"
                   >
                     ✛ Add Truck
@@ -541,121 +382,95 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
                 </div>
               </Card>
             )
+          ) : filteredDeliveries.length > 0 ? (
+            <div className="space-y-6">
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryCard
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="transporter"
+                      currentUserId={user.id}
+                      isVerified={isVerified}
+                      onView={(d) => setSelectedDelivery(d)}
+                      onAccept={(d) => handleStartQuote(d)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {paginatedDeliveries.map((item) => (
+                    <DeliveryRow
+                      key={item.id}
+                      delivery={item}
+                      viewerRole="transporter"
+                      currentUserId={user.id}
+                      isVerified={isVerified}
+                      onView={(d) => setSelectedDelivery(d)}
+                      onAccept={(d) => handleStartQuote(d)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredDeliveries.length}
+                pageSize={pageSize}
+              />
+            </div>
           ) : (
-            /* DELIVERIES TABS CONTENT */
-            filteredDeliveries.length > 0 ? (
-              <div className="space-y-6">
-                {!isVerified && activeTab === 'available' && (
-                  <div className="p-4 rounded-2xl bg-[#FEF3C7]/60 border border-[#FDE68A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[#92400E]">
-                    <div className="flex items-center gap-2.5">
-                      <AlertCircle className="w-5 h-5 text-[#D97706] shrink-0" />
-                      <span>
-                        <strong>Transporter Verification In Progress:</strong> Your commercial driver license and vehicle documents are under review. You can preview available route requests below; quoting and accepting trips will unlock once verified.
-                      </span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="accent"
-                      onClick={handleOpenKycAction}
-                      className="shrink-0 text-xs font-bold py-1.5 px-3 bg-[#D97706] hover:bg-[#B45309] text-white"
-                    >
-                      View Verification
-                    </Button>
-                  </div>
-                )}
-
-                {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {paginatedDeliveries.map((item) => (
-                      <DeliveryCard
-                        key={item.id}
-                        delivery={item}
-                        viewerRole="transporter"
-                        isVerified={isVerified}
-                        onView={(d) => setSelectedDelivery(d)}
-                        onAccept={(d) => handleStartQuote(d)}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {paginatedDeliveries.map((item) => (
-                      <DeliveryRow
-                        key={item.id}
-                        delivery={item}
-                        viewerRole="transporter"
-                        isVerified={isVerified}
-                        onView={(d) => setSelectedDelivery(d)}
-                        onAccept={(d) => handleStartQuote(d)}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Pagination Controls */}
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                  totalItems={filteredDeliveries.length}
-                  pageSize={pageSize}
-                />
+            <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
+                <Truck className="w-6 h-6" />
               </div>
-            ) : (
-              <Card className="p-12 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center mx-auto shadow-2xs">
-                  <Truck className="w-6 h-6" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                    {activeTab === 'available'
-                      ? 'No available freight jobs right now'
-                      : `No ${activeTab} delivery trips found`}
-                  </h3>
-                  <p className="text-xs text-[#566861] max-w-sm mx-auto">
-                    {activeTab === 'available'
-                      ? 'When farmers dispatch agricultural lots to buyers, freight manifests will appear here for quoting and instant dispatch.'
-                      : activeTab === 'active'
-                      ? 'You have no active trips currently en route. Check open jobs to quote on cargo bookings.'
-                      : 'Completed haulage trips and delivery receipts will be logged here.'}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-                  {activeTab !== 'available' ? (
-                    <Button
-                      variant="accent"
-                      size="sm"
-                      onClick={() => {
-                        setActiveTab('available');
-                        setCurrentPage(1);
-                      }}
-                      className="font-bold gap-2 shadow-xs"
-                    >
-                      <Truck className="w-4 h-4" />
-                      Check Available Freight Jobs
-                    </Button>
-                  ) : null}
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-[#0B3326] font-heading">
+                  {activeTab === 'available'
+                    ? 'No available freight jobs right now'
+                    : `No ${activeTab} delivery trips found`}
+                </h3>
+                <p className="text-xs text-[#566861] max-w-sm mx-auto">
+                  {activeTab === 'available'
+                    ? 'When farmers dispatch agricultural lots to buyers, freight manifests will appear here for quoting and instant dispatch.'
+                    : activeTab === 'active'
+                    ? 'You have no active trips currently en route. Check open jobs to quote on cargo bookings.'
+                    : 'Completed haulage trips and delivery receipts will be logged here.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                {activeTab !== 'available' ? (
                   <Button
-                    variant={activeTab === 'available' ? 'accent' : 'secondary'}
+                    variant="primary"
                     size="sm"
                     onClick={() => {
-                      setActiveTab('fleet');
+                      setActiveTab('available');
                       setCurrentPage(1);
                     }}
-                    className={`gap-2 ${activeTab === 'available' ? 'font-bold shadow-xs' : ''}`}
+                    className="font-bold gap-2 shadow-xs"
                   >
-                    <PlusCircle className="w-4 h-4" />
-                    Manage Truck Fleet
+                    <Truck className="w-4 h-4" />
+                    Check Available Freight Jobs
                   </Button>
-                </div>
-              </Card>
-            )
+                ) : null}
+                <Button
+                  variant={activeTab === 'available' ? 'accent' : 'secondary'}
+                  size="sm"
+                  onClick={() => onNavigate('transporter-fleet')}
+                  className={`gap-2 ${activeTab === 'available' ? 'font-bold shadow-xs' : ''}`}
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Manage Truck Fleet
+                </Button>
+              </div>
+            </Card>
           )}
         </div>
-
       </div>
 
-      {/* Transporter Quote Submission Modal */}
       {quotingDelivery && (
         <TransportQuoteModal
           delivery={quotingDelivery}
@@ -668,7 +483,6 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
         />
       )}
 
-      {/* Delivery Inspection & Action Modal */}
       {selectedDelivery && (
         <DeliveryDetailModal
           delivery={selectedDelivery}
@@ -679,21 +493,6 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
         />
       )}
 
-      {/* Transporter KYC Verification Modal */}
-      {isVerificationModalOpen && (
-        <VerificationRequiredModal
-          isOpen={isVerificationModalOpen}
-          currentUser={user}
-          actionName="submit freight quotes and accept dispatch loads"
-          onClose={() => setIsVerificationModalOpen(false)}
-          onSuccess={() => {
-            setIsVerificationModalOpen(false);
-            setCurrentKycStatus('pending');
-          }}
-        />
-      )}
-
-      {/* Fleet Vehicle Add / Edit Modal */}
       {isVehicleModalOpen && (
         <AddEditVehicleModal
           isOpen={isVehicleModalOpen}
@@ -706,16 +505,6 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
           onSuccess={(updatedFleet) => {
             setFleetVehicles(updatedFleet);
           }}
-        />
-      )}
-
-      {/* Document Inspection Modal */}
-      {inspectingDoc && (
-        <DocumentViewerModal
-          isOpen={!!inspectingDoc}
-          onClose={() => setInspectingDoc(null)}
-          document={inspectingDoc}
-          user={user}
         />
       )}
     </DashboardLayout>

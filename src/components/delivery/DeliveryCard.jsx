@@ -3,7 +3,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import DeliveryStatusBadge from './DeliveryStatusBadge';
-import { getPrivacySafeLocationLabel } from '../../utils/deliveries';
+import { getPrivacySafeLocationLabel, getTransporterQuoteStanding } from '../../utils/deliveries';
 import {
   Truck,
   ArrowRight,
@@ -23,6 +23,7 @@ import {
 export default function DeliveryCard({
   delivery,
   viewerRole = 'farmer', // 'farmer' | 'buyer' | 'transporter'
+  currentUserId = '',
   isVerified = true,
   onView,
   onAccept,
@@ -36,6 +37,9 @@ export default function DeliveryCard({
   const isTransporter = viewerRole === 'transporter';
   const isFarmer = viewerRole === 'farmer' || viewerRole === 'fpo';
   const isBuyer = viewerRole === 'buyer';
+  const myQuoteStanding = isTransporter && currentUserId
+    ? getTransporterQuoteStanding(delivery, currentUserId)
+    : null;
 
   const pickupStr = typeof delivery.pickupLocation === 'object'
     ? getPrivacySafeLocationLabel(
@@ -196,16 +200,25 @@ export default function DeliveryCard({
 
         {/* Transporter View: Competitive Quote Status */}
         {isTransporter && isPriceOffered && (
-          <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] text-xs text-[#92400E] flex items-center justify-between">
+          <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] text-xs text-[#92400E] flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#D97706]" />
+              <Clock className="w-4 h-4 text-[#D97706] shrink-0" />
               <span>
                 Lowest Bid: <strong>₹{Number(delivery.freightAmount || 0).toLocaleString('en-IN')}</strong> ({delivery.quotesCount || 1} quote{delivery.quotesCount > 1 ? 's' : ''})
               </span>
             </div>
-            <Badge variant="amber" size="sm">
-              Awaiting Buyer Lock
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              {myQuoteStanding && (
+                <Badge variant={myQuoteStanding.isLowest ? 'emerald' : 'amber'} size="sm">
+                  {myQuoteStanding.isLowest
+                    ? `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Lowest`
+                    : `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Outbid`}
+                </Badge>
+              )}
+              <Badge variant="amber" size="sm">
+                Awaiting Buyer Lock
+              </Badge>
+            </div>
           </div>
         )}
       </div>

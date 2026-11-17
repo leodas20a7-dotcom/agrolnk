@@ -5,33 +5,39 @@ export default function Pagination({
   currentPage = 1,
   totalPages = 1,
   totalItems = 0,
-  itemsPerPage = 6,
+  itemsPerPage,
+  pageSize,
   onPageChange,
   className = '',
 }) {
-  if (totalPages <= 1 && totalItems <= itemsPerPage) {
+  const perPage = Number(itemsPerPage ?? pageSize ?? 6) || 6;
+  const resolvedTotalPages = Math.max(1, Number(totalPages) || Math.ceil(totalItems / perPage) || 1);
+  const resolvedTotalItems = Number(totalItems) || 0;
+  const safeCurrentPage = Math.min(Math.max(1, Number(currentPage) || 1), resolvedTotalPages);
+
+  if (resolvedTotalItems === 0 && resolvedTotalPages <= 1) {
     return null;
   }
 
-  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  const startItem = resolvedTotalItems === 0 ? 0 : (safeCurrentPage - 1) * perPage + 1;
+  const endItem = Math.min(safeCurrentPage * perPage, resolvedTotalItems);
 
   // Generate page numbers with ellipsis
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
 
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
+    if (resolvedTotalPages <= maxVisible) {
+      for (let i = 1; i <= resolvedTotalPages; i++) {
         pages.push(i);
       }
     } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...', totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      if (safeCurrentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', resolvedTotalPages);
+      } else if (safeCurrentPage >= resolvedTotalPages - 2) {
+        pages.push(1, '...', resolvedTotalPages - 3, resolvedTotalPages - 2, resolvedTotalPages - 1, resolvedTotalPages);
       } else {
-        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        pages.push(1, '...', safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, '...', resolvedTotalPages);
       }
     }
     return pages;
@@ -42,20 +48,27 @@ export default function Pagination({
   return (
     <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-1 border-t border-[#E5EDE8] text-xs ${className}`}>
       {/* Items Count Summary */}
-      <div className="text-[#566861] font-medium">
-        Showing <span className="font-bold text-[#0B3326]">{startItem}</span> to{' '}
-        <span className="font-bold text-[#0B3326]">{endItem}</span> of{' '}
-        <span className="font-bold text-[#0B3326]">{totalItems}</span> results
-      </div>
+      {resolvedTotalItems > 0 ? (
+        <div className="text-[#566861] font-medium">
+          Showing <span className="font-bold text-[#0B3326]">{startItem}</span> to{' '}
+          <span className="font-bold text-[#0B3326]">{endItem}</span> of{' '}
+          <span className="font-bold text-[#0B3326]">{resolvedTotalItems}</span> results
+        </div>
+      ) : (
+        <div className="text-[#566861] font-medium">
+          Page <span className="font-bold text-[#0B3326]">{safeCurrentPage}</span> of{' '}
+          <span className="font-bold text-[#0B3326]">{resolvedTotalPages}</span>
+        </div>
+      )}
 
       {/* Pagination Controls */}
       <div className="flex items-center gap-1.5">
         {/* Previous Button */}
         <button
-          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
+          onClick={() => onPageChange?.(Math.max(1, safeCurrentPage - 1))}
+          disabled={safeCurrentPage === 1}
           className={`p-2 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
-            currentPage === 1
+            safeCurrentPage === 1
               ? 'border-[#E5EDE8] bg-[#F8FAF8] text-gray-300 cursor-not-allowed'
               : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] hover:border-[#10B981]'
           }`}
@@ -79,11 +92,11 @@ export default function Pagination({
               );
             }
 
-            const isActive = p === currentPage;
+            const isActive = p === safeCurrentPage;
             return (
               <button
                 key={`page-${p}`}
-                onClick={() => onPageChange(p)}
+                onClick={() => onPageChange?.(p)}
                 className={`min-w-[34px] h-[34px] px-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center cursor-pointer ${
                   isActive
                     ? 'bg-[#0B3326] text-white shadow-xs'
@@ -98,10 +111,10 @@ export default function Pagination({
 
         {/* Next Button */}
         <button
-          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange?.(Math.min(resolvedTotalPages, safeCurrentPage + 1))}
+          disabled={safeCurrentPage >= resolvedTotalPages}
           className={`p-2 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
-            currentPage >= totalPages
+            safeCurrentPage >= resolvedTotalPages
               ? 'border-[#E5EDE8] bg-[#F8FAF8] text-gray-300 cursor-not-allowed'
               : 'border-[#E5EDE8] bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] hover:border-[#10B981]'
           }`}

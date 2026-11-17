@@ -41,8 +41,10 @@ const FinancierPortfolio = lazy(() => import('./pages/financier/FinancierPortfol
 const CollateralVault = lazy(() => import('./pages/financier/CollateralVault'));
 const DisbursementsLedger = lazy(() => import('./pages/financier/DisbursementsLedger'));
 
-// Transporter Dashboard (Code-Split)
+// Transporter Desk Module Pages (Code-Split)
 const TransporterDashboard = lazy(() => import('./pages/transporter/TransporterDashboard'));
+const TransporterLoads = lazy(() => import('./pages/transporter/TransporterLoads'));
+const TransporterFleet = lazy(() => import('./pages/transporter/TransporterFleet'));
 
 // Warehouse Dashboard (Code-Split)
 const WarehouseDashboard = lazy(() => import('./pages/warehouse/WarehouseDashboard'));
@@ -116,6 +118,9 @@ const VALID_ROUTES = new Set([
   'financier-disbursements',
   // Transporter
   'transporter-dashboard',
+  'transporter-loads',
+  'transporter-trips',
+  'transporter-fleet',
   // Warehouse
   'warehouse-dashboard',
   // Food Processor
@@ -220,6 +225,9 @@ const PAGE_MESSAGES = {
   'food-processor-dashboard': 'Opening Food Processor Terminal...',
   'food_processor-dashboard': 'Opening Food Processor Terminal...',
   'transporter-dashboard': 'Syncing Logistics & Corridor Dispatch...',
+  'transporter-loads': 'Opening Freight Load Board...',
+  'transporter-trips': 'Loading Active & Completed Trips...',
+  'transporter-fleet': 'Loading Commercial Fleet & Drivers...',
   'create-listing': 'Initializing Lot Assay Form...',
   'farmer-financing': 'Loading Working Capital Facilities...',
   'farmer-deliveries': 'Loading Active Dispatch Schedules...',
@@ -691,10 +699,41 @@ export default function App() {
         </ProtectedRoute>
       )}
 
-      {/* 9. Transporter Dashboard */}
+      {/* 9. Transporter Desk Routes */}
       {currentPage === 'transporter-dashboard' && (
         <ProtectedRoute requiredRole="transporter" onNavigate={handleNavigate}>
           <TransporterDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'transporter-loads' && (
+        <ProtectedRoute requiredRole="transporter" onNavigate={handleNavigate}>
+          <TransporterLoads
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+            navState={navState}
+            pageMode="loads"
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'transporter-trips' && (
+        <ProtectedRoute requiredRole="transporter" onNavigate={handleNavigate}>
+          <TransporterLoads
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+            navState={navState}
+            pageMode="trips"
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'transporter-fleet' && (
+        <ProtectedRoute requiredRole="transporter" onNavigate={handleNavigate}>
+          <TransporterFleet
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
           />

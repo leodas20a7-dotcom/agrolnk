@@ -647,11 +647,13 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
               </div>
 
               {/* Pagination */}
-              {totalPages > 1 && (
+              {filteredUsers.length > 0 && (
                 <div className="p-4 border-t border-[#E5EDE8]">
                   <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
+                    totalItems={filteredUsers.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
                     onPageChange={setCurrentPage}
                   />
                 </div>

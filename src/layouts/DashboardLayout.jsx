@@ -26,7 +26,8 @@ import {
   MessageSquare,
   Settings,
   Clock,
-  Plus
+  Plus,
+  Navigation
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -547,6 +548,24 @@ export default function DashboardLayout({
       page: 'transporter-dashboard',
       icon: LayoutDashboard,
     },
+    {
+      type: 'single',
+      label: 'Load Board',
+      page: 'transporter-loads',
+      icon: Compass,
+    },
+    {
+      type: 'single',
+      label: 'My Trips',
+      page: 'transporter-trips',
+      icon: Navigation,
+    },
+    {
+      type: 'single',
+      label: 'My Fleet',
+      page: 'transporter-fleet',
+      icon: Truck,
+    },
   ];
 
   const warehouseNavGroups = [
@@ -621,13 +640,18 @@ export default function DashboardLayout({
               {navGroups.map((group, idx) => {
                 if (group.type === 'single') {
                   const Icon = group.icon;
+                  const isActiveSingle = currentPage === group.page;
                   return (
                     <button
                       key={group.page || idx}
                       onClick={() => onNavigate(group.page)}
-                      className="px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold text-[#566861] hover:text-[#0B3326] hover:bg-[#F2FBF6] transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                      className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                        isActiveSingle
+                          ? 'bg-[#0B3326] text-white shadow-xs'
+                          : 'text-[#566861] hover:text-[#0B3326] hover:bg-[#F2FBF6]'
+                      }`}
                     >
-                      <Icon className="w-3.5 h-3.5 text-[#10B981]" />
+                      <Icon className={`w-3.5 h-3.5 ${isActiveSingle ? 'text-[#34D399]' : 'text-[#10B981]'}`} />
                       <span>{group.label}</span>
                     </button>
                   );

@@ -359,7 +359,7 @@ export default function FarmerFinancing({ currentUser, onNavigate, navState }) {
                 ))}
               </div>
 
-              {totalOrdersPages > 1 && (
+              {eligibleOrders.length > 0 && (
                 <Pagination
                   currentPage={ordersPage}
                   totalPages={totalOrdersPages}

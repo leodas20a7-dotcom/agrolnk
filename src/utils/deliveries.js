@@ -132,6 +132,23 @@ export function isDeliveryAddressUnlocked(delivery, viewerRole = '', viewerId = 
 }
 
 /**
+ * Determine whether a transporter has an active bid on this delivery and whether it is currently lowest
+ */
+export function getTransporterQuoteStanding(delivery, transporterId) {
+  if (!delivery || !transporterId || !Array.isArray(delivery.freightQuotes)) return null;
+  const myQuote = delivery.freightQuotes.find(
+    (q) => String(q.transporterId) === String(transporterId)
+  );
+  if (!myQuote) return null;
+  const myAmount = Number(myQuote.freightAmount || 0);
+  const lowestAmount = Number(delivery.lowestQuote?.freightAmount || delivery.freightAmount || myAmount);
+  return {
+    amount: myAmount,
+    isLowest: myAmount <= lowestAmount,
+  };
+}
+
+/**
  * Format location string while enforcing strict street-address privacy
  */
 export function getPrivacySafeLocationLabel(locationObj, isUnlocked = false, fallbackLabel = 'Hub') {
