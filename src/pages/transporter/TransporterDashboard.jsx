@@ -109,6 +109,12 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
       } catch { }
     };
 
+    const handleVisibilityOrFocus = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        syncKyc();
+      }
+    };
+
     syncKyc();
 
     const handleFleetUpdate = (e) => {
@@ -121,13 +127,21 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
 
     window.addEventListener('agrolnk_kyc_updated', syncKyc);
     window.addEventListener('storage', syncKyc);
+    window.addEventListener('focus', syncKyc);
     window.addEventListener('agrolnk_user_profile_updated', syncKyc);
     window.addEventListener('agrolnk_fleet_updated', handleFleetUpdate);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    }
     return () => {
       window.removeEventListener('agrolnk_kyc_updated', syncKyc);
       window.removeEventListener('storage', syncKyc);
+      window.removeEventListener('focus', syncKyc);
       window.removeEventListener('agrolnk_user_profile_updated', syncKyc);
       window.removeEventListener('agrolnk_fleet_updated', handleFleetUpdate);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      }
     };
   }, [user.id, user.email]);
 

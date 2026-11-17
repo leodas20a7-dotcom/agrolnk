@@ -3,6 +3,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import DeliveryStatusBadge from './DeliveryStatusBadge';
+import { getPrivacySafeLocationLabel } from '../../utils/deliveries';
 import {
   Truck,
   ArrowRight,
@@ -37,11 +38,19 @@ export default function DeliveryCard({
   const isBuyer = viewerRole === 'buyer';
 
   const pickupStr = typeof delivery.pickupLocation === 'object'
-    ? `${delivery.pickupLocation?.district || 'Salem'}, ${delivery.pickupLocation?.state || 'Tamil Nadu'}`
+    ? getPrivacySafeLocationLabel(
+        delivery.pickupLocation,
+        isTransporter || isFarmer,
+        `${delivery.pickupLocation?.district || 'Salem'}, ${delivery.pickupLocation?.state || 'Tamil Nadu'}`
+      )
     : delivery.pickupLocation;
 
   const destStr = typeof delivery.deliveryLocation === 'object'
-    ? `${delivery.deliveryLocation?.district || 'Chennai'}, ${delivery.deliveryLocation?.state || 'Tamil Nadu'}`
+    ? getPrivacySafeLocationLabel(
+        delivery.deliveryLocation,
+        isTransporter || isBuyer,
+        `${delivery.deliveryLocation?.district || 'Chennai'}, ${delivery.deliveryLocation?.state || 'Tamil Nadu'}`
+      )
     : delivery.deliveryLocation;
 
   return (

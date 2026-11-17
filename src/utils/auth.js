@@ -818,117 +818,100 @@ export function isUserKycVerified(user) {
  */
 
 export async function fetchCurrentProfile() {
-
   const current = getCurrentUser();
 
-  if (!current?.id && !current?.email) return null;
+  let sessionUserId = null;
+  let sessionUserEmail = null;
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    sessionUserId = sessionData?.session?.user?.id || null;
+    sessionUserEmail = sessionData?.session?.user?.email || null;
+  } catch {}
 
+  const lookupId = sessionUserId || current?.id || null;
+  const lookupEmail = sessionUserEmail || current?.email || null;
 
+  if (!lookupId && !lookupEmail) return null;
 
   let kycStatus = getResolvedUserKycStatus(current);
 
-
-
   try {
+    let profile = null;
+    let error = null;
 
-    const filter = current.id
+    if (lookupId) {
+      const byId = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', lookupId)
+        .maybeSingle();
+      profile = byId.data;
+      error = byId.error;
+    }
 
-      ? `id.eq.${current.id}${current.email ? `,email.eq.${current.email}` : ''}`
-
-      : `email.eq.${current.email}`;
-
-
-
-    const { data: profile, error } = await supabase
-
-      .from('profiles')
-
-      .select('*')
-
-      .or(filter)
-
-      .maybeSingle();
-
-
+    if (!profile && lookupEmail) {
+      const byEmail = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', String(lookupEmail).trim())
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      profile = byEmail.data;
+      error = byEmail.error;
+    }
 
     if (profile && !error) {
-
       const resolvedKyc = profile.kyc_status || profile.verification_status || profile.kycStatus || profile.verificationStatus || kycStatus;
 
       const userObj = {
-
-        ...current,
-
-        id: profile.id || current.id,
-
-        name: profile.name || current.name,
-
-        email: profile.email || current.email,
-
-        phone: profile.phone || current.phone,
-
-        role: profile.role || current.role,
-
-        state: profile.state || current.state,
-
-        district: profile.district || current.district,
-
-        companyName: profile.company_name || current.companyName,
-
+        ...(current || {}),
+        id: profile.id || lookupId,
+        name: profile.name || current?.name || 'AgroLnk Participant',
+        email: profile.email || lookupEmail || '',
+        phone: profile.phone || current?.phone || '',
+        role: profile.role || current?.role || 'farmer',
+        state: profile.state || current?.state || '',
+        district: profile.district || current?.district || '',
+        companyName: profile.company_name || current?.companyName || '',
         kycStatus: resolvedKyc,
-
         verificationStatus: resolvedKyc,
-
         vanStatus: (() => {
-          const candidate = profile.van_status || profile.meta?.van_status || current.vanStatus;
+          const candidate = profile.van_status || profile.meta?.van_status || current?.vanStatus;
           if (candidate === 'rejected') return 'rejected';
           if (candidate === 'active') return 'active';
           if (resolvedKyc === 'verified') return 'active';
           return candidate || 'pending_bank_approval';
         })(),
-
-        virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || current.virtualAccountNumber || '',
-
-        virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || current.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-
-        vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || current.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
-
-        vanNotes: profile.van_notes || profile.meta?.van_notes || current.vanNotes || '',
-
+        virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || current?.virtualAccountNumber || '',
+        virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || current?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+        vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || current?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+        vanNotes: profile.van_notes || profile.meta?.van_notes || current?.vanNotes || '',
         createdAt: profile.created_at,
-
       };
 
+      const changed = !current || current.kycStatus !== resolvedKyc || current.verificationStatus !== resolvedKyc;
       setCurrentUser(userObj);
+      if (changed && typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: userObj }));
+        } catch {}
+      }
 
       return userObj;
-
     }
-
   } catch (err) {
-
     console.warn('fetchCurrentProfile notice:', err);
-
   }
-
-
 
   // Update session if status has changed
-
   if (current && (current.kycStatus !== kycStatus || current.verificationStatus !== kycStatus)) {
-
     current.kycStatus = kycStatus;
-
     current.verificationStatus = kycStatus;
-
     setCurrentUser(current);
-
   }
 
-
-
   return current;
-
 }
 
 

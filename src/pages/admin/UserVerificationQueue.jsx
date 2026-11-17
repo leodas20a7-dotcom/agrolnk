@@ -59,6 +59,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     }
   }); // default: 'rows'
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackIsError, setFeedbackIsError] = useState(false);
   const [selectedUserForDocs, setSelectedUserForDocs] = useState(null);
   const [inspectingDoc, setInspectingDoc] = useState(null); // { doc, user }
 
@@ -182,33 +183,43 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
   const handleApprove = async (userId, userName) => {
     if (user?.role !== 'admin') {
+      setFeedbackIsError(true);
       setFeedbackMessage('Unauthorized: Only platform administrators can verify user credentials.');
       return;
     }
     try {
       await updateKYCStatus(userId, 'verified', 'Approved by Admin. All credentials verified.', user.name || 'Admin');
+      setFeedbackIsError(false);
       setFeedbackMessage(`✓ Approved ${userName}. Verified badge awarded!`);
       setTimeout(() => setFeedbackMessage(''), 3500);
       setSelectedUserForDocs(null);
       await loadKYC();
     } catch (err) {
       console.error('Error approving user:', err);
+      setFeedbackIsError(true);
+      setFeedbackMessage(`Approval failed: ${err?.message || 'Could not persist KYC approval to database.'}`);
+      setTimeout(() => setFeedbackMessage(''), 6000);
     }
   };
 
   const handleReject = async (userId, userName) => {
     if (user?.role !== 'admin') {
+      setFeedbackIsError(true);
       setFeedbackMessage('Unauthorized: Only platform administrators can reject verification.');
       return;
     }
     try {
       await updateKYCStatus(userId, 'rejected', 'Documents incomplete or mismatched.', user.name || 'Admin');
+      setFeedbackIsError(false);
       setFeedbackMessage(`Rejected ${userName}.`);
       setTimeout(() => setFeedbackMessage(''), 3500);
       setSelectedUserForDocs(null);
       await loadKYC();
     } catch (err) {
       console.error('Error rejecting user:', err);
+      setFeedbackIsError(true);
+      setFeedbackMessage(`Rejection failed: ${err?.message || 'Could not update KYC status in database.'}`);
+      setTimeout(() => setFeedbackMessage(''), 6000);
     }
   };
 
@@ -338,8 +349,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
 
           {/* Feedback Toast */}
           {feedbackMessage && (
-            <div className="p-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150 self-start sm:self-auto">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className={`p-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150 self-start sm:self-auto ${
+              feedbackIsError
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}>
+              <CheckCircle2 className={`w-4 h-4 shrink-0 ${feedbackIsError ? 'text-red-600' : 'text-emerald-600'}`} />
               <span>{feedbackMessage}</span>
             </div>
           )}

@@ -143,9 +143,13 @@ export function getPrivacySafeLocationLabel(locationObj, isUnlocked = false, fal
   if (!isUnlocked) {
     return districtState;
   }
-  const street = locationObj.address || '';
+  const street = (locationObj.address || '').trim();
   const pin = locationObj.pincode ? ` - ${locationObj.pincode}` : '';
-  return street ? `${street}, ${districtState}${pin}` : `${districtState}${pin}`;
+  if (!street) return `${districtState}${pin}`;
+  if (street.toLowerCase() === districtState.toLowerCase() || (district && street.toLowerCase().includes(district.toLowerCase()) && state && street.toLowerCase().includes(state.toLowerCase()))) {
+    return `${street}${pin}`;
+  }
+  return `${street}, ${districtState}${pin}`;
 }
 
 export const DISTRICT_DISTANCES = {};

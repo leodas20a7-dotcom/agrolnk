@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Truck,
@@ -78,12 +79,15 @@ export default function DeliveryDetailModal({
     currentUser?.id
   );
 
-  // Privacy Guard:
-  // - Farmer sees their own Origin address, but only District/State for Buyer Destination
-  // - Buyer sees only District/State for Origin Farmgate, and their own Destination address
-  // - Transporter sees only District/State until Buyer funds Combined Escrow & assigns carrier
-  const canViewFullPickupAddress = isFarmer || isAdmin || (isTransporter && transporterUnlocked);
-  const canViewFullDestAddress = isBuyer || isAdmin || (isTransporter && transporterUnlocked);
+  // Visibility & Privacy Guard:
+  // - Farmer sees their own Origin address & phone, but only District/State for Buyer Destination
+  // - Buyer sees only District/State for Origin Farmgate, and their own Destination address & phone
+  // - Transporter sees exact pickup & drop addresses (plus landmark & Maps) to quote accurately,
+  //   but Farmer/Buyer phone numbers & Call/WhatsApp links stay hidden until order/job is confirmed.
+  const canViewFullPickupAddress = isFarmer || isAdmin || isTransporter;
+  const canViewFullDestAddress = isBuyer || isAdmin || isTransporter;
+  const canViewPickupPhone = isFarmer || isAdmin || (isTransporter && transporterUnlocked);
+  const canViewDestPhone = isBuyer || isAdmin || (isTransporter && transporterUnlocked);
 
   const pickupStr = getPrivacySafeLocationLabel(
     currentDelivery.pickupLocation,
@@ -187,12 +191,12 @@ export default function DeliveryDetailModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
+  const modalMarkup = (
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-2xs p-3 sm:p-6 flex items-center justify-center">
+      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-[#E5EDE8] shadow-2xl text-left animate-in fade-in zoom-in-95 duration-200 relative">
         
-        {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+        {/* Pinned Modal Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[#E5EDE8] shrink-0 bg-white">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center">
               <Truck className="w-5 h-5 text-[#34D399]" />
@@ -217,6 +221,9 @@ export default function DeliveryDetailModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Scrollable Modal Body */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
 
         {/* Error Notice */}
         {errorMessage && (
@@ -271,137 +278,135 @@ export default function DeliveryDetailModal({
 
             <div className="flex-1 space-y-3">
               <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-                    Origin Farmgate / Depot Pickup
-                  </span>
-                  {!canViewFullPickupAddress && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
+                      Origin Farmgate / Depot Pickup
+                    </span>
+                    <span className="font-bold text-[#14211D] text-sm block">
+                      {pickupStr}
+                    </span>
+
+                    {/* Prominent Landmark Badge */}
+                    {canViewFullPickupAddress && pickupLandmarkStr && (
+                      <div className="inline-flex items-center gap-1.5 text-xs text-amber-900 bg-amber-50/90 border border-amber-200/90 px-2.5 py-1 rounded-lg mt-1">
+                        <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span><strong>Landmark:</strong> {pickupLandmarkStr}</span>
+                      </div>
+                    )}
+
+                    <span className="text-[#566861] text-[11px] block mt-0.5">
+                      Producer: {currentDelivery.farmerName || 'Producer'}
+                      {canViewPickupPhone && rawFarmerPhone
+                        ? ` • Phone: ${rawFarmerPhone}`
+                        : ''}
+                    </span>
+                  </div>
+
+                  {!canViewFullPickupAddress ? (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326] shrink-0">
                       Address Privacy Protected
                     </span>
-                  )}
-                </div>
-                <span className="font-bold text-[#14211D] text-sm block">
-                  {pickupStr}
-                </span>
-
-                {/* Prominent Landmark Badge */}
-                {canViewFullPickupAddress && pickupLandmarkStr && (
-                  <div className="inline-flex items-center gap-1.5 text-xs text-amber-900 bg-amber-50/90 border border-amber-200/90 px-2.5 py-1 rounded-lg mt-1">
-                    <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span><strong>Landmark:</strong> {pickupLandmarkStr}</span>
-                  </div>
-                )}
-
-                <span className="text-[#566861] text-[11px] block mt-0.5">
-                  Producer: {currentDelivery.farmerName || 'Producer'}
-                  {canViewFullPickupAddress && rawFarmerPhone
-                    ? ` • Phone: ${rawFarmerPhone}`
-                    : ''}
-                </span>
-
-                {/* Transporter Quick Connect: WhatsApp Location, Direct Call, Google Maps */}
-                {(isTransporter || isAdmin) && canViewFullPickupAddress && (
-                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
-                    {rawFarmerPhone && (
-                      <a
-                        href={`https://wa.me/91${rawFarmerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
-                          `Vanakkam / Hello ${currentDelivery.farmerName || 'Farmer'}, I am the assigned AgroLnk transporter for consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please share your live GPS location on WhatsApp so I can navigate straight to your pickup gate.`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
-                        title="Ask farmer to share exact WhatsApp live pin"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
-                        <span>WhatsApp Location</span>
-                      </a>
-                    )}
-
-                    {rawFarmerPhone && (
-                      <a
-                        href={`tel:${rawFarmerPhone}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#14211D] text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
-                        title="Call farmer directly"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>Call Producer</span>
-                      </a>
-                    )}
-
+                  ) : (isTransporter || isAdmin) ? (
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                         [pickupLandmarkStr, pickupStr].filter(Boolean).join(', ')
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD7D0] hover:bg-[#F8FAF8] text-[#0B3326] text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD7D0] hover:bg-[#F8FAF8] text-[#0B3326] text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer shrink-0"
                       title="Open farmgate navigation in Google Maps"
                     >
                       <Navigation className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Google Maps</span>
+                    </a>
+                  ) : null}
+                </div>
+
+                {/* Transporter Quick Connect: WhatsApp Location, Direct Call */}
+                {(isTransporter || isAdmin) && canViewPickupPhone && rawFarmerPhone && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
+                    <a
+                      href={`https://wa.me/91${rawFarmerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
+                        `Vanakkam / Hello ${currentDelivery.farmerName || 'Farmer'}, I am the assigned AgroLnk transporter for consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please share your live GPS location on WhatsApp so I can navigate straight to your pickup gate.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                      title="Ask farmer to share exact WhatsApp live pin"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
+                      <span>WhatsApp Location</span>
+                    </a>
+
+                    <a
+                      href={`tel:${rawFarmerPhone}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#14211D] text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                      title="Call farmer directly"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call Producer</span>
                     </a>
                   </div>
                 )}
               </div>
 
               <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
-                    Buyer Delivery Destination
-                  </span>
-                  {!canViewFullDestAddress && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] font-bold text-[#566861] uppercase tracking-wider block">
+                      Buyer Delivery Destination
+                    </span>
+                    <span className="font-bold text-[#14211D] text-sm block">
+                      {destStr}
+                    </span>
+                    <span className="text-[#566861] text-[11px] block mt-0.5">
+                      Buyer: {currentDelivery.buyerName || 'Buyer'}
+                      {canViewDestPhone && rawBuyerPhone
+                        ? ` • Phone: ${rawBuyerPhone}`
+                        : ''}
+                    </span>
+                  </div>
+
+                  {!canViewFullDestAddress ? (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#0B3326] shrink-0">
                       Address Privacy Protected
                     </span>
-                  )}
-                </div>
-                <span className="font-bold text-[#14211D] text-sm block">
-                  {destStr}
-                </span>
-                <span className="text-[#566861] text-[11px] block mt-0.5">
-                  Buyer: {currentDelivery.buyerName || 'Buyer'}
-                  {canViewFullDestAddress && rawBuyerPhone
-                    ? ` • Phone: ${rawBuyerPhone}`
-                    : ''}
-                </span>
-
-                {/* Transporter Quick Connect for Buyer Destination */}
-                {(isTransporter || isAdmin) && canViewFullDestAddress && (
-                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
-                    {rawBuyerPhone && (
-                      <a
-                        href={`tel:${rawBuyerPhone}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#14211D] text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
-                        title="Call buyer directly"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>Call Buyer</span>
-                      </a>
-                    )}
-
-                    {rawBuyerPhone && (
-                      <a
-                        href={`https://wa.me/91${rawBuyerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
-                          `Hello ${currentDelivery.buyerName || 'Buyer'}, I am the assigned AgroLnk transporter for your consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please confirm your unloading depot instructions.`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
-                        <span>WhatsApp Buyer</span>
-                      </a>
-                    )}
-
+                  ) : (isTransporter || isAdmin) ? (
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destStr)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD7D0] hover:bg-[#F8FAF8] text-[#0B3326] text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD7D0] hover:bg-[#F8FAF8] text-[#0B3326] text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer shrink-0"
                     >
                       <Navigation className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Navigate Depot</span>
+                    </a>
+                  ) : null}
+                </div>
+
+                {/* Transporter Quick Connect for Buyer Destination */}
+                {(isTransporter || isAdmin) && canViewDestPhone && rawBuyerPhone && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
+                    <a
+                      href={`tel:${rawBuyerPhone}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B3326] hover:bg-[#14211D] text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                      title="Call buyer directly"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call Buyer</span>
+                    </a>
+
+                    <a
+                      href={`https://wa.me/91${rawBuyerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
+                        `Hello ${currentDelivery.buyerName || 'Buyer'}, I am the assigned AgroLnk transporter for your consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please confirm your unloading depot instructions.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all hover:scale-[1.02] cursor-pointer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
+                      <span>WhatsApp Buyer</span>
                     </a>
                   </div>
                 )}
@@ -632,20 +637,23 @@ export default function DeliveryDetailModal({
           </div>
         )}
 
-        {/* Freight Escrow Deposit Modal */}
-        <FreightEscrowModal
-          isOpen={isFreightEscrowModalOpen}
-          onClose={() => setIsFreightEscrowModalOpen(false)}
-          delivery={currentDelivery}
-          currentUser={currentUser || { name: currentDelivery.farmerName, role: 'farmer' }}
-          onSuccess={async () => {
-            setIsFreightEscrowModalOpen(false);
-            if (onStatusUpdated) await onStatusUpdated();
-            onClose();
-          }}
-        />
-
+        </div>
       </div>
+
+      {/* Freight Escrow Deposit Modal (rendered outside card overflow container) */}
+      <FreightEscrowModal
+        isOpen={isFreightEscrowModalOpen}
+        onClose={() => setIsFreightEscrowModalOpen(false)}
+        delivery={currentDelivery}
+        currentUser={currentUser || { name: currentDelivery.farmerName, role: 'farmer' }}
+        onSuccess={async () => {
+          setIsFreightEscrowModalOpen(false);
+          if (onStatusUpdated) await onStatusUpdated();
+          onClose();
+        }}
+      />
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalMarkup, document.body) : modalMarkup;
 }

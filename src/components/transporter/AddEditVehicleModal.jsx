@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Truck,
   X,
@@ -140,12 +141,12 @@ export default function AddEditVehicleModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
+  const modalMarkup = (
+    <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-2xs p-3 sm:p-6 flex items-center justify-center">
+      <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-[#E5EDE8] shadow-2xl text-left animate-in fade-in zoom-in-95 duration-200 relative">
         
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E5EDE8]">
+        {/* Pinned Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[#E5EDE8] shrink-0 bg-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#0B3326] text-white flex items-center justify-center shadow-xs">
               <Truck className="w-5 h-5 text-[#34D399]" />
@@ -167,6 +168,8 @@ export default function AddEditVehicleModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
 
         {/* Global Error message */}
         {errorMessage && (
@@ -344,7 +347,10 @@ export default function AddEditVehicleModal({
 
         </form>
 
+        </div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalMarkup, document.body) : modalMarkup;
 }

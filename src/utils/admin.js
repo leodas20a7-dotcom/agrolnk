@@ -271,25 +271,120 @@ export async function isUserVerified(userId) {
 }
 
 /**
+ * Build a safe Supabase filter matching either profile id or email
+ */
+function buildProfileLookupQuery(query, identifier) {
+  const clean = String(identifier || '').trim();
+  if (clean.includes('@')) {
+    return query.ilike('email', clean);
+  }
+  return query.eq('id', clean);
+}
+
+/**
+ * Update a profile row with graceful fallback if optional VAN columns are absent.
+ * Throws if Supabase rejects the write or updates 0 rows (e.g. RLS denial).
+ */
+async function updateProfileRowSafely(userId, buildPayloads) {
+  const { data: currentProf, error: readErr } = await buildProfileLookupQuery(
+    supabase.from('profiles').select('id, meta'),
+    userId
+  )
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (readErr) {
+    throw new Error(readErr.message || 'Could not locate user profile in database.');
+  }
+  if (!currentProf?.id) {
+    throw new Error('User profile row was not found in Supabase.');
+  }
+
+  const existingMeta = currentProf.meta || {};
+  const { fullPayload, minimalPayload } = buildPayloads(existingMeta);
+
+  let { data: updatedRows, error: updateErr } = await supabase
+    .from('profiles')
+    .update(fullPayload)
+    .eq('id', currentProf.id)
+    .select('id, kyc_status');
+
+  if (updateErr) {
+    const msg = String(updateErr.message || '');
+    const isMissingColumn =
+      updateErr.code === 'PGRST204' ||
+      updateErr.code === '42703' ||
+      msg.toLowerCase().includes('column');
+
+    if (isMissingColumn) {
+      const retry = await supabase
+        .from('profiles')
+        .update(minimalPayload)
+        .eq('id', currentProf.id)
+        .select('id, kyc_status');
+      updatedRows = retry.data;
+      updateErr = retry.error;
+    }
+  }
+
+  if (updateErr) {
+    throw new Error(updateErr.message || 'Database rejected profile update.');
+  }
+  if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+    throw new Error('Permission denied: Admin update did not modify the database record (check Supabase is_admin() / RLS).');
+  }
+
+  return updatedRows[0];
+}
+
+/**
  * Update KYC Verification status (Admin Action)
  */
 export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifiedBy = 'AgroLnk Admin') {
   const all = getStoredKYC();
   const index = all.findIndex((u) => u.id === userId || u.email === userId);
-  
-  let targetUser = null;
-  const vanStatusUpdate = newStatus === 'verified' ? 'active' : (newStatus === 'rejected' ? 'rejected' : (all[index]?.vanStatus || 'pending_bank_approval'));
+  const vanStatusUpdate =
+    newStatus === 'verified'
+      ? 'active'
+      : newStatus === 'rejected'
+        ? 'rejected'
+        : all[index]?.vanStatus || 'pending_bank_approval';
 
+  const nowIso = new Date().toISOString();
+
+  // Authoritatively persist to Supabase FIRST so failures never masquerade as local success
+  await updateProfileRowSafely(userId, (existingMeta) => {
+    const mergedMeta = {
+      ...existingMeta,
+      van_status: vanStatusUpdate,
+      ...(auditNotes ? { auditNotes } : {}),
+    };
+    return {
+      fullPayload: {
+        kyc_status: newStatus,
+        van_status: vanStatusUpdate,
+        meta: mergedMeta,
+        updated_at: nowIso,
+      },
+      minimalPayload: {
+        kyc_status: newStatus,
+        meta: mergedMeta,
+        updated_at: nowIso,
+      },
+    };
+  });
+
+  let targetUser = null;
   if (index === -1) {
-    // Create new entry
     const newUser = {
       id: userId,
       name: 'Registered Partner',
       role: 'farmer',
       verificationStatus: newStatus,
       vanStatus: vanStatusUpdate,
-      submittedAt: new Date().toISOString(),
-      verifiedAt: newStatus === 'verified' ? new Date().toISOString() : null,
+      submittedAt: nowIso,
+      verifiedAt: newStatus === 'verified' ? nowIso : null,
       verifiedBy: newStatus === 'verified' ? verifiedBy : null,
       auditNotes,
       documents: [],
@@ -300,8 +395,8 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
     all[index] = {
       ...all[index],
       verificationStatus: newStatus,
-      vanStatus: newStatus === 'verified' ? 'active' : (newStatus === 'rejected' ? 'rejected' : all[index].vanStatus),
-      verifiedAt: newStatus === 'verified' ? new Date().toISOString() : all[index].verifiedAt,
+      vanStatus: vanStatusUpdate,
+      verifiedAt: newStatus === 'verified' ? nowIso : all[index].verifiedAt,
       verifiedBy: newStatus === 'verified' ? verifiedBy : all[index].verifiedBy,
       auditNotes: auditNotes || all[index].auditNotes,
     };
@@ -323,44 +418,6 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
     } catch (whErr) {
       console.warn('Could not sync warehouse profile on admin approval:', whErr);
     }
-  }
-
-  // Sync with Supabase Database (both direct columns & meta json)
-  try {
-    const { data: currentProf } = await supabase
-      .from('profiles')
-      .select('meta')
-      .or(`id.eq.${userId},email.eq.${userId}`)
-      .single();
-
-    const existingMeta = currentProf?.meta || {};
-    const mergedMeta = {
-      ...existingMeta,
-      van_status: targetUser.vanStatus,
-    };
-
-    try {
-      await supabase
-        .from('profiles')
-        .update({
-          kyc_status: newStatus,
-          van_status: targetUser.vanStatus,
-          meta: mergedMeta,
-          updated_at: new Date().toISOString(),
-        })
-        .or(`id.eq.${userId},email.eq.${userId}`);
-    } catch (_colErr) {
-      await supabase
-        .from('profiles')
-        .update({
-          kyc_status: newStatus,
-          meta: mergedMeta,
-          updated_at: new Date().toISOString(),
-        })
-        .or(`id.eq.${userId},email.eq.${userId}`);
-    }
-  } catch (dbErr) {
-    console.warn('Could not sync KYC status to Supabase DB:', dbErr);
   }
 
   // Update current user cached session if matching
@@ -394,30 +451,18 @@ export async function updateUserVANProvision(userId, {
 }) {
   const all = getStoredKYC();
   const index = all.findIndex((u) => u.id === userId || u.email === userId);
-  
+  const nowIso = new Date().toISOString();
+
   const updatedData = {
     vanStatus,
     virtualAccountNumber: (virtualAccountNumber || '').trim().toUpperCase(),
     virtualAccountIfsc: (virtualAccountIfsc || '').trim().toUpperCase(),
     vanBankName: (vanBankName || '').trim(),
     vanNotes: (vanNotes || '').trim(),
-    vanAssignedAt: new Date().toISOString(),
+    vanAssignedAt: nowIso,
   };
 
-  if (index !== -1) {
-    all[index] = { ...all[index], ...updatedData };
-    saveStoredKYC(all);
-  }
-
-  // Sync to database profile top-level columns AND meta
-  try {
-    const { data: currentProf } = await supabase
-      .from('profiles')
-      .select('meta')
-      .or(`id.eq.${userId},email.eq.${userId}`)
-      .single();
-
-    const existingMeta = currentProf?.meta || {};
+  await updateProfileRowSafely(userId, (existingMeta) => {
     const mergedMeta = {
       ...existingMeta,
       van_status: vanStatus,
@@ -427,32 +472,27 @@ export async function updateUserVANProvision(userId, {
       van_notes: updatedData.vanNotes,
       van_assigned_at: updatedData.vanAssignedAt,
     };
+    return {
+      fullPayload: {
+        van_status: vanStatus,
+        virtual_account_number: updatedData.virtualAccountNumber,
+        virtual_account_ifsc: updatedData.virtualAccountIfsc,
+        van_bank_name: updatedData.vanBankName,
+        van_notes: updatedData.vanNotes,
+        van_assigned_at: updatedData.vanAssignedAt,
+        meta: mergedMeta,
+        updated_at: nowIso,
+      },
+      minimalPayload: {
+        meta: mergedMeta,
+        updated_at: nowIso,
+      },
+    };
+  });
 
-    try {
-      await supabase
-        .from('profiles')
-        .update({
-          van_status: vanStatus,
-          virtual_account_number: updatedData.virtualAccountNumber,
-          virtual_account_ifsc: updatedData.virtualAccountIfsc,
-          van_bank_name: updatedData.vanBankName,
-          van_notes: updatedData.vanNotes,
-          van_assigned_at: updatedData.vanAssignedAt,
-          meta: mergedMeta,
-          updated_at: new Date().toISOString(),
-        })
-        .or(`id.eq.${userId},email.eq.${userId}`);
-    } catch (_colErr) {
-      await supabase
-        .from('profiles')
-        .update({
-          meta: mergedMeta,
-          updated_at: new Date().toISOString(),
-        })
-        .or(`id.eq.${userId},email.eq.${userId}`);
-    }
-  } catch (err) {
-    console.warn('Could not sync VAN provision to Supabase DB:', err);
+  if (index !== -1) {
+    all[index] = { ...all[index], ...updatedData };
+    saveStoredKYC(all);
   }
 
   // Also update active session cache if current logged-in user

@@ -123,7 +123,7 @@ export default function FreightEscrowModal({
   if (!isOpen || !delivery) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-center justify-center animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[110] overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-center justify-center animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left relative">
         
         {/* Header */}

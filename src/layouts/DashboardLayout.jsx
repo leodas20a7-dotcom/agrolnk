@@ -31,6 +31,7 @@ import {
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { logoutUser, getCurrentUser, getResolvedUserKycStatus, isUserKycVerified, fetchCurrentProfile } from '../utils/auth';
+import { supabase } from '../lib/supabase';
 import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
 import UserProfileModal from '../components/profile/UserProfileModal';
@@ -93,7 +94,7 @@ export default function DashboardLayout({
     return () => window.removeEventListener('agrolnk_user_profile_updated', handleProfileUpdated);
   }, [currentUser]);
 
-  // Listen to KYC verification approvals / status updates globally
+  // Listen to KYC verification approvals / status updates globally (cross-tab, focus & Realtime)
   useEffect(() => {
     const syncKyc = async () => {
       const status = getResolvedUserKycStatus(activeUser);
@@ -106,20 +107,60 @@ export default function DashboardLayout({
             ...prev,
             kycStatus: profile.kycStatus,
             verificationStatus: profile.kycStatus,
+            vanStatus: profile.vanStatus || prev.vanStatus,
+            virtualAccountNumber: profile.virtualAccountNumber ?? prev.virtualAccountNumber,
             role: profile.role || prev.role || currentUser?.role || getCurrentUser()?.role || 'farmer',
           }));
         }
       } catch {}
     };
 
+    const handleVisibilityOrFocus = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        syncKyc();
+      }
+    };
+
     syncKyc();
 
     window.addEventListener('agrolnk_kyc_updated', syncKyc);
     window.addEventListener('storage', syncKyc);
+    window.addEventListener('focus', syncKyc);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    }
+
+    let profileChannel = null;
+    if (activeUser?.id && supabase?.channel) {
+      try {
+        profileChannel = supabase
+          .channel(`profile_kyc_sync_${activeUser.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'profiles',
+              filter: `id=eq.${activeUser.id}`,
+            },
+            () => {
+              syncKyc();
+            }
+          )
+          .subscribe();
+      } catch {}
+    }
 
     return () => {
       window.removeEventListener('agrolnk_kyc_updated', syncKyc);
       window.removeEventListener('storage', syncKyc);
+      window.removeEventListener('focus', syncKyc);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      }
+      if (profileChannel && supabase?.removeChannel) {
+        supabase.removeChannel(profileChannel);
+      }
     };
   }, [activeUser?.id, activeUser?.email]);
 
