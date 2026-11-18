@@ -760,13 +760,13 @@ export default function DashboardLayout({
                 </div>
                 <div className="text-left leading-tight hidden lg:block">
                   <span
-                    className="block text-xs font-bold text-[#14211D] group-hover:text-[#0B3326] transition-colors truncate max-w-[130px]"
+                    className="block text-xs font-bold text-[#14211D] group-hover:text-[#0B3326] transition-colors truncate max-w-[100px] xl:max-w-[130px]"
                     title={user.name || 'User'}
                   >
                     {getHeaderDisplayName(user.name)}
                   </span>
                   <span
-                    className="block text-[10px] text-[#566861] truncate max-w-[130px]"
+                    className="block text-[10px] text-[#566861] truncate max-w-[100px] xl:max-w-[130px]"
                     title={user.email}
                   >
                     {user.email}
@@ -782,9 +782,10 @@ export default function DashboardLayout({
                   onClick={handleSignOutClick}
                   icon={LogOut}
                   iconPosition="right"
-                  className="text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer"
+                  title="Sign Out"
+                  className="text-xs text-[#566861] hover:text-[#0B3326] cursor-pointer px-2 xl:px-3 whitespace-nowrap"
                 >
-                  <span>Sign Out</span>
+                  <span className="hidden xl:inline">Sign Out</span>
                 </Button>
               </div>
 
