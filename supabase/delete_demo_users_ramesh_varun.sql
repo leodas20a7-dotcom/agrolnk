@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: SAFELY REMOVE DUMMY DEMO ACCOUNTS (Ramesh & Varun)
+-- AGROWLINK: SAFELY REMOVE DUMMY DEMO ACCOUNTS (Ramesh & Varun)
 -- File: supabase/delete_demo_users_ramesh_varun.sql
 -- Description:
 --   Deletes dummy demo accounts (ramesh@gmail.com and varun@gmail.com)

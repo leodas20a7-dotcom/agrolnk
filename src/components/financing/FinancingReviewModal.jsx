@@ -294,7 +294,7 @@ export default function FinancingReviewModal({
                 <div className="space-y-1 text-xs text-left">
                   <h4 className="font-bold text-[#0B3326] text-sm">100% Escrow Payment Guarantee</h4>
                   <p className="text-[#566861] leading-relaxed">
-                    AgroLnk holds the entire payment securely in Escrow. As the producer, you do not pay any margins, interest, or fees. You receive 100% of your earnings upon delivery confirmation.
+                    AgrowLink holds the entire payment securely in Escrow. As the producer, you do not pay any margins, interest, or fees. You receive 100% of your earnings upon delivery confirmation.
                   </p>
                 </div>
               </div>
@@ -305,7 +305,7 @@ export default function FinancingReviewModal({
                   <span className="font-bold text-sm text-[#14211D]">₹{totalTxValue.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[#566861] font-medium">AgroLnk Escrow Status:</span>
+                  <span className="text-[#566861] font-medium">AgrowLink Escrow Status:</span>
                   <span className="font-bold text-xs text-[#10B981] flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
                     100% Escrow Secured ✓

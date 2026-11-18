@@ -1,4 +1,4 @@
-// AgroLnk Buyer-Side Quality Inspection & Assay Engine
+// AgrowLink Buyer-Side Quality Inspection & Assay Engine
 // Full Supabase Sync + Real-time + Local Cache Fallback
 import { supabase } from '../lib/supabase';
 
@@ -443,7 +443,7 @@ export async function sendInspectionReportToBuyer(inspectionId, reportData) {
     certificate,
     labName,
     labCertNumber,
-    inspectorName: reportData.inspectorName || 'AgroLnk Certified Assayer',
+    inspectorName: reportData.inspectorName || 'AgrowLink Certified Assayer',
     grade: reportData.grade || 'A',
     moisture: Number(reportData.moisture || 10.5),
     foreignMatter: Number(reportData.foreignMatter || 0.4),
@@ -571,7 +571,7 @@ export async function arbitrateDispute(reportId, arbitrationData) {
       action: arbitrationData.action,
       refundAmount: arbitrationData.refundAmount || 0,
       notes: arbitrationData.notes || '',
-      arbitratedBy: arbitrationData.arbitratedBy || 'AgroLnk Platform Ombudsman',
+      arbitratedBy: arbitrationData.arbitratedBy || 'AgrowLink Platform Ombudsman',
       arbitratedAt: new Date().toISOString(),
     }
   };

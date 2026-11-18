@@ -516,7 +516,7 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                   </h3>
                   <p className="text-xs text-[#566861] leading-relaxed">
                     {currentKycStatus === 'pending'
-                      ? 'Under statutory data protection & RBI lending guidelines, borrower credit requests, harvest collateral, and underwriting desks unlock once your institutional documents are verified by AgroLnk Compliance.'
+                      ? 'Under statutory data protection & RBI lending guidelines, borrower credit requests, harvest collateral, and underwriting desks unlock once your institutional documents are verified by AgrowLink Compliance.'
                       : 'Institutional authentication is required before accessing borrower credit applications, quoting term-sheets, or disbursing working capital.'}
                   </p>
                 </div>

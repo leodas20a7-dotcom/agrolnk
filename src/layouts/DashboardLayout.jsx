@@ -621,12 +621,12 @@ export default function DashboardLayout({
               >
                 <img
                   src={logoImg}
-                  alt="AgroLnk Logo"
+                  alt="AgrowLink Logo"
                   className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl bg-white border border-[#E5EDE8] p-0.5 shadow-xs shrink-0"
                 />
                 <div className="text-left shrink-0">
                   <span className="text-base sm:text-lg font-bold text-[#0B3326] font-heading leading-none block">
-                    AgroLnk
+                    AgrowLink
                   </span>
                   <span className="text-[9px] sm:text-[10px] text-[#10B981] font-semibold uppercase tracking-wider block mt-0.5 whitespace-nowrap">
                     {currentRoleConfig.title}
@@ -894,7 +894,7 @@ export default function DashboardLayout({
       <footer className="border-t border-[#E5EDE8] bg-white py-4 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#566861]">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-[#0B3326]">AgroLnk</span>
+            <span className="font-bold text-[#0B3326]">AgrowLink</span>
             <span className="hidden sm:inline">• Fairer, Direct Agricultural Exchange</span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-[#10B981] font-semibold">

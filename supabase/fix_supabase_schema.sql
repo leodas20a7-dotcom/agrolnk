@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK COMPREHENSIVE SUPABASE SCHEMA REPAIR & CONSTRAINT HARMONIZATION
+-- AGROWLINK COMPREHENSIVE SUPABASE SCHEMA REPAIR & CONSTRAINT HARMONIZATION
 -- Run this script in your Supabase Project -> SQL Editor to resolve all
 -- cross-portal synchronization issues, foreign key blocks, and check constraints.
 -- ============================================================================

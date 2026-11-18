@@ -489,7 +489,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                       <span>Dispatch Locked — Payment Deposit Under Bank Verification</span>
                     </div>
                     <p className="text-[11px] text-amber-800 leading-relaxed">
-                      The buyer submitted bank transfer UTR: <strong className="font-mono text-amber-950">{selectedOrder.bankUtr || 'Pending Submission'}</strong>. AgroLnk Admin is currently verifying the funds against the official bank account statement.
+                      The buyer submitted bank transfer UTR: <strong className="font-mono text-amber-950">{selectedOrder.bankUtr || 'Pending Submission'}</strong>. AgrowLink Admin is currently verifying the funds against the official bank account statement.
                     </p>
                     <div className="p-2.5 rounded-lg bg-amber-100/80 border border-amber-300 text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
                       <span>⚠️ Sequence Protection: Do not harvest, pack, or dispatch produce until Admin confirms the credited deposit.</span>
@@ -557,7 +557,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                 {(!linkedDelivery || (linkedDelivery.status !== 'transport_requested' && linkedDelivery.status !== 'price_offered' && linkedDelivery.status !== 'assigned' && linkedDelivery.status !== 'in_transit')) && (
                   <div className="space-y-2.5">
                     <p className="text-xs text-[#566861]">
-                      Buyer payment is secured in escrow. Broadcast this load to AgroLnk verified transporters (Buyer & Seller addresses remain private):
+                      Buyer payment is secured in escrow. Broadcast this load to AgrowLink verified transporters (Buyer & Seller addresses remain private):
                     </p>
                     <Button
                       variant="accent"
@@ -567,7 +567,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                       iconPosition="left"
                       className="w-full font-bold py-2.5 px-4 text-xs justify-center cursor-pointer shadow-sm"
                     >
-                      Request Verified AgroLnk Carrier
+                      Request Verified AgrowLink Carrier
                     </Button>
                   </div>
                 )}
@@ -643,7 +643,7 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-800 pl-6 leading-relaxed">
-                  Consignment is at the buyer's location. AgroLnk Operations will verify buyer quality inspection and release the escrow payout directly to your registered bank account.
+                  Consignment is at the buyer's location. AgrowLink Operations will verify buyer quality inspection and release the escrow payout directly to your registered bank account.
                 </p>
               </div>
             )}

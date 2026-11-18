@@ -53,7 +53,7 @@ export default function Register({ onNavigate, navState }) {
         '100% Escrow deposit protection',
       ],
       quote:
-        '“AgroLnk helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
+        '“AgrowLink helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
       author: 'Ramesh Patel, Producer (Madhya Pradesh)',
     },
     fpo: {
@@ -68,7 +68,7 @@ export default function Register({ onNavigate, navState }) {
         '100% Escrow deposit protection',
       ],
       quote:
-        '“AgroLnk helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
+        '“AgrowLink helped our FPO eliminate middlemen and get paid directly to our bank account upon dispatch.”',
       author: 'Ramesh Patel, FPO Lead (Madhya Pradesh)',
     },
     food_processor: {
@@ -83,7 +83,7 @@ export default function Register({ onNavigate, navState }) {
         'Unified dashboard for incoming raw materials and outgoing processed sales',
       ],
       quote:
-        '“AgroLnk allows our mill to procure raw farmgate grains at fair prices, and distribute our packaged goods to retailers nationwide.”',
+        '“AgrowLink allows our mill to procure raw farmgate grains at fair prices, and distribute our packaged goods to retailers nationwide.”',
       author: 'Heritage Agri Foods & Flour Mills',
     },
     buyer: {
@@ -126,7 +126,7 @@ export default function Register({ onNavigate, navState }) {
         'Verified GPS and consignment handover protocol',
       ],
       quote:
-        '“No more empty return trips. AgroLnk connects our fleet directly to harvesting farmgates across states.”',
+        '“No more empty return trips. AgrowLink connects our fleet directly to harvesting farmgates across states.”',
       author: 'Vetri Logistics & Transport, Fleet Operator',
     },
     warehouse: {
@@ -140,7 +140,7 @@ export default function Register({ onNavigate, navState }) {
         'Seamless marketplace release order verification',
       ],
       quote:
-        '“AgroLnk digitizes our warehouse receipts and connects our storage chambers directly to national trade flows.”',
+        '“AgrowLink digitizes our warehouse receipts and connects our storage chambers directly to national trade flows.”',
       author: 'Salem Agri Cold Storage Hub, WDRA Accredited Operator',
     },
   };
@@ -243,12 +243,12 @@ export default function Register({ onNavigate, navState }) {
             <div className="flex items-center gap-3">
               <img
                 src={logoImg}
-                alt="AgroLnk Logo"
+                alt="AgrowLink Logo"
                 className="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-xs"
               />
               <div>
                 <span className="text-xl font-bold tracking-tight text-white font-heading">
-                  AgroLnk
+                  AgrowLink
                 </span>
                 <span className="block text-[10px] text-[#10B981] font-semibold uppercase tracking-widest">
                   Agricultural Digital Exchange
@@ -356,7 +356,7 @@ export default function Register({ onNavigate, navState }) {
             {/* Form Headline */}
             <div className="space-y-1 text-left">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
-                Create your AgroLnk account
+                Create your AgrowLink account
               </h1>
               <p className="text-xs sm:text-sm text-[#566861]">
                 Join a marketplace built for better agricultural opportunities.

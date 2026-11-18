@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK MIGRATION RECONCILIATION & STORAGE ORDER-INDEPENDENCE FIX
+-- AGROWLINK MIGRATION RECONCILIATION & STORAGE ORDER-INDEPENDENCE FIX
 -- File: supabase/fix_migration_order_and_storage_idempotency.sql
 -- Purpose:
 --   Safely repairs any Supabase database regardless of which order legacy

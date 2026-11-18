@@ -171,7 +171,7 @@ export default function InspectionDisputes({ currentUser, onNavigate }) {
         action: resolutionAction,
         refundAmount: resolutionAction === 'partial_refund' ? Number(refundAmount) : (resolutionAction === 'full_refund' ? selectedDispute.orderAmount : 0),
         notes: arbitrationNotes,
-        arbitratedBy: 'AgroLnk Platform Ombudsman'
+        arbitratedBy: 'AgrowLink Platform Ombudsman'
       });
 
       toast.success('Dispute arbitrated and escrow ruling recorded successfully!');

@@ -1,4 +1,4 @@
-// AgroLnk Admin & KYC Management Engine
+// AgrowLink Admin & KYC Management Engine
 import { supabase } from '../lib/supabase';
 import { getOrders } from './orders';
 import { getFinancingRequests } from './financing';
@@ -262,7 +262,7 @@ export async function getUserKYC(userId) {
 }
 
 /**
- * Check if a user is verified to trade/interact on AgroLnk
+ * Check if a user is verified to trade/interact on AgrowLink
  */
 export async function isUserVerified(userId) {
   const user = await getUserKYC(userId);
@@ -341,7 +341,7 @@ async function updateProfileRowSafely(userId, buildPayloads) {
 /**
  * Update KYC Verification status (Admin Action)
  */
-export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifiedBy = 'AgroLnk Admin') {
+export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifiedBy = 'AgrowLink Admin') {
   const all = getStoredKYC();
   const index = all.findIndex((u) => u.id === userId || u.email === userId);
   const vanStatusUpdate =
@@ -517,7 +517,7 @@ export async function updateUserVANProvision(userId, {
 }
 
 /**
- * Get complete AgroLnk Admin Executive Metrics
+ * Get complete AgrowLink Admin Executive Metrics
  */
 export async function getAdminMetrics() {
   try {
@@ -622,7 +622,7 @@ export async function createAdminUser(userData) {
   const kycStatus = userData.verificationStatus || userData.kycStatus || 'pending';
   const role = userData.role || 'farmer';
   const name = userData.name || 'New User';
-  const email = (userData.email || `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@agrolnk.local`).trim().toLowerCase();
+  const email = (userData.email || `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@agrowlink.local`).trim().toLowerCase();
   const phone = (userData.phone || '9876543210').trim();
   const normalizedPhoneDigits = phone.replace(/\D/g, '').slice(-10);
   const state = userData.state || 'Tamil Nadu';
@@ -709,7 +709,7 @@ export async function createAdminUser(userData) {
     verificationStatus: kycStatus,
     submittedAt: new Date().toISOString(),
     verifiedAt: kycStatus === 'verified' ? new Date().toISOString() : null,
-    verifiedBy: kycStatus === 'verified' ? 'AgroLnk Platform Administrator' : null,
+    verifiedBy: kycStatus === 'verified' ? 'AgrowLink Platform Administrator' : null,
     documents: [
       {
         type: 'Aadhaar / Identity Document',

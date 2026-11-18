@@ -40,7 +40,7 @@ export default function KYCVerificationModal({
   const handleAction = async (newStatus) => {
     setIsUpdating(true);
     try {
-      const updated = await updateKYCStatus(user.id, newStatus, auditNotes, 'AgroLnk Admin (Govind)');
+      const updated = await updateKYCStatus(user.id, newStatus, auditNotes, 'AgrowLink Admin (Govind)');
       setIsUpdating(false);
       toast.success(`KYC status updated to ${newStatus.toUpperCase()}`);
       onStatusUpdated?.(updated);

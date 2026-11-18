@@ -276,7 +276,7 @@ export default function App() {
 
   // Initial app load flash curtain to hide blank flashes
   useEffect(() => {
-    showGlobalLoader('Synchronizing AgroLnk...', 'Connecting to decentralized commodity network...');
+    showGlobalLoader('Synchronizing AgrowLink...', 'Connecting to decentralized commodity network...');
     const timer = setTimeout(() => {
       hideGlobalLoader();
     }, 350);
@@ -296,7 +296,7 @@ export default function App() {
   }, []);
 
   const triggerFlashTransition = useCallback((targetPage) => {
-    const msg = PAGE_MESSAGES[targetPage] || 'Loading AgroLnk...';
+    const msg = PAGE_MESSAGES[targetPage] || 'Loading AgrowLink...';
     showGlobalLoader(msg, 'Fetching verified records from network...');
     setTimeout(() => {
       hideGlobalLoader();
@@ -383,7 +383,7 @@ export default function App() {
       <LoadingProvider>
         <ToastProvider>
           <div className="min-h-screen bg-[#F8FAF8] text-[#14211D]">
-            <Suspense fallback={<FlashLoadingScreen message="Loading AgroLnk Portal..." />}>
+            <Suspense fallback={<FlashLoadingScreen message="Loading AgrowLink Portal..." />}>
       {/* 1. Public Landing Page */}
       {currentPage === 'landing' && (
         <Landing

@@ -102,7 +102,7 @@ export default function BuyerInspectionModal({
       inspection,
       buyerUser: {
         name: order.buyerName || activeBuyer?.name || 'Procurement Buyer',
-        email: order.buyerEmail || activeBuyer?.email || 'buyer@agrolnk.com',
+        email: order.buyerEmail || activeBuyer?.email || 'buyer@agrowlink.com',
       },
       onSuccess: async (paymentData) => {
         setIsPayingFee(false);
@@ -449,7 +449,7 @@ export default function BuyerInspectionModal({
                           </div>
                         ) : certFailed ? (
                           <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                            The certificate is attached but could not be opened right now. Please refresh, or use Secure Chat to request a copy from AgroLnk support.
+                            The certificate is attached but could not be opened right now. Please refresh, or use Secure Chat to request a copy from AgrowLink support.
                           </p>
                         ) : null}
                       </div>
@@ -460,7 +460,7 @@ export default function BuyerInspectionModal({
                 <div className="pt-2 border-t border-amber-200/70 space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-amber-900 font-medium">Assayer In-Charge:</span>
-                    <span className="font-bold text-[#0B3326]">{inspection.inspectorName || 'AgroLnk Certified Assayer'}</span>
+                    <span className="font-bold text-[#0B3326]">{inspection.inspectorName || 'AgrowLink Certified Assayer'}</span>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-white/85 border border-amber-200/80 relative overflow-hidden">
@@ -544,7 +544,7 @@ export default function BuyerInspectionModal({
                         Lab Assay & Inspection Fee
                       </span>
                       <span className="text-[11px] text-[#566861]">
-                        Billed by AgroLnk Quality Assurance
+                        Billed by AgrowLink Quality Assurance
                       </span>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-// AgroLnk Razorpay Route Client Gateway
+// AgrowLink Razorpay Route Client Gateway
 // Security: Frontend ONLY has access to VITE_RAZORPAY_KEY_ID.
 // All financial calculations and secret keys reside server-side.
 
@@ -203,13 +203,13 @@ export async function initiateRazorpayRouteCheckout({
     key: razorpayKeyId,
     amount: checkoutAmountPaise,
     currency: 'INR',
-    name: 'AgroLnk Agri-Exchange',
+    name: 'AgrowLink Agri-Exchange',
     description: `Procurement: ${listing?.commodity || 'Produce'} (${qty} ${activeUnit})`,
     image: '/assets/Logo.jpeg',
     order_id: serverOrderId || undefined,
     prefill: {
       name: buyerUser?.name || 'Wholesale Buyer',
-      email: buyerUser?.email || 'buyer@agrolnk.com',
+      email: buyerUser?.email || 'buyer@agrowlink.com',
       contact: buyerUser?.phone || '9876543210',
     },
     notes: {
@@ -221,7 +221,7 @@ export async function initiateRazorpayRouteCheckout({
       settlement_type: 'Razorpay Route (Deferred on_hold)',
     },
     theme: {
-      color: '#0B3326', // AgroLnk Emerald
+      color: '#0B3326', // AgrowLink Emerald
     },
     modal: {
       ondismiss: () => {
@@ -303,12 +303,12 @@ export async function initiateRazorpayTransportCheckout({
     key: razorpayKeyId,
     amount: totalAmountInPaise,
     currency: 'INR',
-    name: 'AgroLnk Agri-Logistics',
+    name: 'AgrowLink Agri-Logistics',
     description: `Freight Escrow: ${delivery?.commodity || 'Produce'} (${delivery?.quantity || 100} ${delivery?.unit || 'kg'}) - ${delivery?.transporterName || 'Carrier'}`,
     image: '/assets/Logo.jpeg',
     prefill: {
       name: farmerUser?.name || delivery?.farmerName || 'Producer',
-      email: farmerUser?.email || 'farmer@agrolnk.com',
+      email: farmerUser?.email || 'farmer@agrowlink.com',
       contact: farmerUser?.phone || '9876543210',
     },
     notes: {
@@ -317,10 +317,10 @@ export async function initiateRazorpayTransportCheckout({
       order_number: delivery?.orderNumber,
       transporter_name: delivery?.transporterName || 'Carrier',
       freight_amount: `₹${freightAmount}`,
-      settlement_type: 'AgroLnk Logistics Escrow',
+      settlement_type: 'AgrowLink Logistics Escrow',
     },
     theme: {
-      color: '#0B3326', // AgroLnk Emerald
+      color: '#0B3326', // AgrowLink Emerald
     },
     modal: {
       ondismiss: () => {
@@ -392,12 +392,12 @@ export async function initiateRazorpayWarehouseRentCheckout({
     key: razorpayKeyId,
     amount: totalAmountInPaise,
     currency: 'INR',
-    name: 'AgroLnk Warehouse Storage',
+    name: 'AgrowLink Warehouse Storage',
     description: `Storage Rent (+${extendedDays} Days): ${inventory?.commodity || 'Produce'} - ${inventory?.warehouseName || 'Warehouse'}`,
     image: '/assets/Logo.jpeg',
     prefill: {
       name: farmerUser?.name || inventory?.farmerName || 'Producer',
-      email: farmerUser?.email || 'farmer@agrolnk.com',
+      email: farmerUser?.email || 'farmer@agrowlink.com',
       contact: farmerUser?.phone || '9876543210',
     },
     notes: {
@@ -409,7 +409,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
       type: 'e-NWR Warehouse Storage Rent',
     },
     theme: {
-      color: '#0B3326', // AgroLnk Emerald
+      color: '#0B3326', // AgrowLink Emerald
     },
     modal: {
       ondismiss: () => {
@@ -533,12 +533,12 @@ export async function initiateRazorpayInspectionFeeCheckout({
     amount: totalAmountInPaise,
     currency: 'INR',
     ...(isLiveServerOrder ? { order_id: serverOrderId } : {}),
-    name: 'AgroLnk Quality & Lab Assay',
+    name: 'AgrowLink Quality & Lab Assay',
     description: `Assay & Inspection Fee: ${inspection?.cropName || inspection?.commodity || 'Produce'} (Report: ${inspection?.reportNumber || inspection?.id})`,
     image: '/assets/Logo.jpeg',
     prefill: {
       name: buyerUser?.name || inspection?.buyerName || 'Procurement Buyer',
-      email: buyerUser?.email || 'buyer@agrolnk.com',
+      email: buyerUser?.email || 'buyer@agrowlink.com',
       contact: buyerUser?.phone || '9876543210',
     },
     notes: {
@@ -551,7 +551,7 @@ export async function initiateRazorpayInspectionFeeCheckout({
       type: 'Quality Assay & Lab Fee',
     },
     theme: {
-      color: '#0B3326', // AgroLnk Emerald
+      color: '#0B3326', // AgrowLink Emerald
     },
     modal: {
       ondismiss: () => {
@@ -624,12 +624,12 @@ export async function initiateFinancierEscrowDisbursement({
     key: razorpayKeyId,
     amount: totalAmountInPaise,
     currency: 'INR',
-    name: 'AgroLnk Escrow Capital Vault',
+    name: 'AgrowLink Escrow Capital Vault',
     description: `Trade Credit Disbursement: ₹${disburseAmount.toLocaleString('en-IN')} -> Order ${request?.orderNumber || request?.orderId || '#TRADE-ESCROW'}`,
     image: '/assets/Logo.jpeg',
     prefill: {
       name: financierUser?.name || 'Institutional Capital Partner',
-      email: financierUser?.email || 'financier@agrolnk.com',
+      email: financierUser?.email || 'financier@agrowlink.com',
       contact: financierUser?.phone || '9876543210',
     },
     notes: {
@@ -643,7 +643,7 @@ export async function initiateFinancierEscrowDisbursement({
       settlement_type: 'Razorpay Route (Institutional Escrow Lien)',
     },
     theme: {
-      color: '#0B3326', // AgroLnk Emerald
+      color: '#0B3326', // AgrowLink Emerald
     },
     modal: {
       ondismiss: () => {
@@ -715,12 +715,12 @@ export async function initiateBuyerMarginDepositCheckout({
     key: razorpayKeyId,
     amount: totalAmountInPaise,
     currency: 'INR',
-    name: 'AgroLnk Escrow Trade Margin',
+    name: 'AgrowLink Escrow Trade Margin',
     description: `Buyer Margin Deposit (20%): ${request?.commodity || 'Produce'} - Order ${request?.orderNumber || '#AGM-TRADE'}`,
     image: '/assets/Logo.jpeg',
     prefill: {
       name: buyerUser?.name || request?.applicantName || 'Wholesale Buyer',
-      email: buyerUser?.email || 'buyer@agrolnk.com',
+      email: buyerUser?.email || 'buyer@agrowlink.com',
       contact: buyerUser?.phone || '9876543210',
     },
     notes: {
@@ -733,7 +733,7 @@ export async function initiateBuyerMarginDepositCheckout({
       escrow_status: 'held_on_hold',
     },
     theme: {
-      color: '#0B3326', // AgroLnk Emerald
+      color: '#0B3326', // AgrowLink Emerald
     },
     modal: {
       ondismiss: () => {
@@ -861,12 +861,12 @@ export async function initiateRazorpayLoanRepaymentCheckout({
     amount: totalAmountInPaise,
     currency: 'INR',
     ...(isLiveServerOrder ? { order_id: serverOrderId } : {}),
-    name: 'AgroLnk Agri-Credit Repayment',
+    name: 'AgrowLink Agri-Credit Repayment',
     description: `Loan Repayment: ${loanObj?.requestNumber || loanObj?.orderNumber || '#FIN-LOAN'} (${loanObj?.purposeLabel || 'Agri Working Capital'})`,
     image: '/assets/Logo.jpeg',
     prefill: {
       name: userObj?.name || loanObj?.applicantName || 'Borrower',
-      email: userObj?.email || 'borrower@agrolnk.com',
+      email: userObj?.email || 'borrower@agrowlink.com',
       contact: userObj?.phone || '9876543210',
     },
     notes: {
@@ -880,7 +880,7 @@ export async function initiateRazorpayLoanRepaymentCheckout({
       settlement_target: 'Samunnati / NABARD Agri-Credit Vault',
     },
     theme: {
-      color: '#0B3326', // AgroLnk Emerald
+      color: '#0B3326', // AgrowLink Emerald
     },
     modal: {
       ondismiss: () => {

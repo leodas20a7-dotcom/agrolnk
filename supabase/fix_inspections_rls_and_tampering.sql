@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY REMEDIATION MIGRATION
+-- AGROWLINK SECURITY REMEDIATION MIGRATION
 -- Issue: Anyone Can Edit or Delete Quality Inspection & Dispute Records
 -- Fixes:
 --   1. Drops all permissive/public policies (including any `OR true` policies) on public.inspections.

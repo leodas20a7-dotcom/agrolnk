@@ -195,7 +195,7 @@ export async function uploadProduceImage(file, folder = 'listings', options = {}
 
     if (process.env.NODE_ENV !== 'production') {
       console.info(
-        `[AgroLnk Image Compressor] Compressed "${file.name || 'image'}" from ${(compression.originalSize / 1024).toFixed(1)} KB down to ${(compression.compressedSize / 1024).toFixed(1)} KB (${compression.width}x${compression.height}px, ${compression.compressionRatio}% of original).`
+        `[AgrowLink Image Compressor] Compressed "${file.name || 'image'}" from ${(compression.originalSize / 1024).toFixed(1)} KB down to ${(compression.compressedSize / 1024).toFixed(1)} KB (${compression.width}x${compression.height}px, ${compression.compressionRatio}% of original).`
       );
     }
 

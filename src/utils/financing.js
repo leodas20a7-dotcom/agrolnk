@@ -1,4 +1,4 @@
-// AgroLnk Supabase Trade Financing Engine
+// AgrowLink Supabase Trade Financing Engine
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange } from './syncChannel';
 import { getCurrentUser } from './auth';

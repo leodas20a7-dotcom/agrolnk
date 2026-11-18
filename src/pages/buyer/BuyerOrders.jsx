@@ -194,7 +194,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
   const handleConfirmOrderReceipt = async (orderOrDelivery) => {
     const orderKey = orderOrDelivery?.id || orderOrDelivery?.orderNumber;
     try {
-      showGlobalLoader('Confirming Arrival...', 'Logging arrival verification & notifying AgroLnk Admin...');
+      showGlobalLoader('Confirming Arrival...', 'Logging arrival verification & notifying AgrowLink Admin...');
       if (typeof window !== 'undefined') {
         if (orderOrDelivery?.id) localStorage.setItem(`agrolnk_buyer_verified_${orderOrDelivery.id}`, 'true');
         if (orderOrDelivery?.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${orderOrDelivery.orderNumber}`, 'true');
@@ -438,7 +438,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                       </Badge>
                     </div>
                     <p className="text-xs text-white/80">
-                      AgroLnk verified goods arrival and disbursed escrow funds directly to the producer.
+                      AgrowLink verified goods arrival and disbursed escrow funds directly to the producer.
                     </p>
                   </div>
                 </div>
@@ -461,7 +461,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                   </div>
 
                   <p className="text-xs text-white/90 leading-relaxed">
-                    You have verified consignment arrival. AgroLnk Operations will make a quick call to your phone before releasing payment to the farmer.
+                    You have verified consignment arrival. AgrowLink Operations will make a quick call to your phone before releasing payment to the farmer.
                   </p>
 
                   <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-white/10 text-xs">
@@ -488,7 +488,7 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                       Consignment Arrived at Destination
                     </span>
                     <p className="text-xs text-white/90 leading-relaxed">
-                      Please verify produce and confirm arrival. (Escrow will only be released after AgroLnk calls you to confirm satisfaction).
+                      Please verify produce and confirm arrival. (Escrow will only be released after AgrowLink calls you to confirm satisfaction).
                     </p>
                   </div>
 

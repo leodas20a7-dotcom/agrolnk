@@ -1,4 +1,4 @@
-// AgroLnk Bank Account & Settlement Beneficiary Registry
+// AgrowLink Bank Account & Settlement Beneficiary Registry
 // RBI Nodal Payout Standards: IFSC validation, Account Verification & Penny-Drop Simulator
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, setCurrentUser } from './auth';

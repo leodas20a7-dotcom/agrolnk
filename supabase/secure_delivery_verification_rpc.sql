@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX: SECURE DELIVERY VERIFICATION & TRANSPORTER BINDING
+-- AGROWLINK SECURITY FIX: SECURE DELIVERY VERIFICATION & TRANSPORTER BINDING
 -- File: supabase/secure_delivery_verification_rpc.sql
 -- Description:
 --   1. Adds brute-force lockout protection to delivery PIN vault.

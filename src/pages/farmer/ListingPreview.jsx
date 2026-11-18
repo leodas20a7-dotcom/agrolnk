@@ -133,7 +133,7 @@ export default function ListingPreview({ currentUser, onNavigate, navState }) {
             Preview Listing
           </h1>
           <p className="text-xs sm:text-sm text-[#566861]">
-            This is exactly how your produce will appear to verified buyers across the AgroLnk exchange.
+            This is exactly how your produce will appear to verified buyers across the AgrowLink exchange.
           </p>
         </div>
 

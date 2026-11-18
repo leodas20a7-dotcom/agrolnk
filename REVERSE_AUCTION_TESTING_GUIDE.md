@@ -1,6 +1,6 @@
-# AgroLnk — Reverse Auction Testing Guide
+# AgrowLink — Reverse Auction Testing Guide
 
-This guide gives you simple, step-by-step instructions to test both **Reverse Auction workflows** in AgroLnk:
+This guide gives you simple, step-by-step instructions to test both **Reverse Auction workflows** in AgrowLink:
 
 ---
 

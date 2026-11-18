@@ -110,7 +110,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
       }
       const filename = exportListingsToExcel(
         myListings,
-        `AgroLnk_FoodProcessor_Products_${user.name ? user.name.replace(/\s+/g, '_') : 'Processor'}`
+        `AgrowLink_FoodProcessor_Products_${user.name ? user.name.replace(/\s+/g, '_') : 'Processor'}`
       );
       toast.success(`Successfully exported ${myListings.length} products to ${filename}!`);
     } catch (err) {

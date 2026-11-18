@@ -26,6 +26,7 @@ import {
 import { getBuyerOrders } from '../../utils/orders';
 import { getBuyerDeliveries, confirmBuyerReceipt } from '../../utils/deliveries';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { toast } from '../../context/ToastContext';
 
 export default function BuyerDeliveries({ currentUser, onNavigate }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
@@ -94,12 +95,42 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
     currentPage * pageSize
   );
 
+  const [signedOffIds, setSignedOffIds] = useState({});
+
+  const isDeliverySignedOff = (delivery) => {
+    if (!delivery) return false;
+    if (delivery.id && signedOffIds[delivery.id]) return true;
+    if (typeof window !== 'undefined') {
+      if (
+        (delivery.id && localStorage.getItem(`agrolnk_buyer_verified_${delivery.id}`) === 'true') ||
+        (delivery.orderId && localStorage.getItem(`agrolnk_buyer_verified_${delivery.orderId}`) === 'true') ||
+        (delivery.orderNumber && localStorage.getItem(`agrolnk_buyer_verified_${delivery.orderNumber}`) === 'true')
+      ) {
+        return true;
+      }
+    }
+    const linkedOrder = orders.find(
+      (o) => (delivery.orderId && o.id === delivery.orderId) || (delivery.orderNumber && o.orderNumber === delivery.orderNumber)
+    );
+    return Boolean(linkedOrder?.buyerConfirmedArrival || linkedOrder?.buyerArrivalVerified);
+  };
+
   const handleConfirmDirect = async (delivery) => {
+    if (delivery?.id) {
+      setSignedOffIds((prev) => ({ ...prev, [delivery.id]: true }));
+    }
     try {
+      if (typeof window !== 'undefined') {
+        if (delivery.id) localStorage.setItem(`agrolnk_buyer_verified_${delivery.id}`, 'true');
+        if (delivery.orderId) localStorage.setItem(`agrolnk_buyer_verified_${delivery.orderId}`, 'true');
+        if (delivery.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${delivery.orderNumber}`, 'true');
+      }
       await confirmBuyerReceipt(delivery.id);
+      toast.success('Arrival signed off! AgrowLink Admin will verify and release escrow.');
       await loadData();
     } catch (err) {
       console.error('Error confirming delivery receipt:', err);
+      toast.error(err?.message || 'Failed to sign off arrival. Please try again.');
     }
   };
 
@@ -198,59 +229,7 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
 
         </div>
 
-        {/* Section 1: Delivered Consignments Requiring Verification */}
-        {awaitingConfirmationDeliveries.length > 0 && (
-          <div className="p-6 rounded-3xl bg-gradient-to-r from-[#FEF3C7]/90 via-[#F2FBF6] to-white border border-[#FDE68A] shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-[#92400E]">
-              <AlertCircle className="w-5 h-5" />
-              <h3 className="text-base font-bold font-heading">
-                Consignment Arrived: AgroLnk Verification & Escrow Clearance
-              </h3>
-            </div>
-            <p className="text-xs text-[#566861]">
-              The following produce shipments have arrived at your facility. Our AgroLnk operations desk will call you to verify produce grade, weight slips, and handover before releasing payment to the producer. You can also directly sign-off below to expedite payout.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {awaitingConfirmationDeliveries.map((delivery) => (
-                <div
-                  key={delivery.id}
-                  className="p-4 rounded-2xl bg-white border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-[#0B3326]">
-                        {delivery.commodity} ({delivery.quantity} {delivery.unit})
-                      </span>
-                      <Badge variant="emerald" size="sm">
-                        {delivery.deliveryNumber}
-                      </Badge>
-                    </div>
-                    <span className="text-xs text-[#566861] block mt-0.5">
-                      Carrier: {delivery.transporterName || 'Freight Partner'} • {delivery.vehicleNumber || ''}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[#D97706] font-semibold mt-1">
-                      📞 Pending Admin Call Confirmation
-                    </span>
-                  </div>
-
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => handleConfirmDirect(delivery)}
-                    icon={CheckCircle2}
-                    iconPosition="left"
-                    className="text-xs font-bold py-2 shadow-xs cursor-pointer shrink-0"
-                  >
-                    Quick Sign-Off (All Good)
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Section 2: Inbound Shipments Grid */}
+        {/* Inbound Shipments List / Grid */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -269,27 +248,35 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
             <div className="space-y-6">
               {viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {paginatedDeliveries.map((item) => (
-                    <DeliveryCard
-                      key={item.id}
-                      delivery={item}
-                      viewerRole="buyer"
-                      onView={(d) => setSelectedDeliveryForDetail(d)}
-                      onConfirmReceipt={(d) => handleConfirmDirect(d)}
-                    />
-                  ))}
+                  {paginatedDeliveries.map((item) => {
+                    const signedOff = isDeliverySignedOff(item);
+                    return (
+                      <DeliveryCard
+                        key={item.id}
+                        delivery={item}
+                        viewerRole="buyer"
+                        isSignedOff={signedOff}
+                        onView={(d) => setSelectedDeliveryForDetail(d)}
+                        onConfirmReceipt={signedOff ? null : (d) => handleConfirmDirect(d)}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {paginatedDeliveries.map((item) => (
-                    <DeliveryRow
-                      key={item.id}
-                      delivery={item}
-                      viewerRole="buyer"
-                      onView={(d) => setSelectedDeliveryForDetail(d)}
-                      onConfirmReceipt={(d) => handleConfirmDirect(d)}
-                    />
-                  ))}
+                  {paginatedDeliveries.map((item) => {
+                    const signedOff = isDeliverySignedOff(item);
+                    return (
+                      <DeliveryRow
+                        key={item.id}
+                        delivery={item}
+                        viewerRole="buyer"
+                        isSignedOff={signedOff}
+                        onView={(d) => setSelectedDeliveryForDetail(d)}
+                        onConfirmReceipt={signedOff ? null : (d) => handleConfirmDirect(d)}
+                      />
+                    );
+                  })}
                 </div>
               )}
 
@@ -347,8 +334,10 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
           delivery={selectedDeliveryForDetail}
           viewerRole="buyer"
           currentUser={user}
+          isSignedOff={isDeliverySignedOff(selectedDeliveryForDetail)}
           onClose={() => setSelectedDeliveryForDetail(null)}
           onStatusUpdated={() => loadData()}
+          onNavigate={onNavigate}
         />
       )}
     </DashboardLayout>

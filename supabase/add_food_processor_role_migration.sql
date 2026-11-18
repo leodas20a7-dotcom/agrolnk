@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: ADD FOOD PROCESSOR ROLE & PRODUCT TYPE CLASSIFICATION MIGRATION
+-- AGROWLINK: ADD FOOD PROCESSOR ROLE & PRODUCT TYPE CLASSIFICATION MIGRATION
 -- Run this script in your Supabase SQL Editor to enable 'food_processor' accounts.
 -- ============================================================================
 

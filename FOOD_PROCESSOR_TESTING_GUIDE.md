@@ -1,6 +1,6 @@
-# AgroLnk — Food Processor Simple Step-by-Step Testing Guide
+# AgrowLink — Food Processor Simple Step-by-Step Testing Guide
 
-A clear, friendly, and straightforward guide to test the **Food Processor & Milling** module in AgroLnk. 
+A clear, friendly, and straightforward guide to test the **Food Processor & Milling** module in AgrowLink. 
 
 Follow this simple walkthrough like a recipe: **Farmer sells raw crop → Food Processor buys it → Food Processor sells finished food → Retailer buys it and confirms with OTP!**
 

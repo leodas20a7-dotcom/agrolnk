@@ -1,4 +1,4 @@
-# AgroLnk Supabase Migration Runbook (Deterministic Execution Order)
+# AgrowLink Supabase Migration Runbook (Deterministic Execution Order)
 
 Running migrations on a fresh staging or production Supabase project requires executing files in the **dependency stages below**. All storage and security hardening scripts have also been made idempotent and order-safe so re-running them will never drop upload policies or resurrect `USING (true)` permissions.
 

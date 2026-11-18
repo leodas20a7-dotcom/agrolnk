@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK AUTH REPAIR: RESOLVE "Database error querying schema" (GoTrue NULL Token Scan)
+-- AGROWLINK AUTH REPAIR: RESOLVE "Database error querying schema" (GoTrue NULL Token Scan)
 -- File: supabase/fix_auth_users_tokens.sql
 -- Description:
 --   Fixes GoTrue auth scanner crashing when internal token columns in auth.users

@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY HARDENING: SECURE STORAGE UPLOAD PERMISSIONS
+-- AGROWLINK SECURITY HARDENING: SECURE STORAGE UPLOAD PERMISSIONS
 -- File: supabase/secure_storage_upload_policies.sql
 -- Order-Independent & Idempotent:
 --   Can safely be run in ANY order relative to storage_buckets_setup.sql or

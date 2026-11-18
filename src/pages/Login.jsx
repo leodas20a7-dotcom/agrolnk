@@ -22,7 +22,7 @@ import { loginUser, registerUser, sendPasswordResetEmail } from '../utils/auth';
 import logoImg from '../assets/Logo.jpeg';
 
 export default function Login({ onNavigate, navState }) {
-  // Flip state: false = Sign In (Front), true = Join AgroLnk (Back)
+  // Flip state: false = Sign In (Front), true = Join AgrowLink (Back)
   const [isFlipped, setIsFlipped] = useState(Boolean(navState?.initialRegister));
 
   // --- Sign In State ---
@@ -237,12 +237,12 @@ export default function Login({ onNavigate, navState }) {
                 <div className="flex items-center gap-3">
                   <img
                     src={logoImg}
-                    alt="AgroLnk Logo"
+                    alt="AgrowLink Logo"
                     className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
                     <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-heading block">
-                      AgroLnk
+                      AgrowLink
                     </span>
                     <span className="text-[10px] sm:text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Digital Agri Exchange
@@ -381,14 +381,14 @@ export default function Login({ onNavigate, navState }) {
                   onClick={() => setIsFlipped(true)}
                   className="font-bold text-[#0B3326] hover:text-[#10B981] hover:underline cursor-pointer inline-flex items-center gap-1"
                 >
-                  <span>Join AgroLnk</span>
+                  <span>Join AgrowLink</span>
                   <span className="text-[10px] text-[#10B981]">🔄</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* ================= BACK SIDE: JOIN AGROLNK (REGISTER) ================= */}
+          {/* ================= BACK SIDE: JOIN AGROWLINK (REGISTER) ================= */}
           <div
             className={`w-full bg-white rounded-3xl border border-[#E5EDE8] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 text-left backface-hidden rotate-y-180 ${!isFlipped ? 'absolute inset-0 pointer-events-none' : 'relative'
               }`}
@@ -411,12 +411,12 @@ export default function Login({ onNavigate, navState }) {
                 <div className="flex items-center gap-3">
                   <img
                     src={logoImg}
-                    alt="AgroLnk Logo"
+                    alt="AgrowLink Logo"
                     className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white p-0.5 shadow-xs shrink-0"
                   />
                   <div>
                     <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-heading block">
-                      AgroLnk
+                      AgrowLink
                     </span>
                     <span className="text-[10px] sm:text-[11px] text-[#34D399] font-semibold uppercase tracking-widest block">
                       Direct Agricultural Exchange
@@ -456,7 +456,7 @@ export default function Login({ onNavigate, navState }) {
               </div>
             </div>
 
-            {/* Right Join AgroLnk Form */}
+            {/* Right Join AgrowLink Form */}
             <div className="lg:col-span-7 p-7 sm:p-9 xl:p-11 flex flex-col justify-between bg-white space-y-5">
               <div className="space-y-4">
                 <div>
@@ -740,7 +740,7 @@ export default function Login({ onNavigate, navState }) {
             ) : (
               <form onSubmit={handleSendPasswordReset} className="space-y-4">
                 <p className="text-xs text-[#566861] leading-relaxed">
-                  Enter the email address associated with your AgroLnk account and we'll send you a password recovery link.
+                  Enter the email address associated with your AgrowLink account and we'll send you a password recovery link.
                 </p>
 
                 {forgotError && (

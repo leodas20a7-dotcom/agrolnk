@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: 100% BULLETPROOF STORAGE RLS LOCKDOWN (KYC & WAREHOUSE DOCUMENTS)
+-- AGROWLINK: 100% BULLETPROOF STORAGE RLS LOCKDOWN (KYC & WAREHOUSE DOCUMENTS)
 -- File: supabase/lock_down_storage_objects_security.sql
 -- Description:
 --   1. Ensures 'proof' and 'kyc' buckets are strictly private (public = false).

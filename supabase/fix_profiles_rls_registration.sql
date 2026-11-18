@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AGROLNK: PERMANENT FIX FOR "new row violates row-level security policy for table profiles"
+-- AGROWLINK: PERMANENT FIX FOR "new row violates row-level security policy for table profiles"
 -- File: supabase/fix_profiles_rls_registration.sql
 -- Description:
 --   1. Ensures RLS on public.profiles permits user signups (anon & authenticated).

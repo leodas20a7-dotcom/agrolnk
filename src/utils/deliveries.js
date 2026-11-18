@@ -1,4 +1,4 @@
-// AgroLnk Supabase Deliveries & Logistics Engine
+// AgrowLink Supabase Deliveries & Logistics Engine
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange } from './syncChannel';
 import { sendNotification } from './notifications';
@@ -637,7 +637,7 @@ export async function createDelivery(deliveryData) {
  * Deprecated self-arranged transport stub (Self-arranged transport is disabled to preserve Buyer/Seller address privacy)
  */
 export async function createOrUpdateSelfTransport() {
-  throw new Error('Self-arranged transport is disabled on AgroLnk to protect buyer and seller address privacy. All shipments use AgroLnk Verified Transporters.');
+  throw new Error('Self-arranged transport is disabled on AgrowLink to protect buyer and seller address privacy. All shipments use AgrowLink Verified Transporters.');
 }
 
 /**
@@ -648,7 +648,7 @@ export async function submitTransportQuote(deliveryId, quoteData) {
   try {
     const activeUser = getCurrentUser();
     if (activeUser?.role && activeUser.role !== 'transporter' && activeUser.role !== 'admin') {
-      throw new Error('Only verified transporters or the AgroLnk Logistics Desk can submit freight quotes.');
+      throw new Error('Only verified transporters or the AgrowLink Logistics Desk can submit freight quotes.');
     }
 
     const effectiveIsAdmin = activeUser?.role === 'admin' && Boolean(quoteData.isAdminAssigned);
@@ -824,13 +824,13 @@ export async function assignAdminFailSafeFreightQuote(deliveryId, adminQuoteData
   return submitTransportQuote(deliveryId, {
     ...adminQuoteData,
     transporterId: adminQuoteData.transporterId || 'admin_concierge_fleet',
-    transporterName: adminQuoteData.transporterName || 'AgroLnk Verified Fleet Partner',
+    transporterName: adminQuoteData.transporterName || 'AgrowLink Verified Fleet Partner',
     isAdminAssigned: true,
   });
 }
 
 /**
- * Buyer (or Admin) accepts transporter quote and deposits freight into AgroLnk Escrow
+ * Buyer (or Admin) accepts transporter quote and deposits freight into AgrowLink Escrow
  * Handles both Instant Gateway (< 50k) and Escrow Virtual Account (NEFT/RTGS)
  */
 export async function depositFreightEscrow({
@@ -888,7 +888,7 @@ export async function depositFreightEscrow({
  * Admin verifies real-world bank credit for freight quote (Escrow VAN / NEFT/RTGS)
  * Moves freight_escrow_status to 'escrow_locked' and status to 'assigned', unlocking driver dispatch
  */
-export async function verifyFreightBankDeposit(deliveryId, adminName = 'AgroLnk Admin') {
+export async function verifyFreightBankDeposit(deliveryId, adminName = 'AgrowLink Admin') {
   try {
     const nowIso = new Date().toISOString();
     const updatePayload = {
@@ -921,7 +921,7 @@ export async function verifyFreightBankDeposit(deliveryId, adminName = 'AgroLnk 
 }
 
 /**
- * Admin releases freight payment from AgroLnk Escrow to Transporter upon Delivery OTP
+ * Admin releases freight payment from AgrowLink Escrow to Transporter upon Delivery OTP
  * Deducts 0.25% platform fee and remits net fare
  */
 export async function adminReleaseFreightEscrow({
@@ -931,7 +931,7 @@ export async function adminReleaseFreightEscrow({
 }) {
   try {
     const nowIso = new Date().toISOString();
-    const adminName = adminUser?.name || 'AgroLnk Logistics Ombudsman';
+    const adminName = adminUser?.name || 'AgrowLink Logistics Ombudsman';
 
     const updatePayload = {
       freight_escrow_status: 'released',
@@ -1128,17 +1128,38 @@ export async function confirmBuyerReceipt(deliveryId) {
     try {
       const orderIdentifier = data?.order_id || data?.order_number || deliveryId;
       if (orderIdentifier) {
-        await supabase
+        const nowIso = new Date().toISOString();
+        const { error: syncErr } = await supabase
           .from('orders')
           .update({
             status: 'delivered',
             admin_verification_status: 'pending',
-            updated_at: new Date().toISOString(),
+            buyer_confirmed_arrival: true,
+            buyer_arrival_verified: true,
+            buyer_verified_at: nowIso,
+            updated_at: nowIso,
           })
           .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+
+        if (syncErr) {
+          await supabase
+            .from('orders')
+            .update({
+              status: 'delivered',
+              admin_verification_status: 'pending',
+              updated_at: nowIso,
+            })
+            .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+        }
       }
     } catch (orderSyncErr) {
       console.warn('Linked order auto-sync notice:', orderSyncErr);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('agrolnk_orders_updated'));
+      window.dispatchEvent(new Event('agrolnk_deliveries_updated'));
+      window.dispatchEvent(new Event('storage'));
     }
 
     return data ? mapDeliveryFromDb(data) : { id: deliveryId, status: 'delivered' };

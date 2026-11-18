@@ -385,7 +385,7 @@ export default function AdminCallVerificationModal({
                 <span className="font-bold text-[#0B3326]">{formatINR(fin.totalBuyerPayable)}</span>
               </div>
               <div>
-                <span className="text-[10px] text-[#566861] uppercase font-bold block">AgroLnk 0.50% Fee</span>
+                <span className="text-[10px] text-[#566861] uppercase font-bold block">AgrowLink 0.50% Fee</span>
                 <span className="font-bold text-[#10B981]">{formatINR(fin.totalPlatformCommission)}</span>
               </div>
               <div>

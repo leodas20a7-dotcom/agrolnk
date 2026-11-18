@@ -477,7 +477,7 @@ export async function recordWarehouseRentPayment(receiptId, paymentDetails = {})
       paidAt,
       extendedDays,
       paidBy: paymentDetails.paidBy || receipt.farmer_name || 'Farmer Depositor',
-      notes: paymentDetails.notes || 'Direct payment with 0.25% AgroLnk platform facilitation fee',
+      notes: paymentDetails.notes || 'Direct payment with 0.25% AgrowLink platform facilitation fee',
     };
 
     const existingHistory = Array.isArray(receipt.rent_payment_history) ? receipt.rent_payment_history : [];

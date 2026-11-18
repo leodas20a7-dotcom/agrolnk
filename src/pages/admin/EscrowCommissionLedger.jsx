@@ -284,11 +284,11 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
   const totalFinancingGMV = financingItems.reduce((sum, item) => sum + (item.principal || 0), 0);
   const totalEcosystemGMV = totalTradeGMV + totalFreightGMV + totalWarehouseGMV + totalFinancingGMV;
 
-  const totalAgroLnkTradeRevenue = fundedTradeItems.reduce((sum, item) => sum + item.totalPlatformCommission, 0);
-  const totalAgroLnkFreightRevenue = freightItems.reduce((sum, item) => sum + (item.totalAgroLnkFreightRevenue || 0), 0);
-  const totalAgroLnkWarehouseRevenue = warehouseItems.reduce((sum, item) => sum + (item.totalAgroLnkWarehouseRevenue || 0), 0);
-  const totalAgroLnkFinancingRevenue = financingItems.reduce((sum, item) => sum + (item.totalAgroLnkFinancingRevenue || 0), 0);
-  const totalAgroLnkRevenue = totalAgroLnkTradeRevenue + totalAgroLnkFreightRevenue + totalAgroLnkWarehouseRevenue + totalAgroLnkFinancingRevenue;
+  const totalAgrowLinkTradeRevenue = fundedTradeItems.reduce((sum, item) => sum + item.totalPlatformCommission, 0);
+  const totalAgrowLinkFreightRevenue = freightItems.reduce((sum, item) => sum + (item.totalAgrowLinkFreightRevenue || 0), 0);
+  const totalAgrowLinkWarehouseRevenue = warehouseItems.reduce((sum, item) => sum + (item.totalAgrowLinkWarehouseRevenue || 0), 0);
+  const totalAgrowLinkFinancingRevenue = financingItems.reduce((sum, item) => sum + (item.totalAgrowLinkFinancingRevenue || 0), 0);
+  const totalAgrowLinkRevenue = totalAgrowLinkTradeRevenue + totalAgrowLinkFreightRevenue + totalAgrowLinkWarehouseRevenue + totalAgrowLinkFinancingRevenue;
 
   const totalEscrowLocked =
     ledgerItems.filter((item) => item.escrowState === 'locked').reduce((sum, item) => sum + item.totalBuyerPayable, 0) +
@@ -377,7 +377,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               </div>
             </div>
             <div className="text-lg sm:text-2xl font-bold text-[#10B981] truncate">
-              {formatINR(totalAgroLnkRevenue)}
+              {formatINR(totalAgrowLinkRevenue)}
             </div>
             <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
               Produce, Transport &amp; Storage
@@ -710,7 +710,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                           <th className="py-3.5 px-4">Gross Trade Value</th>
                           <th className="py-3.5 px-4 text-[#1E40AF]">Buyer Paid (+0.25%)</th>
                           <th className="py-3.5 px-4 text-[#10B981]">Seller Received (-0.25%)</th>
-                          <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
+                          <th className="py-3.5 px-4 text-[#0B3326]">AgrowLink Fee (0.50%)</th>
                           <th className="py-3.5 px-4">Escrow Status</th>
                           <th className="py-3.5 px-4 text-center">Admin Verification &amp; Payout</th>
                         </tr>
@@ -801,7 +801,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                                     </span>
                                   )}
                                 </div>
-                              ) : (
+                              ) : item.status === 'delivered' || item.buyerArrivalConfirmed ? (
                                 <Button
                                   variant="accent"
                                   size="sm"
@@ -812,6 +812,10 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                                 >
                                   Call Buyer &amp; Release
                                 </Button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0B3326] bg-[#EBF5F0] px-2.5 py-1 rounded-full">
+                                  <Clock className="w-3.5 h-3.5 text-[#10B981]" /> In Escrow • Awaiting Delivery
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -827,7 +831,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                           <th className="py-3.5 px-4">Base Freight Quote</th>
                           <th className="py-3.5 px-4 text-[#1E40AF]">Buyer Deposited (+0.25%)</th>
                           <th className="py-3.5 px-4 text-[#10B981]">Transporter Payout (-0.25%)</th>
-                          <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
+                          <th className="py-3.5 px-4 text-[#0B3326]">AgrowLink Fee (0.50%)</th>
                           <th className="py-3.5 px-4">Freight Escrow Status</th>
                           <th className="py-3.5 px-4 text-center">Admin Verification &amp; Release</th>
                         </tr>
@@ -868,7 +872,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             </td>
 
                             <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
-                              {formatINR(item.totalAgroLnkFreightRevenue)}
+                              {formatINR(item.totalAgrowLinkFreightRevenue)}
                             </td>
 
                             <td className="py-3.5 px-4">
@@ -949,7 +953,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                           <th className="py-3.5 px-4">Monthly Storage Rent</th>
                           <th className="py-3.5 px-4 text-[#1E40AF]">Depositor Paid (+0.25%)</th>
                           <th className="py-3.5 px-4 text-[#10B981]">Warehouse Settled (-0.25%)</th>
-                          <th className="py-3.5 px-4 text-[#0B3326]">AgroLnk Fee (0.50%)</th>
+                          <th className="py-3.5 px-4 text-[#0B3326]">AgrowLink Fee (0.50%)</th>
                           <th className="py-3.5 px-4">Settlement Status</th>
                           <th className="py-3.5 px-4 text-center">Settlement Mode</th>
                         </tr>
@@ -990,7 +994,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             </td>
 
                             <td className="py-3.5 px-4 font-extrabold text-[#0B3326]">
-                              {formatINR(item.totalAgroLnkWarehouseRevenue)}
+                              {formatINR(item.totalAgrowLinkWarehouseRevenue)}
                             </td>
 
                             <td className="py-3.5 px-4">
@@ -1027,7 +1031,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                           <th className="py-3.5 px-4">Credit Request # &amp; Commodity</th>
                           <th className="py-3.5 px-4">Borrower &amp; Financier</th>
                           <th className="py-3.5 px-4">Sanctioned Principal</th>
-                          <th className="py-3.5 px-4 text-[#1E40AF]">AgroLnk 0.25% Sourcing Fee</th>
+                          <th className="py-3.5 px-4 text-[#1E40AF]">AgrowLink 0.25% Sourcing Fee</th>
                           <th className="py-3.5 px-4 text-[#10B981]">Net Disbursed to Borrower</th>
                           <th className="py-3.5 px-4">Disbursal Status</th>
                           <th className="py-3.5 px-4 text-center">LSP Regulatory Model</th>
@@ -1151,7 +1155,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             <span className="font-bold text-[#14211D] text-xs">{formatINR(item.tradeValue)}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk Fee (0.5%)</span>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgrowLink Fee (0.5%)</span>
                             <span className="font-bold text-[#0B3326] text-xs">{formatINR(item.totalPlatformCommission)}</span>
                           </div>
                           <div>
@@ -1192,7 +1196,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               <CheckCircle2 className="w-4 h-4" />
                               <span>Disbursed to Farmer Bank</span>
                             </div>
-                          ) : (
+                          ) : item.status === 'delivered' || item.buyerArrivalConfirmed ? (
                             <Button
                               variant="accent"
                               size="sm"
@@ -1203,6 +1207,10 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             >
                               Call Buyer &amp; Release
                             </Button>
+                          ) : (
+                            <div className="w-full text-center text-[11px] font-semibold text-[#0B3326] bg-[#EBF5F0] py-2 px-3 rounded-xl">
+                              In Escrow • Awaiting Delivery
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1252,8 +1260,8 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             <span className="font-bold text-[#14211D]">{formatINR(item.baseFare)}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk Fee</span>
-                            <span className="font-bold text-[#0B3326]">{formatINR(item.totalAgroLnkFreightRevenue)}</span>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgrowLink Fee</span>
+                            <span className="font-bold text-[#0B3326]">{formatINR(item.totalAgrowLinkFreightRevenue)}</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-[#566861] uppercase font-semibold block">Deposited</span>
@@ -1336,8 +1344,8 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             <span className="font-bold text-[#14211D]">{formatINR(item.baseRent)}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk Fee</span>
-                            <span className="font-bold text-[#0B3326]">{formatINR(item.totalAgroLnkWarehouseRevenue)}</span>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgrowLink Fee</span>
+                            <span className="font-bold text-[#0B3326]">{formatINR(item.totalAgrowLinkWarehouseRevenue)}</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-[#566861] uppercase font-semibold block">Depositor Paid</span>
@@ -1395,7 +1403,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             <span className="font-bold text-[#14211D]">{formatINR(item.principal)}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgroLnk 0.25% Fee</span>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">AgrowLink 0.25% Fee</span>
                             <span className="font-bold text-[#0B3326]">{formatINR(item.originationFee)}</span>
                           </div>
                           <div className="col-span-2">
@@ -1491,7 +1499,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               </div>
 
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/90 text-[11px] text-amber-900 leading-relaxed">
-                ⚠️ <strong>Admin Checkpoint:</strong> Please confirm you have opened AgroLnk's corporate NetBanking portal and verified that <strong>{formatINR(confirmingDepositOrder.totalBuyerPayable)}</strong> with reference <strong>{confirmingDepositOrder.bankUtr}</strong> is credited into the bank statement. Confirming this will unlock produce dispatch for the farmer.
+                ⚠️ <strong>Admin Checkpoint:</strong> Please confirm you have opened AgrowLink's corporate NetBanking portal and verified that <strong>{formatINR(confirmingDepositOrder.totalBuyerPayable)}</strong> with reference <strong>{confirmingDepositOrder.bankUtr}</strong> is credited into the bank statement. Confirming this will unlock produce dispatch for the farmer.
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1508,7 +1516,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                   onClick={async () => {
                     setIsVerifyingDeposit(true);
                     try {
-                      await verifyAndLockEscrowDeposit(confirmingDepositOrder.id, user?.name || 'AgroLnk Admin');
+                      await verifyAndLockEscrowDeposit(confirmingDepositOrder.id, user?.name || 'AgrowLink Admin');
                       setConfirmingDepositOrder(null);
                       loadData();
                     } catch (e) {
@@ -1573,7 +1581,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
               </div>
 
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/90 text-[11px] text-amber-900 leading-relaxed">
-                ⚠️ <strong>Admin Checkpoint:</strong> Verify that <strong>{formatINR(confirmingFreightDelivery.totalFreightDeposit)}</strong> with UTR <strong>{confirmingFreightDelivery.freightBankUtr}</strong> is credited into AgroLnk's corporate bank statement. Confirming this will lock the freight in escrow and authorize driver pickup.
+                ⚠️ <strong>Admin Checkpoint:</strong> Verify that <strong>{formatINR(confirmingFreightDelivery.totalFreightDeposit)}</strong> with UTR <strong>{confirmingFreightDelivery.freightBankUtr}</strong> is credited into AgrowLink's corporate bank statement. Confirming this will lock the freight in escrow and authorize driver pickup.
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1590,7 +1598,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                   onClick={async () => {
                     setIsVerifyingDeposit(true);
                     try {
-                      await verifyFreightBankDeposit(confirmingFreightDelivery.id, user?.name || 'AgroLnk Admin');
+                      await verifyFreightBankDeposit(confirmingFreightDelivery.id, user?.name || 'AgrowLink Admin');
                       setConfirmingFreightDelivery(null);
                       loadData();
                     } catch (e) {
@@ -1641,8 +1649,8 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                   <span className="font-semibold text-[#14211D]">{formatINR(releasingFreightDelivery.totalFreightDeposit)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[#566861]">AgroLnk 0.50% Commission:</span>
-                  <span className="font-semibold text-emerald-800">-{formatINR(releasingFreightDelivery.totalAgroLnkFreightRevenue)}</span>
+                  <span className="text-[#566861]">AgrowLink 0.50% Commission:</span>
+                  <span className="font-semibold text-emerald-800">-{formatINR(releasingFreightDelivery.totalAgrowLinkFreightRevenue)}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8]">
                   <span className="text-xs font-bold text-[#0B3326]">Net Transporter Payout:</span>

@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK STEP 1 MIGRATION: MOQ & BUYER-PAID COMPETITIVE TRANSPORTER RFQ ENGINE
+-- AGROWLINK STEP 1 MIGRATION: MOQ & BUYER-PAID COMPETITIVE TRANSPORTER RFQ ENGINE
 -- File: supabase/step1_moq_and_competitive_freight_rfq.sql
 -- Description:
 --   1. Adds min_order_quantity (MOQ) to public.listings
@@ -201,7 +201,7 @@ BEGIN
     -- Block any non-admin from self-releasing or refunding escrow to bank accounts
     IF (NEW.escrow_status IS DISTINCT FROM OLD.escrow_status)
        AND NEW.escrow_status IN ('released', 'refunded') THEN
-        RAISE EXCEPTION 'Security Policy Violation: Only AgroLnk Admin can release or refund escrow funds.';
+        RAISE EXCEPTION 'Security Policy Violation: Only AgrowLink Admin can release or refund escrow funds.';
     END IF;
 
     RETURN NEW;
@@ -267,7 +267,7 @@ BEGIN
         v_listing.farmer_id = p_buyer_id OR
         (auth.uid() IS NOT NULL AND v_listing.farmer_id = auth.uid()::text)
     ) THEN
-        RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgroLnk.';
+        RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgrowLink.';
     END IF;
 
     -- 2c. Convert requested volume into the listing's native unit
@@ -636,7 +636,7 @@ BEGIN
             v_order.farmer_id,
             'farmer',
             'Order & Freight Confirmed (' || v_order.order_number || ')',
-            'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgroLnk Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
+            'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgrowLink Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
             'order',
             '/farmer-orders',
             false,
@@ -653,7 +653,7 @@ BEGIN
             v_delivery.transporter_id,
             'transporter',
             'Freight Quote Won & Escrow Locked! (' || v_delivery.delivery_number || ')',
-            'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgroLnk Escrow. Pickup address is now unlocked in My Active Trips.',
+            'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgrowLink Escrow. Pickup address is now unlocked in My Active Trips.',
             'delivery',
             '/transporter-dashboard',
             false,

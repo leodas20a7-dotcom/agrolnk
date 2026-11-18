@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX: PREVENT FREEZING UNPAID OR ALREADY-SETTLED ORDERS
+-- AGROWLINK SECURITY FIX: PREVENT FREEZING UNPAID OR ALREADY-SETTLED ORDERS
 -- File: supabase/fix_dispute_freeze_state_guard.sql
 -- Purpose:
 --   Hardens public.freeze_order_on_dispute_atomic() so neither buyers nor admins

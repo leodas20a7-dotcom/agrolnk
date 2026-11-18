@@ -40,8 +40,10 @@ export default function DeliveryDetailModal({
   delivery,
   viewerRole = 'farmer', // 'farmer' | 'buyer' | 'transporter'
   currentUser,
+  isSignedOff = false,
   onClose,
   onStatusUpdated,
+  onNavigate,
 }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -328,7 +330,7 @@ export default function DeliveryDetailModal({
                   <div className="flex flex-wrap items-center gap-2 mt-2 pt-0.5">
                     <a
                       href={`https://wa.me/91${rawFarmerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
-                        `Vanakkam / Hello ${currentDelivery.farmerName || 'Farmer'}, I am the assigned AgroLnk transporter for consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please share your live GPS location on WhatsApp so I can navigate straight to your pickup gate.`
+                        `Vanakkam / Hello ${currentDelivery.farmerName || 'Farmer'}, I am the assigned AgrowLink transporter for consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please share your live GPS location on WhatsApp so I can navigate straight to your pickup gate.`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -399,7 +401,7 @@ export default function DeliveryDetailModal({
 
                     <a
                       href={`https://wa.me/91${rawBuyerPhone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
-                        `Hello ${currentDelivery.buyerName || 'Buyer'}, I am the assigned AgroLnk transporter for your consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please confirm your unloading depot instructions.`
+                        `Hello ${currentDelivery.buyerName || 'Buyer'}, I am the assigned AgrowLink transporter for your consignment #${currentDelivery.deliveryNumber || currentDelivery.orderNumber} (${currentDelivery.commodity}). Please confirm your unloading depot instructions.`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -484,6 +486,38 @@ export default function DeliveryDetailModal({
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Buyer Quote Approval & Order Payment Redirect Bar */}
+        {isBuyer && currentDelivery.status === 'price_offered' && (
+          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1 text-xs text-left">
+              <span className="font-bold text-[#34D399] uppercase tracking-wider block">
+                Lowest Freight Quote Ready • ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')}
+              </span>
+              <span className="text-white/85 block leading-relaxed">
+                Open agreement <strong>{currentDelivery.orderNumber || 'your order'}</strong> in <strong>My Orders</strong> to pay Combined Escrow (Crop + Freight) and authorize dispatch.
+              </span>
+            </div>
+
+            <Button
+              variant="accent"
+              size="md"
+              onClick={() => {
+                onClose();
+                if (onNavigate) {
+                  onNavigate('buyer-orders');
+                } else if (typeof window !== 'undefined') {
+                  window.location.hash = '#/buyer-orders';
+                }
+              }}
+              icon={CheckCircle2}
+              iconPosition="left"
+              className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
+            >
+              Go to Orders &amp; Pay
+            </Button>
           </div>
         )}
 
@@ -612,30 +646,60 @@ export default function DeliveryDetailModal({
         )}
 
         {/* Buyer Confirmation Action */}
-        {isBuyer && currentDelivery.status === 'delivered' && (
-          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-0.5 text-xs text-left">
-              <span className="font-bold text-[#34D399] uppercase tracking-wider block">
-                Consignment Arrived at Destination
-              </span>
-              <span className="text-white/80">
-                Did you inspect and receive the {currentDelivery.quantity} {currentDelivery.unit} {currentDelivery.commodity}?
-              </span>
-            </div>
+        {isBuyer && currentDelivery.status === 'delivered' && (() => {
+          const alreadySignedOff =
+            isSignedOff ||
+            (typeof window !== 'undefined' &&
+              (localStorage.getItem(`agrolnk_buyer_verified_${currentDelivery.id}`) === 'true' ||
+                localStorage.getItem(`agrolnk_buyer_verified_${currentDelivery.orderId}`) === 'true' ||
+                localStorage.getItem(`agrolnk_buyer_verified_${currentDelivery.orderNumber}`) === 'true'));
 
-            <Button
-              variant="accent"
-              size="md"
-              disabled={isUpdating}
-              onClick={handleConfirmReceipt}
-              icon={CheckCircle2}
-              iconPosition="left"
-              className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
-            >
-              {isUpdating ? 'Confirming...' : 'Confirm Receipt'}
-            </Button>
-          </div>
-        )}
+          return alreadySignedOff ? (
+            <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex items-center justify-between gap-3">
+              <div className="space-y-0.5 text-xs text-left">
+                <span className="font-bold text-[#0B3326] block">
+                  ✓ Arrival Signed Off
+                </span>
+                <span className="text-[#566861]">
+                  AgrowLink Operations will complete the quick verification call and release escrow.
+                </span>
+              </div>
+              <Badge variant="emerald" size="sm" className="shrink-0">
+                Awaiting Payout
+              </Badge>
+            </div>
+          ) : (
+            <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-0.5 text-xs text-left">
+                <span className="font-bold text-[#34D399] uppercase tracking-wider block">
+                  Consignment Arrived at Destination
+                </span>
+                <span className="text-white/80">
+                  Did you inspect and receive the {currentDelivery.quantity} {currentDelivery.unit} {currentDelivery.commodity}?
+                </span>
+              </div>
+
+              <Button
+                variant="accent"
+                size="md"
+                disabled={isUpdating}
+                onClick={async () => {
+                  if (typeof window !== 'undefined') {
+                    if (currentDelivery.id) localStorage.setItem(`agrolnk_buyer_verified_${currentDelivery.id}`, 'true');
+                    if (currentDelivery.orderId) localStorage.setItem(`agrolnk_buyer_verified_${currentDelivery.orderId}`, 'true');
+                    if (currentDelivery.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${currentDelivery.orderNumber}`, 'true');
+                  }
+                  await handleConfirmReceipt();
+                }}
+                icon={CheckCircle2}
+                iconPosition="left"
+                className="w-full sm:w-auto font-bold py-2.5 px-6 shadow-xs cursor-pointer"
+              >
+                {isUpdating ? 'Confirming...' : 'Confirm Delivery'}
+              </Button>
+            </div>
+          );
+        })()}
 
         </div>
       </div>

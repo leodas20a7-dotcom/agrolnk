@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK TRADE FINANCING & INSTITUTIONAL QUOTATION SCHEMA UPDATE
+-- AGROWLINK TRADE FINANCING & INSTITUTIONAL QUOTATION SCHEMA UPDATE
 -- Run this in your Supabase Project -> SQL Editor to enable term-sheet
 -- quotations, lender lock, and multi-status escrow disbursement tracking.
 -- ============================================================================

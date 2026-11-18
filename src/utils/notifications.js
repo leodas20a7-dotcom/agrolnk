@@ -1,4 +1,4 @@
-// AgroLnk Strict Role-Based & Conflict-Free Notification Engine (100% Free)
+// AgrowLink Strict Role-Based & Conflict-Free Notification Engine (100% Free)
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange, subscribeToCrossTabSync } from './syncChannel';
 

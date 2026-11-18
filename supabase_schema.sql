@@ -1,6 +1,6 @@
 -- ============================================================================
--- AGROLNK PRODUCTION DATABASE SCHEMA FOR SUPABASE (PostgreSQL)
--- Project: AGROLNK Agri-Fintech & Digital Commodity Exchange
+-- AGROWLINK PRODUCTION DATABASE SCHEMA FOR SUPABASE (PostgreSQL)
+-- Project: AGROWLINK Agri-Fintech & Digital Commodity Exchange
 -- ============================================================================
 
 -- Enable UUID extension
@@ -579,7 +579,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.inspections (id, report_number, order_id, order_number, buyer_id, buyer_name, seller_name, commodity, crop_name, quantity, verified_weight, ordered_grade, grade, moisture, foreign_matter, status, order_amount, inspector_name, inspector_notes)
 VALUES
     ('insp_101', 'INSP-2026-8821', NULL, 'AGM-6801', 'usr_buyer_02', 'Ananya Agro Foods', 'veerappan (Salem Producer)', 'Onion', 'Nashik Red Onion', 50, 50.0, 'A', 'A', 11.2, 0.5, 'requested', 1000, NULL, NULL),
-    ('insp_102', 'INSP-2026-4419', NULL, 'AGM-9266', 'usr_buyer_02', 'Ananya Agro Foods', 'veerappan (Salem Producer)', 'Tomato', 'Hybrid Shivam Tomato', 100, 98.5, 'A', 'A', 9.4, 0.2, 'passed', 3000, 'AgroLnk Certified Assayer (Govind)', 'Physical inspection & moisture meter testing completed at farmgate hub.')
+    ('insp_102', 'INSP-2026-4419', NULL, 'AGM-9266', 'usr_buyer_02', 'Ananya Agro Foods', 'veerappan (Salem Producer)', 'Tomato', 'Hybrid Shivam Tomato', 100, 98.5, 'A', 'A', 9.4, 0.2, 'passed', 3000, 'AgrowLink Certified Assayer (Govind)', 'Physical inspection & moisture meter testing completed at farmgate hub.')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
@@ -946,7 +946,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 2. ATOMIC ESCROW RELEASE
 CREATE OR REPLACE FUNCTION public.release_escrow_atomic(
     p_order_id TEXT,
-    p_admin_name TEXT DEFAULT 'AgroLnk Operations Ombudsman',
+    p_admin_name TEXT DEFAULT 'AgrowLink Operations Ombudsman',
     p_admin_notes TEXT DEFAULT 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.',
     p_bank_name TEXT DEFAULT NULL,
     p_account_number TEXT DEFAULT NULL,

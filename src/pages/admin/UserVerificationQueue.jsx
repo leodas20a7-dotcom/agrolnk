@@ -892,7 +892,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                     )}
                   </div>
                   <p className="text-[11px] text-[#1E40AF] leading-relaxed">
-                    💡 Approving will update the live capacity and accreditation documents visible across the AgroLnk marketplace.
+                    💡 Approving will update the live capacity and accreditation documents visible across the AgrowLink marketplace.
                   </p>
                 </div>
               )}

@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK CONSOLIDATED PRODUCTION DATABASE SECURITY & RLS CONSOLIDATION
+-- AGROWLINK CONSOLIDATED PRODUCTION DATABASE SECURITY & RLS CONSOLIDATION
 -- File: supabase/consolidated_production_security_rls.sql
 -- Resolves Audit Issues:
 --   - Issue 12: Conflicting Supabase RLS policies eliminated

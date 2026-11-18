@@ -14,7 +14,10 @@ import {
   Receipt,
   Clock,
   AlertTriangle,
-  ShieldAlert
+  ShieldAlert,
+  Copy,
+  Check,
+  Zap
 } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -32,6 +35,7 @@ import { toast } from '../../context/ToastContext';
 import { depositOrderEscrow, completeBuyerOrderWithFreightPayment, updateOrderStatus } from '../../utils/orders';
 import { calculateOrderFinancials } from '../../utils/commission';
 import { initiateRazorpayRouteCheckout } from '../../utils/razorpayRouteClient';
+import { generateOrderSmartVAN, processSmartVanWebhookCredit, ESCROW_NODAL_ACCOUNT } from '../../utils/escrowApi';
 
 export default function OrderSummary({
   order,
@@ -46,14 +50,29 @@ export default function OrderSummary({
   const [existingFinancing, setExistingFinancing] = useState(null);
   const [existingDelivery, setExistingDelivery] = useState(null);
   const [existingInspection, setExistingInspection] = useState(null);
+  const [isLoadingLinkedData, setIsLoadingLinkedData] = useState(true);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
   const [rfqRemainingSec, setRfqRemainingSec] = useState(30 * 60);
+  const [selectedPayMethod, setSelectedPayMethod] = useState(null);
+  const [vanSession, setVanSession] = useState(null);
+  const [manualUtr, setManualUtr] = useState('');
+  const [copiedVanField, setCopiedVanField] = useState(null);
+
+  useEffect(() => {
+    setSelectedPayMethod(null);
+    setVanSession(null);
+    setManualUtr('');
+  }, [order?.id]);
 
   useEffect(() => {
     let isMounted = true;
-    const loadLinkedData = async () => {
-      if (!order?.orderNumber && !order?.id) return;
+    const loadLinkedData = async (isInitial = false) => {
+      if (!order?.orderNumber && !order?.id) {
+        if (isMounted) setIsLoadingLinkedData(false);
+        return;
+      }
+      if (isInitial && isMounted) setIsLoadingLinkedData(true);
       try {
         const [fin, dlv, insp] = await Promise.all([
           getFinancingRequestForOrder(order.orderNumber || order.id, null, viewerRole),
@@ -67,12 +86,14 @@ export default function OrderSummary({
         }
       } catch (err) {
         console.warn('Error fetching linked order data:', err);
+      } finally {
+        if (isMounted) setIsLoadingLinkedData(false);
       }
     };
-    loadLinkedData();
+    loadLinkedData(true);
 
     const handleSync = () => {
-      loadLinkedData();
+      loadLinkedData(false);
     };
 
     window.addEventListener('agrolnk_financing_updated', handleSync);
@@ -239,6 +260,83 @@ export default function OrderSummary({
     }
   };
 
+  const isVanPreferred = Boolean(
+    order.paymentMode === 'escrow_van' ||
+    order.paymentMethod === 'escrow_van' ||
+    combinedEscrowPayable >= 50000
+  );
+  const activePayMethod = selectedPayMethod || (isVanPreferred ? 'escrow_van' : 'razorpay');
+
+  const handleCopyVanField = (text, key) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(String(text));
+    setCopiedVanField(key);
+    setTimeout(() => setCopiedVanField(null), 1800);
+  };
+
+  const handleOpenVanDetails = () => {
+    const currentUser = getCurrentUser();
+    const orderNum = order.orderNumber || `#${String(order.id || '').slice(-6).toUpperCase()}`;
+    const smartVan = generateOrderSmartVAN({
+      orderNumber: orderNum,
+      buyerPhone: order.buyerPhone || currentUser?.phone,
+      orderAmount: combinedEscrowPayable,
+    });
+    setVanSession({
+      orderNumber: orderNum,
+      vanNumber: smartVan.accountNumber,
+      ifsc: smartVan.ifscCode,
+      bankName: smartVan.bankName,
+      beneficiary: smartVan.beneficiaryName || ESCROW_NODAL_ACCOUNT.accountName,
+      amount: combinedEscrowPayable,
+      status: 'awaiting_clearing',
+      utr: null,
+    });
+  };
+
+  const handleCompleteVanPayment = async (utrValue) => {
+    const cleanUtr = String(utrValue || '').trim().toUpperCase();
+    if (!cleanUtr || cleanUtr.length < 6) {
+      toast.error('Please enter a valid Bank UTR / Reference Number (min 6 characters).');
+      return;
+    }
+    setIsDepositing(true);
+    const currentUser = getCurrentUser();
+    try {
+      await processSmartVanWebhookCredit({
+        orderNumber: vanSession?.orderNumber || order.orderNumber,
+        bankUtr: cleanUtr,
+        amount: combinedEscrowPayable,
+        remitterName: currentUser?.name || order.buyerName || 'Buyer Enterprise',
+      });
+
+      if (hasFreightQuote) {
+        await completeBuyerOrderWithFreightPayment(order.id, {
+          paymentMode: 'escrow_van',
+          bankUtr: cleanUtr,
+          autoVerified: false,
+          verified: false,
+          deliveryId: existingDelivery?.id || order.deliveryId || null,
+        });
+      } else {
+        await depositOrderEscrow(order.id, {
+          paymentMode: 'escrow_van',
+          bankUtr: cleanUtr,
+          autoVerified: false,
+          verified: false,
+        });
+      }
+
+      setVanSession((prev) => (prev ? { ...prev, status: 'credited', utr: cleanUtr } : prev));
+      toast.success(`Bank UTR ${cleanUtr} recorded! Seller & Transporter notified.`);
+    } catch (err) {
+      console.error('VAN UTR submission error:', err);
+      toast.error(err?.message || 'Failed to record Bank UTR. Please try again.');
+    } finally {
+      setIsDepositing(false);
+    }
+  };
+
   const handleCancelRfqOrder = async () => {
     if (!window.confirm(`Are you sure you want to cancel quote request ${order.orderNumber}? The reserved lot will be returned to inventory.`)) {
       return;
@@ -261,110 +359,6 @@ export default function OrderSummary({
   return (
     <div className="space-y-4 text-left">
 
-      {/* Buyer 30-Minute Freight Quote & Combined Escrow Banner */}
-      {isBuyer && isPendingEscrow && (
-        <div
-          className={`p-4 rounded-2xl border-2 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left animate-in fade-in shadow-xs ${
-            hasFreightQuote
-              ? 'bg-emerald-50/90 border-emerald-400'
-              : 'bg-amber-50/90 border-amber-300'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={`p-2.5 rounded-xl shrink-0 ${
-                hasFreightQuote ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'
-              }`}
-            >
-              {hasFreightQuote ? (
-                <Truck className="w-5 h-5 text-emerald-700" />
-              ) : (
-                <Clock className="w-5 h-5 text-amber-700" />
-              )}
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-extrabold text-[#0B3326] text-sm">
-                  {hasFreightQuote
-                    ? `Lowest Freight Quote Ready: ₹${quotedFreightAmount.toLocaleString('en-IN')}`
-                    : order.auctionId || order.auction_id
-                    ? 'Auction Won — Awaiting Freight Quote & Escrow'
-                    : rfqRemainingSec === 0
-                    ? '30-Min Window Elapsed — Escalated to Admin Concierge Desk'
-                    : 'Awaiting 30-Min Competitive Freight Quote'}
-                </span>
-                <Badge variant={hasFreightQuote ? 'emerald' : 'amber'} size="xs">
-                  {hasFreightQuote
-                    ? `${existingDelivery?.quotesCount || 1} Quote(s) • Pay Combined Escrow`
-                    : rfqRemainingSec === 0
-                    ? 'Admin Desk Notified'
-                    : `⏱ ${formatRfqTime(rfqRemainingSec)} Left`}
-                </Badge>
-              </div>
-              {hasFreightQuote ? (
-                <p className="text-[#2D5A47]">
-                  Crop Escrow (<strong>₹{cropFin.totalBuyerPayable.toLocaleString('en-IN')}</strong>) + Lowest Freight Escrow (<strong>₹{freightFin.totalPayableByFarmer.toLocaleString('en-IN')}</strong>) = <strong className="text-[#0B3326] font-extrabold">₹{combinedEscrowPayable.toLocaleString('en-IN')}</strong>. Pay once to notify both Seller &amp; Transporter immediately.
-                </p>
-              ) : (
-                <p className="text-[#566861]">
-                  Verified transporters are bidding on your route (<strong>{pickupStr} → {destStr}</strong>). Once the lowest quote arrives (within 30 mins), your <strong>Pay Combined Escrow</strong> button activates here automatically.
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {hasFreightQuote && (
-              <Button
-                variant="accent"
-                size="sm"
-                disabled={isDepositing}
-                onClick={handleDepositEscrow}
-                className="font-bold text-xs py-2.5 px-4 shadow-sm cursor-pointer whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white"
-              >
-                {isDepositing
-                  ? 'Opening Payment...'
-                  : `Pay Combined Escrow (₹${combinedEscrowPayable.toLocaleString('en-IN')})`}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isDepositing}
-              onClick={handleCancelRfqOrder}
-              className="text-xs font-semibold py-2 px-3 border-amber-300 text-amber-900 hover:bg-amber-100 cursor-pointer whitespace-nowrap"
-            >
-              Cancel Request
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Farmer Cautionary Banner - Buyer Awaiting Freight Quote / Escrow Deposit */}
-      {!isBuyer && isPendingEscrow && (
-        <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs flex items-center gap-3 text-left animate-in fade-in">
-          <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-          </div>
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-extrabold text-amber-950 text-sm">
-                {hasFreightQuote
-                  ? 'Freight Quoted — Awaiting Buyer Escrow'
-                  : 'Awaiting 30-Min Freight Quote'}
-              </span>
-              <Badge variant="amber" size="xs">
-                ₹0 Farmer Freight • Do Not Dispatch
-              </Badge>
-            </div>
-            <p className="text-amber-900">
-              {hasFreightQuote
-                ? `Quote: ₹${quotedFreightAmount.toLocaleString('en-IN')}. Dispatch unlocks once buyer funds escrow.`
-                : 'Transporters are bidding on delivery. Dispatch unlocks once buyer funds escrow.'}
-            </p>
-          </div>
-        </div>
-      )}
-      
       {/* 1. Unified Order Header & Produce Summary */}
       <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs space-y-4">
         
@@ -385,7 +379,7 @@ export default function OrderSummary({
                 title="Click to copy Order Number"
               />
               <OrderStatus
-                status={order.status}
+                status={hasFreightQuote && order.status === 'awaiting_freight_quote' ? 'freight_quoted' : order.status}
                 escrowStatus={order.escrowStatus || order.escrow_status}
                 isAuction={Boolean(order.auctionId || order.auction_id)}
                 size="sm"
@@ -403,7 +397,7 @@ export default function OrderSummary({
 
           <div className="text-right shrink-0">
             <span className="text-[10px] uppercase font-bold text-[#566861] block tracking-wider">
-              Total Amount
+              {isPendingEscrow && hasFreightQuote ? 'Produce Value' : 'Total Amount'}
             </span>
             <span className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">
               ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
@@ -468,7 +462,7 @@ export default function OrderSummary({
                 ? '30 Days Net Repayment' 
                 : isPendingEscrow
                 ? (hasFreightQuote ? 'Pending Buyer Escrow' : 'Awaiting Freight Quote')
-                : 'Held safely in AgroLnk Escrow'}
+                : 'Held safely in AgrowLink Escrow'}
             </span>
           </div>
         </div>
@@ -617,62 +611,378 @@ export default function OrderSummary({
         )}
       </div>
 
-      {/* 2. Simple 4-Step Logistics Progress Tracker */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs space-y-3.5 text-left">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-[#10B981]" />
-            <span className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
-              Consignment Journey
-            </span>
+      {/* Friendly Loading State while fetching live freight quotes & escrow status */}
+      {isPendingEscrow && isLoadingLinkedData && (
+        <div className="p-5 rounded-2xl border border-[#E5EDE8] bg-[#F8FAF8] space-y-3 animate-pulse text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+              <div className="w-4 h-4 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-sm font-bold text-[#0B3326] block">
+                Checking live freight quotes &amp; payment details...
+              </span>
+              <span className="text-[11px] text-[#566861] block">
+                Fetching the latest carrier bid for your order
+              </span>
+            </div>
           </div>
-
-          {onViewDelivery && existingDelivery && !isPendingEscrow && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onViewDelivery({ ...existingDelivery, status: effectiveDeliveryStatus })}
-              icon={ArrowRight}
-              iconPosition="right"
-              className="text-xs font-bold text-[#0B3326] cursor-pointer py-1 px-2.5"
-            >
-              Track Map
-            </Button>
-          )}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            <div className="h-12 rounded-xl bg-white border border-[#E5EDE8]" />
+            <div className="h-12 rounded-xl bg-white border border-[#E5EDE8]" />
+            <div className="h-12 rounded-xl bg-emerald-100/60 border border-emerald-200/60" />
+          </div>
         </div>
+      )}
 
-        {isPendingEscrow ? (
-          <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs text-[#566861] flex items-center gap-2.5">
-            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              <strong>On Hold:</strong> Dispatch activates once buyer locks Combined Escrow.
-            </span>
-          </div>
-        ) : (
-          <>
-            {/* 4-Step Progress Bar */}
-            <DeliveryTimeline currentStatus={effectiveDeliveryStatus} delivery={existingDelivery || {}} />
-
-            {/* Driver & Vehicle Tag */}
-            {existingDelivery?.vehicleNumber && (
-              <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 text-xs">
-                <div className="flex items-center gap-2">
-                  <Truck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-                  <span className="text-[#0B3326]">
-                    Vehicle: <strong className="font-mono">{existingDelivery.vehicleNumber}</strong>
-                    {existingDelivery.transporterName ? ` (${existingDelivery.transporterName})` : ''}
-                  </span>
-                </div>
-                {existingDelivery.driverPhone && (
-                  <span className="text-[11px] text-[#566861]">
-                    Driver: <strong>{existingDelivery.driverName || 'Driver'}</strong> ({existingDelivery.driverPhone})
-                  </span>
+      {/* Buyer Freight Quote & Combined Escrow Payment Card */}
+      {isBuyer && isPendingEscrow && !isLoadingLinkedData && (
+        <div
+          className={`p-4 sm:p-5 rounded-2xl border text-xs space-y-3.5 text-left animate-in fade-in shadow-xs ${
+            hasFreightQuote
+              ? 'bg-emerald-50/80 border-emerald-300'
+              : 'bg-amber-50/80 border-amber-300'
+          }`}
+        >
+          {/* Header Row */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`p-2 rounded-xl shrink-0 ${
+                  hasFreightQuote ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                {hasFreightQuote ? (
+                  <Truck className="w-4 h-4 text-emerald-700" />
+                ) : (
+                  <Clock className="w-4 h-4 text-amber-700" />
                 )}
               </div>
+              <div>
+                <span className="font-extrabold text-[#0B3326] text-sm block">
+                  {order.bankUtr
+                    ? 'UTR Submitted • Awaiting Verification'
+                    : hasFreightQuote
+                    ? 'Ready to Pay & Dispatch'
+                    : order.auctionId || order.auction_id
+                    ? 'Auction Won — Awaiting Freight Quote'
+                    : rfqRemainingSec === 0
+                    ? 'Escalated to Operations Desk'
+                    : 'Finding Lowest Freight Quote'}
+                </span>
+                <span className="text-[11px] text-[#566861] block">
+                  {order.bankUtr
+                    ? 'Your bank transfer reference is recorded. Admin verification unlocks dispatch.'
+                    : hasFreightQuote
+                    ? 'One combined payment locks crop + freight escrow and notifies seller & carrier.'
+                    : `Transporters are bidding on ${pickupStr} → ${destStr}.`}
+                </span>
+              </div>
+            </div>
+
+            <Badge variant={hasFreightQuote ? 'emerald' : 'amber'} size="xs">
+              {hasFreightQuote
+                ? `${existingDelivery?.quotesCount || 1} Quote Ready`
+                : rfqRemainingSec === 0
+                ? 'Admin Notified'
+                : `⏱ ${formatRfqTime(rfqRemainingSec)} Left`}
+            </Badge>
+          </div>
+
+          {/* Clean 3-Column Price Breakdown */}
+          {hasFreightQuote && (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="p-2.5 rounded-xl bg-white/90 border border-emerald-200/70">
+                <span className="text-[10px] font-bold text-[#566861] uppercase block">
+                  Crop Escrow
+                </span>
+                <span className="text-sm font-bold text-[#0B3326] font-heading">
+                  ₹{cropFin.totalBuyerPayable.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/90 border border-emerald-200/70">
+                <span className="text-[10px] font-bold text-[#566861] uppercase block">
+                  Lowest Freight
+                </span>
+                <span className="text-sm font-bold text-[#0B3326] font-heading">
+                  ₹{freightFin.totalPayableByFarmer.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-emerald-700 text-white">
+                <span className="text-[10px] font-bold text-emerald-100 uppercase block">
+                  Total Payable
+                </span>
+                <span className="text-sm font-extrabold font-heading">
+                  ₹{combinedEscrowPayable.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Payment Method Switcher + NEFT/RTGS VAN Provision */}
+          {hasFreightQuote && !order.bankUtr && (
+            <div className="space-y-2.5 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayMethod('escrow_van')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                    activePayMethod === 'escrow_van'
+                      ? 'bg-white border-emerald-600 ring-1 ring-emerald-600/20 shadow-2xs'
+                      : 'bg-white/60 border-[#E5EDE8] hover:bg-white'
+                  }`}
+                >
+                  <Landmark className={`w-4 h-4 shrink-0 ${activePayMethod === 'escrow_van' ? 'text-emerald-700' : 'text-[#566861]'}`} />
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-[#0B3326] block truncate">NEFT / RTGS (VAN)</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold block truncate">Flat ₹15 Fee • Bulk</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPayMethod('razorpay');
+                    setVanSession(null);
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                    activePayMethod === 'razorpay'
+                      ? 'bg-white border-emerald-600 ring-1 ring-emerald-600/20 shadow-2xs'
+                      : 'bg-white/60 border-[#E5EDE8] hover:bg-white'
+                  }`}
+                >
+                  <CreditCard className={`w-4 h-4 shrink-0 ${activePayMethod === 'razorpay' ? 'text-emerald-700' : 'text-[#566861]'}`} />
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-[#0B3326] block truncate">Instant Gateway</span>
+                    <span className="text-[10px] text-[#566861] block truncate">UPI / NetBanking / Card</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Virtual Account Bank Details Box */}
+              {activePayMethod === 'escrow_van' && vanSession && (
+                <div className="p-3.5 rounded-xl bg-white border-2 border-emerald-500/70 space-y-3 animate-in fade-in">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#E5EDE8] pb-2">
+                    <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5">
+                      <Landmark className="w-3.5 h-3.5 text-emerald-700" />
+                      Order {vanSession.orderNumber} Virtual Account
+                    </span>
+                    <span className="text-xs font-extrabold text-emerald-700">
+                      ₹{Number(vanSession.amount || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="p-2.5 rounded-lg bg-[#F8FAF8] border border-[#E5EDE8]">
+                      <span className="text-[10px] text-[#566861] uppercase font-bold block">Virtual A/C Number</span>
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <span className="font-mono font-extrabold text-[#0B3326] text-xs">{vanSession.vanNumber}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyVanField(vanSession.vanNumber, 'van')}
+                          className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                          title="Copy Virtual Account"
+                        >
+                          {copiedVanField === 'van' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-[#F8FAF8] border border-[#E5EDE8]">
+                      <span className="text-[10px] text-[#566861] uppercase font-bold block">IFSC Code ({vanSession.bankName})</span>
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <span className="font-mono font-extrabold text-[#0B3326] text-xs">{vanSession.ifsc}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyVanField(vanSession.ifsc, 'ifsc')}
+                          className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-0.5"
+                          title="Copy IFSC"
+                        >
+                          {copiedVanField === 'ifsc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-[#566861] flex items-center justify-between gap-2 flex-wrap">
+                    <span>Beneficiary: <strong className="text-[#0B3326]">{vanSession.beneficiary}</strong></span>
+                    <span className="text-emerald-700 font-semibold">Transfer via NEFT / RTGS / IMPS</span>
+                  </div>
+
+                  {vanSession.status === 'credited' ? (
+                    <div className="p-2.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 flex items-center gap-2 text-xs font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>UTR Recorded: <span className="font-mono">{vanSession.utr}</span></span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pt-1 border-t border-[#E5EDE8]">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={manualUtr}
+                          onChange={(e) => setManualUtr(e.target.value.toUpperCase())}
+                          placeholder="Enter Bank UTR / Ref No. after transfer"
+                          className="flex-1 min-w-0 px-3 py-2 text-xs font-mono rounded-lg border border-[#CBD7D0] focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                        />
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          disabled={isDepositing || manualUtr.trim().length < 6}
+                          onClick={() => handleCompleteVanPayment(manualUtr)}
+                          className="text-xs font-bold py-2 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white shrink-0 cursor-pointer"
+                        >
+                          {isDepositing ? 'Saving...' : 'Submit UTR'}
+                        </Button>
+                      </div>
+
+                      {import.meta.env.DEV && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-amber-700 italic">Dev Sandbox Mode:</span>
+                          <button
+                            type="button"
+                            disabled={isDepositing}
+                            onClick={() => handleCompleteVanPayment(`ICICR${new Date().getFullYear()}${String(Date.now()).slice(-8)}`)}
+                            className="text-[10px] font-bold px-2.5 py-1 rounded bg-amber-600 text-white hover:bg-amber-700 transition cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Zap className="w-3 h-3" />
+                            Simulate Bank Credit Webhook
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Already-submitted VAN UTR notice */}
+          {order.bankUtr && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>
+                Bank UTR <strong className="font-mono">{order.bankUtr}</strong> submitted — awaiting Admin verification in Escrow Ledger.
+              </span>
+            </div>
+          )}
+
+          {/* Action Row */}
+          <div className="flex items-center justify-end gap-2 pt-0.5 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isDepositing}
+              onClick={handleCancelRfqOrder}
+              className="text-xs font-semibold py-2 px-3.5 border-[#CBD7D0] text-[#566861] hover:bg-white cursor-pointer whitespace-nowrap"
+            >
+              Cancel Order
+            </Button>
+            {hasFreightQuote && !order.bankUtr && (
+              activePayMethod === 'escrow_van' ? (
+                !vanSession && (
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    disabled={isDepositing}
+                    onClick={handleOpenVanDetails}
+                    icon={Landmark}
+                    iconPosition="left"
+                    className="font-bold text-xs py-2.5 px-5 shadow-sm cursor-pointer whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white"
+                  >
+                    Pay via NEFT / RTGS (VAN)
+                  </Button>
+                )
+              ) : (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  disabled={isDepositing}
+                  onClick={handleDepositEscrow}
+                  className="font-bold text-xs py-2.5 px-5 shadow-sm cursor-pointer whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white"
+                >
+                  {isDepositing
+                    ? 'Opening Payment...'
+                    : `Pay Now • ₹${combinedEscrowPayable.toLocaleString('en-IN')}`}
+                </Button>
+              )
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
+
+      {/* Farmer Cautionary Banner - Buyer Awaiting Freight Quote / Escrow Deposit */}
+      {!isBuyer && isPendingEscrow && !isLoadingLinkedData && (
+        <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs flex items-center gap-3 text-left animate-in fade-in">
+          <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-extrabold text-amber-950 text-sm">
+                {hasFreightQuote
+                  ? 'Freight Quoted — Awaiting Buyer Escrow'
+                  : 'Awaiting 30-Min Freight Quote'}
+              </span>
+              <Badge variant="amber" size="xs">
+                ₹0 Farmer Freight • Do Not Dispatch
+              </Badge>
+            </div>
+            <p className="text-amber-900">
+              {hasFreightQuote
+                ? `Quote: ₹${quotedFreightAmount.toLocaleString('en-IN')}. Dispatch unlocks once buyer funds escrow.`
+                : 'Transporters are bidding on delivery. Dispatch unlocks once buyer funds escrow.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Simple 4-Step Logistics Progress Tracker (shown once escrow is funded) */}
+      {!isPendingEscrow && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs space-y-3.5 text-left">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-[#10B981]" />
+              <span className="text-xs font-bold text-[#0B3326] uppercase tracking-wider">
+                Consignment Journey
+              </span>
+            </div>
+
+            {onViewDelivery && existingDelivery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onViewDelivery({ ...existingDelivery, status: effectiveDeliveryStatus })}
+                icon={ArrowRight}
+                iconPosition="right"
+                className="text-xs font-bold text-[#0B3326] cursor-pointer py-1 px-2.5"
+              >
+                Track Map
+              </Button>
+            )}
+          </div>
+
+          {/* 4-Step Progress Bar */}
+          <DeliveryTimeline currentStatus={effectiveDeliveryStatus} delivery={existingDelivery || {}} />
+
+          {/* Driver & Vehicle Tag */}
+          {existingDelivery?.vehicleNumber && (
+            <div className="p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <Truck className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span className="text-[#0B3326]">
+                  Vehicle: <strong className="font-mono">{existingDelivery.vehicleNumber}</strong>
+                  {existingDelivery.transporterName ? ` (${existingDelivery.transporterName})` : ''}
+                </span>
+              </div>
+              {existingDelivery.driverPhone && (
+                <span className="text-[11px] text-[#566861]">
+                  Driver: <strong>{existingDelivery.driverName || 'Driver'}</strong> ({existingDelivery.driverPhone})
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 3. Completed Order Official Settlement Receipt Banner */}
       {(order.status === 'completed' || order.escrow_status === 'released') && (

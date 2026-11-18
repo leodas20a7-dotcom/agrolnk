@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK CRITICAL SECURITY FIX: PREVENT UNPAID ESCROW & FREIGHT SELF-FUNDING
+-- AGROWLINK CRITICAL SECURITY FIX: PREVENT UNPAID ESCROW & FREIGHT SELF-FUNDING
 -- File: supabase/fix_unpaid_escrow_funding_bypass.sql
 -- Purpose:
 --   Closes the vulnerability where authenticated buyers could mark orders
@@ -122,12 +122,12 @@ BEGIN
     -- Block non-admin/non-gateway from locking, funding, or releasing freight escrow
     IF (NEW.freight_escrow_status IS DISTINCT FROM OLD.freight_escrow_status)
        AND COALESCE(NEW.freight_escrow_status, '') IN ('escrow_locked', 'locked', 'funded', 'held', 'released') THEN
-        RAISE EXCEPTION 'Security Policy Violation: Freight escrow state (%) can only be set by the verified payment gateway or AgroLnk Admin.', NEW.freight_escrow_status;
+        RAISE EXCEPTION 'Security Policy Violation: Freight escrow state (%) can only be set by the verified payment gateway or AgrowLink Admin.', NEW.freight_escrow_status;
     END IF;
 
     IF (NEW.status IS DISTINCT FROM OLD.status)
        AND NEW.status = 'completed' THEN
-        RAISE EXCEPTION 'Security Policy Violation: Only AgroLnk Admin can mark a delivery completed and settled.';
+        RAISE EXCEPTION 'Security Policy Violation: Only AgrowLink Admin can mark a delivery completed and settled.';
     END IF;
 
     -- Block client-side tampering with freight fee breakdown columns
@@ -350,7 +350,7 @@ BEGIN
                 v_order.farmer_id,
                 'farmer',
                 'Order & Freight Confirmed (' || v_order.order_number || ')',
-                'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgroLnk Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
+                'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgrowLink Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
                 'order',
                 '/farmer-orders',
                 false,
@@ -366,7 +366,7 @@ BEGIN
                 v_delivery.transporter_id,
                 'transporter',
                 'Freight Quote Won & Escrow Locked! (' || v_delivery.delivery_number || ')',
-                'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgroLnk Escrow. Pickup address is now unlocked in My Active Trips.',
+                'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgrowLink Escrow. Pickup address is now unlocked in My Active Trips.',
                 'delivery',
                 '/transporter-dashboard',
                 false,

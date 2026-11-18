@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AGROLNK CONSOLIDATED SCHEMA MIGRATION (TODAY'S ESCROW & REVENUE EXPANSIONS)
+-- AGROWLINK CONSOLIDATED SCHEMA MIGRATION (TODAY'S ESCROW & REVENUE EXPANSIONS)
 -- Run this single script in your Supabase Dashboard -> SQL Editor -> Run
 -- Safe and Idempotent (uses IF NOT EXISTS, TEXT for profile IDs to match schema)
 -- ==============================================================================
@@ -85,4 +85,4 @@ CREATE INDEX IF NOT EXISTS idx_warehouse_receipts_last_rent_paid_at
 -- ==============================================================================
 -- VERIFICATION CONFIRMATION
 -- ==============================================================================
-SELECT 'AgroLnk consolidated escrow & revenue schema migration completed successfully!' AS status;
+SELECT 'AgrowLink consolidated escrow & revenue schema migration completed successfully!' AS status;

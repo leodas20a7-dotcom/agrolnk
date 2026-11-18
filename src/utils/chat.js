@@ -1,4 +1,4 @@
-// AgroLnk Privacy-Preserving Communication & Anti-Circumvention Engine
+// AgrowLink Privacy-Preserving Communication & Anti-Circumvention Engine
 // Requirement: Users can communicate while phone numbers, emails, domain fragments, 
 // spelled-out words, and split-message contact exchanges are strictly detected and protected.
 
@@ -154,7 +154,7 @@ export function maskSensitivePII(text) {
   // 4. Contact Intent Keywords (e.g. "wait I share my contact number", "share my number", "call me at...")
   const hasContactIntent = CONTACT_INTENT_KEYWORDS.some(kw => lower.includes(kw));
   if (hasContactIntent && !isTradeContext(text)) {
-    return '[Protected Contact Intent - Please Use AgroLnk Escrow Chat]';
+    return '[Protected Contact Intent - Please Use AgrowLink Escrow Chat]';
   }
 
   // 5. Normalize word-numbers and multipliers to test converted phone strings
@@ -590,7 +590,7 @@ export function getPlatformContacts(user) {
     {
       id: 'contact_support',
       threadKey: supportKey,
-      name: 'AgroLnk Desk & Smart Assistant',
+      name: 'AgrowLink Desk & Smart Assistant',
       role: 'Admin & AI Assistant',
       category: 'support',
       status: 'Official Support & Escrow Desk',
@@ -618,7 +618,7 @@ export function getPlatformContacts(user) {
               name: u.name || 'Verified Partner',
               role: (u.role || 'Partner').charAt(0).toUpperCase() + (u.role || 'Partner').slice(1),
               category: u.role === 'farmer' || u.role === 'fpo' || u.role === 'buyer' ? 'orders' : u.role === 'warehouse' ? 'warehouse' : 'logistics',
-              status: `${u.district || 'Tamil Nadu'} • Verified AgroLnk Partner`,
+              status: `${u.district || 'Tamil Nadu'} • Verified AgrowLink Partner`,
               avatarColor: u.role === 'farmer' || u.role === 'fpo' ? 'bg-emerald-600 text-white' : u.role === 'buyer' ? 'bg-indigo-600 text-white' : 'bg-amber-600 text-white',
               phoneMask: '+91 ***** *****',
               initials: (u.name || 'AP').slice(0, 2).toUpperCase(),
@@ -918,9 +918,9 @@ export function sendPrivacyMessage(threadKey, messageData) {
     const securityMsg = {
       id: `msg_security_${Date.now()}`,
       senderId: 'system_bot',
-      senderName: 'AgroLnk Security Shield',
+      senderName: 'AgrowLink Security Shield',
       senderRole: 'system',
-      text: '⚠️ AgroLnk Security Alert: Fragmented contact details (split phone numbers or email provider names) were detected across multiple messages. Previous numeric fragments have been automatically redacted. Exchanging direct contact details to trade off-platform voids 100% Escrow Protection and AgroLnk dispute arbitration.',
+      text: '⚠️ AgrowLink Security Alert: Fragmented contact details (split phone numbers or email provider names) were detected across multiple messages. Previous numeric fragments have been automatically redacted. Exchanging direct contact details to trade off-platform voids 100% Escrow Protection and AgrowLink dispute arbitration.',
       timestamp: new Date(Date.now() + 200).toISOString(),
       isSystem: true,
     };
@@ -935,9 +935,9 @@ export function sendPrivacyMessage(threadKey, messageData) {
       const escrowMsg = {
         id: `msg_bot_${Date.now()}`,
         senderId: 'system_bot',
-        senderName: 'AgroLnk Smart Assistant',
+        senderName: 'AgrowLink Smart Assistant',
         senderRole: 'system',
-        text: 'ℹ️ Escrow Payout: 100% of the funds are held securely by AgroLnk Escrow. Payout is automatically released to the seller as soon as the buyer completes arrival inspection.',
+        text: 'ℹ️ Escrow Payout: 100% of the funds are held securely by AgrowLink Escrow. Payout is automatically released to the seller as soon as the buyer completes arrival inspection.',
         timestamp: new Date(Date.now() + 500).toISOString(),
         isSystem: true,
       };
@@ -947,7 +947,7 @@ export function sendPrivacyMessage(threadKey, messageData) {
       const logisticsMsg = {
         id: `msg_bot_${Date.now()}`,
         senderId: 'system_bot',
-        senderName: 'AgroLnk Logistics Assistant',
+        senderName: 'AgrowLink Logistics Assistant',
         senderRole: 'system',
         text: '🚚 Transporter Notice: Driver location and live GPS corridor transit can be tracked directly via the "Track Dispatch" tab.',
         timestamp: new Date(Date.now() + 500).toISOString(),

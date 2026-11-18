@@ -34,7 +34,7 @@ export default function OrderReceiptModal({
   const settlementDate = order.disbursedAt || order.adminVerifiedAt || order.updatedAt || new Date().toISOString();
   const orderDate = order.createdAt || order.orderDate || new Date().toISOString();
   const utrNumber = order.bankUtr || order.bank_utr || null;
-  const adminVerifier = order.adminVerifiedBy || order.admin_verified_by || 'AgroLnk Operations Ombudsman';
+  const adminVerifier = order.adminVerifiedBy || order.admin_verified_by || 'AgrowLink Operations Ombudsman';
 
   const handlePrint = () => {
     window.print();
@@ -89,7 +89,7 @@ export default function OrderReceiptModal({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl font-extrabold text-[#0B3326] font-heading tracking-tight">
-                  AgroLnk
+                  AgrowLink
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase">
                   Escrow Verified
@@ -279,7 +279,7 @@ export default function OrderReceiptModal({
               ) : (
                 <>
                   <div className="flex justify-between text-[#566861]">
-                    <span>AgroLnk Facilitation Fee (0.25%):</span>
+                    <span>AgrowLink Facilitation Fee (0.25%):</span>
                     <span className="font-semibold text-emerald-700">- {formatINR(fin.sellerFee)}</span>
                   </div>
                   <div className="pt-2 border-t border-[#E5EDE8] flex justify-between text-sm font-extrabold text-[#0B3326]">
@@ -289,7 +289,7 @@ export default function OrderReceiptModal({
                 </>
               )}
               <span className="text-[10px] text-[#566861] block pt-1">
-                Zero hidden charges. Settled through AgroLnk Nodal Escrow Account.
+                Zero hidden charges. Settled through AgrowLink Nodal Escrow Account.
               </span>
             </div>
 
@@ -300,7 +300,7 @@ export default function OrderReceiptModal({
             <div className="flex items-center gap-2">
               <BadgeCheck className="w-5 h-5 text-[#10B981] shrink-0" />
               <span>
-                Digitally authenticated by <strong>AgroLnk Escrow Trust Clearing House</strong>. Valid electronic certificate under Information Technology Act, 2000.
+                Digitally authenticated by <strong>AgrowLink Escrow Trust Clearing House</strong>. Valid electronic certificate under Information Technology Act, 2000.
               </span>
             </div>
             <div className="shrink-0 text-right font-mono text-[10px]">

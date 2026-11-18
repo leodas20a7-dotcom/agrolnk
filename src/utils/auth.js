@@ -1,4 +1,4 @@
-// AgroLnk Supabase Authentication & Profile Management Layer
+// AgrowLink Supabase Authentication & Profile Management Layer
 
 import { supabase } from '../lib/supabase';
 
@@ -520,7 +520,7 @@ export async function loginUser({ email, password }) {
 
     const userObj = {
       id: profile?.id || sessionUser.id,
-      name: profile?.name || sessionUser.user_metadata?.name || 'AgroLnk Participant',
+      name: profile?.name || sessionUser.user_metadata?.name || 'AgrowLink Participant',
       email: profile?.email || sessionUser.email,
       phone: profile?.phone || sessionUser.user_metadata?.phone || '',
       role: resolvedRole,
@@ -762,7 +762,7 @@ export async function syncAuthenticatedUserWithServer() {
 
     const authoritativeUser = {
       id: profile.id,
-      name: profile.name || session.user.user_metadata?.name || 'AgroLnk Member',
+      name: profile.name || session.user.user_metadata?.name || 'AgrowLink Member',
       email: profile.email || session.user.email,
       phone: profile.phone || session.user.user_metadata?.phone || '',
       role: authoritativeRole,
@@ -867,7 +867,7 @@ export async function fetchCurrentProfile() {
       const userObj = {
         ...(current || {}),
         id: profile.id || lookupId,
-        name: profile.name || current?.name || 'AgroLnk Participant',
+        name: profile.name || current?.name || 'AgrowLink Participant',
         email: profile.email || lookupEmail || '',
         phone: profile.phone || current?.phone || '',
         role: profile.role || current?.role || 'farmer',

@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: UPDATE MASTER ADMINISTRATOR EMAIL TO agrolnkadmin@gmail.com
+-- AGROWLINK: UPDATE MASTER ADMINISTRATOR EMAIL TO agrolnkadmin@gmail.com
 -- File: supabase/update_admin_email_to_agrolnkadmin.sql
 -- Description:
 --   Updates the master admin email from admin@agrolnk.com to agrolnkadmin@gmail.com

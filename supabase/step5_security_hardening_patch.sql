@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK ANTI-TAMPERING & SECURITY HARDENING PATCH (STEP 5)
+-- AGROWLINK ANTI-TAMPERING & SECURITY HARDENING PATCH (STEP 5)
 -- File: supabase/step5_security_hardening_patch.sql
 -- Purpose:
 --   Hardens PostgreSQL RPCs & Triggers against Chrome DevTools, Postman,
@@ -34,12 +34,12 @@ BEGIN
     -- Block non-admin/non-gateway from locking, funding, or releasing freight escrow
     IF (NEW.freight_escrow_status IS DISTINCT FROM OLD.freight_escrow_status)
        AND COALESCE(NEW.freight_escrow_status, '') IN ('escrow_locked', 'locked', 'funded', 'held', 'released') THEN
-        RAISE EXCEPTION 'Security Policy Violation: Freight escrow state (%) can only be set by the verified payment gateway or AgroLnk Admin.', NEW.freight_escrow_status;
+        RAISE EXCEPTION 'Security Policy Violation: Freight escrow state (%) can only be set by the verified payment gateway or AgrowLink Admin.', NEW.freight_escrow_status;
     END IF;
 
     IF (NEW.status IS DISTINCT FROM OLD.status)
        AND NEW.status = 'completed' THEN
-        RAISE EXCEPTION 'Security Policy Violation: Only AgroLnk Admin can mark a delivery completed and settled.';
+        RAISE EXCEPTION 'Security Policy Violation: Only AgrowLink Admin can mark a delivery completed and settled.';
     END IF;
 
     -- Block client-side tampering with freight fee breakdown columns
@@ -114,7 +114,7 @@ BEGIN
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid()::text AND role IN ('transporter', 'admin')
         ) AND COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '') NOT IN ('transporter', 'admin') THEN
-            RAISE EXCEPTION 'Security Policy Violation: Only verified transporters or AgroLnk Admin can submit freight quotes.';
+            RAISE EXCEPTION 'Security Policy Violation: Only verified transporters or AgrowLink Admin can submit freight quotes.';
         END IF;
     END IF;
 
@@ -411,7 +411,7 @@ BEGIN
                 v_order.farmer_id,
                 'farmer',
                 'Order & Freight Confirmed (' || v_order.order_number || ')',
-                'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgroLnk Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
+                'Buyer locked ₹' || v_order.total_amount || ' produce payment + ₹' || v_freight_amt || ' freight in AgrowLink Escrow. Assigned vehicle (' || COALESCE(v_delivery.vehicle_number, 'Carrier') || ') will arrive for pickup.',
                 'order',
                 '/farmer-orders',
                 false,
@@ -427,7 +427,7 @@ BEGIN
                 v_delivery.transporter_id,
                 'transporter',
                 'Freight Quote Won & Escrow Locked! (' || v_delivery.delivery_number || ')',
-                'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgroLnk Escrow. Pickup address is now unlocked in My Active Trips.',
+                'Your quote of ₹' || v_freight_amt || ' for ' || v_order.commodity || ' won! Freight is secured in AgrowLink Escrow. Pickup address is now unlocked in My Active Trips.',
                 'delivery',
                 '/transporter-dashboard',
                 false,

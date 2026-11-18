@@ -1,4 +1,4 @@
-# AgroLnk Manual Testing & QA Guide: Dual-Tier Escrow & VAN Banking Architecture
+# AgrowLink Manual Testing & QA Guide: Dual-Tier Escrow & VAN Banking Architecture
 
 This testing guide provides step-by-step instructions for the Quality Assurance (QA) and manual testing team to verify the newly implemented **Virtual Account Number (VAN) Banking Provision and Dual-Tier Escrow Workflow**.
 
@@ -8,7 +8,7 @@ This testing guide provides step-by-step instructions for the Quality Assurance 
 
 1. **Dual-Tier Checkout Threshold**:
    - **Orders `< ₹50,000`**: Both **Instant Razorpay UPI** and **Escrow VAN (NEFT/RTGS)** options are available.
-   - **Orders `≥ ₹50,000`**: Instant gateway is **hidden** (to eliminate high gateway percentage fees and limits); only **AgroLnk Escrow Virtual Account (NEFT/RTGS)** is available.
+   - **Orders `≥ ₹50,000`**: Instant gateway is **hidden** (to eliminate high gateway percentage fees and limits); only **AgrowLink Escrow Virtual Account (NEFT/RTGS)** is available.
 2. **Submitting a UTR does NOT mean payment is confirmed**:
    - When a buyer submits a bank UTR number, the order enters a pending state: `⏳ Awaiting Bank Verification`.
    - The produce dispatch buttons for the farmer remain **strictly locked**.
@@ -25,7 +25,7 @@ This testing guide provides step-by-step instructions for the Quality Assurance 
 1. **Environment Variables**:
    Ensure `.env` or `.env.example` has the bank details defined:
    ```env
-   VITE_AGROLNK_ESCROW_ACCOUNT_NAME="AgroLnk Technologies Private Limited"
+   VITE_AGROLNK_ESCROW_ACCOUNT_NAME="AgrowLink Technologies Private Limited"
    VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER="50200088991122"
    VITE_AGROLNK_ESCROW_IFSC="HDFC0000040"
    VITE_AGROLNK_ESCROW_BANK_NAME="HDFC Bank"
@@ -69,9 +69,9 @@ This testing guide provides step-by-step instructions for the Quality Assurance 
 2. **Action**: Navigate to **Admin Dashboard** ➔ Click on **"User Verification"** (`/admin/users` or `UserVerificationQueue`).
 3. **Action**: In the user table or grid, click on any user row or click **"Inspect KYC"**.
 4. **Expected Result**: An inspection drawer slides open from the right.
-5. **Action**: Scroll down to the **"AgroLnk Virtual Account Number (VAN) Provisioning"** card.
+5. **Action**: Scroll down to the **"AgrowLink Virtual Account Number (VAN) Provisioning"** card.
 6. **Action**: 
-   - If the user has no VAN yet, click the emerald button: **"Auto-Generate AgroLnk Nodal VAN"**.
+   - If the user has no VAN yet, click the emerald button: **"Auto-Generate AgrowLink Nodal VAN"**.
    - Select Bank Status: Change to **"Active / Bank Verified"**.
 7. **Action**: Click **"Save VAN Provision"**.
 8. **Expected Result**:
@@ -108,7 +108,7 @@ This testing guide provides step-by-step instructions for the Quality Assurance 
 5. **Expected Result in Modal**:
    - You should see **two payment mode cards**:
      1. `⚡ Instant UPI / NetBanking (Razorpay Route)`
-     2. `🏛️ AgroLnk Escrow Virtual Account (NEFT/RTGS)`
+     2. `🏛️ AgrowLink Escrow Virtual Account (NEFT/RTGS)`
    - Both options are selectable.
 
 ---
@@ -120,10 +120,10 @@ This testing guide provides step-by-step instructions for the Quality Assurance 
 2. **Action**: Click **"Buy Now"**.
 3. **Expected Result**:
    - The **Razorpay Instant UPI option is completely HIDDEN**.
-   - Only **"AgroLnk Escrow Virtual Account (NEFT/RTGS)"** is visible and pre-selected.
+   - Only **"AgrowLink Escrow Virtual Account (NEFT/RTGS)"** is visible and pre-selected.
    - Click **"Generate Escrow Bank Link"**.
    - A dedicated **Order Virtual Account** card displays:
-     - Beneficiary Name: `AGROLNK PRIVATE LIMITED`
+     - Beneficiary Name: `AGROWLINK PRIVATE LIMITED`
      - Order Virtual A/C No: `AGRO-ORD-...`
      - IFSC Code: `ICIC0000104`
    - **Zero Manual Input Verification**:
@@ -150,7 +150,7 @@ This testing guide provides step-by-step instructions for the Quality Assurance 
 4. **Expected Result (CRITICAL SECURITY CHECK)**:
    - Status badge shows: `Bank UTR Verifying` (Amber pulsating pill).
    - A prominent amber alert box appears above the order:
-     > *"⚠️ Escrow Deposit Under Bank Statement Check. The buyer submitted Bank UTR [UTR]. AgroLnk Admin is currently checking the corporate bank statement. Dispatch will be automatically unlocked once the credit is verified."*
+     > *"⚠️ Escrow Deposit Under Bank Statement Check. The buyer submitted Bank UTR [UTR]. AgrowLink Admin is currently checking the corporate bank statement. Dispatch will be automatically unlocked once the credit is verified."*
    - The fulfillment buttons **"Request Platform Carrier"** and **"Self-Arranged Transport"** are **COMPLETELY HIDDEN / LOCKED**.
    - The farmer cannot dispatch goods without actual received funds.
 

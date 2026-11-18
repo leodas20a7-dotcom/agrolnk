@@ -1,4 +1,4 @@
-// AgroLnk Commodities & Commercial Varieties Database Engine
+// AgrowLink Commodities & Commercial Varieties Database Engine
 import { supabase } from '../lib/supabase';
 import {
   COMMODITY_TAXONOMY,

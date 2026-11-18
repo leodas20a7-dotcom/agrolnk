@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AgroLnk Auctions & Logistics Operational Guide</title>
+  <title>AgrowLink Auctions & Logistics Operational Guide</title>
   <style>
     @page {
       size: A4;
@@ -230,7 +230,7 @@
   <!-- Top Header Banner -->
   <div class="header-banner">
     <div>
-      <div class="brand-title">AgroLnk Exchange</div>
+      <div class="brand-title">AgrowLink Exchange</div>
       <div class="brand-subtitle">End-to-End Operational Guide: Auctions, Escrow Payouts, & Logistics</div>
     </div>
     <div style="text-align: right;">
@@ -242,7 +242,7 @@
   <!-- SECTION 1: EXECUTIVE WORKFLOW OVERVIEW -->
   <h2>1. End-to-End Workflow at a Glance</h2>
   <p>
-    AgroLnk connects agricultural producers and food processors through a 100% verified, escrow-secured trading infrastructure. The diagram below illustrates how an auction transforms into a settled financial contract and physical delivery:
+    AgrowLink connects agricultural producers and food processors through a 100% verified, escrow-secured trading infrastructure. The diagram below illustrates how an auction transforms into a settled financial contract and physical delivery:
   </p>
 
   <div class="flow-steps">
@@ -278,7 +278,7 @@
   <ul>
     <li><strong>Instant Victory Notification:</strong> A trophy modal banner appears in the live auction room declaring the winning rate and total valuation.</li>
     <li><strong>Order Redirect:</strong> The buyer clicks <code>View Order</code> or navigates to <code>Orders & Dispatch -> Purchases</code>.</li>
-    <li><strong>Escrow Deposit (Locking Funds):</strong> The buyer deposits the purchase value into AgroLnk's Bank Escrow Trust Account. This guarantees that farmer will get paid immediately upon delivery.</li>
+    <li><strong>Escrow Deposit (Locking Funds):</strong> The buyer deposits the purchase value into AgrowLink's Bank Escrow Trust Account. This guarantees that farmer will get paid immediately upon delivery.</li>
     <li><strong>Delivery Destination Confirmation:</strong> The buyer verifies the destination warehouse address and contact details for incoming freight.</li>
   </ul>
 
@@ -291,7 +291,7 @@
 
   <!-- SECTION 3: NOTIFICATIONS & LIVE ALERTS -->
   <h2>3. How Notifications and Alerts Pass Between Parties</h2>
-  <p>AgroLnk employs a dual-channel notification architecture:</p>
+  <p>AgrowLink employs a dual-channel notification architecture:</p>
   <ul>
     <li><strong>Real-Time WebSocket Feed (Supabase Realtime):</strong> When a new bid is placed, ticker prices update instantly across all active screens with sub-second latency.</li>
     <li><strong>State-Driven User Alerts (In-App Bell & Storage Sync):</strong> Targeted alerts delivered strictly to relevant roles without spam.</li>
@@ -351,7 +351,7 @@
   <!-- SECTION 4: ESCROW ORDER RELEASE OPTION -->
   <h2>4. Is the "Order Release" / Payment Release Option Available?</h2>
   <div class="highlight-box">
-    <strong>YES, 100% AVAILABLE:</strong> AgroLnk utilizes a strict digital escrow trust protocol to protect both farmers from default and buyers from fraudulent or sub-standard consignments.
+    <strong>YES, 100% AVAILABLE:</strong> AgrowLink utilizes a strict digital escrow trust protocol to protect both farmers from default and buyers from fraudulent or sub-standard consignments.
   </div>
 
   <h3>How Escrow Release Works Step-by-Step:</h3>
@@ -370,7 +370,7 @@
     </li>
     <li>
       <strong>Release Trigger (Buyer Confirmation & Ops Verification):</strong><br>
-      The buyer clicks <code>Confirm Order Receipt</code> in their portal. In accordance with APMC guidelines, AgroLnk Operations desk conducts an automated / quick telephone audit to verify assay parameters.
+      The buyer clicks <code>Confirm Order Receipt</code> in their portal. In accordance with APMC guidelines, AgrowLink Operations desk conducts an automated / quick telephone audit to verify assay parameters.
     </li>
     <li>
       <strong>Disbursement to Farmer Bank Account:</strong><br>
@@ -381,7 +381,7 @@
   <!-- SECTION 5: POST-ORDER CONFIRMATION TRANSPORT & LOGISTICS -->
   <h2>5. How the Logistics & Transport Process Works</h2>
   <p>
-    When an auction completes and generates an order, AgroLnk automatically instantiates a companion delivery consignment (<code>DEL-XXXX</code>) in the logistics system.
+    When an auction completes and generates an order, AgrowLink automatically instantiates a companion delivery consignment (<code>DEL-XXXX</code>) in the logistics system.
   </p>
 
   <h3>Logistics Execution Sequence:</h3>
@@ -443,19 +443,19 @@
   <h2>7. Frequently Asked Operational Questions</h2>
 
   <div class="faq-q">Q1: Can a farmer bid on their own auction to artificially raise the price?</div>
-  <div class="faq-a"><strong>No.</strong> AgroLnk's database RPC enforces strict identity isolation. Producers are forbidden from bidding on their own lots, and the leading bidder cannot place consecutive bids against themselves.</div>
+  <div class="faq-a"><strong>No.</strong> AgrowLink's database RPC enforces strict identity isolation. Producers are forbidden from bidding on their own lots, and the leading bidder cannot place consecutive bids against themselves.</div>
 
   <div class="faq-q">Q2: What happens if the highest bid is below the farmer's Reserve Floor?</div>
   <div class="faq-a">The auction status changes to <code>reserve_not_met</code>. No order is created, and the farmer is under no legal obligation to sell. The farmer can freely relist or offer the lot in the general produce marketplace.</div>
 
   <div class="faq-q">Q3: What if the buyer finds quality defects upon truck arrival?</div>
-  <div class="faq-a">AgroLnk includes an in-order <code>Inspect Assay Quality</code> modal. If the lot deviates from the declared grade (e.g. moisture > 14% or foreign matter), the buyer can raise a formal dispute before releasing escrow. An AgroLnk certified quality surveyor reviews the assay data to negotiate an equitable price adjustment or return freight.</div>
+  <div class="faq-a">AgrowLink includes an in-order <code>Inspect Assay Quality</code> modal. If the lot deviates from the declared grade (e.g. moisture > 14% or foreign matter), the buyer can raise a formal dispute before releasing escrow. An AgrowLink certified quality surveyor reviews the assay data to negotiate an equitable price adjustment or return freight.</div>
 
   <div class="faq-q">Q4: How does a Reverse Auction differ from a Standard Forward Auction?</div>
   <div class="faq-a">In a <strong>Forward Auction</strong>, buyers compete by submitting increasingly higher bids (₹+25 step). In a <strong>Reverse Auction</strong> (procurement contract), suppliers compete by submitting lower bids down to the buyer's reserve ceiling. Both models utilize identical escrow, OTP, and dispatch mechanics.</div>
 
   <div style="margin-top: 30px; padding: 12px; background: #F8FAF8; border-top: 1px solid #E5EDE8; text-align: center; font-size: 8pt; color: #566861;">
-    Document Reference: AGROLNK-OPS-DOC-2026-v2 • AgroLnk Technologies Pvt Ltd • Escrow & Exchange Division
+    Document Reference: AGROWLINK-OPS-DOC-2026-v2 • AgrowLink Technologies Pvt Ltd • Escrow & Exchange Division
   </div>
 
 </body>

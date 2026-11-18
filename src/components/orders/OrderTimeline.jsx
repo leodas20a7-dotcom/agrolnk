@@ -9,7 +9,7 @@ export default function OrderTimeline({ currentStatus = 'pending', className = '
       title: isFunded ? 'Order Placed (Escrow Funded)' : 'Order Confirmed',
       desc: isFunded
         ? 'Buyer deposited 100% trade funds into RBI Nodal Escrow Trust'
-        : 'Trade order confirmed and registered in AgroLnk ledger',
+        : 'Trade order confirmed and registered in AgrowLink ledger',
       icon: Clock,
     },
     {
@@ -27,7 +27,7 @@ export default function OrderTimeline({ currentStatus = 'pending', className = '
     {
       id: 'admin_verification',
       title: 'Admin Buyer Call & Quality Audit',
-      desc: 'AgroLnk operations calls buyer to verify satisfaction & weight slips',
+      desc: 'AgrowLink operations calls buyer to verify satisfaction & weight slips',
       icon: PhoneCall,
     },
     {

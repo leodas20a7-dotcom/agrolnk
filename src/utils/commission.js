@@ -1,5 +1,5 @@
-// AgroLnk Commission & Fee Engine
-// Platform Model: AgroLnk is a digital transaction platform (not a direct service provider).
+// AgrowLink Commission & Fee Engine
+// Platform Model: AgrowLink is a digital transaction platform (not a direct service provider).
 // Revenue: 0.25% Buyer Commission + 0.25% Seller Commission = 0.50% Total Platform Take-Rate.
 
 export const BUYER_COMMISSION_RATE = 0.0025;  // 0.25%
@@ -53,8 +53,8 @@ export function calculateFreightFinancials(freightAmount) {
   // 0.25% Transporter fee deducted from payout
   const transporterFee = Math.round(baseFare * SELLER_COMMISSION_RATE * 100) / 100;
 
-  // Total AgroLnk commission
-  const totalAgroLnkFreightRevenue = Math.round((consignorFee + transporterFee) * 100) / 100;
+  // Total AgrowLink commission
+  const totalAgrowLinkFreightRevenue = Math.round((consignorFee + transporterFee) * 100) / 100;
 
   // Gross amount deposited by consignor into Escrow
   const totalFreightDeposit = Math.round((baseFare + consignorFee) * 100) / 100;
@@ -69,7 +69,7 @@ export function calculateFreightFinancials(freightAmount) {
     consignorFeePercentage: 0.25,
     transporterFee,
     transporterFeePercentage: 0.25,
-    totalAgroLnkFreightRevenue,
+    totalAgrowLinkFreightRevenue,
     totalFreightDeposit,
     totalPayableByFarmer: totalFreightDeposit,
     totalPayableByBuyer: totalFreightDeposit,
@@ -95,8 +95,8 @@ export function calculateWarehouseRentFinancials(rentAmount) {
   // 0.25% Warehouse operator service fee
   const warehouseFee = Math.round(baseRent * SELLER_COMMISSION_RATE * 100) / 100;
 
-  // Total AgroLnk commission
-  const totalAgroLnkWarehouseRevenue = Math.round((depositorFee + warehouseFee) * 100) / 100;
+  // Total AgrowLink commission
+  const totalAgrowLinkWarehouseRevenue = Math.round((depositorFee + warehouseFee) * 100) / 100;
 
   // Gross rent paid by farmer
   const totalRentPayable = Math.round((baseRent + depositorFee) * 100) / 100;
@@ -110,7 +110,7 @@ export function calculateWarehouseRentFinancials(rentAmount) {
     depositorFeePercentage: 0.25,
     warehouseFee,
     warehouseFeePercentage: 0.25,
-    totalAgroLnkWarehouseRevenue,
+    totalAgrowLinkWarehouseRevenue,
     totalRentPayable,
     totalRentDeposit: totalRentPayable,
     netWarehouseReceivable,
@@ -122,7 +122,7 @@ export function calculateWarehouseRentFinancials(rentAmount) {
  * Calculate financial breakdown for Trade Financing / Credit Line (0.25% Direct LSP Sourcing Fee)
  * Compliant with RBI Digital Lending Guidelines for Lending Service Providers (LSPs).
  * Financial Institutions disburse capital directly to borrower bank accounts.
- * AgroLnk earns a direct 0.25% technology origination / sourcing fee without holding loan principal.
+ * AgrowLink earns a direct 0.25% technology origination / sourcing fee without holding loan principal.
  * @param {number} loanAmount - Principal loan amount sanctioned
  * @returns {object} Full financing breakdown
  */
@@ -139,7 +139,7 @@ export function calculateFinancingFinancials(loanAmount) {
     principal,
     originationFee,
     originationFeePercentage: 0.25,
-    totalAgroLnkFinancingRevenue: originationFee,
+    totalAgrowLinkFinancingRevenue: originationFee,
     netDisbursedToBorrower,
   };
 }

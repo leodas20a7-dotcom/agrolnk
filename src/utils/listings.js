@@ -1,4 +1,4 @@
-// AgroLnk Supabase Listings Management Engine
+// AgrowLink Supabase Listings Management Engine
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import {
@@ -1294,7 +1294,7 @@ export async function bulkCreateListings(farmerId, farmerName, rawRows = [], onP
  * Safely export listings to an Excel (.xlsx) spreadsheet backup
  * Formatted directly to be compatible with Bulk Upload re-import
  */
-export function exportListingsToExcel(listings = [], filenamePrefix = 'AgroLnk_Produce_Listings_Backup') {
+export function exportListingsToExcel(listings = [], filenamePrefix = 'AgrowLink_Produce_Listings_Backup') {
   if (!Array.isArray(listings) || listings.length === 0) {
     throw new Error('No produce listings found to export.');
   }

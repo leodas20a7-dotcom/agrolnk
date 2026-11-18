@@ -1,4 +1,4 @@
-# AgroLnk — Digital Agricultural Commodity Exchange & Escrow Settlement Engine
+# AgrowLink — Digital Agricultural Commodity Exchange & Escrow Settlement Engine
 
 [![React](https://img.shields.io/badge/React-19.x-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -7,7 +7,7 @@
 [![Bundle Size](https://img.shields.io/badge/Main%20Bundle-92.88%20kB%20(Gzip:%2020.89%20kB)-brightgreen)](https://vitejs.dev/)
 [![Production Ready](https://img.shields.io/badge/Status-Production%20Hardened-emerald)](#)
 
-AgroLnk is a full-stack, multi-stakeholder digital agricultural exchange connecting **Farmers**, **Institutional Buyers**, **Certified Warehouses**, **Financial Institutions (NBFCs)**, and **Transporters** into a unified, transparent trading ecosystem with automated escrow settlements.
+AgrowLink is a full-stack, multi-stakeholder digital agricultural exchange connecting **Farmers**, **Institutional Buyers**, **Certified Warehouses**, **Financial Institutions (NBFCs)**, and **Transporters** into a unified, transparent trading ecosystem with automated escrow settlements.
 
 ---
 

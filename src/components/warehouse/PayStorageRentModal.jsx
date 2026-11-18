@@ -274,7 +274,7 @@ export default function PayStorageRentModal({
                   <span className="font-semibold text-white">₹{calculatedPayAmount.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-white/80 pb-2 border-b border-white/10">
-                  <span>AgroLnk Platform Fee (0.25%):</span>
+                  <span>AgrowLink Platform Fee (0.25%):</span>
                   <span className="font-semibold text-[#34D399]">+₹{(Math.round(calculatedPayAmount * 0.0025 * 100) / 100).toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1">

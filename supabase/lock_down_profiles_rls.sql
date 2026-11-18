@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX #2: LOCK DOWN PROFILES TABLE & PURGE PASSWORD HASHES
+-- AGROWLINK SECURITY FIX #2: LOCK DOWN PROFILES TABLE & PURGE PASSWORD HASHES
 -- File: supabase/lock_down_profiles_rls.sql
 -- Description:
 --   1. Enables Row-Level Security (RLS) on public.profiles.

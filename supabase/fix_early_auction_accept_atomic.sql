@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY & CONCURRENCY FIX: ATOMIC EARLY AUCTION KNOCKDOWN
+-- AGROWLINK SECURITY & CONCURRENCY FIX: ATOMIC EARLY AUCTION KNOCKDOWN
 -- File: supabase/fix_early_auction_accept_atomic.sql
 -- Purpose:
 --   Replaces racy client-side SELECT -> UPDATE -> INSERT in acceptAuctionBidEarly()

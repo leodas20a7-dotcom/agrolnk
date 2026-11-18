@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK PRODUCTION SECURITY: COMPREHENSIVE FINANCIAL FIELD PROTECTION TRIGGER
+-- AGROWLINK PRODUCTION SECURITY: COMPREHENSIVE FINANCIAL FIELD PROTECTION TRIGGER
 -- File: supabase/secure_order_escrow_funding_trigger.sql
 -- Description:
 --   Guards all 12 sensitive financial, gateway, and escrow settlement columns

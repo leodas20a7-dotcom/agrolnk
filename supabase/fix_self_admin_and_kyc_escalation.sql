@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX: ELIMINATE SELF-ADMIN PROMOTION & FAKE KYC VERIFICATION
+-- AGROWLINK SECURITY FIX: ELIMINATE SELF-ADMIN PROMOTION & FAKE KYC VERIFICATION
 -- File: supabase/fix_self_admin_and_kyc_escalation.sql
 -- Description:
 --   1. Enforces 'pending' as the database-level DEFAULT for kyc_status.

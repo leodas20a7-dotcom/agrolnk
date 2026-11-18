@@ -55,7 +55,7 @@ export default function ProduceDetailModal({
   };
 
   const handleCopy = async () => {
-    const text = `AgroLnk Produce Lot #${listing.id}: ${listing.commodity} (${listing.variety || 'Standard'}), ${listing.quantity} ${listing.unit} at ₹${listing.price}/${listing.unit} from ${listing.district || ''}, ${listing.state}. Grade ${listing.grade}.`;
+    const text = `AgrowLink Produce Lot #${listing.id}: ${listing.commodity} (${listing.variety || 'Standard'}), ${listing.quantity} ${listing.unit} at ₹${listing.price}/${listing.unit} from ${listing.district || ''}, ${listing.state}. Grade ${listing.grade}.`;
     const ok = await copyToClipboard(text, `Lot #${shortLotId} Specifications`);
     if (ok) {
       setCopied(true);

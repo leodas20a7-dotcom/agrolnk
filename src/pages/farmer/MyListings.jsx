@@ -238,7 +238,7 @@ export default function MyListings({ currentUser, onNavigate }) {
       }
       const filename = exportListingsToExcel(
         safeListings,
-        `AgroLnk_Produce_Listings_${user.name ? user.name.replace(/\s+/g, '_') : 'Farmer'}`
+        `AgrowLink_Produce_Listings_${user.name ? user.name.replace(/\s+/g, '_') : 'Farmer'}`
       );
       toast.success(`Successfully exported ${safeListings.length} produce lots to ${filename}!`);
     } catch (err) {

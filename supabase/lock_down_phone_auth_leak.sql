@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX: ELIMINATE PHONE-TO-EMAIL ENUMERATION LEAK
+-- AGROWLINK SECURITY FIX: ELIMINATE PHONE-TO-EMAIL ENUMERATION LEAK
 -- File: supabase/lock_down_phone_auth_leak.sql
 -- ============================================================================
 

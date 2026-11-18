@@ -1,4 +1,4 @@
-// AgroLnk Transporter Fleet Management Engine
+// AgrowLink Transporter Fleet Management Engine
 import { supabase } from '../lib/supabase';
 
 const FLEET_STORAGE_PREFIX = 'agrolnk_transporter_fleet_';

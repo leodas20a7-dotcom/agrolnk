@@ -114,7 +114,7 @@ export default function PrivacyChatDrawer({
     const defaultChannels = [
       {
         key: userSupportKey,
-        title: 'AgroLnk Desk & Smart Assistant',
+        title: 'AgrowLink Desk & Smart Assistant',
         subtitle: 'Official Support, Escrow & Dispute Desk',
         role: 'Admin & AI Assistant',
         category: 'support',
@@ -170,7 +170,7 @@ export default function PrivacyChatDrawer({
             defaultChannels.push({
               key: cnt.threadKey,
               title: `${cnt.name} (${cnt.role})`,
-              subtitle: cnt.status || 'Verified AgroLnk User • Direct Inquiries',
+              subtitle: cnt.status || 'Verified AgrowLink User • Direct Inquiries',
               role: cnt.role,
               category: cnt.category || 'orders',
               icon: Package,
@@ -509,9 +509,9 @@ export default function PrivacyChatDrawer({
       : null) ||
     channels[0] || {
       key: selectedChannelKey || userSupportKey,
-      title: 'AgroLnk Desk & Smart Assistant',
+      title: 'AgrowLink Desk & Smart Assistant',
       subtitle: 'Official Support & Trade Desk',
-      role: 'AgroLnk Platform',
+      role: 'AgrowLink Platform',
       category: 'support',
       badgeColor: 'emerald',
       avatarBg: 'bg-[#0B3326]',
@@ -537,7 +537,7 @@ export default function PrivacyChatDrawer({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold font-heading text-white tracking-tight leading-none">
-                    AgroLnk Chat
+                    AgrowLink Chat
                   </h2>
                   <span className="text-[10px] text-[#34D399] font-medium tracking-wide">
                     100% Privacy Protected
@@ -742,7 +742,7 @@ export default function PrivacyChatDrawer({
             <div className="p-3 bg-[#F8FAF8] border-t border-[#E5EDE8] flex items-center justify-between text-[11px] text-[#566861] shrink-0">
               <div className="flex items-center gap-1.5 text-[#10B981] font-semibold">
                 <ShieldCheck className="w-4 h-4" />
-                <span>AgroLnk Encrypted Anti-Circumvention</span>
+                <span>AgrowLink Encrypted Anti-Circumvention</span>
               </div>
               <span className="text-[10px] text-[#566861]">Zero Commission Leakage</span>
             </div>
@@ -820,7 +820,7 @@ export default function PrivacyChatDrawer({
                     {user.name || 'Verified Participant'} (You)
                   </h4>
                   <p className="text-xs text-[#566861] truncate">
-                    AgroLnk Escrow Verified Profile &bull; Message Support
+                    AgrowLink Escrow Verified Profile &bull; Message Support
                   </p>
                 </div>
               </div>
@@ -861,7 +861,7 @@ export default function PrivacyChatDrawer({
                         </span>
                       </div>
                       <p className="text-xs text-[#566861] truncate">
-                        {contact.status || 'Hey there! I am using AgroLnk secure trade.'}
+                        {contact.status || 'Hey there! I am using AgrowLink secure trade.'}
                       </p>
                     </div>
                   </div>

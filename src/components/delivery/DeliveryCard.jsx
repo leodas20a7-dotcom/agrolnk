@@ -25,6 +25,7 @@ export default function DeliveryCard({
   viewerRole = 'farmer', // 'farmer' | 'buyer' | 'transporter'
   currentUserId = '',
   isVerified = true,
+  isSignedOff = false,
   onView,
   onAccept,
   onAcceptPrice,
@@ -211,8 +212,8 @@ export default function DeliveryCard({
               {myQuoteStanding && (
                 <Badge variant={myQuoteStanding.isLowest ? 'emerald' : 'amber'} size="sm">
                   {myQuoteStanding.isLowest
-                    ? `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Lowest`
-                    : `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Outbid`}
+                    ? `Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Lowest`
+                    : `Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Outbid`}
                 </Badge>
               )}
               <Badge variant="amber" size="sm">
@@ -232,7 +233,12 @@ export default function DeliveryCard({
 
         <div className="flex items-center justify-end gap-2 flex-wrap">
           {/* Buyer Confirmation */}
-          {viewerRole === 'buyer' && isDelivered && onConfirmReceipt && (
+          {viewerRole === 'buyer' && isDelivered && isSignedOff && (
+            <Badge variant="emerald" size="sm" className="px-2.5 py-1">
+              ✓ Signed Off
+            </Badge>
+          )}
+          {viewerRole === 'buyer' && isDelivered && !isSignedOff && onConfirmReceipt && (
             <Button
               variant="accent"
               size="sm"
@@ -241,7 +247,7 @@ export default function DeliveryCard({
               iconPosition="left"
               className="text-xs font-bold py-2 shadow-xs cursor-pointer"
             >
-              Confirm Receipt
+              Confirm Delivery
             </Button>
           )}
 

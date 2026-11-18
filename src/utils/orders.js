@@ -423,7 +423,7 @@ export async function createOrder(orderData) {
     const buyerIdStr = String(orderData.buyerId || '').trim();
     const farmerIdStr = String(orderData.farmerId || '').trim();
     if (buyerIdStr && farmerIdStr && buyerIdStr === farmerIdStr) {
-      throw new Error('You cannot buy your own produce. Self-trading is not permitted on AgroLnk.');
+      throw new Error('You cannot buy your own produce. Self-trading is not permitted on AgrowLink.');
     }
 
     let orderId = orderData.id || generateId();
@@ -680,7 +680,7 @@ export async function createOrder(orderData) {
 
       if (!checkErr && currentListing) {
         if (orderData.buyerId && currentListing.farmer_id && String(orderData.buyerId) === String(currentListing.farmer_id)) {
-          throw new Error('You cannot buy your own produce. Self-trading is not permitted on AgroLnk.');
+          throw new Error('You cannot buy your own produce. Self-trading is not permitted on AgrowLink.');
         }
 
         // Enforce accurate cross-unit conversion against live listing's native unit
@@ -1406,28 +1406,61 @@ export async function updateOrderStatus(orderId, newStatus) {
  * Verify and Lock Escrow Deposit (Admin Bank Statement Verification)
  * Strictly unlocks produce dispatch only after real-world credit verification.
  */
-export async function verifyAndLockEscrowDeposit(orderId, adminName = 'AgroLnk Admin') {
+export async function verifyAndLockEscrowDeposit(orderId, adminName = 'AgrowLink Admin') {
   try {
+    const nowIso = new Date().toISOString();
+
+    // 1. Try atomic combined order + freight escrow lock RPC as Admin (auto-verified)
+    let atomicLocked = false;
+    try {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+        'lock_buyer_order_and_freight_escrow_atomic',
+        {
+          p_order_id: orderId,
+          p_payment_mode: 'escrow_van',
+          p_auto_verified: true,
+        }
+      );
+      if (!rpcErr && rpcRes?.success) {
+        atomicLocked = true;
+      }
+    } catch (_rpcErr) {
+      // Fall through to direct table update for orders without freight RFQ
+    }
+
     const updatePayload = {
       escrow_status: 'funded',
       status: 'order_placed',
       admin_verified_by: adminName,
       admin_verification_status: 'approved',
-      admin_verified_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      admin_verified_at: nowIso,
+      updated_at: nowIso,
     };
 
-    // 1. Update in Supabase
+    // 2. Ensure orders & linked delivery are updated in Supabase
     try {
       await supabase
         .from('orders')
         .update(updatePayload)
         .or(`id.eq.${orderId},order_number.eq.${orderId}`);
+
+      if (!atomicLocked) {
+        await supabase
+          .from('deliveries')
+          .update({
+            status: 'assigned',
+            freight_escrow_status: 'escrow_locked',
+            freight_deposited_at: nowIso,
+            updated_at: nowIso,
+          })
+          .or(`order_id.eq.${orderId},order_number.eq.${orderId}`)
+          .in('status', ['price_offered', 'transport_requested']);
+      }
     } catch (e) {
       console.warn('Supabase escrow lock sync notice:', e);
     }
 
-    // 2. Update local storage cache
+    // 3. Update local storage cache
     const stored = getLocalOrders();
     const idx = stored.findIndex((o) => o.id === orderId || o.orderNumber === orderId);
     if (idx !== -1) {
@@ -1437,15 +1470,19 @@ export async function verifyAndLockEscrowDeposit(orderId, adminName = 'AgroLnk A
         status: 'order_placed',
         adminVerifiedBy: adminName,
         adminVerificationStatus: 'approved',
-        adminVerifiedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        adminVerifiedAt: nowIso,
+        updatedAt: nowIso,
       };
       saveLocalOrder(stored[idx]);
     }
 
+    broadcastDataChange('orders', 'update');
+    broadcastDataChange('deliveries', 'update');
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('agrolnk_orders_updated'));
       window.dispatchEvent(new Event('agrolnk_order_updated'));
+      window.dispatchEvent(new Event('agrolnk_deliveries_updated'));
       window.dispatchEvent(new Event('agrolnk_escrow_updated'));
       window.dispatchEvent(new Event('storage'));
     }
@@ -1583,7 +1620,7 @@ export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
         recipientId: order.buyer_id,
         recipientRole: 'buyer',
         title: `Escrow Secured (${order.order_number})`,
-        message: `Your deposit of ₹${Number(order.total_amount).toLocaleString('en-IN')} is locked in AgroLnk Escrow. Produce is being prepared for transport.`,
+        message: `Your deposit of ₹${Number(order.total_amount).toLocaleString('en-IN')} is locked in AgrowLink Escrow. Produce is being prepared for transport.`,
         type: 'order',
         link: '/buyer-orders',
       });
@@ -1658,7 +1695,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
     // 2. Authentic Banking Settlement Reference (if supplied by bank webhook, admin, or gateway)
     const verifiedUtr = verificationChecks?.bankUtr || verificationChecks?.utr || farmerBank?.bankUtr || null;
 
-    const adminName = adminUser?.name || 'AgroLnk Operations Ombudsman';
+    const adminName = adminUser?.name || 'AgrowLink Operations Ombudsman';
     const notes = adminNotes || 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.';
 
     // 3. Try Production Atomic Stored Procedure (Row-level lock, eliminates double-disbursement)
@@ -1817,7 +1854,7 @@ export async function adminHoldOrDisputeOrderEscrow({
 
     const updatePayload = {
       escrow_status: 'disputed',
-      admin_verified_by: adminUser?.name || 'AgroLnk Dispute Desk',
+      admin_verified_by: adminUser?.name || 'AgrowLink Dispute Desk',
       admin_verification_status: 'disputed',
       admin_call_notes: disputeReason || 'Buyer flagged produce discrepancy during telephonic verification.',
       admin_verified_at: new Date().toISOString(),

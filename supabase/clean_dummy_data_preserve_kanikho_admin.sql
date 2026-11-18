@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: PURGE DUMMY ACCOUNTS, TRANSACTIONS, AUCTIONS & RECORDS (FAULT-TOLERANT)
+-- AGROWLINK: PURGE DUMMY ACCOUNTS, TRANSACTIONS, AUCTIONS & RECORDS (FAULT-TOLERANT)
 -- PRESERVED ACCOUNTS:
 --   1. Kanikho FPO (kanikho@gmail.com / feffe6e5-f8fa-4bfc-9ad0-b9cdfb944aa9)
 --   2. Platform Administrator (admin@agrolnk.com / usr_admin_master / role='admin')
@@ -12,7 +12,7 @@ DECLARE
     v_deleted_count INT := 0;
 BEGIN
     RAISE NOTICE '==================================================';
-    RAISE NOTICE 'Starting AgroLnk dummy data cleanup...';
+    RAISE NOTICE 'Starting AgrowLink dummy data cleanup...';
     RAISE NOTICE '==================================================';
 
     -- 1. Create temporary table of preserved user IDs

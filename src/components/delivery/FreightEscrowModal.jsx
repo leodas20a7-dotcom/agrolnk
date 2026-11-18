@@ -47,9 +47,9 @@ export default function FreightEscrowModal({
     }
   }, [isOpen, freightAmount, isHighValue]);
 
-  // AgroLnk Bank details from environment variables
+  // AgrowLink Bank details from environment variables
   const bankDetails = {
-    accountName: import.meta.env.VITE_AGROLNK_ESCROW_ACCOUNT_NAME || 'AGROLNK PRIVATE LIMITED',
+    accountName: import.meta.env.VITE_AGROLNK_ESCROW_ACCOUNT_NAME || 'AGROWLINK PRIVATE LIMITED',
     accountNumber: import.meta.env.VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER || '50200088991122',
     ifsc: import.meta.env.VITE_AGROLNK_ESCROW_IFSC || 'HDFC0000040',
     bankName: import.meta.env.VITE_AGROLNK_ESCROW_BANK_NAME || 'HDFC Bank',
@@ -134,7 +134,7 @@ export default function FreightEscrowModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-[#0B3326] font-heading">
-                Deposit Freight in AgroLnk Escrow
+                Deposit Freight in AgrowLink Escrow
               </h3>
               <p className="text-xs text-[#566861]">
                 Delivery #{delivery.deliveryNumber} • Carrier: {delivery.transporterName || 'Assigned Transporter'}
@@ -153,7 +153,7 @@ export default function FreightEscrowModal({
         <div className="p-3.5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-start gap-2.5 text-xs text-[#166534]">
           <ShieldCheck className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
           <div className="leading-relaxed">
-            <strong>Escrow Protection Active:</strong> Your freight fare is held safely by AgroLnk. Transporter will only receive payment after produce is delivered and recipient provides the Delivery OTP.
+            <strong>Escrow Protection Active:</strong> Your freight fare is held safely by AgrowLink. Transporter will only receive payment after produce is delivered and recipient provides the Delivery OTP.
           </div>
         </div>
 
@@ -164,7 +164,7 @@ export default function FreightEscrowModal({
             <span className="font-semibold text-[#14211D]">{formatINR(fin.baseFare)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[#566861]">AgroLnk Platform Fee (0.25%):</span>
+            <span className="text-[#566861]">AgrowLink Platform Fee (0.25%):</span>
             <span className="font-semibold text-[#0B3326]">+{formatINR(fin.consignorFee)}</span>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-[#E5EDE8]">
@@ -183,7 +183,7 @@ export default function FreightEscrowModal({
 
           {isHighValue && (
             <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
-              ℹ️ <strong>High-Value Cargo Freight (≥ ₹50,000):</strong> Routed exclusively via AgroLnk Escrow Virtual Account (NEFT/RTGS) to eliminate gateway fees.
+              ℹ️ <strong>High-Value Cargo Freight (≥ ₹50,000):</strong> Routed exclusively via AgrowLink Escrow Virtual Account (NEFT/RTGS) to eliminate gateway fees.
             </div>
           )}
 
@@ -217,7 +217,7 @@ export default function FreightEscrowModal({
             >
               <div className="flex items-center gap-2 mb-1.5">
                 <Landmark className="w-4 h-4 text-emerald-800" />
-                <span className="text-xs font-bold text-[#0B3326]">AgroLnk Escrow Account (NEFT / RTGS)</span>
+                <span className="text-xs font-bold text-[#0B3326]">AgrowLink Escrow Account (NEFT / RTGS)</span>
               </div>
               <p className="text-[11px] text-[#566861]">
                 Zero transaction fee. Funds verified by Admin bank statement check.

@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX: REVOKE VISITOR WRITE RIGHTS & SECURE RESET RPC
+-- AGROWLINK SECURITY FIX: REVOKE VISITOR WRITE RIGHTS & SECURE RESET RPC
 -- File: supabase/lock_down_visitor_rights_and_secure_reset.sql
 -- ============================================================================
 
@@ -97,7 +97,7 @@ BEGIN
 
     RETURN jsonb_build_object(
         'success', TRUE,
-        'message', 'AgroLnk system testing data successfully wiped by administrator.',
+        'message', 'AgrowLink system testing data successfully wiped by administrator.',
         'timestamp', NOW()
     );
 END;

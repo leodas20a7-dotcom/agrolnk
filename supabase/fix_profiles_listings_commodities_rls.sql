@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY HARDENING: PROFILES, LISTINGS & COMMODITIES RLS
+-- AGROWLINK SECURITY HARDENING: PROFILES, LISTINGS & COMMODITIES RLS
 -- Fixes:
 --   1. public.profiles: Blocks anon & cross-user INSERTs while preserving signup
 --      when email confirmation is enabled (via auth.users SECURITY DEFINER trigger).

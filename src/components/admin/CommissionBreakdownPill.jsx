@@ -18,7 +18,7 @@ export default function CommissionBreakdownPill({
       <div className={`p-3 rounded-xl bg-[#0B3326] text-white border border-[#14624A] text-xs space-y-1 ${className}`}>
         <div className="flex items-center justify-between font-bold text-[#34D399]">
           <span className="flex items-center gap-1.5">
-            <Landmark className="w-3.5 h-3.5" /> AgroLnk Fee (0.50%)
+            <Landmark className="w-3.5 h-3.5" /> AgrowLink Fee (0.50%)
           </span>
           <span>{formatINR(fin.totalPlatformCommission)}</span>
         </div>

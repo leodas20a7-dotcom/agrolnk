@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK CARRIER SECURITY FIX: MASK DELIVERY OTP & ATOMIC DROP-OFF HANDSHAKE
+-- AGROWLINK CARRIER SECURITY FIX: MASK DELIVERY OTP & ATOMIC DROP-OFF HANDSHAKE
 -- Run this script in Supabase SQL Editor.
 -- ============================================================================
 

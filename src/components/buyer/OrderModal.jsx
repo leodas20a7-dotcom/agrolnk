@@ -1046,7 +1046,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                           <strong className="text-[#0B3326]">Live Broadcast Active:</strong> Verified transporters are reviewing your {qty} {purchaseUnit} load and submitting competitive freight quotes. This screen updates automatically the moment the lowest quote arrives.
                         </p>
                         <p className="text-amber-900 bg-amber-50/90 border border-amber-200 px-2.5 py-1.5 rounded-lg font-medium">
-                          🛡️ <strong>30-Min Admin Concierge Guarantee:</strong> If no transporter bids within 30 minutes, AgroLnk Admin is alerted immediately, calls you, and assigns a verified fleet quote manually.
+                          🛡️ <strong>30-Min Admin Concierge Guarantee:</strong> If no transporter bids within 30 minutes, AgrowLink Admin is alerted immediately, calls you, and assigns a verified fleet quote manually.
                         </p>
                       </div>
                     )}
@@ -1160,7 +1160,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                                 NEFT / RTGS / IMPS • 0% Fee
                               </span>
                               <p className="text-[10px] text-[#566861] leading-snug">
-                                Direct bank transfer to AgroLnk Escrow Trust Account.
+                                Direct bank transfer to AgrowLink Escrow Trust Account.
                               </p>
                             </div>
                           </button>
@@ -1205,7 +1205,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-[#0B3326] flex items-center gap-1.5 uppercase tracking-wide">
                               <Landmark className="w-4 h-4 text-emerald-700" />
-                              Official AgroLnk Escrow Virtual Account (VAN)
+                              Official AgrowLink Escrow Virtual Account (VAN)
                             </span>
                             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                               Flat ₹15 Fee • NEFT / RTGS
@@ -1215,7 +1215,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                           {!isAwaitingWebhook ? (
                             <>
                               <p className="text-[11px] text-[#566861] leading-relaxed">
-                                AgroLnk provisions a dedicated <strong>Order Virtual Account</strong> for your Combined Crop + Freight Escrow deposit.
+                                AgrowLink provisions a dedicated <strong>Order Virtual Account</strong> for your Combined Crop + Freight Escrow deposit.
                               </p>
 
                               <div className="p-3 rounded-xl bg-white border border-emerald-200 flex items-center justify-between">

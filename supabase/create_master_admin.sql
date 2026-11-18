@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX #1: PROVISION & SECURE AUTHENTIC MASTER ADMINISTRATOR
+-- AGROWLINK SECURITY FIX #1: PROVISION & SECURE AUTHENTIC MASTER ADMINISTRATOR
 -- File: supabase/create_master_admin.sql
 -- Description:
 --   Removes hardcoded client-side admin passwords and provisions a genuine,
@@ -17,8 +17,8 @@ DECLARE
     v_existing_auth_id UUID;
 BEGIN
     -- Encrypt the initial strong admin password using bcrypt (Blowfish)
-    -- Default secure password: AgroLnk@Admin2026!Secure (Change to your secret password if needed)
-    v_encrypted_pw := crypt('AgroLnk@Admin2026!Secure', gen_salt('bf'));
+    -- Default secure password: AgrowLink@Admin2026!Secure (Change to your secret password if needed)
+    v_encrypted_pw := crypt('AgrowLink@Admin2026!Secure', gen_salt('bf'));
 
     -- 1. Check if admin user already exists in auth.users
     SELECT id INTO v_existing_auth_id 
@@ -153,7 +153,7 @@ BEGIN
         'admin',
         'Central Command',
         'HQ Operations',
-        'AgroLnk Platform Ombudsman',
+        'AgrowLink Platform Ombudsman',
         'verified',
         NOW(),
         NOW()

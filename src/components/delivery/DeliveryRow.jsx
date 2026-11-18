@@ -10,6 +10,7 @@ export default function DeliveryRow({
   viewerRole = 'farmer',
   currentUserId = '',
   isVerified = true,
+  isSignedOff = false,
   onView,
   onAccept,
   onAcceptPrice,
@@ -101,19 +102,23 @@ export default function DeliveryRow({
       </div>
 
       {/* Right: Status & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between xl:justify-end gap-2.5 shrink-0">
-        <div className="shrink-0 flex items-center gap-1.5 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between xl:justify-end gap-3 pt-1 xl:pt-0 shrink-0">
+        <div className="shrink-0 flex items-center gap-2 flex-wrap py-0.5">
           <DeliveryStatusBadge status={delivery.status} size="sm" />
           {myQuoteStanding && (isAvailableJob || isPriceOffered) && (
-            <Badge variant={myQuoteStanding.isLowest ? 'emerald' : 'amber'} size="sm">
+            <Badge
+              variant={myQuoteStanding.isLowest ? 'emerald' : 'amber'}
+              size="sm"
+              className="px-2.5 py-1"
+            >
               {myQuoteStanding.isLowest
-                ? `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Lowest`
-                : `Your Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Outbid`}
+                ? `Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Lowest`
+                : `Bid ₹${myQuoteStanding.amount.toLocaleString('en-IN')} • Outbid`}
             </Badge>
           )}
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap sm:flex-nowrap pt-0.5 sm:pt-0">
           {isTransporter && (isAvailableJob || isPriceOffered) && onAccept && (
             <Button
               variant={isVerified ? 'accent' : 'outline'}
@@ -121,24 +126,30 @@ export default function DeliveryRow({
               onClick={() => onAccept(delivery)}
               icon={isVerified ? Truck : ShieldCheck}
               iconPosition="left"
-              className={`flex-1 sm:flex-initial justify-center text-xs font-bold py-2 px-3 shadow-xs cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial justify-center text-xs font-bold py-2.5 sm:py-2 px-3.5 shadow-xs cursor-pointer whitespace-nowrap ${
                 !isVerified ? 'border-[#D97706] text-[#D97706] hover:bg-[#FEF3C7]' : ''
               }`}
             >
-              {isVerified ? (isPriceOffered ? 'Submit Lower Quote' : 'Quote Freight') : 'Verify to Quote'}
+              {isVerified ? (isPriceOffered ? 'Lower Quote' : 'Quote Freight') : 'Verify to Quote'}
             </Button>
           )}
 
-          {onConfirmReceipt && delivery.status === 'delivered' && (
+          {delivery.status === 'delivered' && isSignedOff && (
+            <Badge variant="emerald" size="sm" className="px-2.5 py-1 shrink-0">
+              ✓ Signed Off
+            </Badge>
+          )}
+
+          {onConfirmReceipt && delivery.status === 'delivered' && !isSignedOff && (
             <Button
               variant="accent"
               size="sm"
               onClick={() => onConfirmReceipt(delivery)}
               icon={Check}
               iconPosition="left"
-              className="flex-1 sm:flex-initial justify-center text-xs font-bold py-2 px-3 shadow-xs cursor-pointer whitespace-nowrap"
+              className="flex-1 sm:flex-initial justify-center text-xs font-bold py-2.5 sm:py-2 px-3.5 shadow-xs cursor-pointer whitespace-nowrap"
             >
-              Confirm Receipt
+              Confirm Delivery
             </Button>
           )}
 
@@ -148,7 +159,7 @@ export default function DeliveryRow({
             onClick={() => onView(delivery)}
             icon={ArrowRight}
             iconPosition="right"
-            className="flex-1 sm:flex-initial justify-center text-xs font-bold py-2 cursor-pointer whitespace-nowrap"
+            className="flex-1 sm:flex-initial justify-center text-xs font-bold py-2.5 sm:py-2 px-3.5 cursor-pointer whitespace-nowrap"
           >
             {isFarmer
               ? 'View Details'

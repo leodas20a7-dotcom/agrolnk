@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: FINAL SECURITY AUDIT REMEDIATION (TRIGGERS & RLS HARDENING)
+-- AGROWLINK: FINAL SECURITY AUDIT REMEDIATION (TRIGGERS & RLS HARDENING)
 -- Run this in Supabase SQL Editor:
 -- 1. Hardens public.orders financial field protection trigger (Issues 5 & 11)
 -- 2. Restricts public.profiles insert policy to auth.uid() = id (Issue 14)

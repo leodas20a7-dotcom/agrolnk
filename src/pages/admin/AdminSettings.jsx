@@ -265,7 +265,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
       showGlobalLoader('Resetting Chat Database...', 'Wiping all message logs and active threads across system...');
       await clearAllChatHistory();
       setIsResetChatModalOpen(false);
-      setActionSuccess('All AgroLnk chat history has been permanently wiped and reset to factory clean state.');
+      setActionSuccess('All AgrowLink chat history has been permanently wiped and reset to factory clean state.');
       setTimeout(() => setActionSuccess(''), 5000);
       const updatedDiag = await getChatDiagnostics();
       setChatDiag(updatedDiag);
@@ -674,7 +674,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold text-red-950 font-heading">
-                    AgroLnk Communication Factory Reset & Message Purge
+                    AgrowLink Communication Factory Reset & Message Purge
                   </h3>
                   <p className="text-xs text-red-900 leading-relaxed max-w-3xl">
                     This administrative action clears and purges all live chat messages and thread histories across both local cached storage and the remote Supabase database. Use this tool during testing, staging resets, or maintenance cycles.
@@ -855,7 +855,7 @@ export default function AdminSettings({ currentUser, onNavigate, navState }) {
         isOpen={isAddUserModalOpen}
         onClose={() => setIsAddUserModalOpen(false)}
         title="Add New Platform User"
-        subtitle="Register a new actor in the AgroLnk directory with pre-assigned role & KYC status"
+        subtitle="Register a new actor in the AgrowLink directory with pre-assigned role & KYC status"
         icon={Plus}
         iconColor="text-[#10B981]"
         iconBg="bg-[#EBF5F0]"

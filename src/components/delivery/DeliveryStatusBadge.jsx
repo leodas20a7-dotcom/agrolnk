@@ -5,31 +5,31 @@ import { Truck, Clock, CheckCircle2, Navigation, PackageCheck, UserCheck } from 
 export default function DeliveryStatusBadge({ status, size = 'sm' }) {
   const config = {
     pending: {
-      label: 'Waiting for Transport',
+      label: 'Waiting',
       variant: 'amber',
       icon: Clock,
       dot: true,
     },
     transport_requested: {
-      label: 'Transport Requested',
+      label: 'Open Load',
       variant: 'amber',
       icon: Clock,
       dot: true,
     },
     price_offered: {
-      label: 'Quote Sent • Awaiting Approval',
+      label: 'Quote Sent',
       variant: 'amber',
       icon: Clock,
       dot: true,
     },
     assigned: {
-      label: 'Transporter Assigned',
+      label: 'Assigned',
       variant: 'blue',
       icon: UserCheck,
       dot: true,
     },
     picked_up: {
-      label: 'Produce Picked Up',
+      label: 'Picked Up',
       variant: 'purple',
       icon: PackageCheck,
       dot: true,
@@ -41,13 +41,13 @@ export default function DeliveryStatusBadge({ status, size = 'sm' }) {
       dot: true,
     },
     delivered: {
-      label: 'Delivered (Awaiting Confirmation)',
+      label: 'Delivered',
       variant: 'teal',
       icon: Truck,
       dot: true,
     },
     completed: {
-      label: 'Delivery Confirmed',
+      label: 'Confirmed',
       variant: 'emerald',
       icon: CheckCircle2,
       dot: true,

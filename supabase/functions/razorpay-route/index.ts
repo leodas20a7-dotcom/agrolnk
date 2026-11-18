@@ -318,7 +318,7 @@ serve(async (req: Request) => {
             currency: "INR",
             receipt: `insp_${inspection.report_number || inspection.id}_${Date.now()}`.slice(0, 40),
             notes: {
-              platform: "AgroLnk",
+              platform: "AgrowLink",
               payment_context: "inspection_fee",
               inspection_id: inspection.id,
               report_number: inspection.report_number || "",
@@ -413,7 +413,7 @@ serve(async (req: Request) => {
             currency: "INR",
             receipt: `repay_${loan.request_number || loan.id}_${Date.now()}`.slice(0, 40),
             notes: {
-              platform: "AgroLnk",
+              platform: "AgrowLink",
               payment_context: "loan_repayment",
               loan_id: loan.id,
               request_number: loan.request_number || "",
@@ -530,7 +530,7 @@ serve(async (req: Request) => {
             currency: "INR",
             receipt: `rcpt_${existingOrder.order_number || existingOrder.id}_${Date.now()}`.slice(0, 40),
             notes: {
-              platform: "AgroLnk",
+              platform: "AgrowLink",
               existing_order_id: existingOrder.id,
               order_number: existingOrder.order_number,
               crop_value_inr: cropAmount.toFixed(2),
@@ -647,7 +647,7 @@ serve(async (req: Request) => {
           currency: "INR",
           receipt: orderReceipt,
           notes: {
-            platform: "AgroLnk",
+            platform: "AgrowLink",
             listing_id: listingId,
             commodity,
             trade_value_inr: (tradeValueInPaise / 100).toFixed(2),
@@ -951,7 +951,7 @@ serve(async (req: Request) => {
           return new Response(
             JSON.stringify({
               success: false,
-              error: "Razorpay order is not bound to an AgroLnk loan repayment.",
+              error: "Razorpay order is not bound to an AgrowLink loan repayment.",
             }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
@@ -1076,7 +1076,7 @@ serve(async (req: Request) => {
           return new Response(
             JSON.stringify({
               success: false,
-              error: "Razorpay order is not bound to an AgroLnk inspection fee payment.",
+              error: "Razorpay order is not bound to an AgrowLink inspection fee payment.",
             }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );

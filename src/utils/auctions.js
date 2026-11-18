@@ -1,4 +1,4 @@
-// AgroLnk Supabase Auctions & Bidding Engine
+// AgrowLink Supabase Auctions & Bidding Engine
 import { supabase } from '../lib/supabase';
 import { COMMODITY_IMAGES } from './listings';
 import { getCurrentUser, isUserKycVerified } from './auth';

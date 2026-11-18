@@ -1,5 +1,5 @@
 -- =============================================================================
--- AgroLnk Supabase Storage Buckets & Access Security Configuration
+-- AgrowLink Supabase Storage Buckets & Access Security Configuration
 -- Order-Independent & Idempotent:
 --   Safe to run BEFORE or AFTER any storage hardening patch without leaving
 --   public 'proof' reads or wiping out upload permissions.

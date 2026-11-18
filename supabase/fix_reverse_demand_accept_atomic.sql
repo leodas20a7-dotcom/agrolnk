@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY & WORKFLOW FIX: ATOMIC REVERSE DEMAND OFFER ACCEPTANCE
+-- AGROWLINK SECURITY & WORKFLOW FIX: ATOMIC REVERSE DEMAND OFFER ACCEPTANCE
 -- File: supabase/fix_reverse_demand_accept_atomic.sql
 -- Fixes:
 --   1. Prevents reverse demand orders from starting as status = 'order_placed'

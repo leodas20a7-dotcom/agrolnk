@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK PRODUCTION ROW-LEVEL SECURITY (RLS) POLICIES & ROLE ISOLATION
+-- AGROWLINK PRODUCTION ROW-LEVEL SECURITY (RLS) POLICIES & ROLE ISOLATION
 -- Run this script in your Supabase SQL Editor to enforce strict tenant isolation,
 -- role boundaries, and privacy protection across all platform domains.
 -- ============================================================================

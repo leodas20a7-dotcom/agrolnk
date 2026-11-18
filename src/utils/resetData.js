@@ -1,9 +1,9 @@
-// AgroLnk System Data Wipe & Fresh Start Testing Utility
+// AgrowLink System Data Wipe & Fresh Start Testing Utility
 import { supabase } from '../lib/supabase';
 
 export const ADMIN_USER = {
   id: 'usr_admin_master',
-  name: 'AgroLnk Administrator',
+  name: 'AgrowLink Administrator',
   email: 'agrolnkadmin@gmail.com',
   role: 'admin',
   kyc_status: 'verified',
@@ -17,7 +17,7 @@ export const ADMIN_USER = {
  * chats, and non-admin users across both Supabase and LocalStorage.
  */
 export async function resetAllTestingData() {
-  console.log('🔄 Starting complete AgroLnk testing data reset...');
+  console.log('🔄 Starting complete AgrowLink testing data reset...');
 
   // 1. Wipe Supabase Tables via Secure Server-Side Admin RPC
   try {

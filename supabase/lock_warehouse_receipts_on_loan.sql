@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK COLLATERAL PROTECTION FIX: e-NWR WAREHOUSE RECEIPT LIEN LOCK
+-- AGROWLINK COLLATERAL PROTECTION FIX: e-NWR WAREHOUSE RECEIPT LIEN LOCK
 -- Prevents double-pledging, unauthorized collateral release, and illegal sale/dispatch of mortgaged produce.
 -- Run this script in your Supabase SQL Editor.
 -- ============================================================================

@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX #3: MAKE PROOF & KYC STORAGE BUCKETS STRICTLY PRIVATE
+-- AGROWLINK SECURITY FIX #3: MAKE PROOF & KYC STORAGE BUCKETS STRICTLY PRIVATE
 -- File: supabase/lock_down_storage_proof_bucket.sql
 -- Order-Independent & Idempotent:
 --   Ensures canonical storage bucket privacy and all 5 agrolnk_* policies.

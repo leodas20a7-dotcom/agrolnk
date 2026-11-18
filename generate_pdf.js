@@ -206,7 +206,7 @@ function wrapInExecutiveTemplate(contentHtml, title, subtitle) {
         🌾
       </div>
       <div>
-        <div style="font-size: 18px; font-weight: 800; color: #0B3326; line-height: 1.1;">AgroLnk</div>
+        <div style="font-size: 18px; font-weight: 800; color: #0B3326; line-height: 1.1;">AgrowLink</div>
         <div style="font-size: 11px; color: #059669; font-weight: 600;">Unified B2B Agri-Trade, Escrow & e-NWR Infrastructure</div>
       </div>
     </div>
@@ -225,7 +225,7 @@ function wrapInExecutiveTemplate(contentHtml, title, subtitle) {
 
   <!-- Document Footer -->
   <div style="margin-top: 24px; padding-top: 10px; border-top: 1px solid #E5E7EB; display: flex; justify-content: space-between; font-size: 10px; color: #9CA3AF;">
-    <span>AgroLnk Enterprise Platform • Testing & Demo Operations Guide</span>
+    <span>AgrowLink Enterprise Platform • Testing & Demo Operations Guide</span>
     <span>Confidential • Internal Demo & QA Evaluation</span>
   </div>
 </body>
@@ -263,24 +263,24 @@ function convertMdToPdf(mdFilePath, outputPdfPath, title, subtitle) {
 // 1. Generate Master Testing Demo Guide PDF
 convertMdToPdf(
   path.join(__dirname, 'TESTING_DEMO_GUIDE.md'),
-  path.join(__dirname, 'AgroLnk_Master_Testing_Demo_Manual.pdf'),
-  'AgroLnk — Complete Production Demo & Testing Manual',
+  path.join(__dirname, 'AgrowLink_Master_Testing_Demo_Manual.pdf'),
+  'AgrowLink — Complete Production Demo & Testing Manual',
   'Step-by-Step Interactive Guide for QA Testers & Stakeholder Demonstrations'
 );
 
 // 2. Generate Warehouse Testing Guide PDF
 convertMdToPdf(
   path.join(__dirname, 'WAREHOUSE_TESTING_GUIDE.md'),
-  path.join(__dirname, 'AgroLnk_Warehouse_Testing_Guide.pdf'),
-  'AgroLnk — Warehouse & e-NWR Workflow Testing Manual',
+  path.join(__dirname, 'AgrowLink_Warehouse_Testing_Guide.pdf'),
+  'AgrowLink — Warehouse & e-NWR Workflow Testing Manual',
   'WDRA Accredited Electronic Title, Multi-Chamber Storage & 75% LTV Financing'
 );
 
 // 3. Generate Food Processor Testing Guide PDF
 convertMdToPdf(
   path.join(__dirname, 'FOOD_PROCESSOR_TESTING_GUIDE.md'),
-  path.join(__dirname, 'AgroLnk_Food_Processor_Testing_Guide.pdf'),
-  'AgroLnk — Food Processor & Milling Terminal Testing Manual',
+  path.join(__dirname, 'AgrowLink_Food_Processor_Testing_Guide.pdf'),
+  'AgrowLink — Food Processor & Milling Terminal Testing Manual',
   'Dual Procurement, Milled Goods Sales, Escrow & Seasonal Credit Workflow Guide'
 );
 

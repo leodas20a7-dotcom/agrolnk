@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK COMMODITY CATALOG & VARIETIES DATABASE SCHEMA & RLS
+-- AGROWLINK COMMODITY CATALOG & VARIETIES DATABASE SCHEMA & RLS
 -- Run this script in your Supabase SQL Editor to enable full CRUD permissions
 -- for the platform commodity catalog and commercial varieties.
 -- ============================================================================

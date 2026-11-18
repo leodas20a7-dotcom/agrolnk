@@ -1,4 +1,4 @@
-// AgroLnk Live Demo Escrow Account & Real-Time Nodal Banking Engine
+// AgrowLink Live Demo Escrow Account & Real-Time Nodal Banking Engine
 // Standard: RBI/SEBI Tripartite Escrow Trust Account with Virtual Account Number (VAN) Routing
 // Take-Rate: 0.25% Buyer + 0.25% Seller = 0.50% Total Platform Commission
 
@@ -10,7 +10,7 @@ const ESCROW_EVENTS_KEY = 'agrolnk_live_escrow_events_v2';
 
 // Standard Virtual Nodal Escrow Account Configuration (Read dynamically from .env)
 export const ESCROW_NODAL_ACCOUNT = {
-  accountName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NAME) || 'AGROLNK PRIVATE LIMITED',
+  accountName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NAME) || 'AGROWLINK PRIVATE LIMITED',
   accountNumber: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER) || '992010884210982',
   virtualAccountPrefix: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_VAN_PREFIX) || 'AGRO',
   bankName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
@@ -265,7 +265,7 @@ export async function processLiveEscrowRelease(orderNumber, otpCode, options = {
       orderNumber: targetTxn.orderNumber,
       amount: formatINR(targetTxn.netFarmerPayout),
       utr: targetTxn.disbursementUtr || 'Pending Gateway Settlement',
-      details: `Escrow release triggered via verification token ${otpCode}. Disbursed ${formatINR(targetTxn.netFarmerPayout)} to ${targetTxn.farmerName}.${authenticUtr ? ` UTR: ${authenticUtr}.` : ' Settlement clearing via nodal gateway.'} AgroLnk 0.50% commission (${formatINR(targetTxn.platformRevenue)}) realized.`,
+      details: `Escrow release triggered via verification token ${otpCode}. Disbursed ${formatINR(targetTxn.netFarmerPayout)} to ${targetTxn.farmerName}.${authenticUtr ? ` UTR: ${authenticUtr}.` : ' Settlement clearing via nodal gateway.'} AgrowLink 0.50% commission (${formatINR(targetTxn.platformRevenue)}) realized.`,
     });
 
     return targetTxn;
@@ -283,7 +283,7 @@ export function resetDemoEscrowLedger() {
   window.dispatchEvent(new Event('agrolnk_escrow_updated'));
   logEscrowEvent({
     topic: 'system.escrow.reset',
-    source: 'AgroLnk Operations Console',
+    source: 'AgrowLink Operations Console',
     details: 'Escrow nodal vault ledger reset to baseline seed state.',
   });
 }

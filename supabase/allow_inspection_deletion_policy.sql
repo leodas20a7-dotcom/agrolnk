@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: Strict Admin-Only Update & Deletion Policy for Inspection & Dispute Records
+-- AGROWLINK: Strict Admin-Only Update & Deletion Policy for Inspection & Dispute Records
 -- Security Remediation: Removes `OR true` bypass and blocks buyers/farmers/anon
 -- from tampering with or deleting inspection reports and dispute arbitrations.
 -- Run this in Supabase SQL Editor.

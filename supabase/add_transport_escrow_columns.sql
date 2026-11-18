@@ -1,4 +1,4 @@
--- AgroLnk Phase 1 Migration: Add Transport Freight Escrow Columns to deliveries table
+-- AgrowLink Phase 1 Migration: Add Transport Freight Escrow Columns to deliveries table
 -- Extends public.deliveries with comprehensive escrow tracking, dual-tier payment mode, and audit trails.
 
 ALTER TABLE public.deliveries

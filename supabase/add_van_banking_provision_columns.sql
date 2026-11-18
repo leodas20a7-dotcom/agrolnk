@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AgroLnk: Virtual Account Number (VAN) Banking Provision Schema Extension
+-- AgrowLink: Virtual Account Number (VAN) Banking Provision Schema Extension
 -- Run this in your Supabase SQL Editor to support direct VAN queries & reporting
 -- ==============================================================================
 

@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY REMEDIATION MIGRATION
+-- AGROWLINK SECURITY REMEDIATION MIGRATION
 -- Issue: Anyone Can Unlock Pledged Warehouse Collateral (e-NWR) Without Repaying the Loan
 -- Fixes:
 --   1. Hardens release_warehouse_receipt_lien_atomic() and lock_warehouse_receipt_for_loan_atomic()

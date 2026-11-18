@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK PRODUCTION ATOMIC STORED PROCEDURES
+-- AGROWLINK PRODUCTION ATOMIC STORED PROCEDURES
 -- Concurrency-safe, transactional functions for bidding, escrow release, and settlement.
 -- ============================================================================
 
@@ -58,7 +58,7 @@ BEGIN
 
     -- Enforce server-side KYC verification: Only verified traders or administrators can bid
     IF COALESCE(v_kyc_status, 'pending') NOT IN ('verified', 'approved') AND COALESCE(v_role, '') != 'admin' THEN
-        RAISE EXCEPTION 'KYC verification required: Your account KYC must be approved by AgroLnk Operations before participating in live bidding.';
+        RAISE EXCEPTION 'KYC verification required: Your account KYC must be approved by AgrowLink Operations before participating in live bidding.';
     END IF;
 
     -- 2. Acquire exclusive row lock on the auction to eliminate race conditions
@@ -188,7 +188,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.release_escrow_atomic(
     p_order_id TEXT,
-    p_admin_name TEXT DEFAULT 'AgroLnk Operations Ombudsman',
+    p_admin_name TEXT DEFAULT 'AgrowLink Operations Ombudsman',
     p_admin_notes TEXT DEFAULT 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.',
     p_bank_name TEXT DEFAULT NULL,
     p_account_number TEXT DEFAULT NULL,
@@ -248,7 +248,7 @@ BEGIN
     UPDATE public.orders SET
         status = 'completed',
         escrow_status = 'released',
-        admin_verified_by = COALESCE(NULLIF(TRIM(p_admin_name), ''), 'AgroLnk Operations Ombudsman'),
+        admin_verified_by = COALESCE(NULLIF(TRIM(p_admin_name), ''), 'AgrowLink Operations Ombudsman'),
         admin_verification_status = 'approved',
         admin_call_notes = COALESCE(NULLIF(TRIM(p_admin_notes), ''), 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.'),
         admin_verified_at = v_now,
@@ -807,7 +807,7 @@ BEGIN
         v_listing.farmer_id = p_buyer_id OR 
         (auth.uid() IS NOT NULL AND v_listing.farmer_id = auth.uid()::text)
     ) THEN
-        RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgroLnk.';
+        RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgrowLink.';
     END IF;
 
     -- 2c. Canonical unit conversion to listing's native unit

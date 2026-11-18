@@ -210,7 +210,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
   const handleOrderConfirmed = async (orderPayload) => {
     if (!listing || isProcessingOrder) return;
     if (isOwnListing) {
-      toast.error('You cannot buy your own produce. Self-trading is not permitted on AgroLnk.');
+      toast.error('You cannot buy your own produce. Self-trading is not permitted on AgrowLink.');
       return;
     }
     setIsProcessingOrder(true);
@@ -481,7 +481,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   </Badge>
                 </div>
                 <p className="text-[11px] text-[#566861]">
-                  Direct grower with 100% past delivery fulfillment on AgroLnk.
+                  Direct grower with 100% past delivery fulfillment on AgrowLink.
                 </p>
               </div>
 
@@ -521,7 +521,7 @@ export default function ListingDetail({ currentUser, onNavigate, navState }) {
                   disputed: {
                     pill: 'Under Review',
                     pillCls: 'bg-red-100 text-red-700',
-                    line: 'Quality issue is being reviewed by AgroLnk.',
+                    line: 'Quality issue is being reviewed by AgrowLink.',
                   },
                 }[stage];
 

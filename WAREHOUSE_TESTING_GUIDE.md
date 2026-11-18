@@ -1,6 +1,6 @@
-# 🏢 AgroLnk — Complete Warehouse & e-NWR Workflow Testing Manual
+# 🏢 AgrowLink — Complete Warehouse & e-NWR Workflow Testing Manual
 
-This manual provides an end-to-end testing blueprint for the **WDRA-Accredited e-NWR Warehousing, Multi-Chamber Cold Storage, and Commodity Collateral Financing** workflows in AgroLnk.
+This manual provides an end-to-end testing blueprint for the **WDRA-Accredited e-NWR Warehousing, Multi-Chamber Cold Storage, and Commodity Collateral Financing** workflows in AgrowLink.
 
 ---
 

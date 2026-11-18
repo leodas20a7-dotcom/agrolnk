@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK: ADD FPO (FARMER PRODUCER ORGANISATION) ROLE MIGRATION
+-- AGROWLINK: ADD FPO (FARMER PRODUCER ORGANISATION) ROLE MIGRATION
 -- Run this script in your Supabase SQL Editor to enable 'fpo' accounts.
 -- ============================================================================
 

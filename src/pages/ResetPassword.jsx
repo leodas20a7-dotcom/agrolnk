@@ -135,12 +135,12 @@ export default function ResetPassword({ onNavigate }) {
           <div className="flex items-center gap-3">
             <img
               src={logoImg}
-              alt="AgroLnk Logo"
+              alt="AgrowLink Logo"
               className="w-10 h-10 object-contain rounded-xl shadow-xs"
             />
             <div>
               <span className="text-xl font-bold tracking-tight text-[#0B3326] font-heading block">
-                AgroLnk
+                AgrowLink
               </span>
               <span className="text-[10px] text-[#10B981] font-semibold uppercase tracking-widest block">
                 Digital Agri Exchange
@@ -165,7 +165,7 @@ export default function ResetPassword({ onNavigate }) {
             <div>
               <h2 className="text-lg font-bold text-[#14211D]">Password Updated!</h2>
               <p className="text-xs text-[#566861] mt-1.5 leading-relaxed">
-                Your password has been successfully reset. You can now securely sign in to your AgroLnk account with your new credentials.
+                Your password has been successfully reset. You can now securely sign in to your AgrowLink account with your new credentials.
               </p>
             </div>
             <div className="pt-2">
@@ -290,7 +290,7 @@ export default function ResetPassword({ onNavigate }) {
 
             <div className="flex items-center justify-center gap-1.5 pt-2 text-[11px] text-[#566861]">
               <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-              <span>Secured by AgroLnk Cryptographic Escrow Vault</span>
+              <span>Secured by AgrowLink Cryptographic Escrow Vault</span>
             </div>
           </div>
         )}

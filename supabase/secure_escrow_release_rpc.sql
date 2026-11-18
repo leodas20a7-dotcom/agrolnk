@@ -1,5 +1,5 @@
 -- ============================================================================
--- AGROLNK SECURITY FIX: SECURE ESCROW RELEASE & FINANCIAL STORED PROCEDURES
+-- AGROWLINK SECURITY FIX: SECURE ESCROW RELEASE & FINANCIAL STORED PROCEDURES
 -- File: supabase/secure_escrow_release_rpc.sql
 -- Description:
 --   1. Enforces strict Administrator authentication inside release_escrow_atomic().
@@ -12,7 +12,7 @@
 -- 1. Secure & Hardened Escrow Release Stored Procedure
 CREATE OR REPLACE FUNCTION public.release_escrow_atomic(
     p_order_id TEXT,
-    p_admin_name TEXT DEFAULT 'AgroLnk Operations Ombudsman',
+    p_admin_name TEXT DEFAULT 'AgrowLink Operations Ombudsman',
     p_admin_notes TEXT DEFAULT 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.',
     p_bank_name TEXT DEFAULT NULL,
     p_account_number TEXT DEFAULT NULL,
@@ -72,7 +72,7 @@ BEGIN
     UPDATE public.orders SET
         status = 'completed',
         escrow_status = 'released',
-        admin_verified_by = COALESCE(NULLIF(TRIM(p_admin_name), ''), 'AgroLnk Operations Ombudsman'),
+        admin_verified_by = COALESCE(NULLIF(TRIM(p_admin_name), ''), 'AgrowLink Operations Ombudsman'),
         admin_verification_status = 'approved',
         admin_call_notes = COALESCE(NULLIF(TRIM(p_admin_notes), ''), 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.'),
         admin_verified_at = v_now,

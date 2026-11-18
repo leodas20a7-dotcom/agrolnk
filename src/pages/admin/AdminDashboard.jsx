@@ -77,7 +77,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   const [deliveries, setDeliveries] = useState([]);
   const [conciergeRfq, setConciergeRfq] = useState(null);
   const [conciergeFreightAmount, setConciergeFreightAmount] = useState('');
-  const [conciergeTransporterName, setConciergeTransporterName] = useState('AgroLnk Managed Fleet Partner');
+  const [conciergeTransporterName, setConciergeTransporterName] = useState('AgrowLink Managed Fleet Partner');
   const [conciergeVehicleType, setConciergeVehicleType] = useState('Medium LCV (14ft Eicher)');
   const [conciergeVehicleNumber, setConciergeVehicleNumber] = useState('TN 01 AL 9900');
   const [conciergeDriverName, setConciergeDriverName] = useState('Verified Fleet Driver');
@@ -148,7 +148,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   const handleOpenConciergeModal = (dlv) => {
     setConciergeRfq(dlv);
     setConciergeFreightAmount('');
-    setConciergeTransporterName('AgroLnk Managed Fleet Partner');
+    setConciergeTransporterName('AgrowLink Managed Fleet Partner');
     setConciergeVehicleType('Medium LCV (14ft Eicher)');
     setConciergeVehicleNumber('TN 01 AL 9900');
     setConciergeDriverName('Verified Fleet Driver');
@@ -168,7 +168,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
         conciergeRfq.id,
         {
           freightAmount: amt,
-          transporterName: conciergeTransporterName.trim() || 'AgroLnk Managed Fleet Partner',
+          transporterName: conciergeTransporterName.trim() || 'AgrowLink Managed Fleet Partner',
           vehicleType: conciergeVehicleType.trim() || 'Commercial Truck',
           vehicleNumber: conciergeVehicleNumber.trim().toUpperCase() || 'TN 01 AL 9900',
           driverName: conciergeDriverName.trim() || 'Fleet Driver',
@@ -881,7 +881,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                   This will permanently remove the listed lot for{' '}
                   <strong className="text-amber-950 font-bold">"{listingToDelete.commodity}"</strong>{' '}
                   ({Number(listingToDelete.quantity).toLocaleString()} {listingToDelete.unit || 'kg'} by{' '}
-                  {listingToDelete.farmerName || 'Farmer'}) from the AgroLnk national marketplace.
+                  {listingToDelete.farmerName || 'Farmer'}) from the AgrowLink national marketplace.
                 </div>
               </div>
 
@@ -954,9 +954,9 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               </div>
 
               <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-1.5 text-xs text-[#566861]">
-                <div className="font-bold text-[#0B3326] text-xs">AgroLnk Escrow Protection Rule:</div>
+                <div className="font-bold text-[#0B3326] text-xs">AgrowLink Escrow Protection Rule:</div>
                 <p className="text-[11px] leading-relaxed">
-                  Once a buyer deposits funds into the AgroLnk Escrow vault, the produce item is locked to guarantee fulfillment, dispatch logistics, and delivery OTP release.
+                  Once a buyer deposits funds into the AgrowLink Escrow vault, the produce item is locked to guarantee fulfillment, dispatch logistics, and delivery OTP release.
                 </p>
               </div>
             </div>
