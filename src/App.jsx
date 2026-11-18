@@ -286,12 +286,15 @@ export default function App() {
     };
   }, []);
 
-  // Background daemon: Settle expired auction lots automatically every 30 seconds
+  // Background daemon: Settle expired auction lots when tab is active (every 2 minutes)
   useEffect(() => {
-    checkAndFinalizeExpiredAuctions().catch(() => {});
-    const interval = setInterval(() => {
+    const runFinalizeCheck = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      if (!getCurrentUser() && !['auctions', 'marketplace', 'landing'].includes(currentPage)) return;
       checkAndFinalizeExpiredAuctions().catch(() => {});
-    }, 30000);
+    };
+    runFinalizeCheck();
+    const interval = setInterval(runFinalizeCheck, 120000);
     return () => clearInterval(interval);
   }, []);
 

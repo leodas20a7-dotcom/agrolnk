@@ -173,11 +173,16 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
       }
     };
 
-    const handleListingsUpdated = async () => {
-      if (isMounted) {
-        const activeLots = await getActiveMarketplaceListings();
-        setAllListings(activeLots || []);
-      }
+    let listingsDebounce = null;
+    const handleListingsUpdated = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      if (listingsDebounce) clearTimeout(listingsDebounce);
+      listingsDebounce = setTimeout(async () => {
+        if (isMounted) {
+          const activeLots = await getActiveMarketplaceListings();
+          if (isMounted) setAllListings(activeLots || []);
+        }
+      }, 600);
     };
 
     window.addEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
@@ -193,6 +198,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
 
     return () => {
       isMounted = false;
+      if (listingsDebounce) clearTimeout(listingsDebounce);
       hideGlobalLoader();
       window.removeEventListener('agrolnk_commodities_updated', handleCommoditiesUpdated);
       window.removeEventListener('agrolnk_listings_updated', handleListingsUpdated);

@@ -156,8 +156,13 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
   useEffect(() => {
     loadKYC(true);
 
+    let kycDebounce = null;
     const handleUpdate = () => {
-      loadKYC(false);
+      if (typeof document !== 'undefined' && document.hidden) return;
+      if (kycDebounce) clearTimeout(kycDebounce);
+      kycDebounce = setTimeout(() => {
+        loadKYC(false);
+      }, 600);
     };
 
     window.addEventListener('agrolnk_kyc_updated', handleUpdate);
@@ -168,11 +173,12 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     const channel = supabase
       .channel('admin_kyc_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        loadKYC(false);
+        handleUpdate();
       })
       .subscribe();
 
     return () => {
+      if (kycDebounce) clearTimeout(kycDebounce);
       hideGlobalLoader();
       window.removeEventListener('agrolnk_kyc_updated', handleUpdate);
       window.removeEventListener('agrolnk_user_profile_updated', handleUpdate);

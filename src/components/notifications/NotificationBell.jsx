@@ -43,8 +43,12 @@ export default function NotificationBell({ currentUser, onNavigate }) {
   useEffect(() => {
     loadNotifications();
 
+    let debounceTimer = null;
     const handleUpdate = () => {
-      loadNotifications();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadNotifications();
+      }, 500);
     };
 
     const unsubscribe = subscribeToCrossTabSync((msg) => {
@@ -59,9 +63,16 @@ export default function NotificationBell({ currentUser, onNavigate }) {
     window.addEventListener('storage', handleUpdate);
 
     const isAdminUser = user.role === 'admin' || user.role === 'super_admin';
-    const pollId = isAdminUser ? setInterval(handleUpdate, 30000) : null;
+    const pollId = isAdminUser
+      ? setInterval(() => {
+          if (typeof document === 'undefined' || !document.hidden) {
+            handleUpdate();
+          }
+        }, 120000)
+      : null;
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       unsubscribe();
       if (pollId) clearInterval(pollId);
       window.removeEventListener('agrolnk_notifications_updated', handleUpdate);

@@ -323,14 +323,33 @@ export async function getNotificationsForUser(user) {
   // Live operational alerts for Admin (e.g., 30-Min Freight RFQ escalations & active RFQs)
   if (currentRole === 'admin' || currentRole === 'super_admin') {
     try {
-      const { getDeliveries } = await import('./deliveries');
-      const deliveries = await getDeliveries();
-      const unquotedRfqs = (Array.isArray(deliveries) ? deliveries : []).filter(
-        (d) =>
-          d.status === 'transport_requested' &&
-          (!d.freightAmount || Number(d.freightAmount) === 0) &&
-          (!d.quotesCount || d.quotesCount === 0)
-      );
+      const { data: rfqRows } = await supabase
+        .from('deliveries')
+        .select('id, order_number, delivery_number, commodity, quantity, unit, status, freight_amount, quotes_count, rfq_expires_at, created_at')
+        .eq('status', 'transport_requested')
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      const unquotedRfqs = (Array.isArray(rfqRows) ? rfqRows : [])
+        .map((r) => ({
+          id: r.id,
+          orderNumber: r.order_number,
+          deliveryNumber: r.delivery_number,
+          commodity: r.commodity,
+          quantity: r.quantity,
+          unit: r.unit,
+          status: r.status,
+          freightAmount: r.freight_amount,
+          quotesCount: r.quotes_count,
+          rfqExpiresAt: r.rfq_expires_at,
+          isRfqExpired: r.rfq_expires_at ? new Date(r.rfq_expires_at).getTime() <= Date.now() : false,
+          adminEscalated: false,
+        }))
+        .filter(
+          (d) =>
+            (!d.freightAmount || Number(d.freightAmount) === 0) &&
+            (!d.quotesCount || d.quotesCount === 0)
+        );
 
       const adminAlerts = unquotedRfqs.map((d) => {
         const isEscalated = Boolean(d.isRfqExpired || d.adminEscalated);

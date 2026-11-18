@@ -206,10 +206,11 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
 
   // Live polling for transporter freight quotes + 30-minute countdown timer
   useEffect(() => {
-    if (!isOpen || rfqStage !== 'waiting_quote' || !reservedOrder) return;
+    if (!isOpen || rfqStage !== 'waiting_quote' || !reservedOrder || hasFreightQuote) return;
     let isMounted = true;
 
     const syncRfqDelivery = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const dlv = await getDeliveryForOrder(reservedOrder.orderNumber || reservedOrder.id);
         if (isMounted && dlv) {
@@ -219,7 +220,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     };
 
     syncRfqDelivery();
-    const pollInterval = setInterval(syncRfqDelivery, 3500);
+    const pollInterval = setInterval(syncRfqDelivery, 8000);
     window.addEventListener('agrolnk_deliveries_updated', syncRfqDelivery);
     window.addEventListener('storage', syncRfqDelivery);
 
@@ -229,7 +230,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       window.removeEventListener('agrolnk_deliveries_updated', syncRfqDelivery);
       window.removeEventListener('storage', syncRfqDelivery);
     };
-  }, [isOpen, rfqStage, reservedOrder]);
+  }, [isOpen, rfqStage, reservedOrder, hasFreightQuote]);
 
   useEffect(() => {
     if (!isOpen || rfqStage !== 'waiting_quote') return;
