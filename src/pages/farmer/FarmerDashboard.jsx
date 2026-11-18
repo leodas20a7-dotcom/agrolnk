@@ -177,29 +177,39 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
 
         {/* Top Professional Marketplace Welcome Card */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-2 max-w-2xl">
+          <div className="space-y-2.5 flex-1 min-w-0 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
               <Sprout className="w-3.5 h-3.5" /> Producer Trading Desk
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-heading text-white tracking-tight leading-snug">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
-            <p className="text-sm sm:text-base text-[#DCFCE7]/90 leading-relaxed font-normal">
+            <p className="text-sm text-[#DCFCE7]/85 leading-relaxed font-normal max-w-xl">
               Manage live exchange listings, deposit harvest into certified cold storage, arrange freight, and secure liquidity.
             </p>
           </div>
 
-          {/* Primary Action Buttons */}
-          <div className="shrink-0 flex flex-wrap gap-2.5 w-full sm:w-auto">
+          {/* Primary Action Buttons (balanced 2x2 grid) */}
+          <div className="shrink-0 grid grid-cols-2 gap-2.5 w-full lg:w-auto">
             <Button
               variant="white"
               size="md"
               icon={ShoppingBag}
               iconPosition="left"
               onClick={() => onNavigate('farmer-demands')}
-              className="py-3 px-4 font-bold text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer shadow-sm border border-white"
+              className="justify-center py-2.5 px-4 font-bold text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer shadow-sm border border-white whitespace-nowrap"
             >
               Buyer Requests
+            </Button>
+            <Button
+              variant="accent"
+              size="md"
+              icon={Plus}
+              iconPosition="left"
+              onClick={() => onNavigate('farmer-create-listing')}
+              className="justify-center py-2.5 px-4 font-bold shadow-md shadow-[#10B981]/20 text-xs cursor-pointer whitespace-nowrap"
+            >
+              List Produce
             </Button>
             <Button
               variant="secondary"
@@ -207,7 +217,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               icon={Building2}
               iconPosition="left"
               onClick={() => onNavigate('farmer-inventory')}
-              className="py-3 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+              className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
             >
               Warehouse ({inventory.length})
             </Button>
@@ -217,19 +227,9 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               icon={Truck}
               iconPosition="left"
               onClick={() => onNavigate('farmer-deliveries')}
-              className="py-3 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer"
+              className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
             >
               Deliveries ({deliveries.length})
-            </Button>
-            <Button
-              variant="accent"
-              size="md"
-              icon={Plus}
-              iconPosition="left"
-              onClick={() => onNavigate('farmer-create-listing')}
-              className="py-3 px-5 font-bold shadow-md shadow-[#10B981]/20 text-xs cursor-pointer"
-            >
-              List Produce
             </Button>
           </div>
         </div>
