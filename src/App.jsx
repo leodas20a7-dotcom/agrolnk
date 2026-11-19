@@ -38,7 +38,6 @@ const AuctionRoom = lazy(() => import('./pages/auction/AuctionRoom'));
 const FinancierDashboard = lazy(() => import('./pages/dashboards/FinancierDashboard'));
 const UnderwritingDesk = lazy(() => import('./pages/financier/UnderwritingDesk'));
 const FinancierPortfolio = lazy(() => import('./pages/financier/FinancierPortfolio'));
-const CollateralVault = lazy(() => import('./pages/financier/CollateralVault'));
 const DisbursementsLedger = lazy(() => import('./pages/financier/DisbursementsLedger'));
 
 // Transporter Desk Module Pages (Code-Split)
@@ -114,7 +113,6 @@ const VALID_ROUTES = new Set([
   'financier-dashboard',
   'financier-underwriting',
   'financier-portfolio',
-  'financier-collateral-vault',
   'financier-disbursements',
   // Transporter
   'transporter-dashboard',
@@ -123,6 +121,9 @@ const VALID_ROUTES = new Set([
   'transporter-fleet',
   // Warehouse
   'warehouse-dashboard',
+  'warehouse-requests',
+  'warehouse-inventory',
+  'warehouse-chambers',
   // Food Processor
   'food-processor-dashboard',
   'food_processor-dashboard',
@@ -222,6 +223,9 @@ const PAGE_MESSAGES = {
   'buyer-dashboard': 'Syncing Buyer Terminal...',
   'financier-dashboard': 'Loading Capital & Liquidity Vault...',
   'warehouse-dashboard': 'Accessing Warehouse Storage Network...',
+  'warehouse-requests': 'Opening Inbound Gate & Quote Requests...',
+  'warehouse-inventory': 'Loading Stored e-NWR Inventory & Rent...',
+  'warehouse-chambers': 'Loading Storage Chambers & Rates...',
   'food-processor-dashboard': 'Opening Food Processor Terminal...',
   'food_processor-dashboard': 'Opening Food Processor Terminal...',
   'transporter-dashboard': 'Syncing Logistics & Corridor Dispatch...',
@@ -684,15 +688,6 @@ export default function App() {
         </ProtectedRoute>
       )}
 
-      {currentPage === 'financier-collateral-vault' && (
-        <ProtectedRoute requiredRole="financier" onNavigate={handleNavigate}>
-          <CollateralVault
-            currentUser={currentUser || navState.user}
-            onNavigate={handleNavigate}
-          />
-        </ProtectedRoute>
-      )}
-
       {currentPage === 'financier-disbursements' && (
         <ProtectedRoute requiredRole="financier" onNavigate={handleNavigate}>
           <DisbursementsLedger
@@ -743,12 +738,43 @@ export default function App() {
         </ProtectedRoute>
       )}
 
-      {/* 10. Warehouse Operator Dashboard */}
+      {/* 10. Warehouse Operator Routes */}
       {currentPage === 'warehouse-dashboard' && (
         <ProtectedRoute requiredRole="warehouse" onNavigate={handleNavigate}>
           <WarehouseDashboard
             currentUser={currentUser || navState.user}
             onNavigate={handleNavigate}
+            pageMode="dashboard"
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'warehouse-requests' && (
+        <ProtectedRoute requiredRole="warehouse" onNavigate={handleNavigate}>
+          <WarehouseDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+            pageMode="requests"
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'warehouse-inventory' && (
+        <ProtectedRoute requiredRole="warehouse" onNavigate={handleNavigate}>
+          <WarehouseDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+            pageMode="inventory"
+          />
+        </ProtectedRoute>
+      )}
+
+      {currentPage === 'warehouse-chambers' && (
+        <ProtectedRoute requiredRole="warehouse" onNavigate={handleNavigate}>
+          <WarehouseDashboard
+            currentUser={currentUser || navState.user}
+            onNavigate={handleNavigate}
+            pageMode="chambers"
           />
         </ProtectedRoute>
       )}

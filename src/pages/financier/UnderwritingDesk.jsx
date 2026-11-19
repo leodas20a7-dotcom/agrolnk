@@ -427,26 +427,15 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                 </Button>
               )}
               {onNavigate && (
-                <>
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => onNavigate('financier-collateral-vault')}
-                    className="font-bold gap-2 shadow-xs"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    Inspect Collateral Vault
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onNavigate('financier-portfolio')}
-                    className="text-xs text-[#566861] hover:text-[#0B3326] gap-1.5"
-                  >
-                    <Landmark className="w-4 h-4 text-[#10B981]" />
-                    Credit Portfolio
-                  </Button>
-                </>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onNavigate('financier-portfolio')}
+                  className="text-xs text-[#566861] hover:text-[#0B3326] gap-1.5"
+                >
+                  <Landmark className="w-4 h-4 text-[#10B981]" />
+                  Credit Portfolio
+                </Button>
               )}
             </div>
           </Card>

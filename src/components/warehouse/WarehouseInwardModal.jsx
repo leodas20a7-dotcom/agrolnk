@@ -34,6 +34,8 @@ export default function WarehouseInwardModal({
 
   const totalQty = Number(receipt.totalQuantity || receipt.quantity || 1000);
   const computedMonthlyRent = Math.round(((mode === 'inward' ? Number(actualWeight) : totalQty) / 1000) * Number(quotedRatePerTonne || 350));
+  const durationDays = Number(receipt.storageDays || 30);
+  const computedDurationRent = Math.round(computedMonthlyRent * (durationDays / 30));
   const ratePerKg = Number((Number(quotedRatePerTonne || 350) / 1000).toFixed(2));
 
   const handleSendQuote = async (e) => {
@@ -163,7 +165,7 @@ export default function WarehouseInwardModal({
               </div>
 
               {/* Live Rent Computation Display */}
-              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 flex items-center justify-between gap-3">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-[#566861] tracking-wider block">
                     Calculated Monthly Rent for Farmer
@@ -172,8 +174,11 @@ export default function WarehouseInwardModal({
                     ₹{computedMonthlyRent.toLocaleString('en-IN')}
                     <span className="text-xs font-medium text-[#566861]"> / month</span>
                   </span>
+                  <span className="text-[11px] font-semibold text-[#065F46] block mt-0.5">
+                    Est. Total for {durationDays} Days: ₹{computedDurationRent.toLocaleString('en-IN')}
+                  </span>
                 </div>
-                <span className="text-xs font-bold text-[#10B981] bg-white px-2.5 py-1 rounded-xl border border-[#10B981]/30">
+                <span className="text-xs font-bold text-[#10B981] bg-white px-2.5 py-1 rounded-xl border border-[#10B981]/30 shrink-0">
                   ₹{ratePerKg} / kg / mo
                 </span>
               </div>

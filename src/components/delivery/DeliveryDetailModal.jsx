@@ -465,16 +465,20 @@ export default function DeliveryDetailModal({
           )}
         </div>
 
-        {/* Farmer Price Quote Info Bar (Buyer Pays 100% Freight) */}
+        {/* Farmer Price Quote Info Bar */}
         {isFarmer && currentDelivery.status === 'price_offered' && (
-          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-2">
+          <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] space-y-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <span className="font-bold text-[#34D399] uppercase tracking-wider text-xs block">
-                  Lowest Transporter Quote Sent to Buyer
+                  {currentDelivery.freightPayerRole === 'farmer'
+                    ? 'Transporter Quote Ready for Warehouse Drop-off'
+                    : 'Lowest Transporter Quote Sent to Buyer'}
                 </span>
                 <span className="text-xs text-white/80">
-                  {currentDelivery.transporterName || 'Verified Carrier'} quoted ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} ({currentDelivery.quotesCount || 1} bid{currentDelivery.quotesCount > 1 ? 's' : ''}). Buyer pays 100% of freight in Combined Escrow.
+                  {currentDelivery.freightPayerRole === 'farmer'
+                    ? `${currentDelivery.transporterName || 'Verified Carrier'} quoted ₹${Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} (${currentDelivery.quotesCount || 1} bid${currentDelivery.quotesCount > 1 ? 's' : ''}) to transport your produce to the warehouse gate.`
+                    : `${currentDelivery.transporterName || 'Verified Carrier'} quoted ₹${Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')} (${currentDelivery.quotesCount || 1} bid${currentDelivery.quotesCount > 1 ? 's' : ''}). Buyer pays 100% of freight in Combined Escrow.`}
                 </span>
               </div>
               <div className="text-right shrink-0">
@@ -482,10 +486,23 @@ export default function DeliveryDetailModal({
                   ₹{Number(currentDelivery.freightAmount || 0).toLocaleString('en-IN')}
                 </span>
                 <span className="text-[10px] text-white/70 font-semibold block">
-                  Paid by Buyer (₹0 Farmer Cost)
+                  {currentDelivery.freightPayerRole === 'farmer' ? 'Inbound Freight Quote' : 'Paid by Buyer (₹0 Farmer Cost)'}
                 </span>
               </div>
             </div>
+            {currentDelivery.freightPayerRole === 'farmer' && (
+              <div className="flex justify-end pt-1">
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={handleFarmerAcceptPrice}
+                  disabled={isUpdating}
+                  className="text-xs font-bold px-4 py-2 cursor-pointer"
+                >
+                  {isUpdating ? 'Accepting Quote...' : 'Accept Carrier Quote & Confirm Pickup'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

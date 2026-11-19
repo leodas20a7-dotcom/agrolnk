@@ -9,11 +9,13 @@ import {
   ShieldCheck,
   CheckCircle2,
   Lock,
-  Sparkles
+  Sparkles,
+  Mail
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { registerUser } from '../utils/auth';
+import { supabase } from '../lib/supabase';
 import logoImg from '../assets/Logo.jpeg';
 
 export default function Register({ onNavigate, navState }) {
@@ -33,6 +35,27 @@ export default function Register({ onNavigate, navState }) {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRoleTooltip, setShowRoleTooltip] = useState(false);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
+
+  const handleResendVerification = async () => {
+    if (!pendingVerificationEmail || isResending) return;
+    setIsResending(true);
+    setResendMessage('');
+    try {
+      const { error: resendErr } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingVerificationEmail,
+      });
+      if (resendErr) throw resendErr;
+      setResendMessage('Verification email sent! Please check your inbox and spam folder.');
+    } catch (err) {
+      setResendMessage(err?.message || 'Could not resend email right now. Please wait a moment and try again.');
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   useEffect(() => {
     if (navState?.role) {
@@ -214,6 +237,12 @@ export default function Register({ onNavigate, navState }) {
         role: selectedRole,
       });
 
+      if (user?.requiresEmailConfirmation) {
+        setPendingVerificationEmail(user.email || formData.email.trim());
+        setIsSubmitting(false);
+        return;
+      }
+
       // Navigate to respective role-based dashboard
       onNavigate(`${user.role}-dashboard`, { user, autoOpenKyc: true, isNewlyRegistered: true });
     } catch (err) {
@@ -310,9 +339,57 @@ export default function Register({ onNavigate, navState }) {
 
         </div>
 
-        {/* Right Side: Clean Minimal Registration Form */}
+        {/* Right Side: Clean Minimal Registration Form or Email Verification Prompt */}
         <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-between">
+          {pendingVerificationEmail ? (
+            <div className="my-auto py-6 space-y-6 text-center max-w-md mx-auto">
+              <div className="w-16 h-16 rounded-2xl bg-[#EBF5F0] text-[#0B3326] border border-[#10B981]/30 flex items-center justify-center mx-auto shadow-xs">
+                <Mail className="w-8 h-8 text-[#10B981]" />
+              </div>
 
+              <div className="space-y-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Account Created
+                </span>
+                <h2 className="text-2xl font-extrabold text-[#0B3326] font-heading">
+                  Please verify your email
+                </h2>
+                <p className="text-sm text-[#566861] leading-relaxed">
+                  We sent a verification link to <strong className="text-[#0B3326]">{pendingVerificationEmail}</strong>. Click the link in your inbox (or Spam folder) to activate your account, then sign in.
+                </p>
+              </div>
+
+              {resendMessage && (
+                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#0B3326]">
+                  {resendMessage}
+                </div>
+              )}
+
+              <div className="space-y-2.5 pt-1">
+                <Button
+                  variant="accent"
+                  size="md"
+                  icon={ArrowRight}
+                  iconPosition="right"
+                  onClick={() => onNavigate('login')}
+                  className="w-full py-3 font-bold text-sm justify-center cursor-pointer"
+                >
+                  Verified — Go to Sign In
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isResending}
+                  onClick={handleResendVerification}
+                  className="w-full py-2.5 text-xs font-semibold justify-center cursor-pointer"
+                >
+                  {isResending ? 'Sending...' : 'Resend Verification Email'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="space-y-6">
 
             {/* Top Account Type Banner with "Change" Link & Interactive Tooltip */}
@@ -506,6 +583,8 @@ export default function Register({ onNavigate, navState }) {
               </button>
             </p>
           </div>
+            </>
+          )}
 
         </div>
 

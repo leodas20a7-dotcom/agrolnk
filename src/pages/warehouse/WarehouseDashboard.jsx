@@ -61,7 +61,7 @@ import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '.
 import { supabase } from '../../lib/supabase';
 import { sendNotification } from '../../utils/notifications';
 
-export default function WarehouseDashboard({ currentUser, onNavigate }) {
+export default function WarehouseDashboard({ currentUser, onNavigate, pageMode = 'dashboard' }) {
   const user = currentUser || getCurrentUser() || {
     id: '',
     name: 'Warehouse Operator',
@@ -69,7 +69,17 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
     role: 'warehouse',
   };
 
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'dispatched' | 'chambers' | 'requests'
+  const [activeTab, setActiveTab] = useState(
+    pageMode === 'requests' || pageMode === 'inventory' || pageMode === 'chambers'
+      ? pageMode
+      : 'inventory'
+  ); // 'inventory' | 'dispatched' | 'chambers' | 'requests'
+
+  useEffect(() => {
+    if (pageMode === 'requests') setActiveTab('requests');
+    else if (pageMode === 'inventory') setActiveTab('inventory');
+    else if (pageMode === 'chambers') setActiveTab('chambers');
+  }, [pageMode]);
   const [stats, setStats] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [viewMode, setViewMode] = useState('row'); // 'grid' | 'row'
@@ -382,370 +392,329 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
         
-        {/* Setup Required Prompt Banner if not completed */}
-        {!isSetupCompleted && (
-          <div className="p-4 sm:p-6 rounded-3xl bg-[#FEF3C7] border-2 border-[#F59E0B]/50 text-[#92400E] shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 animate-in fade-in duration-200">
-            <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-[#D97706] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <AlertCircle className="w-6 h-6 text-white" />
-              </div>
-              <div className="space-y-1 text-left">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-extrabold text-sm sm:text-base text-[#92400E]">
-                    Facility Hidden from Farmers — Facility Setup & KYC Required
-                  </h4>
-                  <span className="px-2 py-0.5 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold uppercase tracking-wide">
-                    Offline
-                  </span>
-                </div>
-                <p className="text-xs sm:text-sm text-[#78350F] leading-relaxed max-w-3xl">
-                  Without entering your company name, total storage capacity in tonnes, chamber types, and KYC compliance documents, your warehouse is <strong>hidden from all farmers and buyers</strong> across AgrowLink and cannot receive produce deposits or issue storage receipts.
-                </p>
-              </div>
+        {/* Dedicated Subpage Header (when on Gate Inbound / Inventory / Chambers) */}
+        {pageMode !== 'dashboard' && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 sm:p-6 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
+            <div className="space-y-1 text-left">
+              <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-white tracking-tight">
+                {pageMode === 'requests' && 'Gate Inbound & Deposit Quotes'}
+                {pageMode === 'inventory' && 'Stored Produce & Rent Collection'}
+                {pageMode === 'chambers' && 'Storage Chambers & Facility Setup'}
+              </h1>
+              <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
+                {pageMode === 'requests' && 'Review farmer deposit requests, issue storage quotes, and log inward gate-ins.'}
+                {pageMode === 'inventory' && 'Manage active e-NWR stored lots, rent notices, and outward dispatches.'}
+                {pageMode === 'chambers' && 'Monitor chamber occupancy, storage rates, and facility KYC compliance.'}
+              </p>
             </div>
-            <Button
-              variant="accent"
-              size="md"
-              icon={ShieldCheck}
-              iconPosition="left"
-              onClick={() => setIsSetupModalOpen(true)}
-              className="font-extrabold text-xs sm:text-sm py-3 px-5 shadow-md shrink-0 cursor-pointer w-full lg:w-auto"
-            >
-              Complete Facility Setup & KYC Now
-            </Button>
-          </div>
-        )}
 
-        {/* Pending Modification Review Banner (If active warehouse submitted revisions) */}
-        {isModificationPending && (
-          <div className="p-4 sm:p-5 rounded-3xl bg-[#EFF6FF] border-2 border-[#3B82F6]/40 text-[#1E40AF] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Clock className="w-5 h-5 text-white" />
-              </div>
-              <div className="space-y-0.5 text-left">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-sm text-[#1E3A8A]">
-                    Facility Revision Under Review by AgrowLink Compliance
-                  </h4>
-                  <span className="px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#1E40AF] text-[10px] font-extrabold uppercase border border-[#BFDBFE]">
-                    Pending Approval
-                  </span>
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              {pageMode === 'inventory' && (
+                <div className="inline-flex rounded-xl bg-white/10 p-1 border border-white/15">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('inventory')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
+                      activeTab === 'inventory' ? 'bg-white text-[#0B3326]' : 'text-white/85 hover:text-white'
+                    }`}
+                  >
+                    Stored ({activeLots.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('dispatched')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
+                      activeTab === 'dispatched' ? 'bg-white text-[#0B3326]' : 'text-white/85 hover:text-white'
+                    }`}
+                  >
+                    Dispatched ({dispatchedLots.length})
+                  </button>
                 </div>
-                <p className="text-xs text-[#1E40AF]/90 leading-relaxed">
-                  Your requested facility updates (Requested Capacity: <strong>{profile?.pendingChanges?.totalCapacityTonnes || totalCapacityTonnes} Tonnes</strong>, WDRA accreditation files) are awaiting Admin verification. Your active verified capacity (<strong>{totalCapacityTonnes} Tonnes</strong>) remains live across the marketplace.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={Eye}
-              iconPosition="left"
-              onClick={() => setIsSetupModalOpen(true)}
-              className="font-bold text-xs py-2 px-3.5 shrink-0 cursor-pointer border-[#93C5FD] bg-white text-[#1E40AF] hover:bg-[#DBEAFE]"
-            >
-              View Revision
-            </Button>
-          </div>
-        )}
-
-        {/* Initial Setup Done but KYC Pending Review Banner */}
-        {isSetupCompleted && isKycPending && !isModificationPending && (
-          <div className="p-4 sm:p-5 rounded-3xl bg-[#FEF3C7] border-2 border-[#F59E0B]/50 text-[#92400E] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#D97706] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Clock className="w-5 h-5 text-white" />
-              </div>
-              <div className="space-y-0.5 text-left">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-bold text-sm text-[#92400E]">
-                    Facility Under Compliance & WDRA Verification
-                  </h4>
-                  <span className="px-2 py-0.5 rounded-full bg-[#FDE68A] text-[#92400E] text-[10px] font-extrabold uppercase border border-[#FCD34D]">
-                    Hidden From Marketplace
-                  </span>
-                </div>
-                <p className="text-xs text-[#78350F] leading-relaxed">
-                  Your facility details, capacity (<strong>{totalCapacityTonnes} Tonnes</strong>), and WDRA accreditation documents are under Administrative Review. <strong>Your warehouse will remain hidden from farmers and buyers until approved.</strong>
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={Eye}
-              iconPosition="left"
-              onClick={() => setIsSetupModalOpen(true)}
-              className="font-bold text-xs py-2 px-3.5 shrink-0 cursor-pointer border-[#FCD34D] bg-white text-[#92400E] hover:bg-[#FEF3C7]"
-            >
-              Review Details
-            </Button>
-          </div>
-        )}
-
-        {/* Top Header Banner */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-2 max-w-2xl text-left">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-                <Building2 className="w-3.5 h-3.5" /> Warehouse Storage & Facility Hub
-              </div>
-              {isModificationPending ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
-                  <Clock className="w-3 h-3" /> Live (Revision Under Review)
-                </span>
-              ) : isKycVerified ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
-                  <CheckCircle2 className="w-3 h-3" /> Live & WDRA Verified
-                </span>
-              ) : isKycRejected ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
-                  <AlertCircle className="w-3 h-3" /> KYC Rejected (Resubmission Required)
-                </span>
-              ) : isKycPending ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
-                  <Clock className="w-3 h-3" /> Under Admin KYC Review (Hidden from Farmers)
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
-                  <AlertCircle className="w-3 h-3" /> Offline & Hidden (Setup Pending)
-                </span>
               )}
-            </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
-              {warehouseName}
-            </h1>
-
-            <p className="text-xs sm:text-sm text-[#DCFCE7]/90 leading-relaxed">
-              WDRA License: <strong>{wdraCode}</strong> • {facilityAddress}
-            </p>
-
-            {/* Active Quoted Storage Fee Pill */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs text-[#34D399]">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>
-                Active Storage Fee: <strong className="text-white">₹{profile?.monthlyRatePerTonne || 350}</strong> / Tonne / month (₹{((profile?.monthlyRatePerTonne || 350) / 1000).toFixed(2)}/kg)
-              </span>
-            </div>
-
-            {profile?.websiteUrl && isSetupCompleted && (
-              <div className="pt-0.5">
-                <a
-                  href={profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-[#34D399] hover:underline font-semibold"
+              {pageMode === 'chambers' && (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  icon={FileCheck2}
+                  iconPosition="left"
+                  onClick={() => setIsSetupModalOpen(true)}
+                  className="text-xs font-bold py-2 px-3.5 cursor-pointer"
                 >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>{profile.websiteUrl}</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col sm:flex-col items-stretch sm:items-end justify-between w-full lg:w-auto gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/10">
-            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs text-left sm:text-right shrink-0">
-              <span className="text-white/80 block text-[11px]">Accredited Capacity</span>
-              <span className="font-bold text-[#34D399] block text-base sm:text-lg font-heading">
-                {totalCapacityTonnes > 0 ? `${totalCapacityTonnes.toLocaleString('en-IN')} Tonnes` : '0 Tonnes (Setup Required)'}
-              </span>
-              <span className="text-[10px] text-white/70 block">
-                {isSetupCompleted && profile?.storageTypes?.length ? `${profile.storageTypes.length} Storage Chamber Types` : 'Setup Pending'}
-              </span>
-            </div>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={FileCheck2}
-              iconPosition="left"
-              onClick={() => setIsSetupModalOpen(true)}
-              className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white text-xs font-bold py-2.5 px-3.5 cursor-pointer w-full sm:w-auto justify-center"
-            >
-              {isSetupCompleted ? 'Edit Facility, Rates & KYC' : 'Complete Setup & Go Live'}
-            </Button>
-          </div>
-        </div>
-
-        {/* 4 Core Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Accredited Capacity</span>
-              <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
-                <Layers className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {occupancyPercent}%
-            </div>
-            <div className="text-[11px] text-[#566861]">
-              {totalStoredTonnes} T occupied / {totalCapacityTonnes > 0 ? `${totalCapacityTonnes} T` : '0 T'}
-            </div>
-          </Card>
-
-          <Card hoverEffect className={`p-6 bg-white border space-y-3 shadow-xs ${
-            totalPendingDue > 0 ? 'border-amber-300/80 bg-amber-50/20' : 'border-[#E5EDE8]'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Pending Rent Dues</span>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                totalPendingDue > 0 ? 'bg-amber-100 text-amber-800' : 'bg-[#EFF6FF] text-[#1E40AF]'
-              }`}>
-                <Clock className="w-4 h-4" />
-              </div>
-            </div>
-            <div className={`text-3xl font-extrabold font-heading ${
-              totalPendingDue > 0 ? 'text-amber-700' : 'text-[#0B3326]'
-            }`}>
-              ₹{totalPendingDue.toLocaleString('en-IN')}
-            </div>
-            <div className="text-[11px] font-semibold flex items-center gap-1.5 flex-wrap">
-              <span className={pendingLotsCount > 0 ? 'text-amber-700' : 'text-[#566861]'}>
-                {pendingLotsCount} {pendingLotsCount === 1 ? 'Lot' : 'Lots'} Pending
-              </span>
-              {overdueLotsCount > 0 && (
-                <span className="text-red-600 font-bold bg-red-50 px-1.5 py-0.2 rounded-md border border-red-200 text-[10px]">
-                  {overdueLotsCount} Overdue
-                </span>
+                  {isSetupCompleted ? 'Edit Facility & KYC' : 'Complete Setup & KYC'}
+                </Button>
               )}
-            </div>
-          </Card>
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Settled Rent Collections</span>
-              <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onNavigate('warehouse-dashboard')}
+                className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white text-xs font-semibold py-2 px-3.5 cursor-pointer"
+              >
+                ← Dashboard
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Top Header Banner (Overview Dashboard only - single clean setup/KYC status, zero duplicate banners) */}
+        {pageMode === 'dashboard' && (
+          <>
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
+              <div className="space-y-2.5 flex-1 min-w-0 max-w-2xl text-left">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
+                    <Building2 className="w-3.5 h-3.5" /> Warehouse Storage Hub
+                  </div>
+                  {isModificationPending ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
+                      <Clock className="w-3 h-3" /> Revision Under Review
+                    </span>
+                  ) : isKycVerified ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/20 text-[#34D399] text-[11px] font-bold border border-[#10B981]/30">
+                      <CheckCircle2 className="w-3 h-3" /> Live &amp; WDRA Verified
+                    </span>
+                  ) : isKycRejected ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
+                      <AlertCircle className="w-3 h-3" /> KYC Rejected
+                    </span>
+                  ) : isKycPending ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D97706]/20 text-[#FCD34D] text-[11px] font-bold border border-[#D97706]/40">
+                      <Clock className="w-3 h-3" /> Under Admin KYC Review
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/20 text-[#FCA5A5] text-[11px] font-bold border border-[#EF4444]/40">
+                      <AlertCircle className="w-3 h-3" /> Setup Required (Offline)
+                    </span>
+                  )}
+                </div>
+
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-heading text-white tracking-tight leading-snug">
+                  {warehouseName}
+                </h1>
+
+                <p className="text-xs sm:text-sm text-[#DCFCE7]/85 leading-relaxed">
+                  {!isSetupCompleted
+                    ? 'Complete your facility capacity, chambers, and KYC documents to go live for farmers.'
+                    : isKycPending
+                    ? `WDRA: ${wdraCode} • Your facility is under admin compliance review.`
+                    : `WDRA: ${wdraCode} • ${facilityAddress}`}
+                </p>
+
+                <div className="flex items-center gap-3 flex-wrap pt-0.5">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs text-[#34D399]">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>
+                      {isSetupCompleted && profile?.monthlyRatePerTonne ? (
+                        <>
+                          Storage Fee: <strong className="text-white">₹{profile.monthlyRatePerTonne}</strong> / Tonne / mo
+                        </>
+                      ) : (
+                        <>
+                          Storage Fee: <strong className="text-amber-200">Rate Not Set</strong>
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  {profile?.websiteUrl && isSetupCompleted && (
+                    <a
+                      href={profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#34D399] hover:underline font-semibold"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>{profile.websiteUrl}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <div className="shrink-0 w-full lg:w-auto flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end gap-2.5">
+                <Button
+                  variant={!isSetupCompleted ? 'accent' : 'secondary'}
+                  size="md"
+                  icon={!isSetupCompleted ? ShieldCheck : FileCheck2}
+                  iconPosition="left"
+                  onClick={() => setIsSetupModalOpen(true)}
+                  className={`text-xs font-bold py-2.5 px-4 cursor-pointer justify-center whitespace-nowrap ${
+                    !isSetupCompleted
+                      ? 'shadow-md'
+                      : 'border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  {isSetupCompleted ? 'Edit Facility & KYC' : 'Complete Setup & Go Live'}
+                </Button>
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-[#10B981] font-heading">
-              ₹{totalSettledRevenue.toLocaleString('en-IN')}
+
+            {/* 4 Core Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <Card
+                hoverEffect
+                onClick={() => onNavigate('warehouse-chambers')}
+                className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#566861]">Accredited Capacity</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] text-[#10B981] flex items-center justify-center">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+                  {occupancyPercent}%
+                </div>
+                <div className="text-[11px] text-[#566861]">
+                  {totalStoredTonnes} T occupied / {totalCapacityTonnes > 0 ? `${totalCapacityTonnes} T` : '0 T'}
+                </div>
+              </Card>
+
+              <Card
+                hoverEffect
+                onClick={() => onNavigate('warehouse-inventory')}
+                className={`p-6 bg-white border space-y-3 shadow-xs cursor-pointer ${
+                  totalPendingDue > 0 ? 'border-amber-300/80 bg-amber-50/20' : 'border-[#E5EDE8]'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#566861]">Pending Rent Dues</span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    totalPendingDue > 0 ? 'bg-amber-100 text-amber-800' : 'bg-[#EFF6FF] text-[#1E40AF]'
+                  }`}>
+                    <Clock className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className={`text-3xl font-extrabold font-heading ${
+                  totalPendingDue > 0 ? 'text-amber-700' : 'text-[#0B3326]'
+                }`}>
+                  ₹{totalPendingDue.toLocaleString('en-IN')}
+                </div>
+                <div className="text-[11px] font-semibold flex items-center gap-1.5 flex-wrap">
+                  <span className={pendingLotsCount > 0 ? 'text-amber-700' : 'text-[#566861]'}>
+                    {pendingLotsCount} {pendingLotsCount === 1 ? 'Lot' : 'Lots'} Pending
+                  </span>
+                  {overdueLotsCount > 0 && (
+                    <span className="text-red-600 font-bold bg-red-50 px-1.5 py-0.2 rounded-md border border-red-200 text-[10px]">
+                      {overdueLotsCount} Overdue
+                    </span>
+                  )}
+                </div>
+              </Card>
+
+              <Card
+                hoverEffect
+                onClick={() => onNavigate('warehouse-inventory')}
+                className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#566861]">Settled Rent Collections</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#F2FBF6] text-[#0B3326] flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                  </div>
+                </div>
+                <div className="text-3xl font-extrabold text-[#10B981] font-heading">
+                  ₹{totalSettledRevenue.toLocaleString('en-IN')}
+                </div>
+                <div className="text-[11px] text-[#10B981] font-semibold">
+                  {settledLotsCount} of {activeLots.length} Accounts in Good Standing
+                </div>
+              </Card>
+
+              <Card
+                hoverEffect
+                onClick={() => onNavigate('warehouse-requests')}
+                className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#566861]">Inbound Gate Activity</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
+                  {totalInwardPending}
+                </div>
+                <div className="text-[11px] text-[#566861]">
+                  {quoteRequests.length} Quotes • {inTransitLots.length} In Transit
+                </div>
+              </Card>
             </div>
-            <div className="text-[11px] text-[#10B981] font-semibold">
-              {settledLotsCount} of {activeLots.length} Accounts in Good Standing
+
+            {/* Clean Quick Workspace Cards (Zero duplication of full tables) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <Card className="p-5 bg-white border border-[#E5EDE8] flex flex-col justify-between gap-4 shadow-xs">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-[#0B3326]">Gate Inbound &amp; Quotes</span>
+                    <Badge variant={totalInwardPending > 0 ? 'amber' : 'emerald'} size="xs">
+                      {totalInwardPending} Pending
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[#566861]">
+                    Quote incoming farmer storage requests and record physical gate-in arrivals.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onNavigate('warehouse-requests')}
+                  className="w-full justify-center text-xs font-bold cursor-pointer"
+                >
+                  Open Gate Inbound →
+                </Button>
+              </Card>
+
+              <Card className="p-5 bg-white border border-[#E5EDE8] flex flex-col justify-between gap-4 shadow-xs">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-[#0B3326]">Inventory &amp; Rent</span>
+                    <Badge variant="emerald" size="xs">
+                      {activeLots.length} Stored
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[#566861]">
+                    View active e-NWR receipts, send rent reminders, and log outward dispatches.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onNavigate('warehouse-inventory')}
+                  className="w-full justify-center text-xs font-bold cursor-pointer"
+                >
+                  Manage Inventory →
+                </Button>
+              </Card>
+
+              <Card className="p-5 bg-white border border-[#E5EDE8] flex flex-col justify-between gap-4 shadow-xs">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-[#0B3326]">Storage Chambers</span>
+                    <Badge variant="dark" size="xs">
+                      {chambersList.length} Chambers
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[#566861]">
+                    Configure chamber capacity, temperature zones, storage fees, and KYC docs.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onNavigate('warehouse-chambers')}
+                  className="w-full justify-center text-xs font-bold cursor-pointer"
+                >
+                  View Chambers →
+                </Button>
+              </Card>
             </div>
-          </Card>
+          </>
+        )}
 
-          <Card hoverEffect className="p-6 bg-white border border-[#E5EDE8] space-y-3 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#566861]">Inbound Gate Activity</span>
-              <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center">
-                <Truck className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold text-[#0B3326] font-heading">
-              {totalInwardPending}
-            </div>
-            <div className="text-[11px] text-[#566861]">
-              {quoteRequests.length} Quotes • {inTransitLots.length} In Transit
-            </div>
-          </Card>
-
-        </div>
-
-        {/* Tab Switcher - 4 Clear Workspaces */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#E5EDE8]">
-          <button
-            type="button"
-            onClick={() => setActiveTab('requests')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-              activeTab === 'requests'
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-[#34D399]" />
-            <span>Gate Inbound & Quotes</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                activeTab === 'requests'
-                  ? 'bg-[#10B981] text-white'
-                  : 'bg-[#F8FAF8] text-[#566861]'
-              }`}
-            >
-              {totalInwardPending}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('inventory')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-              activeTab === 'inventory'
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Stored Produce & Rent Collection</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                activeTab === 'inventory'
-                  ? 'bg-[#10B981] text-white'
-                  : 'bg-[#F8FAF8] text-[#566861]'
-              }`}
-            >
-              {activeLots.length}
-            </span>
-            {pendingLotsCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
-                {pendingLotsCount} Dues
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('dispatched')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-              activeTab === 'dispatched'
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-            }`}
-          >
-            <Truck className="w-4 h-4" />
-            <span>Gate Outbound (Dispatched)</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                activeTab === 'dispatched'
-                  ? 'bg-[#10B981] text-white'
-                  : 'bg-[#F8FAF8] text-[#566861]'
-              }`}
-            >
-              {dispatchedLots.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('chambers')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-              activeTab === 'chambers'
-                ? 'bg-[#0B3326] text-white shadow-xs'
-                : 'bg-white text-[#566861] hover:bg-[#F2FBF6] hover:text-[#0B3326] border border-[#E5EDE8]'
-            }`}
-          >
-            <ThermometerSnowflake className="w-4 h-4" />
-            <span>Storage Chambers</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                activeTab === 'chambers'
-                  ? 'bg-[#10B981] text-white'
-                  : 'bg-[#F8FAF8] text-[#566861]'
-              }`}
-            >
-              {chambersList.length}
-            </span>
-          </button>
-        </div>
-
-        {/* Content Section 0: Incoming Deposit Requests & Inward Pipeline */}
-        {activeTab === 'requests' && (
+        {/* Section Content (only rendered on dedicated subpages so Dashboard stays crisp) */}
+        {pageMode !== 'dashboard' && activeTab === 'requests' && (
           <div className="space-y-6">
             {/* 1. Pending Quote Requests */}
             <div className="space-y-3">
@@ -765,11 +734,19 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {quoteRequests.map((req) => (
                     <Card key={req.id} hoverEffect className="p-5 bg-white border border-amber-200/80 rounded-2xl shadow-xs space-y-3 text-left">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-2">
                         <div>
-                          <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                            {req.receiptNumber}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              {req.receiptNumber}
+                            </span>
+                            {req.transportRequested && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                                <Truck className="w-3 h-3" />
+                                Transport Requested{req.transportDeliveryNumber ? ` (${req.transportDeliveryNumber})` : ''}
+                              </span>
+                            )}
+                          </div>
                           <h3 className="text-base font-bold text-[#0B3326] mt-1">
                             {req.commodity} ({req.variety || 'Standard'})
                           </h3>
@@ -921,7 +898,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         )}
 
         {/* Content Section 1: Active In-Chamber Stored e-NWRs */}
-        {activeTab === 'inventory' && (
+        {pageMode !== 'dashboard' && activeTab === 'inventory' && (
           <div className="space-y-5">
             
             {/* Header & Filter Controls Bar */}
@@ -1211,7 +1188,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         )}
 
         {/* Content Section 2: Dispatched & Gate Pass Records Archive */}
-        {activeTab === 'dispatched' && (
+        {pageMode !== 'dashboard' && activeTab === 'dispatched' && (
           <div className="space-y-5">
             <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
@@ -1326,7 +1303,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate }) {
         )}
 
         {/* Content Section 3: Chambers Telemetry */}
-        {activeTab === 'chambers' && (
+        {pageMode !== 'dashboard' && activeTab === 'chambers' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>

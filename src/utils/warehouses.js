@@ -28,6 +28,16 @@ export function mapReceiptFromDb(row) {
     quotedMonthlyRent: Number(row.storage_fee_monthly || 0),
     quotedRatePerTonne: Number(row.quoted_rate_per_tonne || (row.storage_fee_monthly && row.total_quantity ? Math.round((Number(row.storage_fee_monthly) / (Number(row.total_quantity) / 1000))) : 350)),
     assayedQuality: (row.assayed_quality && typeof row.assayed_quality === 'object') ? row.assayed_quality : {},
+    storageDays: Number(
+      row.assayed_quality?.storageDays ||
+      (row.valid_until && row.deposited_at
+        ? Math.max(1, Math.round((new Date(row.valid_until) - new Date(row.deposited_at)) / 86400000))
+        : 30)
+    ),
+    transportMode: row.assayed_quality?.transportMode || 'self',
+    transportRequested: Boolean(row.assayed_quality?.transportRequested),
+    transportDeliveryId: row.assayed_quality?.transportDeliveryId || null,
+    transportDeliveryNumber: row.assayed_quality?.transportDeliveryNumber || '',
     depositedAt: row.deposited_at,
     lastRentPaidAt: row.last_rent_paid_at,
     validUntil: row.valid_until,
@@ -240,10 +250,6 @@ export async function createWarehouseReceipt(receiptData) {
       if (receiptData.chamber && wh.chamberRates && wh.chamberRates[receiptData.chamber]) {
         ratePerTonne = Number(wh.chamberRates[receiptData.chamber]);
       }
-      if (wh.enableBulkDiscount && (totalQty / 1000) >= (Number(wh.bulkDiscountThreshold) || 50)) {
-        const discountPct = Number(wh.bulkDiscountRate) || 10;
-        ratePerTonne = Math.round(ratePerTonne * (1 - discountPct / 100));
-      }
     }
   }
 
@@ -277,6 +283,12 @@ export async function createWarehouseReceipt(receiptData) {
       purity: '99%',
       grade: receiptData.grade || 'A',
       assayStatus: 'Pending Assayer Check',
+      storageDays: Number(receiptData.storageDays || 30),
+      transportMode: receiptData.transportMode || 'self',
+      transportRequested: Boolean(receiptData.transportRequested),
+      transportDeliveryId: receiptData.transportDeliveryId || null,
+      transportDeliveryNumber: receiptData.transportDeliveryNumber || '',
+      pickupAddress: receiptData.pickupAddress || '',
     },
     deposited_at: now,
     last_rent_paid_at: now,
@@ -560,12 +572,23 @@ export async function confirmProduceInward(receiptId, { actualWeight, assayerGra
     const now = new Date();
     const verifiedWeight = actualWeight ? Number(actualWeight) : undefined;
     const verifiedGrade = assayerGrade || 'A';
-    const durationDays = 60;
+
+    const { data: existingRow } = await supabase
+      .from('warehouse_receipts')
+      .select('assayed_quality')
+      .eq('id', receiptId)
+      .maybeSingle();
+
+    const existingAssayed = (existingRow?.assayed_quality && typeof existingRow.assayed_quality === 'object')
+      ? existingRow.assayed_quality
+      : {};
+    const durationDays = Number(existingAssayed.storageDays || 30);
 
     const updatePayload = {
       status: 'stored',
       grade: verifiedGrade,
       assayed_quality: {
+        ...existingAssayed,
         moisture: moisture ? `${moisture}%` : '11.8%',
         purity: '99.2%',
         grade: verifiedGrade,
@@ -907,7 +930,17 @@ export function getWarehouseNotifications(userId, role = 'farmer', receiptsList 
     if (!dues) return;
 
     if (role === 'farmer' || role === 'fpo') {
-      if (dues.isExpiringSoon) {
+      if (dues.isExpired && r.status === 'stored') {
+        notifications.push({
+          id: `notif_expired_${r.id || Math.random()}`,
+          type: 'warning',
+          title: 'Storage Term Expired — Daily Rent Accruing',
+          message: `${r.commodity || 'Commodity'} lot (${r.receiptNumber || 'Receipt'}) at ${r.warehouseName || 'Warehouse'} has passed its storage validity. Total due: ₹${(dues.accruedDue || dues.monthlyRate).toLocaleString('en-IN')} (₹${dues.dailyRate}/day).`,
+          date: new Date().toISOString(),
+          receiptId: r.id,
+          amountDue: dues.accruedDue || dues.amountDue || 0,
+        });
+      } else if (dues.isExpiringSoon) {
         notifications.push({
           id: `notif_exp_${r.id || Math.random()}`,
           type: 'warning',
@@ -923,13 +956,24 @@ export function getWarehouseNotifications(userId, role = 'farmer', receiptsList 
           id: `notif_rent_${r.id || Math.random()}`,
           type: 'info',
           title: 'Monthly Storage Rent Due Reminder',
-          message: `Monthly rent of ₹${dues.accruedDue} is due for ${r.commodity || 'Commodity'} lot (${r.receiptNumber || 'Receipt'}). Auto-deduct on sale or pay online.`,
+          message: `Rent of ₹${dues.accruedDue.toLocaleString('en-IN')} is due for ${r.commodity || 'Commodity'} lot (${r.receiptNumber || 'Receipt'}). Auto-deduct on sale or pay online.`,
           date: new Date().toISOString(),
           receiptId: r.id,
           amountDue: dues.accruedDue || dues.amountDue || 0,
         });
       }
     } else if (role === 'warehouse') {
+      if (r.status === 'stored' && (dues.isExpired || dues.isDue)) {
+        notifications.push({
+          id: `wh_due_${r.id || Math.random()}`,
+          type: 'warning',
+          title: dues.isExpired ? 'Storage Term Overdue — Rent Pending' : 'Storage Rent Due Soon',
+          message: `${r.farmerName || 'Farmer'}'s ${r.commodity || 'Produce'} (${r.receiptNumber || 'Receipt'}) has ₹${(dues.accruedDue || dues.monthlyRate).toLocaleString('en-IN')} rent due.`,
+          date: new Date().toISOString(),
+          receiptId: r.id,
+          amountDue: dues.accruedDue || dues.amountDue || 0,
+        });
+      }
       if (r.status === 'stored') {
         notifications.push({
           id: `wh_notif_${r.id || Math.random()}`,
@@ -999,18 +1043,19 @@ export function calculateMonthlyRentDeadline(receipt) {
     };
   } else {
     const overdueDays = Math.abs(diffDays);
-    const overduePenalty = overdueDays > 5 ? Math.round(monthlyAmount * 0.05) : 0;
+    const extraDaysRent = overdueDays * dailyRate;
     return {
       status: 'overdue',
-      label: `${overdueDays}d Overdue`,
+      label: `${overdueDays}d Overdue (+₹${extraDaysRent.toLocaleString('en-IN')})`,
       daysRemaining: 0,
       daysOverdue: overdueDays,
-      overduePenalty,
+      overduePenalty: 0,
+      extraDaysRent,
       nextDueDate: nextDueDate.toISOString(),
       monthlyAmount,
       dailyRate,
-      accruedDue: monthlyAmount,
-      totalDue: monthlyAmount + overduePenalty,
+      accruedDue: monthlyAmount + extraDaysRent,
+      totalDue: monthlyAmount + extraDaysRent,
       isDue: true,
       paymentMode: receipt.paymentMode || 'auto_deduct',
       initialPaymentStatus: receipt.initialPaymentStatus || 'pending',
@@ -1248,6 +1293,7 @@ export async function saveWarehouseProfile(userId, profileData) {
       existing.companyName !== profileData.companyName ||
       existing.address !== profileData.address ||
       JSON.stringify(existing.storageTypesConfig) !== JSON.stringify(profileData.storageTypesConfig) ||
+      JSON.stringify(existing.customChambers || []) !== JSON.stringify(profileData.customChambers || []) ||
       JSON.stringify(existing.documentNames) !== JSON.stringify(profileData.documentNames)
     );
 

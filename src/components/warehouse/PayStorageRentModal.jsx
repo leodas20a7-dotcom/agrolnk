@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { calculateStorageRentalDues, payStorageRent } from '../../utils/warehouses';
+import { calculateStorageRentalDues, recordWarehouseRentPayment } from '../../utils/warehouses';
 import { initiateRazorpayWarehouseRentCheckout } from '../../utils/razorpayRouteClient';
 
 export default function PayStorageRentModal({
@@ -39,6 +39,8 @@ export default function PayStorageRentModal({
   const dues = inventory ? calculateStorageRentalDues(inventory) : null;
   const monthlyRate = Number(inventory?.storageFeeMonthly || inventory?.quotedMonthlyRent || dues?.monthlyRate || 700);
   const calculatedPayAmount = Math.round((monthlyRate / 30) * extendedDays);
+  const depositorFee = Math.round(calculatedPayAmount * 0.0025 * 100) / 100;
+  const totalDepositorPayable = Math.round((calculatedPayAmount + depositorFee) * 100) / 100;
 
   const handlePay = async (e) => {
     e.preventDefault();
@@ -48,19 +50,22 @@ export default function PayStorageRentModal({
       // Launch Razorpay Payment Gateway
       await initiateRazorpayWarehouseRentCheckout({
         inventory,
-        amount: calculatedPayAmount,
+        amount: totalDepositorPayable,
         extendedDays,
         farmerUser: currentUser || { name: 'Authorized Account', role: 'farmer' },
         onSuccess: async (rzpRes) => {
-          const res = await payStorageRent(inventory.id, {
+          const res = await recordWarehouseRentPayment(inventory.id, {
             amount: calculatedPayAmount,
+            transactionRef: rzpRes.razorpay_payment_id,
             method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
             extendedDays,
             paidBy: currentUser?.name || 'Authorized Account',
           });
           setIsProcessing(false);
-          setPaymentSuccess(res.payment);
-          onSuccess?.(res.receipt);
+          if (res?.success) {
+            setPaymentSuccess(res.payment);
+            onSuccess?.(res.receipt);
+          }
         },
         onFailure: (err) => {
           console.warn('Warehouse rent payment cancelled / notice:', err);
@@ -131,9 +136,21 @@ export default function PayStorageRentModal({
 
             <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-left space-y-2.5">
               <div className="flex justify-between text-xs">
-                <span className="text-[#566861]">Amount Paid:</span>
+                <span className="text-[#566861]">Storage Rent Paid:</span>
                 <span className="font-bold text-[#0B3326]">₹{paymentSuccess.amount.toLocaleString('en-IN')}</span>
               </div>
+              {paymentSuccess.totalCommission > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#566861]">Platform Fee Recorded:</span>
+                  <span className="font-semibold text-[#0B3326]">₹{paymentSuccess.totalCommission.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {paymentSuccess.netWarehouseSettled > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#566861]">Net Warehouse Settlement:</span>
+                  <span className="font-semibold text-[#065F46]">₹{paymentSuccess.netWarehouseSettled.toLocaleString('en-IN')}</span>
+                </div>
+              )}
               <div className="flex justify-between text-xs">
                 <span className="text-[#566861]">Validity Extended By:</span>
                 <span className="font-bold text-[#10B981]">+{paymentSuccess.extendedDays} Days</span>
@@ -275,7 +292,7 @@ export default function PayStorageRentModal({
                 </div>
                 <div className="flex items-center justify-between text-xs text-white/80 pb-2 border-b border-white/10">
                   <span>AgrowLink Platform Fee (0.25%):</span>
-                  <span className="font-semibold text-[#34D399]">+₹{(Math.round(calculatedPayAmount * 0.0025 * 100) / 100).toLocaleString('en-IN')}</span>
+                  <span className="font-semibold text-[#34D399]">+₹{depositorFee.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1">
                   <div>
@@ -283,7 +300,7 @@ export default function PayStorageRentModal({
                       Total Depositor Payable
                     </span>
                     <span className="text-2xl font-extrabold font-heading">
-                      ₹{(Math.round((calculatedPayAmount + (calculatedPayAmount * 0.0025)) * 100) / 100).toLocaleString('en-IN')}
+                      ₹{totalDepositorPayable.toLocaleString('en-IN')}
                     </span>
                   </div>
                   <div className="text-right">
@@ -318,7 +335,7 @@ export default function PayStorageRentModal({
                 disabled={isProcessing}
                 className="text-xs font-bold px-6 py-2.5 shadow-md shadow-[#10B981]/20 cursor-pointer justify-center w-full sm:w-auto"
               >
-                {isProcessing ? 'Processing Payment...' : `Pay ₹${calculatedPayAmount.toLocaleString('en-IN')} with Razorpay`}
+                {isProcessing ? 'Processing Payment...' : `Pay ₹${totalDepositorPayable.toLocaleString('en-IN')} with Razorpay`}
               </Button>
             </div>
           </form>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Building2, Package, Calendar, ShieldCheck, ArrowRight, AlertCircle, Layers, Sparkles, Loader2 } from 'lucide-react';
+import { X, Building2, Package, Calendar, ShieldCheck, ArrowRight, AlertCircle, Layers, Sparkles, Loader2, Truck, MapPin } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import CommoditySelect from '../ui/CommoditySelect';
 import SearchableSelect from '../ui/SearchableSelect';
 import { getWarehouses, getWarehousesSync, depositProduceToWarehouse } from '../../utils/warehouses';
+import { createDelivery } from '../../utils/deliveries';
 
 export default function DepositProduceModal({
   preselectedWarehouse,
@@ -61,6 +62,10 @@ export default function DepositProduceModal({
   const [priceEstimate, setPriceEstimate] = useState('');
   const [chamber, setChamber] = useState('');
   const [storageDays, setStorageDays] = useState('30');
+  const [transportMode, setTransportMode] = useState('self');
+  const [pickupAddress, setPickupAddress] = useState(
+    [user.address, user.district, user.state].filter(Boolean).join(', ')
+  );
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,11 +86,13 @@ export default function DepositProduceModal({
     : Number(currentWarehouse?.monthlyRatePerTonne || 350);
 
   const depositTonnes = (Number(quantity) || 0) / 1000;
-  const isBulkDiscountEligible = Boolean(currentWarehouse?.enableBulkDiscount) && depositTonnes >= (Number(currentWarehouse?.bulkDiscountThreshold) || 50);
-  const appliedDiscountPct = isBulkDiscountEligible ? (Number(currentWarehouse?.bulkDiscountRate) || 10) : 0;
-  const effectiveRatePerTonne = appliedDiscountPct > 0 ? Math.round(baseChamberRate * (1 - appliedDiscountPct / 100)) : baseChamberRate;
+  const effectiveRatePerTonne = baseChamberRate;
 
   const monthlyRentalEst = Math.round(depositTonnes * effectiveRatePerTonne);
+  const durationDays = Number(storageDays || 30);
+  const durationMonths = durationDays / 30;
+  const durationMonthsLabel = Number.isInteger(durationMonths) ? `${durationMonths}` : durationMonths.toFixed(1);
+  const totalDurationRentalEst = Math.round(monthlyRentalEst * durationMonths);
 
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -115,10 +122,52 @@ export default function DepositProduceModal({
       return;
     }
 
+    if (transportMode === 'transporter' && !pickupAddress.trim()) {
+      setError('Please enter your farm / pickup location for transporter dispatch.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError('');
 
     try {
+      let linkedDelivery = null;
+      if (transportMode === 'transporter') {
+        const dropAddress = [
+          currentWarehouse?.name,
+          currentWarehouse?.address,
+          currentWarehouse?.district,
+          currentWarehouse?.state,
+        ].filter(Boolean).join(', ');
+
+        linkedDelivery = await createDelivery({
+          orderNumber: `WH-IN-${Date.now().toString().slice(-6)}`,
+          farmerId: user.id || null,
+          farmerName: user.name || 'Farmer Depositor',
+          buyerId: currentWarehouse?.id || null,
+          buyerName: currentWarehouse?.name || 'Warehouse Gate',
+          commodity: commodity.trim(),
+          grade: grade || 'Grade A',
+          variety: (variety || 'Standard').trim(),
+          quantity: Number(quantity),
+          unit: unit || 'kg',
+          pickupLocation: {
+            address: pickupAddress.trim(),
+            district: user.district || '',
+            state: user.state || '',
+          },
+          deliveryLocation: {
+            address: dropAddress || 'Warehouse Facility Gate',
+            district: currentWarehouse?.district || '',
+            state: currentWarehouse?.state || '',
+          },
+          freightPayerId: user.id || null,
+          freightPayerRole: 'farmer',
+          status: 'transport_requested',
+          notes: `Warehouse inbound transport to ${currentWarehouse?.name || 'Warehouse'} (${chamber || availableChambers[0] || 'Chamber A1'})`,
+        });
+      }
+
       const depositData = {
         farmerId: user.id || 'farmer_guest',
         farmerName: user.name || 'Farmer Depositor',
@@ -137,7 +186,12 @@ export default function DepositProduceModal({
         monthlyRatePerTonne: effectiveRatePerTonne,
         storageFeeMonthly: monthlyRentalEst,
         minBillingDays: currentWarehouse?.minBillingDays || 0,
-        handlingFeePerTonne: currentWarehouse?.handlingFeePerTonne || 0,
+        handlingFeePerTonne: 0,
+        transportMode,
+        transportRequested: transportMode === 'transporter',
+        transportDeliveryId: linkedDelivery?.id || null,
+        transportDeliveryNumber: linkedDelivery?.deliveryNumber || '',
+        pickupAddress: transportMode === 'transporter' ? pickupAddress.trim() : '',
       };
 
       const created = await depositProduceToWarehouse(depositData);
@@ -349,6 +403,64 @@ export default function DepositProduceModal({
             </div>
           </div>
 
+          {/* Optional Transport to Warehouse Gate */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
+              Transport to Warehouse Gate
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setTransportMode('self')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  transportMode === 'self'
+                    ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326]'
+                    : 'border-[#E5EDE8] bg-[#F8FAF8] text-[#566861] hover:bg-white'
+                }`}
+              >
+                <span className="text-xs font-bold block">Self Drop-off at Gate</span>
+                <span className="text-[10px] opacity-80 block mt-0.5">Bring produce using your own vehicle</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransportMode('transporter')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  transportMode === 'transporter'
+                    ? 'border-[#10B981] bg-[#EBF5F0] text-[#0B3326]'
+                    : 'border-[#E5EDE8] bg-[#F8FAF8] text-[#566861] hover:bg-white'
+                }`}
+              >
+                <span className="text-xs font-bold flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-[#10B981]" />
+                  <span>Book AgrowLink Transporter</span>
+                </span>
+                <span className="text-[10px] opacity-80 block mt-0.5">Post pickup load for verified carriers</span>
+              </button>
+            </div>
+
+            {transportMode === 'transporter' && (
+              <div className="p-3.5 rounded-2xl bg-[#F4FAF6] border border-[#10B981]/25 space-y-2.5 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-[#0B3326] flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#10B981]" />
+                    <span>Pickup Location (Farm / Village)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={pickupAddress}
+                    onChange={(e) => setPickupAddress(e.target.value)}
+                    placeholder="e.g. Omalur Farm, Salem, Tamil Nadu"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5EDE8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
+                    required={transportMode === 'transporter'}
+                  />
+                </div>
+                <div className="text-[11px] text-[#566861]">
+                  Drop Gate: <strong className="text-[#0B3326]">{currentWarehouse ? `${currentWarehouse.name} (${currentWarehouse.district || 'Selected Warehouse'})` : 'Select a warehouse above'}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Calculated Valuation & Fee Summary Card */}
           <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] space-y-2.5 text-xs">
             <div className="flex items-center justify-between">
@@ -357,7 +469,7 @@ export default function DepositProduceModal({
                 ₹{estimatedTotalValue.toLocaleString('en-IN')}
               </span>
             </div>
-            <div className="flex items-start justify-between pt-2 border-t border-[#E5EDE8]">
+            <div className="flex items-start justify-between gap-3 pt-2 border-t border-[#E5EDE8]">
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[#566861]">Chamber Storage Fee:</span>
@@ -369,37 +481,39 @@ export default function DepositProduceModal({
                       <span className="text-[11px] text-[#566861]">
                         (₹{(effectiveRatePerTonne / 1000).toFixed(2)}/kg · ₹{Math.round(effectiveRatePerTonne / 20)}/50kg bag)
                       </span>
-                      {appliedDiscountPct > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                          {appliedDiscountPct}% Bulk Discount Applied
-                        </span>
-                      )}
                     </>
                   ) : (
                     <span className="text-[#566861] italic text-[11px]">
-                      Choose facility & chamber to calculate rate
+                      Choose facility &amp; chamber to calculate rate
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-1 text-[11px] text-[#566861] flex-wrap">
-                  {currentWarehouse?.minBillingDays > 0 && (
-                    <span>Min Billing: <strong>{currentWarehouse.minBillingDays} Days</strong></span>
-                  )}
-                  {currentWarehouse?.handlingFeePerTonne > 0 && (
-                    <span>· Gate Hamali: <strong>₹{currentWarehouse.handlingFeePerTonne}/Tonne</strong></span>
-                  )}
-                </div>
+                {currentWarehouse?.minBillingDays > 0 && (
+                  <div className="mt-1 text-[11px] text-[#566861]">
+                    Min Billing: <strong>{currentWarehouse.minBillingDays} Days</strong>
+                  </div>
+                )}
+                {chamber && Number(quantity) > 0 && (
+                  <div className="mt-1 text-[11px] text-[#065F46] font-semibold">
+                    Monthly Rent: ₹{monthlyRentalEst.toLocaleString('en-IN')}/mo × {durationMonthsLabel} mo ({durationDays} Days)
+                  </div>
+                )}
                 <span className="text-[10px] text-[#10B981] font-semibold block mt-1">
-                  Settle monthly rent online via Razorpay (UPI, GPay, Cards)
+                  Settle rent online via Razorpay (UPI, GPay, Cards)
                 </span>
               </div>
               <div className="text-right shrink-0">
                 <span className="font-extrabold text-[#0B3326] text-sm block">
-                  {chamber && Number(quantity) > 0 ? `₹${monthlyRentalEst.toLocaleString('en-IN')} / mo` : '—'}
+                  {chamber && Number(quantity) > 0 ? `₹${totalDurationRentalEst.toLocaleString('en-IN')}` : '—'}
                 </span>
-                <span className="text-[10px] text-[#566861]">
-                  Est. Rent Quote
+                <span className="text-[10px] text-[#566861] block">
+                  Est. Total ({durationDays} Days)
                 </span>
+                {chamber && Number(quantity) > 0 && (
+                  <span className="text-[10px] font-semibold text-[#566861] block">
+                    ₹{monthlyRentalEst.toLocaleString('en-IN')} / mo
+                  </span>
+                )}
               </div>
             </div>
           </div>

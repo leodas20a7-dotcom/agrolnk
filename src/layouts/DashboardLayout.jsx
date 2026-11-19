@@ -575,6 +575,24 @@ export default function DashboardLayout({
       page: 'warehouse-dashboard',
       icon: LayoutDashboard,
     },
+    {
+      type: 'single',
+      label: 'Gate Inbound',
+      page: 'warehouse-requests',
+      icon: Truck,
+    },
+    {
+      type: 'single',
+      label: 'Inventory & Rent',
+      page: 'warehouse-inventory',
+      icon: Package,
+    },
+    {
+      type: 'single',
+      label: 'Chambers',
+      page: 'warehouse-chambers',
+      icon: Building2,
+    },
   ];
 
   const getNavGroups = () => {

@@ -12,7 +12,9 @@ import {
   FileText,
   MapPin,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -86,10 +88,6 @@ export default function WarehouseSetupModal({
   const [pincode, setPincode] = useState('');
   const [monthlyRatePerTonne, setMonthlyRatePerTonne] = useState('350');
   const [minBillingDays, setMinBillingDays] = useState('15');
-  const [handlingFeePerTonne, setHandlingFeePerTonne] = useState('0');
-  const [enableBulkDiscount, setEnableBulkDiscount] = useState(false);
-  const [bulkDiscountThreshold, setBulkDiscountThreshold] = useState('50');
-  const [bulkDiscountRate, setBulkDiscountRate] = useState('300');
 
   // Selected storage types and individual capacities & custom rates
   const [selectedTypes, setSelectedTypes] = useState({
@@ -99,6 +97,7 @@ export default function WarehouseSetupModal({
     open_plinth: { enabled: false, capacity: 1000, temp: 'Ventilated Ambient', rate: 180 },
     deep_freeze: { enabled: false, capacity: 500, temp: '-18°C', rate: 650 },
   });
+  const [customChambers, setCustomChambers] = useState([]);
 
   // Document upload state
   const [wdraFileName, setWdraFileName] = useState('');
@@ -137,21 +136,12 @@ export default function WarehouseSetupModal({
         if (existing.minBillingDays !== undefined) {
           setMinBillingDays(String(existing.minBillingDays));
         }
-        if (existing.handlingFeePerTonne !== undefined) {
-          setHandlingFeePerTonne(String(existing.handlingFeePerTonne));
-        }
-        if (existing.enableBulkDiscount !== undefined) {
-          setEnableBulkDiscount(Boolean(existing.enableBulkDiscount));
-        }
-        if (existing.bulkDiscountThreshold) {
-          setBulkDiscountThreshold(String(existing.bulkDiscountThreshold));
-        }
-        if (existing.bulkDiscountRate) {
-          setBulkDiscountRate(String(existing.bulkDiscountRate));
-        }
 
         if (existing.storageTypesConfig) {
           setSelectedTypes(existing.storageTypesConfig);
+        }
+        if (Array.isArray(existing.customChambers)) {
+          setCustomChambers(existing.customChambers);
         }
         if (existing.documentNames) {
           setWdraFileName(existing.documentNames.wdraCert || '');
@@ -239,10 +229,51 @@ export default function WarehouseSetupModal({
     });
   };
 
+  const handleTypeTempChange = (typeId, value) => {
+    setSelectedTypes((prev) => {
+      const current = prev[typeId] || { enabled: true, capacity: '', temp: '', rate: '' };
+      return {
+        ...prev,
+        [typeId]: {
+          ...current,
+          temp: value,
+        },
+      };
+    });
+  };
+
+  const handleAddCustomChamber = () => {
+    const totalCapNum = Number(totalCapacityTonnes) || 0;
+    const remainingCap = totalCapNum > 0 ? Math.max(0, totalCapNum - calculateSumOfChambers()) : 250;
+    const suggestedCap = totalCapNum > 0 ? Math.min(250, remainingCap) : 250;
+    setCustomChambers((prev) => [
+      ...prev,
+      {
+        id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name: `Custom Chamber ${prev.length + 1}`,
+        capacity: suggestedCap > 0 ? String(suggestedCap) : '',
+        temp: '2°C - 6°C',
+        rate: '500',
+      },
+    ]);
+  };
+
+  const handleCustomChamberChange = (id, field, value) => {
+    setCustomChambers((prev) =>
+      prev.map((ch) => (ch.id === id ? { ...ch, [field]: value } : ch))
+    );
+  };
+
+  const handleRemoveCustomChamber = (id) => {
+    setCustomChambers((prev) => prev.filter((ch) => ch.id !== id));
+  };
+
   const calculateSumOfChambers = () => {
-    return Object.entries(selectedTypes)
+    const presetSum = Object.entries(selectedTypes)
       .filter(([_, val]) => val.enabled)
       .reduce((sum, [_, val]) => sum + (Number(val.capacity) || 0), 0);
+    const customSum = customChambers.reduce((sum, ch) => sum + (Number(ch.capacity) || 0), 0);
+    return presetSum + customSum;
   };
 
   const handleFileUpload = async (e, setFile, setName, setUrl) => {
@@ -319,8 +350,31 @@ export default function WarehouseSetupModal({
     }
 
     const enabledTypes = Object.entries(selectedTypes).filter(([_, v]) => v.enabled);
-    if (enabledTypes.length === 0) {
-      setErrorMessage('Please select at least one type of storage facility you operate.');
+    const validCustomChambers = customChambers.filter((c) => (c.name || '').trim() !== '');
+    if (enabledTypes.length === 0 && validCustomChambers.length === 0) {
+      setErrorMessage('Please select at least one storage preset or add a custom chamber.');
+      setActiveStep(2);
+      return;
+    }
+
+    for (const cc of validCustomChambers) {
+      if (!cc.capacity || isNaN(Number(cc.capacity)) || Number(cc.capacity) <= 0) {
+        setErrorMessage(`Please enter a valid capacity (MT) for "${cc.name}".`);
+        setActiveStep(2);
+        return;
+      }
+      if (!cc.rate || isNaN(Number(cc.rate)) || Number(cc.rate) <= 0) {
+        setErrorMessage(`Please enter a valid monthly rate (₹/T/mo) for "${cc.name}".`);
+        setActiveStep(2);
+        return;
+      }
+    }
+
+    const totalAllocatedCap = calculateSumOfChambers();
+    if (totalAllocatedCap > numCapacity) {
+      setErrorMessage(
+        `Combined chamber capacity (${totalAllocatedCap.toLocaleString('en-IN')} MT) exceeds your total facility space (${numCapacity.toLocaleString('en-IN')} MT). Please adjust chamber sizes.`
+      );
       setActiveStep(2);
       return;
     }
@@ -337,7 +391,7 @@ export default function WarehouseSetupModal({
 
       // Formulate chamber breakdown and custom chamber rates
       const chamberRates = {};
-      const formattedChambers = STORAGE_TYPE_OPTIONS.filter(
+      const formattedPresetChambers = STORAGE_TYPE_OPTIONS.filter(
         (opt) => selectedTypes[opt.id]?.enabled
       ).map((opt) => {
         const rawRate = selectedTypes[opt.id]?.rate;
@@ -348,7 +402,8 @@ export default function WarehouseSetupModal({
         const cap = (rawCap !== undefined && rawCap !== '' && !isNaN(Number(rawCap)))
           ? Number(rawCap)
           : opt.defaultCap;
-        const chamberTitle = `${opt.name} (${cap}T - ${selectedTypes[opt.id]?.temp || opt.defaultTemp})`;
+        const temp = (selectedTypes[opt.id]?.temp || opt.defaultTemp).trim();
+        const chamberTitle = `${opt.name} (${cap}T - ${temp})`;
         chamberRates[chamberTitle] = rate;
         chamberRates[opt.name] = rate;
         chamberRates[opt.id] = rate;
@@ -356,12 +411,36 @@ export default function WarehouseSetupModal({
         return {
           id: opt.id,
           name: opt.name,
-          temp: selectedTypes[opt.id]?.temp || opt.defaultTemp,
+          temp,
           capacity: cap,
           rate,
           description: opt.description,
         };
       });
+
+      const formattedCustomChambers = validCustomChambers.map((cc) => {
+        const name = cc.name.trim();
+        const cap = Number(cc.capacity);
+        const rate = Number(cc.rate);
+        const temp = (cc.temp || 'Ambient').trim();
+        const chamberTitle = `${name} (${cap}T - ${temp})`;
+        chamberRates[chamberTitle] = rate;
+        chamberRates[name] = rate;
+        chamberRates[cc.id] = rate;
+
+        return {
+          id: cc.id,
+          name,
+          temp,
+          capacity: cap,
+          rate,
+          isCustom: true,
+          description: `Custom facility chamber (${temp})`,
+        };
+      });
+
+      const formattedChambers = [...formattedPresetChambers, ...formattedCustomChambers];
+      const chamberLabels = formattedChambers.map((c) => `${c.name} (${c.capacity}T - ${c.temp})`);
 
       // Calculate baseline facility tariff automatically from minimum chamber rate
       const chamberRateValues = formattedChambers.map((c) => c.rate).filter((r) => r > 0);
@@ -378,10 +457,8 @@ export default function WarehouseSetupModal({
         monthlyRatePerTonne: baseRateNum,
         monthlyRatePerKg: Number((baseRateNum / 1000).toFixed(2)),
         minBillingDays: Number(minBillingDays || 0),
-        handlingFeePerTonne: Number(handlingFeePerTonne || 0),
-        enableBulkDiscount: Boolean(enableBulkDiscount),
-        bulkDiscountThreshold: Number(bulkDiscountThreshold || 50),
-        bulkDiscountRate: Number(bulkDiscountRate || 0),
+        handlingFeePerTonne: 0,
+        enableBulkDiscount: false,
         chamberRates,
         websiteUrl: websiteUrl.trim(),
         wdraCode: wdraCode.trim() || `WDRA/2025/TN/${Math.floor(1000 + Math.random() * 9000)}`,
@@ -391,7 +468,9 @@ export default function WarehouseSetupModal({
         state: state.trim(),
         pincode: pincode.trim(),
         storageTypesConfig: selectedTypes,
+        customChambers: validCustomChambers,
         storageTypes: formattedChambers,
+        chambers: chamberLabels,
         documentNames: {
           wdraCert: wdraFileName || (wdraFileObj ? wdraFileObj.name : ''),
           gstinCert: gstFileName || (gstFileObj ? gstFileObj.name : ''),
@@ -573,13 +652,13 @@ export default function WarehouseSetupModal({
                 </div>
               </div>
 
-              {/* Commercial Billing & Gate Handling Policies */}
-              <div className="p-4.5 rounded-2xl bg-[#F4FAF6] border border-[#10B981]/25 space-y-3.5">
+              {/* Commercial Billing Policy */}
+              <div className="p-4.5 rounded-2xl bg-[#F4FAF6] border border-[#10B981]/25 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#10B981]" />
                     <span className="text-xs font-bold text-[#0B3326]">
-                      Commercial Billing & Gate Policies
+                      Commercial Billing Policy
                     </span>
                   </div>
                   <span className="text-[11px] text-[#065F46] font-semibold">
@@ -587,78 +666,19 @@ export default function WarehouseSetupModal({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-[#0B3326] block">
-                      Minimum Billing Duration
-                    </label>
-                    <select
-                      value={minBillingDays}
-                      onChange={(e) => setMinBillingDays(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
-                    >
-                      <option value="0">No Minimum (Pay per exact days stored)</option>
-                      <option value="15">15 Days Minimum Billing</option>
-                      <option value="30">30 Days Minimum Billing (1 Month)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-[#0B3326] block">
-                      Gate Unloading & Handling (Hamali)
-                    </label>
-                    <select
-                      value={handlingFeePerTonne}
-                      onChange={(e) => setHandlingFeePerTonne(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
-                    >
-                      <option value="0">₹0 / Tonne (Included in Storage Rent)</option>
-                      <option value="30">₹30 / Tonne (One-time Gate Unloading)</option>
-                      <option value="40">₹40 / Tonne (One-time Gate Unloading)</option>
-                      <option value="50">₹50 / Tonne (One-time Gate Unloading)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Bulk Volume Discount Option */}
-                <div className="p-3.5 rounded-xl bg-white border border-[#E5EDE8] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#0B3326] flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={enableBulkDiscount}
-                        onChange={(e) => setEnableBulkDiscount(e.target.checked)}
-                        className="rounded text-[#10B981] focus:ring-[#10B981]"
-                      />
-                      <span>Enable Volume Discount for Bulk Farmers & FPOs</span>
-                    </label>
-                    <span className="text-[10px] text-[#566861] font-medium">Optional</span>
-                  </div>
-
-                  {enableBulkDiscount && (
-                    <div className="grid grid-cols-2 gap-3 pt-1.5 text-xs">
-                      <div>
-                        <span className="text-[10px] text-[#566861] block font-semibold">Min Volume (MT)</span>
-                        <input
-                          type="number"
-                          value={bulkDiscountThreshold}
-                          onChange={(e) => setBulkDiscountThreshold(e.target.value)}
-                          placeholder="50"
-                          className="w-full px-3 py-1.5 rounded-lg border border-[#E5EDE8] text-xs font-bold text-[#0B3326]"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#566861] block font-semibold">Discounted Rate (₹/Tonne/mo)</span>
-                        <input
-                          type="number"
-                          value={bulkDiscountRate}
-                          onChange={(e) => setBulkDiscountRate(e.target.value)}
-                          placeholder="300"
-                          className="w-full px-3 py-1.5 rounded-lg border border-[#10B981] text-xs font-extrabold text-[#10B981]"
-                        />
-                      </div>
-                    </div>
-                  )}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-[#0B3326] block">
+                    Minimum Billing Duration
+                  </label>
+                  <select
+                    value={minBillingDays}
+                    onChange={(e) => setMinBillingDays(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-semibold text-[#14211D] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
+                  >
+                    <option value="0">No Minimum (Pay per exact days stored)</option>
+                    <option value="15">15 Days Minimum Billing</option>
+                    <option value="30">30 Days Minimum Billing (1 Month)</option>
+                  </select>
                 </div>
               </div>
 
@@ -725,18 +745,36 @@ export default function WarehouseSetupModal({
             <div className="space-y-4 animate-in fade-in duration-150">
               
               {/* Header Status Bar */}
-              <div className="p-3.5 rounded-2xl bg-[#F4FAF6] border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                Number(totalCapacityTonnes) > 0 && chamberSum > Number(totalCapacityTonnes)
+                  ? 'bg-red-50 border-red-300'
+                  : 'bg-[#F4FAF6] border-[#10B981]/30'
+              }`}>
                 <div>
                   <span className="text-xs font-bold text-[#0B3326] block">
                     Storage Chambers & Individual Monthly Fees
                   </span>
-                  <p className="text-[11px] text-[#566861]">
-                    Toggle the chambers you operate, then enter their capacity and monthly rental fee.
+                  <p className={`text-[11px] ${
+                    Number(totalCapacityTonnes) > 0 && chamberSum > Number(totalCapacityTonnes)
+                      ? 'text-red-700 font-semibold'
+                      : 'text-[#566861]'
+                  }`}>
+                    {Number(totalCapacityTonnes) > 0 && chamberSum > Number(totalCapacityTonnes)
+                      ? `Exceeds your total facility space by ${(chamberSum - Number(totalCapacityTonnes)).toLocaleString('en-IN')} MT. Reduce chamber capacities to continue.`
+                      : 'Toggle or add chambers within your total facility capacity, with degree and monthly rental fee.'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                  <div className="px-3 py-1.5 rounded-xl bg-white border border-[#E5EDE8] text-xs font-bold text-[#0B3326]">
-                    Chamber Total: <span className="text-[#10B981]">{chamberSum} MT</span> / {totalCapacityTonnes || 0} MT
+                  <div className={`px-3 py-1.5 rounded-xl bg-white border text-xs font-bold ${
+                    Number(totalCapacityTonnes) > 0 && chamberSum > Number(totalCapacityTonnes)
+                      ? 'border-red-300 text-red-700'
+                      : 'border-[#E5EDE8] text-[#0B3326]'
+                  }`}>
+                    Chamber Total:{' '}
+                    <span className={Number(totalCapacityTonnes) > 0 && chamberSum > Number(totalCapacityTonnes) ? 'text-red-600' : 'text-[#10B981]'}>
+                      {chamberSum} MT
+                    </span>{' '}
+                    / {totalCapacityTonnes || 0} MT
                   </div>
                 </div>
               </div>
@@ -796,11 +834,11 @@ export default function WarehouseSetupModal({
                       {/* Active Chamber Configuration Controls */}
                       {isChecked && (
                         <div className="px-4 pb-4 pt-1 border-t border-[#10B981]/20 bg-white/70">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                             {/* Capacity Input */}
                             <div className="space-y-1">
                               <label className="text-[11px] font-bold text-[#0B3326] block">
-                                Chamber Capacity (MT / Tonnes)
+                                Chamber Capacity (MT)
                               </label>
                               <div className="relative">
                                 <input
@@ -810,12 +848,26 @@ export default function WarehouseSetupModal({
                                   min="0"
                                   step="any"
                                   placeholder="e.g. 1000"
-                                  className="w-full pl-3 pr-16 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                                  className="w-full pl-3 pr-14 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[#566861]">
-                                  Tonnes
+                                  MT
                                 </span>
                               </div>
+                            </div>
+
+                            {/* Temperature / Degree Input */}
+                            <div className="space-y-1">
+                              <label className="text-[11px] font-bold text-[#0B3326] block">
+                                Temperature / Degree
+                              </label>
+                              <input
+                                type="text"
+                                value={selectedTypes[opt.id]?.temp ?? opt.defaultTemp}
+                                onChange={(e) => handleTypeTempChange(opt.id, e.target.value)}
+                                placeholder={opt.defaultTemp}
+                                className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                              />
                             </div>
 
                             {/* Monthly Rental Fee Input */}
@@ -834,10 +886,10 @@ export default function WarehouseSetupModal({
                                   min="0"
                                   step="any"
                                   placeholder="e.g. 350"
-                                  className="w-full pl-7 pr-24 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                                  className="w-full pl-7 pr-20 py-2 rounded-xl border border-[#E5EDE8] bg-white text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[#566861]">
-                                  / Tonne / Mo
+                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-[#566861]">
+                                  / T / Mo
                                 </span>
                               </div>
                             </div>
@@ -857,6 +909,111 @@ export default function WarehouseSetupModal({
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Custom Chambers Builder */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-dashed border-[#10B981]/40 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-extrabold text-[#0B3326]">
+                      Custom Chambers (Your Own Chamber Names, Size &amp; Degree)
+                    </h4>
+                    <p className="text-[11px] text-[#566861]">
+                      Add specific bays or cold rooms with their exact MT capacity, °C range, and monthly fee.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleAddCustomChamber}
+                    icon={Plus}
+                    iconPosition="left"
+                    className="text-xs font-bold shrink-0 cursor-pointer"
+                  >
+                    Add Custom Chamber
+                  </Button>
+                </div>
+
+                {customChambers.length > 0 && (
+                  <div className="space-y-2.5">
+                    {customChambers.map((cc) => (
+                      <div
+                        key={cc.id}
+                        className="p-3.5 rounded-xl bg-white border border-[#E5EDE8] space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#10B981]">
+                            Custom Chamber
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomChamber(cc.id)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-[#0B3326] block">
+                              Chamber Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={cc.name}
+                              onChange={(e) => handleCustomChamberChange(cc.id, 'name', e.target.value)}
+                              placeholder="e.g. Cold Chamber A1"
+                              className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-[#0B3326] block">
+                              Size / Capacity (MT) *
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="any"
+                              value={cc.capacity}
+                              onChange={(e) => handleCustomChamberChange(cc.id, 'capacity', e.target.value)}
+                              placeholder="e.g. 250"
+                              className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-bold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-[#0B3326] block">
+                              Degree / Temperature *
+                            </label>
+                            <input
+                              type="text"
+                              value={cc.temp}
+                              onChange={(e) => handleCustomChamberChange(cc.id, 'temp', e.target.value)}
+                              placeholder="e.g. 2°C - 4°C"
+                              className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-[#0B3326] block">
+                              Monthly Rate (₹/T/Mo) *
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="any"
+                              value={cc.rate}
+                              onChange={(e) => handleCustomChamberChange(cc.id, 'rate', e.target.value)}
+                              placeholder="e.g. 800"
+                              className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] text-xs font-extrabold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between pt-3">
