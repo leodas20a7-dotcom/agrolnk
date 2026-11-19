@@ -342,25 +342,54 @@ export default function Register({ onNavigate, navState }) {
         {/* Right Side: Clean Minimal Registration Form or Email Verification Prompt */}
         <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-between">
           {pendingVerificationEmail ? (
-            <div className="my-auto py-6 space-y-6 text-center max-w-md mx-auto">
+            <div className="my-auto py-4 space-y-5 text-center max-w-md mx-auto">
               <div className="w-16 h-16 rounded-2xl bg-[#EBF5F0] text-[#0B3326] border border-[#10B981]/30 flex items-center justify-center mx-auto shadow-xs">
                 <Mail className="w-8 h-8 text-[#10B981]" />
               </div>
 
               <div className="space-y-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Account Created
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Account Created Successfully
                 </span>
                 <h2 className="text-2xl font-extrabold text-[#0B3326] font-heading">
-                  Please verify your email
+                  Check your Gmail &amp; verify email
                 </h2>
                 <p className="text-sm text-[#566861] leading-relaxed">
-                  We sent a verification link to <strong className="text-[#0B3326]">{pendingVerificationEmail}</strong>. Click the link in your inbox (or Spam folder) to activate your account, then sign in.
+                  We sent a verification link to{' '}
+                  <strong className="text-[#0B3326] break-all">{pendingVerificationEmail}</strong>.
                 </p>
               </div>
 
+              {/* Simple 3-Step Guide */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-left space-y-2.5 text-xs text-[#14211D]">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#0B3326] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+                    1
+                  </span>
+                  <span>
+                    Open your <strong>Gmail / Email Inbox</strong> (check <strong>Spam</strong> or <strong>Updates</strong> if you don&apos;t see it).
+                  </span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#0B3326] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+                    2
+                  </span>
+                  <span>
+                    Click the <strong>Confirm email address</strong> verification link inside the email.
+                  </span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#10B981] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+                    3
+                  </span>
+                  <span>
+                    Return here and click <strong>Sign In</strong> below to access your dashboard.
+                  </span>
+                </div>
+              </div>
+
               {resendMessage && (
-                <div className="p-3 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs font-medium text-[#0B3326]">
+                <div className="p-3 rounded-xl bg-[#F2FBF6] border border-[#10B981]/30 text-xs font-medium text-[#0B3326]">
                   {resendMessage}
                 </div>
               )}
@@ -374,8 +403,20 @@ export default function Register({ onNavigate, navState }) {
                   onClick={() => onNavigate('login')}
                   className="w-full py-3 font-bold text-sm justify-center cursor-pointer"
                 >
-                  Verified — Go to Sign In
+                  Email Verified — Go to Sign In
                 </Button>
+
+                {pendingVerificationEmail.toLowerCase().endsWith('@gmail.com') && (
+                  <a
+                    href="https://mail.google.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-2.5 px-4 rounded-xl border border-[#E5EDE8] bg-white hover:bg-[#F8FAF8] text-xs font-bold text-[#0B3326] inline-flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-[#10B981]" />
+                    <span>Open Gmail Inbox</span>
+                  </a>
+                )}
 
                 <Button
                   variant="outline"
@@ -384,7 +425,7 @@ export default function Register({ onNavigate, navState }) {
                   onClick={handleResendVerification}
                   className="w-full py-2.5 text-xs font-semibold justify-center cursor-pointer"
                 >
-                  {isResending ? 'Sending...' : 'Resend Verification Email'}
+                  {isResending ? 'Sending verification link...' : 'Resend Verification Email'}
                 </Button>
               </div>
             </div>
