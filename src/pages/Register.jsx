@@ -96,7 +96,7 @@ export default function Register({ onNavigate, navState }) {
     },
     food_processor: {
       title: 'Food Processor',
-      tooltip: 'Food Processor & Commercial Miller',
+      tooltip: 'Food Processor',
       emoji: '🏭',
       badge: 'Dual Trader',
       tagline: 'Source raw crops & distribute processed food products',

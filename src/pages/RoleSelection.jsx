@@ -38,7 +38,7 @@ export default function RoleSelection({ onNavigate, navState }) {
     {
       id: 'food_processor',
       title: 'Food Processor',
-      tooltip: 'Food Processor & Commercial Miller',
+      tooltip: 'Food Processor',
       headline: 'Process & trade at scale',
       description: 'Source raw agricultural commodities directly from farmgates, and market finished processed goods.',
       iconEmoji: '🏭',
