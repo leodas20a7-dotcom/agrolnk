@@ -305,16 +305,9 @@ export async function registerUser({ name, phone, email, password, role, state, 
 
 
 
-    const requiresEmailConfirmation = !authData?.session;
+    setCurrentUser(userObj);
 
-    if (!requiresEmailConfirmation) {
-      setCurrentUser(userObj);
-    }
-
-    return {
-      ...userObj,
-      requiresEmailConfirmation,
-    };
+    return userObj;
 
   } catch (err) {
 
