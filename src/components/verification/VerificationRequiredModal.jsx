@@ -272,15 +272,34 @@ export default function VerificationRequiredModal({
             submittedAt: submission.submittedAt,
           };
 
-          const { error: dbErr } = await supabase
+          const kycUpdatePayload = {
+            kyc_status: 'pending',
+            company_name: businessName.trim(),
+            meta: mergedMeta,
+            updated_at: new Date().toISOString(),
+          };
+
+          const { data: updatedRows, error: dbErr } = await supabase
             .from('profiles')
-            .update({
-              kyc_status: 'pending',
-              company_name: businessName.trim(),
-              meta: mergedMeta,
-              updated_at: new Date().toISOString(),
-            })
-            .or(`id.eq.${userId},email.eq.${userEmail}`);
+            .update(kycUpdatePayload)
+            .or(`id.eq.${userId},email.eq.${userEmail}`)
+            .select('id');
+
+          if ((dbErr || !Array.isArray(updatedRows) || updatedRows.length === 0) && userId) {
+            await supabase
+              .from('profiles')
+              .upsert(
+                {
+                  id: userId,
+                  name: currentUser?.name || businessName.trim() || 'Partner',
+                  email: (userEmail || '').trim().toLowerCase(),
+                  phone: currentUser?.phone || '',
+                  role: currentUser?.role || 'farmer',
+                  ...kycUpdatePayload,
+                },
+                { onConflict: 'id' }
+              );
+          }
 
           if (dbErr) console.warn('Supabase KYC document sync notice:', dbErr);
         }
