@@ -1086,16 +1086,6 @@ export async function getWarehouses() {
         return [];
       }
 
-      // Sync active DB warehouse profiles into cache
-      try {
-        const cleanProfiles = {};
-        dbProfiles.forEach((p) => {
-          if (p.id) cleanProfiles[p.id] = p;
-          if (p.email) cleanProfiles[p.email] = p;
-        });
-        localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(cleanProfiles));
-      } catch {}
-
       dbProfiles.forEach((p) => {
         const meta = p.meta || {};
         const isVerified = p.kyc_status === 'verified' || meta.verificationStatus === 'verified';
@@ -1118,7 +1108,11 @@ export async function getWarehouses() {
 
           const dynamicWh = {
             id: p.id || `wh_${Date.now()}`,
+            userId: p.id,
+            email: p.email || '',
             name: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
+            companyName: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
+            warehouseName: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
             code: `WH-${(p.district || 'TN').slice(0, 3).toUpperCase()}-${(p.id || '101').slice(0, 4).toUpperCase()}`,
             wdraCode: meta.wdraCode || 'WDRA/2025/VERIFIED',
             wdraRegNo: meta.wdraCode || 'WDRA/2025/VERIFIED',
@@ -1159,6 +1153,17 @@ export async function getWarehouses() {
           }
         }
       });
+
+      // Sync verified warehouses into cache in normalized shape so getWarehousesSync / getWarehouseById always resolve chamberRates
+      try {
+        const rawExisting = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+        const existingCache = rawExisting ? JSON.parse(rawExisting) : {};
+        activeWarehouses.forEach((wh) => {
+          if (wh.id) existingCache[wh.id] = { ...(existingCache[wh.id] || {}), ...wh };
+          if (wh.email) existingCache[wh.email] = { ...(existingCache[wh.email] || {}), ...wh };
+        });
+        localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(existingCache));
+      } catch {}
     }
   } catch (err) {
     console.warn('Supabase getWarehouses direct query notice:', err);
@@ -1402,6 +1407,8 @@ export async function saveWarehouseProfile(userId, profileData) {
           totalCapacityTonnes: updated.totalCapacityTonnes,
           storageTypes: updated.storageTypes,
           storageTypesConfig: updated.storageTypesConfig,
+          customChambers: updated.customChambers || [],
+          chambers: updated.chambers || [],
           wdraCode: updated.wdraCode,
           gstin: updated.gstin,
           websiteUrl: updated.websiteUrl,
@@ -1420,16 +1427,37 @@ export async function saveWarehouseProfile(userId, profileData) {
       };
 
       if (userId) {
-        const { error: idErr } = await supabase
+        const { data: updatedRows, error: idErr } = await supabase
           .from('profiles')
           .update(dbPayload)
-          .eq('id', userId);
+          .eq('id', userId)
+          .select('id');
 
-        if (idErr && profileData.email) {
-          await supabase
-            .from('profiles')
-            .update(dbPayload)
-            .ilike('email', profileData.email.trim());
+        if (idErr || !Array.isArray(updatedRows) || updatedRows.length === 0) {
+          let emailUpdated = false;
+          if (profileData.email) {
+            const { data: emailRows } = await supabase
+              .from('profiles')
+              .update(dbPayload)
+              .ilike('email', profileData.email.trim())
+              .select('id');
+            emailUpdated = Array.isArray(emailRows) && emailRows.length > 0;
+          }
+          if (!emailUpdated) {
+            await supabase
+              .from('profiles')
+              .upsert(
+                {
+                  id: userId,
+                  name: updated.operatorName || profileData.operatorName || 'Warehouse Operator',
+                  email: (profileData.email || '').trim().toLowerCase(),
+                  phone: updated.phone || '',
+                  role: 'warehouse',
+                  ...dbPayload,
+                },
+                { onConflict: 'id' }
+              );
+          }
         }
       } else if (profileData.email) {
         await supabase
