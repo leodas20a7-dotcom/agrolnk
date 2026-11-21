@@ -563,7 +563,7 @@ export default function UserProfileModal({
                     <div className="p-2 rounded-xl bg-white border border-emerald-100">
                       <span className="text-[9px] text-[#566861] uppercase tracking-wider block font-semibold">Dedicated Branch IFSC</span>
                       <span className="font-mono font-extrabold text-[#0B3326] text-xs block mt-0.5">
-                        {user.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104'}
+                        {user.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'Not configured'}
                       </span>
                     </div>
                   </div>

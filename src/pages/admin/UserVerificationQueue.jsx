@@ -81,8 +81,8 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
       setVanFormData({
         vanStatus: selectedUserForDocs.vanStatus || 'pending_bank_approval',
         virtualAccountNumber: selectedUserForDocs.virtualAccountNumber || '',
-        virtualAccountIfsc: selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-        vanBankName: selectedUserForDocs.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+        virtualAccountIfsc: selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+        vanBankName: selectedUserForDocs.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
         vanNotes: selectedUserForDocs.vanNotes || '',
       });
     }
@@ -113,8 +113,8 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
       ...prev,
       virtualAccountNumber: generatedVan,
       vanStatus: 'active',
-      virtualAccountIfsc: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-      vanBankName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      virtualAccountIfsc: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+      vanBankName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
     }));
   };
 
@@ -978,16 +978,18 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
                         <span className="text-[10px] text-[#566861] uppercase tracking-wider block font-semibold mb-1">Dedicated Branch IFSC</span>
                         <div className="flex items-center justify-between">
                           <span className="font-mono font-bold text-[#0B3326] text-xs tracking-wider">
-                            {selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104'}
+                            {selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'Not configured'}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyVan(selectedUserForDocs.virtualAccountIfsc || 'ICIC0000104', 'ifsc')}
-                            className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-1 rounded-md hover:bg-emerald-50 transition-colors"
-                            title="Copy IFSC Code"
-                          >
-                            {copiedVanField === 'ifsc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                          </button>
+                          {(selectedUserForDocs.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC)) && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyVan(selectedUserForDocs.virtualAccountIfsc || import.meta.env?.VITE_AGROLNK_ESCROW_IFSC, 'ifsc')}
+                              className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-1 rounded-md hover:bg-emerald-50 transition-colors"
+                              title="Copy IFSC Code"
+                            >
+                              {copiedVanField === 'ifsc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
                         </div>
                       </div>
 

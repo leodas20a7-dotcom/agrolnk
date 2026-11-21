@@ -50,9 +50,9 @@ export default function FreightEscrowModal({
   // AgrowLink Bank details from environment variables
   const bankDetails = {
     accountName: import.meta.env.VITE_AGROLNK_ESCROW_ACCOUNT_NAME || 'AGROWLINK PRIVATE LIMITED',
-    accountNumber: import.meta.env.VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER || '50200088991122',
-    ifsc: import.meta.env.VITE_AGROLNK_ESCROW_IFSC || 'HDFC0000040',
-    bankName: import.meta.env.VITE_AGROLNK_ESCROW_BANK_NAME || 'HDFC Bank',
+    accountNumber: import.meta.env.VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER || '',
+    ifsc: import.meta.env.VITE_AGROLNK_ESCROW_IFSC || '',
+    bankName: import.meta.env.VITE_AGROLNK_ESCROW_BANK_NAME || 'Escrow Nodal Bank',
     branch: import.meta.env.VITE_AGROLNK_ESCROW_BRANCH || 'Corporate Banking Branch',
   };
 

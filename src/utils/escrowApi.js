@@ -17,10 +17,10 @@ if (typeof window !== 'undefined' && window.localStorage) {
 // Standard Virtual Nodal Escrow Account Configuration (Read dynamically from .env)
 export const ESCROW_NODAL_ACCOUNT = {
   accountName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NAME) || 'AGROWLINK PRIVATE LIMITED',
-  accountNumber: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER) || '992010884210982',
+  accountNumber: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_ACCOUNT_NUMBER) || '',
   virtualAccountPrefix: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_VAN_PREFIX) || 'AGRO',
-  bankName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
-  ifscCode: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+  bankName: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
+  ifscCode: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
   branch: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BRANCH) || 'CMS Institutional Agri Branch',
   trusteePartner: 'RBI Scheduled Commercial Banking Partner',
   escrowType: 'Tripartite Milestone-Protected Agri-Commerce Escrow',
@@ -205,8 +205,8 @@ export function generateOrderSmartVAN({ orderNumber, buyerPhone, orderAmount }) 
 
   return {
     accountNumber: dynamicVan,
-    ifscCode: ESCROW_NODAL_ACCOUNT.ifscCode || 'ICIC0000104',
-    bankName: ESCROW_NODAL_ACCOUNT.bankName || 'ICICI Bank Ltd.',
+    ifscCode: ESCROW_NODAL_ACCOUNT.ifscCode || '',
+    bankName: ESCROW_NODAL_ACCOUNT.bankName || 'Escrow Nodal Bank',
     branch: ESCROW_NODAL_ACCOUNT.branch || 'CMS Institutional Agri Branch',
     beneficiaryName: `${ESCROW_NODAL_ACCOUNT.accountName} - ${orderNumber || 'AGM'}`,
     orderAmount: Number(orderAmount || 0),

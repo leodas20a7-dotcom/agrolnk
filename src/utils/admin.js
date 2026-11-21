@@ -166,8 +166,8 @@ export async function getAllKYCUsers() {
           return candidate || 'pending_bank_approval';
         })(),
         virtualAccountNumber: p.virtual_account_number || meta.virtual_account_number || '',
-        virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-        vanBankName: p.van_bank_name || meta.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+        virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+        vanBankName: p.van_bank_name || meta.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
         vanNotes: meta.van_notes || '',
         bankDetails: meta.bankDetails || p.bank_details || null,
       };
@@ -368,8 +368,8 @@ export async function updateUserVANProvision(userId, {
     p_user_id: String(userId),
     p_van_status: vanStatus,
     p_virtual_account_number: updatedData.virtualAccountNumber,
-    p_virtual_account_ifsc: updatedData.virtualAccountIfsc || 'ICIC0000104',
-    p_van_bank_name: updatedData.vanBankName || 'ICICI Bank Ltd.',
+    p_virtual_account_ifsc: updatedData.virtualAccountIfsc || '',
+    p_van_bank_name: updatedData.vanBankName || '',
     p_van_notes: updatedData.vanNotes,
   });
 

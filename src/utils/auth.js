@@ -211,8 +211,8 @@ export async function registerUser({ name, phone, email, password, role, state, 
       verificationStatus: resolvedRecord.kyc_status || 'pending',
       vanStatus: resolveProfileVanStatus(resolvedRecord),
       virtualAccountNumber: resolvedRecord.virtual_account_number || resolvedRecord.meta?.virtual_account_number || '',
-      virtualAccountIfsc: resolvedRecord.virtual_account_ifsc || resolvedRecord.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-      vanBankName: resolvedRecord.van_bank_name || resolvedRecord.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      virtualAccountIfsc: resolvedRecord.virtual_account_ifsc || resolvedRecord.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+      vanBankName: resolvedRecord.van_bank_name || resolvedRecord.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
       vanNotes: resolvedRecord.van_notes || resolvedRecord.meta?.van_notes || '',
       createdAt: resolvedRecord.created_at,
     };
@@ -420,8 +420,8 @@ export async function loginUser({ email, password }) {
       verificationStatus: profile?.kyc_status || 'pending',
       vanStatus: resolveProfileVanStatus(profile),
       virtualAccountNumber: profile?.virtual_account_number || profile?.meta?.virtual_account_number || '',
-      virtualAccountIfsc: profile?.virtual_account_ifsc || profile?.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-      vanBankName: profile?.van_bank_name || profile?.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      virtualAccountIfsc: profile?.virtual_account_ifsc || profile?.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+      vanBankName: profile?.van_bank_name || profile?.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
       vanNotes: profile?.van_notes || profile?.meta?.van_notes || '',
       createdAt: profile?.created_at || sessionUser.created_at,
     };
@@ -654,8 +654,8 @@ export async function syncAuthenticatedUserWithServer() {
         return candidate || 'pending_bank_approval';
       })(),
       virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || '',
-      virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-      vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+      virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+      vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
       vanNotes: profile.van_notes || profile.meta?.van_notes || '',
       createdAt: profile.created_at || session.user.created_at,
     };
@@ -751,8 +751,8 @@ export async function fetchCurrentProfile() {
           return candidate || 'pending_bank_approval';
         })(),
         virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || current?.virtualAccountNumber || '',
-        virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || current?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-        vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || current?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+        virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || current?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+        vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || current?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
         vanNotes: profile.van_notes || profile.meta?.van_notes || current?.vanNotes || '',
         createdAt: profile.created_at,
       };
