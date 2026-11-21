@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   X,
   Building2,
@@ -29,6 +29,15 @@ export default function ReceiptDetailModal({
   onPayRent,
   onRequestFinancing,
 }) {
+  useEffect(() => {
+    if (!inventory) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [inventory]);
+
   if (!inventory) return null;
 
   const normalizedStatus = String(inventory.status || '').toLowerCase();
@@ -162,16 +171,24 @@ export default function ReceiptDetailModal({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 text-xs">
-              {inventory.assayedQuality && Object.entries(inventory.assayedQuality).map(([k, v]) => (
-                <div key={k} className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] min-w-0">
-                  <span className="text-[9px] sm:text-[10px] text-[#566861] block uppercase capitalize truncate">
-                    {k}
-                  </span>
-                  <span className="font-bold text-[#14211D] text-[11px] sm:text-xs truncate block">
-                    {String(v)}
-                  </span>
-                </div>
-              ))}
+              {inventory.assayedQuality &&
+                Object.entries(inventory.assayedQuality)
+                  .filter(([k, v]) =>
+                    ['moisture', 'purity', 'grade', 'assayStatus', 'storageDays'].includes(k) &&
+                    v !== null &&
+                    v !== undefined &&
+                    String(v).trim() !== ''
+                  )
+                  .map(([k, v]) => (
+                    <div key={k} className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] min-w-0">
+                      <span className="text-[9px] sm:text-[10px] text-[#566861] block uppercase truncate">
+                        {k === 'assayStatus' ? 'Assay Status' : k === 'storageDays' ? 'Storage Days' : k}
+                      </span>
+                      <span className="font-bold text-[#14211D] text-[11px] sm:text-xs truncate block">
+                        {k === 'storageDays' ? `${v} days` : String(v)}
+                      </span>
+                    </div>
+                  ))}
             </div>
           </div>
 
