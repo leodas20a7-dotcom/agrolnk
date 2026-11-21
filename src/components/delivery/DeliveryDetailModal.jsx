@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
+import { buildFreightReceipt, isFreightPaid } from '../../utils/paymentReceipt';
 import DeliveryStatusBadge from './DeliveryStatusBadge';
 import DeliveryTimeline from './DeliveryTimeline';
 import { hasSpecificVariety } from '../../data/commodityTaxonomy';
@@ -216,12 +218,20 @@ export default function DeliveryDetailModal({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {isFreightPaid(currentDelivery) && (
+              <ReceiptDownloadButton
+                title="Download freight payment receipt"
+                buildReceipt={() => buildFreightReceipt(currentDelivery, viewerRole)}
+              />
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Modal Body */}
@@ -666,10 +676,7 @@ export default function DeliveryDetailModal({
         {isBuyer && currentDelivery.status === 'delivered' && (() => {
           const alreadySignedOff =
             isSignedOff ||
-            (typeof window !== 'undefined' &&
-              (localStorage.getItem(`agrolnk_buyer_verified_${currentDelivery.id}`) === 'true' ||
-                localStorage.getItem(`agrolnk_buyer_verified_${currentDelivery.orderId}`) === 'true' ||
-                localStorage.getItem(`agrolnk_buyer_verified_${currentDelivery.orderNumber}`) === 'true'));
+            Boolean(currentDelivery.buyerConfirmedArrival || currentDelivery.buyerArrivalVerified);
 
           return alreadySignedOff ? (
             <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex items-center justify-between gap-3">
@@ -701,11 +708,6 @@ export default function DeliveryDetailModal({
                 size="md"
                 disabled={isUpdating}
                 onClick={async () => {
-                  if (typeof window !== 'undefined') {
-                    if (currentDelivery.id) localStorage.setItem(`agrolnk_buyer_verified_${currentDelivery.id}`, 'true');
-                    if (currentDelivery.orderId) localStorage.setItem(`agrolnk_buyer_verified_${currentDelivery.orderId}`, 'true');
-                    if (currentDelivery.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${currentDelivery.orderNumber}`, 'true');
-                  }
                   await handleConfirmReceipt();
                 }}
                 icon={CheckCircle2}

@@ -1286,10 +1286,31 @@ export async function saveWarehouseProfile(userId, profileData) {
   try {
     const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
     const profiles = raw ? JSON.parse(raw) : {};
-    const existing = profiles[userId] || (profileData.email ? profiles[profileData.email] : null) || {};
+    const localExisting = profiles[userId] || (profileData.email ? profiles[profileData.email] : null) || {};
+
+    let serverProfile = null;
+    try {
+      const { data: currentProf } = await supabase
+        .from('profiles')
+        .select('id, email, kyc_status, company_name, address, meta')
+        .or(`id.eq.${userId || 'none'},email.eq.${profileData.email || 'none'}`)
+        .maybeSingle();
+      if (currentProf) serverProfile = currentProf;
+    } catch {}
+
+    const serverMeta = serverProfile?.meta && typeof serverProfile.meta === 'object' ? serverProfile.meta : {};
+    const authoritativeKycStatus = serverProfile?.kyc_status || 'pending';
+    const existing = {
+      ...localExisting,
+      ...serverMeta,
+      companyName: serverProfile?.company_name || serverMeta.companyName || localExisting.companyName,
+      address: serverProfile?.address || serverMeta.address || localExisting.address,
+      setupCompleted: Boolean(serverMeta.setupCompleted || serverMeta.totalCapacityTonnes || serverProfile?.company_name || localExisting.setupCompleted),
+      verificationStatus: authoritativeKycStatus === 'verified' ? 'verified' : authoritativeKycStatus,
+    };
 
     const isInitialSetup = !existing.setupCompleted;
-    const isPreviouslyVerified = existing.verificationStatus === 'verified';
+    const isPreviouslyVerified = authoritativeKycStatus === 'verified';
 
     const protectedFieldsChanged = !isInitialSetup && isPreviouslyVerified && (
       Number(existing.totalCapacityTonnes) !== Number(profileData.totalCapacityTonnes) ||
@@ -1336,7 +1357,7 @@ export async function saveWarehouseProfile(userId, profileData) {
         chamberRates,
         setupCompleted: true,
         hasPendingReview: isInitialSetup,
-        verificationStatus: isInitialSetup ? 'pending' : (existing.verificationStatus || 'pending'),
+        verificationStatus: isPreviouslyVerified ? 'verified' : 'pending',
         pendingChanges: isInitialSetup ? { ...profileData, requestedAt: new Date().toISOString() } : null,
         updatedAt: new Date().toISOString(),
       };
@@ -1485,7 +1506,10 @@ export async function approveWarehouseProfileModification(userId) {
   try {
     const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
     const profiles = raw ? JSON.parse(raw) : {};
-    const p = profiles[userId] || (profiles && Object.values(profiles).find(item => item.email === userId || item.id === userId));
+    let p = profiles[userId] || (profiles && Object.values(profiles).find(item => item.email === userId || item.id === userId));
+    if (!p && userId) {
+      p = await getWarehouseOperatorProfile(userId);
+    }
     if (!p) return null;
 
     let merged;
@@ -1521,6 +1545,16 @@ export async function approveWarehouseProfileModification(userId) {
       let filter = targetId ? `id.eq.${targetId}` : '';
       if (targetEmail) {
         filter = filter ? `${filter},email.eq.${targetEmail}` : `email.eq.${targetEmail}`;
+      }
+
+      if (targetId) {
+        try {
+          await supabase.rpc('admin_update_kyc_status_atomic', {
+            p_user_id: String(targetId),
+            p_new_status: 'verified',
+            p_audit_notes: 'Approved warehouse facility modification.',
+          });
+        } catch {}
       }
 
       if (filter) {
@@ -1567,7 +1601,10 @@ export async function rejectWarehouseProfileModification(userId, reason = 'Modif
   try {
     const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
     const profiles = raw ? JSON.parse(raw) : {};
-    const p = profiles[userId] || (profiles && Object.values(profiles).find(item => item.email === userId || item.id === userId));
+    let p = profiles[userId] || (profiles && Object.values(profiles).find(item => item.email === userId || item.id === userId));
+    if (!p && userId) {
+      p = await getWarehouseOperatorProfile(userId);
+    }
     if (!p) return null;
 
     const reverted = {
@@ -1582,6 +1619,35 @@ export async function rejectWarehouseProfileModification(userId, reason = 'Modif
     if (reverted.id) profiles[reverted.id] = reverted;
     if (reverted.email) profiles[reverted.email] = reverted;
     localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
+
+    try {
+      const targetId = reverted.id || userId;
+      const targetEmail = reverted.email || '';
+      let filter = targetId ? `id.eq.${targetId}` : '';
+      if (targetEmail) {
+        filter = filter ? `${filter},email.eq.${targetEmail}` : `email.eq.${targetEmail}`;
+      }
+      if (filter) {
+        const { data: existingProf } = await supabase
+          .from('profiles')
+          .select('meta')
+          .or(filter)
+          .maybeSingle();
+        const existingMeta = existingProf?.meta || {};
+        await supabase
+          .from('profiles')
+          .update({
+            meta: {
+              ...existingMeta,
+              hasPendingReview: false,
+              pendingChanges: null,
+              lastRejectionReason: reason,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .or(filter);
+      }
+    } catch {}
 
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_profile_updated', { detail: reverted }));

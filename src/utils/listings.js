@@ -1,5 +1,5 @@
 // AgrowLink Supabase Listings Management Engine
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import {
   getAllCommodityNames,
@@ -848,29 +848,7 @@ export async function checkListingBookings(listingId) {
       }
     }
 
-    // 2. Check local orders cache only if remote DB check failed
-    if (orderErr) {
-      try {
-        const rawLocal = localStorage.getItem('agrolnk_orders_local');
-        if (rawLocal) {
-          const localOrders = JSON.parse(rawLocal);
-          const match = localOrders.find(
-            (o) => (o.listingId === listingId || o.listing_id === listingId) && o.status !== 'cancelled'
-          );
-          if (match) {
-            return {
-              canDelete: false,
-              activeOrdersCount: 1,
-              orderNumber: match.orderNumber || match.id,
-              buyerName: match.buyerName,
-              reason: `A buyer (${match.buyerName || 'Buyer Partner'}) has already confirmed Order ${match.orderNumber || ''} for this produce lot. Booked produce cannot be deleted to protect active delivery and payment escrow.`,
-            };
-          }
-        }
-      } catch {}
-    }
-
-    // 3. Check if listing status itself is sold
+    // 2. Check if listing status itself is sold
     const { data: listingData } = await supabase
       .from('listings')
       .select('status, quantity')
@@ -1000,21 +978,6 @@ export async function deleteAllFarmerListings(farmerId, currentListings = []) {
   } catch (err) {
     console.warn('Orders booking audit notice:', err);
   }
-
-  // Also check local orders cache if any exist
-  try {
-    const rawLocalOrders = localStorage.getItem('agrolnk_orders_local');
-    if (rawLocalOrders) {
-      const localOrders = JSON.parse(rawLocalOrders);
-      if (Array.isArray(localOrders)) {
-        localOrders.forEach((o) => {
-          if (o && o.status !== 'cancelled' && (o.listingId || o.listing_id)) {
-            activeBookedListingIds.add(o.listingId || o.listing_id);
-          }
-        });
-      }
-    }
-  } catch {}
 
   // 3. Separate deletable lots vs booked lots
   const unbookedLots = lots.filter(
@@ -1294,7 +1257,7 @@ export async function bulkCreateListings(farmerId, farmerName, rawRows = [], onP
  * Safely export listings to an Excel (.xlsx) spreadsheet backup
  * Formatted directly to be compatible with Bulk Upload re-import
  */
-export function exportListingsToExcel(listings = [], filenamePrefix = 'AgrowLink_Produce_Listings_Backup') {
+export async function exportListingsToExcel(listings = [], filenamePrefix = 'AgrowLink_Produce_Listings_Backup') {
   if (!Array.isArray(listings) || listings.length === 0) {
     throw new Error('No produce listings found to export.');
   }
@@ -1321,36 +1284,49 @@ export function exportListingsToExcel(listings = [], filenamePrefix = 'AgrowLink
     'Created Date': lot.createdAt ? new Date(lot.createdAt).toLocaleDateString() : (lot.created_at ? new Date(lot.created_at).toLocaleDateString() : new Date().toLocaleDateString()),
   }));
 
-  const worksheet = XLSX.utils.json_to_sheet(exportRows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Produce Listings');
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Produce Listings');
 
-  // Auto-fit column widths for clear presentation
-  worksheet['!cols'] = [
-    { wch: 18 }, // ID
-    { wch: 24 }, // Commodity
-    { wch: 20 }, // Variety
-    { wch: 10 }, // Grade
-    { wch: 12 }, // Quantity
-    { wch: 10 }, // Unit
-    { wch: 12 }, // Price
-    { wch: 12 }, // Price Unit
-    { wch: 16 }, // Total Value
-    { wch: 16 }, // State
-    { wch: 18 }, // District
-    { wch: 16 }, // Village
-    { wch: 14 }, // Product Type
-    { wch: 20 }, // Brand Name
-    { wch: 18 }, // Packaging Format
-    { wch: 12 }, // Status
-    { wch: 35 }, // Description
-    { wch: 35 }, // Image URL
-    { wch: 14 }, // Created Date
+  worksheet.columns = [
+    { header: 'ID', key: 'ID', width: 18 },
+    { header: 'Commodity', key: 'Commodity', width: 24 },
+    { header: 'Variety', key: 'Variety', width: 20 },
+    { header: 'Grade', key: 'Grade', width: 10 },
+    { header: 'Quantity', key: 'Quantity', width: 12 },
+    { header: 'Unit', key: 'Unit', width: 10 },
+    { header: 'Price', key: 'Price', width: 12 },
+    { header: 'Price Unit', key: 'Price Unit', width: 12 },
+    { header: 'Total Value (₹)', key: 'Total Value (₹)', width: 16 },
+    { header: 'State', key: 'State', width: 16 },
+    { header: 'District', key: 'District', width: 18 },
+    { header: 'Village', key: 'Village', width: 16 },
+    { header: 'Product Type', key: 'Product Type', width: 14 },
+    { header: 'Brand Name', key: 'Brand Name', width: 20 },
+    { header: 'Packaging Format', key: 'Packaging Format', width: 18 },
+    { header: 'Status', key: 'Status', width: 12 },
+    { header: 'Description', key: 'Description', width: 35 },
+    { header: 'Image URL', key: 'Image URL', width: 35 },
+    { header: 'Created Date', key: 'Created Date', width: 14 },
   ];
+
+  exportRows.forEach((row) => worksheet.addRow(row));
 
   const dateStr = new Date().toISOString().split('T')[0];
   const filename = `${filenamePrefix}_${dateStr}.xlsx`;
-  XLSX.writeFile(workbook, filename);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
   return filename;
 }
 

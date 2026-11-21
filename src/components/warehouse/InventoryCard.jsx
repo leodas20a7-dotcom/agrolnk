@@ -2,6 +2,8 @@ import React from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
+import { buildStorageRentReceipt, hasStorageRentPaid } from '../../utils/paymentReceipt';
 import {
   Building2,
   FileText,
@@ -78,6 +80,12 @@ export default function InventoryCard({
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {hasStorageRentPaid(inventory) && (
+              <ReceiptDownloadButton
+                title="Download storage rent payment receipt"
+                buildReceipt={() => buildStorageRentReceipt(inventory)}
+              />
+            )}
             {isPledged && (
               <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
                 <Lock className="w-3 h-3 text-purple-700" />

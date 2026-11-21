@@ -22,6 +22,8 @@ import {
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import CopyButton from '../ui/CopyButton';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
+import { canDownloadOrderReceipt, getOrderReceiptForRole } from '../../utils/paymentReceipt';
 import OrderStatus from './OrderStatus';
 import DeliveryTimeline from '../delivery/DeliveryTimeline';
 import OrderReceiptModal from './OrderReceiptModal';
@@ -395,13 +397,22 @@ export default function OrderSummary({
             </span>
           </div>
 
-          <div className="text-right shrink-0">
-            <span className="text-[10px] uppercase font-bold text-[#566861] block tracking-wider">
-              {isPendingEscrow && hasFreightQuote ? 'Produce Value' : 'Total Amount'}
-            </span>
-            <span className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">
-              ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
-            </span>
+          <div className="flex items-center gap-2.5 shrink-0">
+            {canDownloadOrderReceipt(order, viewerRole) && (
+              <ReceiptDownloadButton
+                size="md"
+                title={(viewerRole === 'farmer' || viewerRole === 'fpo') ? 'Download payout receipt' : 'Download escrow payment receipt'}
+                buildReceipt={() => getOrderReceiptForRole(order, viewerRole)}
+              />
+            )}
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-[#566861] block tracking-wider">
+                {isPendingEscrow && hasFreightQuote ? 'Produce Value' : 'Total Amount'}
+              </span>
+              <span className="text-xl sm:text-2xl font-extrabold text-[#0B3326] font-heading">
+                ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
           </div>
         </div>
 

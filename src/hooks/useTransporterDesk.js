@@ -144,22 +144,14 @@ export function useTransporterDesk(user) {
 
   const handleOpenKycAction = useCallback(() => {
     if (currentKycStatus === 'pending') {
-      try {
-        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-        const registry = storedRaw ? JSON.parse(storedRaw) : [];
-        const found = registry.find((u) => u.id === userId || u.email === userEmail);
-        if (found?.documents?.length > 0) {
-          setInspectingDoc(found.documents[0]);
-          return;
-        }
-      } catch {}
-      if (user?.documents?.length > 0) {
-        setInspectingDoc(user.documents[0]);
+      const docs = user?.documents || user?.meta?.documents;
+      if (Array.isArray(docs) && docs.length > 0) {
+        setInspectingDoc(docs[0]);
         return;
       }
     }
     setIsVerificationModalOpen(true);
-  }, [currentKycStatus, userId, userEmail, user?.documents]);
+  }, [currentKycStatus, user?.documents, user?.meta?.documents]);
 
   const safeDeliveries = useMemo(() => (Array.isArray(deliveries) ? deliveries : []), [deliveries]);
 

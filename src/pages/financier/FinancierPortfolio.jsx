@@ -4,6 +4,8 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import { buildLoanDisbursementReceipt, buildLoanRepaymentReceipt } from '../../utils/paymentReceipt';
 import {
   PieChart,
   Landmark,
@@ -328,6 +330,14 @@ export default function FinancierPortfolio({ currentUser, onNavigate }) {
                             <span>Repayment Due upon Delivery / Maturity</span>
                           </span>
                         )}
+                        <ReceiptDownloadButton
+                          title={isRepaid ? 'Download loan repayment receipt' : 'Download loan disbursement receipt'}
+                          buildReceipt={() =>
+                            isRepaid
+                              ? buildLoanRepaymentReceipt(loan, { principal, interest, totalPaid })
+                              : buildLoanDisbursementReceipt(loan)
+                          }
+                        />
                       </div>
                     </div>
                   </Card>

@@ -15,6 +15,8 @@ import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTerm
 import CreateDeliveryModal from '../../components/delivery/CreateDeliveryModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import OrderReceiptModal from '../../components/orders/OrderReceiptModal';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import { buildSellerPayoutReceipt, isOrderPayoutReleased } from '../../utils/paymentReceipt';
 import {
   ShoppingBag,
   ArrowLeft,
@@ -418,12 +420,20 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
                   Order Management: {selectedOrder.orderNumber}
                 </span>
               </div>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {isOrderPayoutReleased(selectedOrder) && (
+                  <ReceiptDownloadButton
+                    title="Download seller payout receipt"
+                    buildReceipt={() => buildSellerPayoutReceipt(selectedOrder)}
+                  />
+                )}
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Order Summary Spec with In-Order Financing & Delivery */}
@@ -609,18 +619,24 @@ export default function FarmerOrders({ currentUser, onNavigate }) {
             {/* Completed / Settled to Bank Status Note */}
             {(selectedOrder.status === 'completed' || selectedOrder.escrowStatus === 'released' || selectedOrder.adminVerificationStatus === 'approved') && (
               <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-left space-y-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
-                    <CheckCircle2 className="w-5 h-5" />
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-emerald-950 block">
+                        ✓ Trade Fulfilled & Escrow Payout Released
+                      </span>
+                      <span className="text-[11px] text-emerald-800">
+                        Payment of <strong>₹{(selectedOrder.totalAmount || 0).toLocaleString('en-IN')}</strong> has been approved and settled directly to your bank account.
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs font-bold text-emerald-950 block">
-                      ✓ Trade Fulfilled & Escrow Payout Released
-                    </span>
-                    <span className="text-[11px] text-emerald-800">
-                      Payment of <strong>₹{(selectedOrder.totalAmount || 0).toLocaleString('en-IN')}</strong> has been approved and settled directly to your bank account.
-                    </span>
-                  </div>
+                  <ReceiptDownloadButton
+                    title="Download seller payout receipt"
+                    buildReceipt={() => buildSellerPayoutReceipt(selectedOrder)}
+                  />
                 </div>
                 {selectedOrder.bankUtr && (
                   <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px]">

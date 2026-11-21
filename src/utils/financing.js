@@ -77,81 +77,28 @@ function mapFinancingFromDb(row) {
 }
 
 const LOCAL_FINANCING_KEY = 'agrolnk_financing_requests_local';
+const serverLiquidityPools = new Map();
 
-function getLocalFinancingRequests() {
+if (typeof window !== 'undefined' && window.localStorage) {
   try {
-    const raw = localStorage.getItem(LOCAL_FINANCING_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    const seen = new Set();
-    const deduped = [];
-    for (const item of list) {
-      if (!item) continue;
-      // Deduplicate signatures to prevent multi-click repeats
-      const signature = `${item.applicantId || 'applicant'}_${item.listingId || item.commodity || 'lot'}_${item.quantity || ''}_${item.requestedAmount || ''}`;
-      const directKey = item.id || item.requestNumber;
-      if (!seen.has(signature) && !seen.has(directKey)) {
-        seen.add(signature);
-        seen.add(directKey);
-        deduped.push(item);
+    localStorage.removeItem(LOCAL_FINANCING_KEY);
+    localStorage.removeItem('agrolnk_farmer_financing_local');
+    localStorage.removeItem('agrolnk_margin_deposits');
+    localStorage.removeItem('agrolnk_escrow_fundings');
+    Object.keys(localStorage).forEach((k) => {
+      if (k.startsWith('agrolnk_financier_liquidity_pool_')) {
+        localStorage.removeItem(k);
       }
-    }
-    return deduped;
-  } catch {
-    return [];
-  }
+    });
+  } catch {}
 }
 
-function saveLocalFinancingRequest(item) {
-  try {
-    const existing = getLocalFinancingRequests();
-    const existingItem = existing.find(
-      (r) =>
-        (r.id && r.id === item.id) ||
-        (r.requestNumber && r.requestNumber === item.requestNumber) ||
-        (item.orderNumber && r.orderNumber === item.orderNumber && r.applicantRole === item.applicantRole) ||
-        (item.orderId && r.orderId === item.orderId && r.applicantRole === item.applicantRole)
-    );
+function getLocalFinancingRequests() {
+  return [];
+}
 
-    // Deep merge to preserve settled status, margin payment, & repayment details
-    const mergedItem = {
-      ...(existingItem || {}),
-      ...item,
-      financierId: item.financierId || existingItem?.financierId || null,
-      financierName: item.financierName || existingItem?.financierName || null,
-      financierEmail: item.financierEmail || existingItem?.financierEmail || null,
-      applicantKycStatus: item.applicantKycStatus || existingItem?.applicantKycStatus || null,
-      interestRate: item.interestRate !== undefined ? Number(item.interestRate) : existingItem?.interestRate || 0.85,
-      tenorDays: item.tenorDays !== undefined ? Number(item.tenorDays) : existingItem?.tenorDays || 30,
-      offeredAmount: item.offeredAmount !== undefined ? Number(item.offeredAmount) : existingItem?.offeredAmount || item.approvedAmount || item.requestedAmount,
-      offerNotes: item.offerNotes || existingItem?.offerNotes || null,
-      offeredAt: item.offeredAt || existingItem?.offeredAt || null,
-      borrowerAcceptedAt: item.borrowerAcceptedAt || existingItem?.borrowerAcceptedAt || null,
-      disbursedAt: item.disbursedAt || existingItem?.disbursedAt || null,
-      bankUtr: item.bankUtr || existingItem?.bankUtr || null,
-      marginPaid: Boolean(item.marginPaid || existingItem?.marginPaid),
-      escrowFunded: Boolean(item.escrowFunded || existingItem?.escrowFunded),
-      paymentId: item.paymentId || existingItem?.paymentId || null,
-      status: item.status || existingItem?.status || 'pending',
-      repaidAt: item.repaidAt || existingItem?.repaidAt || null,
-      repaymentMethod: item.repaymentMethod || existingItem?.repaymentMethod || null,
-      repaymentTransactionId: item.repaymentTransactionId || existingItem?.repaymentTransactionId || null,
-      repaymentAmount: item.repaymentAmount !== undefined ? item.repaymentAmount : existingItem?.repaymentAmount || 0,
-      repaymentPrincipal: item.repaymentPrincipal !== undefined ? item.repaymentPrincipal : existingItem?.repaymentPrincipal || 0,
-      repaymentInterest: item.repaymentInterest !== undefined ? item.repaymentInterest : existingItem?.repaymentInterest || 0,
-      repaymentNotes: item.repaymentNotes || existingItem?.repaymentNotes || null,
-    };
-
-    const filtered = existing.filter(
-      (r) =>
-        r.id !== item.id &&
-        r.requestNumber !== item.requestNumber &&
-        !(item.orderNumber && r.orderNumber === item.orderNumber && r.applicantRole === item.applicantRole) &&
-        !(item.orderId && r.orderId === item.orderId && r.applicantRole === item.applicantRole) &&
-        (item.listingId ? (r.listingId !== item.listingId || r.applicantId !== item.applicantId) : true) &&
-        !(r.commodity === item.commodity && r.applicantId === item.applicantId && Number(r.quantity) === Number(item.quantity) && r.status === 'pending')
-    );
-    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify([mergedItem, ...filtered]));
-  } catch {}
+function saveLocalFinancingRequest(_item) {
+  // No-op: Financing state is 100% server-authoritative in Supabase public.financing_requests
 }
 
 const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -169,171 +116,31 @@ const generateStandardUuid = () => {
   });
 };
 
-function getBorrowerKycMap() {
-  const map = new Map();
-  try {
-    const raw = localStorage.getItem('agrolnk_admin_kyc_registry');
-    const users = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(users)) {
-      users.forEach((u) => {
-        const status = u.verificationStatus || u.kycStatus || u.kyc_status || 'pending';
-        if (u.id) map.set(String(u.id).toLowerCase(), status);
-        if (u.email) map.set(String(u.email).toLowerCase(), status);
-        if (u.name) map.set(String(u.name).toLowerCase(), status);
-      });
-    }
-  } catch {}
-  return map;
-}
-
-function resolveFinancingStatus(remoteStatus, localStatus) {
-  const statusRank = {
-    pending: 1,
-    under_review: 2,
-    offer_received: 3,
-    borrower_accepted: 4,
-    approved: 5,
-    disbursed: 6,
-    escrow_secured: 7,
-    repaid: 8,
-    settled: 8,
-    rejected: 9,
-    cancelled: 9,
-  };
-  if (!remoteStatus && !localStatus) return 'pending';
-  if (!remoteStatus) return localStatus || 'pending';
-  if (!localStatus) return remoteStatus || 'pending';
-  if (remoteStatus === 'rejected' || remoteStatus === 'cancelled') return remoteStatus;
-  if (localStatus === 'rejected' || localStatus === 'cancelled') return localStatus;
-
-  const rRank = statusRank[remoteStatus] || 1;
-  const lRank = statusRank[localStatus] || 1;
-  return lRank >= rRank ? localStatus : remoteStatus;
-}
-
 /**
- * Get all financing requests from Supabase merged with local requests and resolved KYC status
+ * Get all financing requests strictly from authoritative Supabase public.financing_requests
  */
 export async function getFinancingRequests() {
-  let remote = [];
-  let isSupabaseConnected = false;
-  const kycMap = getBorrowerKycMap();
-
   try {
     const finRes = await supabase
       .from('financing_requests')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!finRes.error && Array.isArray(finRes.data)) {
-      isSupabaseConnected = true;
-      remote = finRes.data.map((row) => {
-        const mapped = mapFinancingFromDb(row);
-        const appId = String(mapped.applicantId || '').toLowerCase();
-        const appName = String(mapped.applicantName || '').toLowerCase();
-        if (!mapped.applicantKycStatus) {
-          // Only KYC-verified participants can submit financing requests
-          mapped.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'verified';
-        }
-        return mapped;
-      });
-    }
-  } catch (err) {
-    console.error('Error in getFinancingRequests:', err);
-  }
-
-  const local = getLocalFinancingRequests();
-  const localMap = new Map();
-  local.forEach((l) => {
-    if (l.id) localMap.set(l.id, l);
-    if (l.requestNumber) {
-      const rawReq = l.requestNumber.replace(/^#/, '');
-      localMap.set(l.requestNumber, l);
-      localMap.set(rawReq, l);
-      localMap.set(`#${rawReq}`, l);
-    }
-    // Key by orderNumber + applicantRole so farmer and buyer requests on the same order never collide
-    if (l.orderNumber && l.applicantRole) {
-      const rawOrd = l.orderNumber.replace(/^#/, '');
-      localMap.set(`${l.orderNumber}_${l.applicantRole}`, l);
-      localMap.set(`${rawOrd}_${l.applicantRole}`, l);
-      localMap.set(`#${rawOrd}_${l.applicantRole}`, l);
-    }
-    if (l.orderId && l.applicantRole) {
-      localMap.set(`${l.orderId}_${l.applicantRole}`, l);
-    }
-  });
-
-  if (isSupabaseConnected) {
-    if (remote.length === 0) {
-      // Database is online and empty! Purge stale local cache so deleted/wiped loans do not resurrect
-      try {
-        localStorage.removeItem(LOCAL_FINANCING_KEY);
-        localStorage.removeItem('agrolnk_farmer_financing_local');
-        localStorage.removeItem('agrolnk_financing_requests_local');
-        localStorage.removeItem('agrolnk_margin_deposits');
-        localStorage.removeItem('agrolnk_escrow_fundings');
-      } catch {}
+    if (finRes.error || !Array.isArray(finRes.data)) {
       return [];
     }
 
-    const mergedRemote = remote.map((r) => {
-      const rawReq = r.requestNumber ? r.requestNumber.replace(/^#/, '') : '';
-      const rawOrd = r.orderNumber ? r.orderNumber.replace(/^#/, '') : '';
-      const localMatch =
-        (r.id && localMap.get(r.id)) ||
-        (r.requestNumber && (localMap.get(r.requestNumber) || localMap.get(rawReq) || localMap.get(`#${rawReq}`))) ||
-        (r.orderNumber && r.applicantRole && (localMap.get(`${r.orderNumber}_${r.applicantRole}`) || localMap.get(`${rawOrd}_${r.applicantRole}`) || localMap.get(`#${rawOrd}_${r.applicantRole}`))) ||
-        (r.orderId && r.applicantRole && localMap.get(`${r.orderId}_${r.applicantRole}`));
-
-      const appId = String(r.applicantId || '').toLowerCase();
-      const appName = String(r.applicantName || '').toLowerCase();
-      const kycFromMap = kycMap.get(appId) || kycMap.get(appName);
-      const resolvedKyc =
-        kycFromMap === 'rejected' || kycFromMap === 'revoked'
-          ? kycFromMap
-          : r.applicantKycStatus === 'verified' || localMatch?.applicantKycStatus === 'verified'
-          ? 'verified'
-          : kycFromMap || r.applicantKycStatus || 'verified';
-
-      const resolved = {
-        ...(localMatch || {}),
-        ...r, // Remote server data is strictly authoritative for status, amounts, and underwriting terms
-        id: r.id || localMatch?.id,
-        requestNumber: r.requestNumber || localMatch?.requestNumber,
-        status: r.status || localMatch?.status || 'pending',
-        applicantKycStatus: resolvedKyc,
-        approvedAmount: Number(r.approvedAmount !== undefined ? r.approvedAmount : (localMatch?.approvedAmount || r.requestedAmount || 0)),
-        offeredAmount: Number(r.offeredAmount !== undefined ? r.offeredAmount : (localMatch?.offeredAmount || r.approvedAmount || r.requestedAmount || 0)),
-      };
-
-      // Keep local cache fresh with latest server state
-      saveLocalFinancingRequest(resolved);
-      return resolved;
-    });
-
-    const remoteKeys = new Set(remote.flatMap((r) => [r.id, r.requestNumber, r.orderNumber, r.orderId].filter(Boolean)));
-    const pendingLocalOnly = local.filter((l) => !remoteKeys.has(l.id) && !remoteKeys.has(l.requestNumber) && (!l.orderNumber || !remoteKeys.has(l.orderNumber)) && l.isOfflinePending).map((l) => {
-      const appId = String(l.applicantId || '').toLowerCase();
-      const appName = String(l.applicantName || '').toLowerCase();
-      if (!l.applicantKycStatus || l.applicantKycStatus === 'pending') {
-        l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'verified';
+    return finRes.data.map((row) => {
+      const mapped = mapFinancingFromDb(row);
+      if (!mapped.applicantKycStatus) {
+        mapped.applicantKycStatus = 'verified';
       }
-      return l;
+      return mapped;
     });
-
-    return [...mergedRemote, ...pendingLocalOnly];
+  } catch (err) {
+    console.error('Error in getFinancingRequests:', err);
+    return [];
   }
-
-  // True offline fallback when database query failed
-  return local.map((l) => {
-    const appId = String(l.applicantId || '').toLowerCase();
-    const appName = String(l.applicantName || '').toLowerCase();
-    if (!l.applicantKycStatus || l.applicantKycStatus === 'pending') {
-      l.applicantKycStatus = kycMap.get(appId) || kycMap.get(appName) || 'verified';
-    }
-    return l;
-  });
 }
 
 /**
@@ -555,86 +362,57 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
   const ordNum = approvalData.orderNumber || reqObj?.orderNumber || (targetKey.startsWith('#AGM-') ? targetKey : null);
   const ordId = approvalData.orderId || reqObj?.orderId || null;
   const targetUuid = approvalData.id || reqObj?.id || (isUuid(targetKey) ? targetKey : null);
+  const rpcLookupId = String(targetUuid || reqNum || targetKey || '').trim();
 
   try {
-    const local = getLocalFinancingRequests();
-    let matched = false;
-    const updatedLocal = local.map((r) => {
-      const isMatch =
-        (targetUuid && r.id === targetUuid) ||
-        (targetKey && (r.id === targetKey || r.requestNumber === targetKey || r.orderNumber === targetKey || r.orderId === targetKey)) ||
-        (reqNum && (r.requestNumber === reqNum || r.requestNumber === reqNum.replace(/^#/, '') || `#${r.requestNumber}` === reqNum)) ||
-        (ordNum && (r.orderNumber === ordNum || r.orderNumber === ordNum.replace(/^#/, '') || `#${r.orderNumber}` === ordNum)) ||
-        (ordId && r.orderId === ordId);
-
-      if (isMatch) {
-        matched = true;
-        const nextApproved =
-          approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null
-            ? Number(approvalData.approvedAmount)
-            : Number(r.approvedAmount || r.requestedAmount);
-        const nextOffered =
-          approvalData.offeredAmount !== undefined && approvalData.offeredAmount !== null
-            ? Number(approvalData.offeredAmount)
-            : Number(r.offeredAmount || nextApproved);
-
-        return {
-          ...r,
-          ...approvalData,
-          status: nextStatus,
-          approvedAmount: nextApproved,
-          offeredAmount: nextOffered,
-          interestRate: approvalData.interestRate !== undefined ? Number(approvalData.interestRate) : Number(r.interestRate || 0.85),
-          tenorDays: approvalData.tenorDays !== undefined ? Number(approvalData.tenorDays) : Number(r.tenorDays || 30),
-          reviewNotes: nextNotes,
-          offerNotes: approvalData.offerNotes || r.offerNotes || nextNotes,
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return r;
-    });
-
-    if (!matched && (reqNum || ordNum || targetKey)) {
-      const initialAmount = approvalData.offeredAmount || approvalData.approvedAmount || 5000;
-      updatedLocal.unshift({
-        id: targetUuid || targetKey || generateStandardUuid(),
-        requestNumber: reqNum || (targetKey.startsWith('#FIN-') ? targetKey : '#FIN-REQ'),
-        orderNumber: ordNum,
-        orderId: ordId,
-        commodity: reqObj?.commodity || 'Produce Lot',
-        applicantId: reqObj?.applicantId || 'applicant',
-        applicantName: reqObj?.applicantName || 'Applicant Partner',
-        applicantRole: reqObj?.applicantRole || 'buyer',
-        transactionValue: reqObj?.transactionValue || initialAmount,
-        requestedAmount: reqObj?.requestedAmount || initialAmount,
-        approvedAmount: initialAmount,
-        offeredAmount: initialAmount,
-        interestRate: approvalData.interestRate !== undefined ? Number(approvalData.interestRate) : 0.85,
-        tenorDays: approvalData.tenorDays !== undefined ? Number(approvalData.tenorDays) : 30,
-        ...approvalData,
-        status: nextStatus,
-        reviewNotes: nextNotes,
-        updatedAt: new Date().toISOString(),
+    // 1. Try authoritative server-side atomic RPC first
+    let rpcHandled = false;
+    if (rpcLookupId && (nextStatus === 'rejected' || nextStatus === 'cancelled')) {
+      const { error: rejRpcErr } = await supabase.rpc('reject_or_cancel_financing_request_atomic', {
+        p_request_id: rpcLookupId,
+        p_status: nextStatus,
+        p_notes: nextNotes,
       });
+      if (!rejRpcErr) {
+        rpcHandled = true;
+      } else if (rejRpcErr.code !== 'PGRST202' && !String(rejRpcErr.message || '').includes('reject_or_cancel_financing_request_atomic')) {
+        throw new Error(rejRpcErr.message || 'Server rejected financing status update.');
+      }
+    } else if (rpcLookupId && (nextStatus === 'offer_received' || nextStatus === 'approved')) {
+      const offerAmt = Number(approvalData.offeredAmount || approvalData.approvedAmount || reqObj?.requestedAmount || 0);
+      if (offerAmt > 0) {
+        const { error: offRpcErr } = await supabase.rpc('submit_financier_offer_atomic', {
+          p_request_id: rpcLookupId,
+          p_offered_amount: offerAmt,
+          p_interest_rate: Number(approvalData.interestRate ?? 0.85),
+          p_tenor_days: Number(approvalData.tenorDays ?? 30),
+          p_offer_notes: nextNotes,
+        });
+        if (!offRpcErr) {
+          rpcHandled = true;
+        } else if (offRpcErr.code !== 'PGRST202' && !String(offRpcErr.message || '').includes('submit_financier_offer_atomic')) {
+          throw new Error(offRpcErr.message || 'Server rejected loan underwriting offer.');
+        }
+      }
+    } else if (rpcLookupId && nextStatus === 'borrower_accepted') {
+      const { error: accRpcErr } = await supabase.rpc('accept_financier_offer_atomic', {
+        p_request_id: rpcLookupId,
+        p_payment_id: approvalData.paymentId || null,
+      });
+      if (!accRpcErr) {
+        rpcHandled = true;
+      } else if (accRpcErr.code !== 'PGRST202' && !String(accRpcErr.message || '').includes('accept_financier_offer_atomic')) {
+        throw new Error(accRpcErr.message || 'Server rejected borrower term acceptance.');
+      }
     }
 
-    localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(updatedLocal));
-
-    // Global broadcast so other views/tabs update instantly
-    try {
-      const target = updatedLocal.find(
-        (r) =>
-          (targetUuid && r.id === targetUuid) ||
-          (targetKey && (r.id === targetKey || r.requestNumber === targetKey || r.orderNumber === targetKey || r.orderId === targetKey)) ||
-          (reqNum && (r.requestNumber === reqNum || r.requestNumber === reqNum.replace(/^#/, ''))) ||
-          (ordNum && (r.orderNumber === ordNum || r.orderNumber === ordNum.replace(/^#/, '')))
-      );
+    if (rpcHandled) {
       if (typeof window !== 'undefined') {
-        broadcastDataChange('financing', 'UPDATE', target || { id: targetKey, status: nextStatus });
-        window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: target }));
+        broadcastDataChange('financing', 'UPDATE', { id: targetUuid || targetKey, status: nextStatus });
+        window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: { id: targetUuid || targetKey, status: nextStatus } }));
         window.dispatchEvent(new Event('storage'));
       }
-    } catch {}
+    }
 
     const structuredNotesJson = JSON.stringify({
       status: nextStatus,
@@ -726,79 +504,78 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
       updatePayload.repayment_notes = approvalData.repaymentNotes;
     }
 
-    // Update in Supabase across ID, request_number, or order_number
-    try {
-      const cleanKey = String(targetKey || '').trim();
-      const rawNumber = (reqNum || cleanKey).replace(/^#/, '');
-      const hashedNumber = `#${rawNumber}`;
+    // Update in Supabase across ID, request_number, or order_number (only if not already committed by atomic RPC)
+    if (!rpcHandled) {
+      try {
+        const cleanKey = String(targetKey || '').trim();
+        const rawNumber = (reqNum || cleanKey).replace(/^#/, '');
+        const hashedNumber = `#${rawNumber}`;
 
-      const runUpdate = async (payload) => {
-        // 1. If we have a valid UUID ID
-        if (targetUuid && isUuid(targetUuid)) {
-          const res = await supabase.from('financing_requests').update(payload).eq('id', targetUuid).select();
-          if (res.data && res.data.length > 0) return res;
-        }
+        const runUpdate = async (payload) => {
+          // 1. If we have a valid UUID ID
+          if (targetUuid && isUuid(targetUuid)) {
+            const res = await supabase.from('financing_requests').update(payload).eq('id', targetUuid).select();
+            if (res.data && res.data.length > 0) return res;
+          }
 
-        // 2. Try matching by request_number with hash
-        const res1 = await supabase.from('financing_requests').update(payload).eq('request_number', hashedNumber).select();
-        if (res1.data && res1.data.length > 0) return res1;
+          // 2. Try matching by request_number with hash
+          const res1 = await supabase.from('financing_requests').update(payload).eq('request_number', hashedNumber).select();
+          if (res1.data && res1.data.length > 0) return res1;
 
-        // 3. Try matching by request_number without hash
-        const res2 = await supabase.from('financing_requests').update(payload).eq('request_number', rawNumber).select();
-        if (res2.data && res2.data.length > 0) return res2;
+          // 3. Try matching by request_number without hash
+          const res2 = await supabase.from('financing_requests').update(payload).eq('request_number', rawNumber).select();
+          if (res2.data && res2.data.length > 0) return res2;
 
-        // 4. Try matching by order_number if available
-        if (ordNum) {
-          const rawOrd = ordNum.replace(/^#/, '');
-          const res3 = await supabase.from('financing_requests').update(payload).eq('order_number', `#${rawOrd}`).select();
-          if (res3.data && res3.data.length > 0) return res3;
+          // 4. Try matching by order_number if available
+          if (ordNum) {
+            const rawOrd = ordNum.replace(/^#/, '');
+            const res3 = await supabase.from('financing_requests').update(payload).eq('order_number', `#${rawOrd}`).select();
+            if (res3.data && res3.data.length > 0) return res3;
 
-          const res4 = await supabase.from('financing_requests').update(payload).eq('order_number', rawOrd).select();
-          if (res4.data && res4.data.length > 0) return res4;
-        }
+            const res4 = await supabase.from('financing_requests').update(payload).eq('order_number', rawOrd).select();
+            if (res4.data && res4.data.length > 0) return res4;
+          }
 
-        // 5. Try matching by order_id if available
-        if (ordId) {
-          const res5 = await supabase.from('financing_requests').update(payload).eq('order_id', ordId).select();
-          if (res5.data && res5.data.length > 0) return res5;
-        }
+          // 5. Try matching by order_id if available
+          if (ordId) {
+            const res5 = await supabase.from('financing_requests').update(payload).eq('order_id', ordId).select();
+            if (res5.data && res5.data.length > 0) return res5;
+          }
 
-        // 6. General match attempt
-        return await supabase.from('financing_requests').update(payload).eq('id', cleanKey);
-      };
-
-      const { error: updateErr } = await runUpdate(updatePayload);
-      if (updateErr) {
-        const errMsg = String(updateErr.message || '');
-        if (errMsg.includes('Security Policy') || errMsg.includes('Double-Pledging') || updateErr.code === '42501') {
-          throw new Error(errMsg);
-        }
-        console.warn('Full payload update error, retrying with structured notes:', updateErr);
-        const basicPayload = {
-          review_notes: structuredNotesJson,
-          status: nextStatus,
-          updated_at: new Date().toISOString(),
+          // 6. General match attempt
+          return await supabase.from('financing_requests').update(payload).eq('id', cleanKey);
         };
-        if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
-          basicPayload.approved_amount = Number(approvalData.approvedAmount);
-        }
-        const { error: retryErr } = await runUpdate(basicPayload);
-        if (retryErr) {
-          const retryMsg = String(retryErr.message || '');
-          if (retryMsg.includes('Security Policy') || retryMsg.includes('Double-Pledging') || retryErr.code === '42501') {
-            throw new Error(retryMsg);
+
+        const { error: updateErr } = await runUpdate(updatePayload);
+        if (updateErr) {
+          const errMsg = String(updateErr.message || '');
+          if (errMsg.includes('Security Policy') || errMsg.includes('Double-Pledging') || updateErr.code === '42501') {
+            throw new Error(errMsg);
+          }
+          console.warn('Full payload update error, retrying with structured notes:', updateErr);
+          const basicPayload = {
+            review_notes: structuredNotesJson,
+            status: nextStatus,
+            updated_at: new Date().toISOString(),
+          };
+          if (approvalData.approvedAmount !== undefined && approvalData.approvedAmount !== null) {
+            basicPayload.approved_amount = Number(approvalData.approvedAmount);
+          }
+          const { error: retryErr } = await runUpdate(basicPayload);
+          if (retryErr) {
+            const retryMsg = String(retryErr.message || '');
+            if (retryMsg.includes('Security Policy') || retryMsg.includes('Double-Pledging') || retryErr.code === '42501') {
+              throw new Error(retryMsg);
+            }
           }
         }
+      } catch (dbErr) {
+        const msg = String(dbErr?.message || '');
+        if (msg.includes('Security Policy') || msg.includes('Double-Pledging')) {
+          throw dbErr;
+        }
+        console.warn('Supabase financing table update note:', dbErr);
       }
-    } catch (dbErr) {
-      const msg = String(dbErr?.message || '');
-      if (msg.includes('Security Policy') || msg.includes('Double-Pledging')) {
-        try {
-          localStorage.setItem(LOCAL_FINANCING_KEY, JSON.stringify(local));
-        } catch {}
-        throw dbErr;
-      }
-      console.warn('Supabase financing table update note:', dbErr);
     }
   } catch (err) {
     const msg = String(err?.message || '');
@@ -822,95 +599,137 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
 }
 
 /**
- * Step 1: Financier submits a Term-Sheet Quote / Offer to the borrower
+ * Step 1: Financier submits a Term-Sheet Quote / Offer to the borrower (Server-Enforced RPC)
  */
 export async function submitFinancierOffer(requestOrId, offerData = {}) {
+  const targetKey = typeof requestOrId === 'object' && requestOrId !== null
+    ? (requestOrId.id || requestOrId.requestNumber || '')
+    : String(requestOrId || '');
   const offeredAmount = Number(offerData.offeredAmount || offerData.approvedAmount || 50000);
   const interestRate = Number(offerData.interestRate || 0.85);
   const tenorDays = Number(offerData.tenorDays || 30);
-  
-  return underwriteFinancingRequest(requestOrId, {
-    status: 'offer_received',
-    offeredAmount,
-    approvedAmount: offeredAmount,
-    interestRate,
-    tenorDays,
-    offerNotes: offerData.reviewNotes || offerData.offerNotes || `Term-sheet quote: ₹${offeredAmount.toLocaleString('en-IN')} @ ${interestRate}%/mo for ${tenorDays} days.`,
-    offeredAt: new Date().toISOString(),
-    financierId: offerData.financierId || 'default',
-    financierName: offerData.financierName || 'Financial Institution',
-    financierEmail: offerData.financierEmail || null,
-    ...(typeof requestOrId === 'object' && requestOrId !== null
-      ? {
-          id: requestOrId.id,
-          requestNumber: requestOrId.requestNumber,
-          orderNumber: requestOrId.orderNumber,
-          orderId: requestOrId.orderId,
-          applicantId: requestOrId.applicantId,
-          applicantName: requestOrId.applicantName,
-          applicantRole: requestOrId.applicantRole,
-        }
-      : {}),
-  });
-}
+  const notes = offerData.reviewNotes || offerData.offerNotes || `Term-sheet quote: ₹${offeredAmount.toLocaleString('en-IN')} @ ${interestRate}%/mo for ${tenorDays} days.`;
 
-/**
- * Step 2: Borrower (Farmer or Retailer) accepts the Term-Sheet Offer and locks the lender
- */
-export async function acceptFinancierOffer(requestOrId, acceptanceNotes = '') {
-  return underwriteFinancingRequest(requestOrId, {
-    status: 'borrower_accepted',
-    borrowerAcceptedAt: new Date().toISOString(),
-    reviewNotes: acceptanceNotes || 'Borrower accepted terms. Ready for escrow disbursement.',
-    ...(typeof requestOrId === 'object' && requestOrId !== null
-      ? {
-          id: requestOrId.id,
-          requestNumber: requestOrId.requestNumber,
-          orderNumber: requestOrId.orderNumber,
-          orderId: requestOrId.orderId,
-        }
-      : {}),
+  const { error: rpcErr } = await supabase.rpc('submit_financier_offer_atomic', {
+    p_request_id: String(targetKey),
+    p_offered_amount: offeredAmount,
+    p_interest_rate: interestRate,
+    p_tenor_days: tenorDays,
+    p_notes: notes,
   });
-}
 
-/**
- * Step 3: Accepted Financier disburses the loan capital into Escrow via Razorpay Route
- */
-export async function disburseAcceptedLoan(requestId, paymentData = {}) {
-  const disbAmount = Number(paymentData.approvedAmount || paymentData.offeredAmount || 0);
-  
-  // Deduct from this specific financial institution's available liquidity pool
-  if (paymentData.financierId && typeof window !== 'undefined') {
-    try {
-      const pool = getLiquidityPool(paymentData.financierId);
-      const key = getLiquidityPoolKey(paymentData.financierId);
-      const updatedPool = {
-        ...pool,
-        availableLiquidity: Math.max(0, (Number(pool.availableLiquidity) || 0) - disbAmount),
-        deployedLiquidity: (Number(pool.deployedLiquidity) || 0) + disbAmount,
-      };
-      localStorage.setItem(key, JSON.stringify(updatedPool));
-      window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updatedPool }));
-      syncLiquidityPoolToDb(paymentData.financierId, updatedPool);
-    } catch {}
+  if (rpcErr) {
+    if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('submit_financier_offer_atomic')) {
+      return underwriteFinancingRequest(requestOrId, {
+        status: 'offer_received',
+        offeredAmount,
+        approvedAmount: offeredAmount,
+        interestRate,
+        tenorDays,
+        offerNotes: notes,
+        offeredAt: new Date().toISOString(),
+        financierId: offerData.financierId || 'default',
+        financierName: offerData.financierName || 'Financial Institution',
+        financierEmail: offerData.financierEmail || null,
+      });
+    }
+    throw new Error(rpcErr.message || 'Server rejected financing offer submission.');
   }
 
-  return underwriteFinancingRequest(requestId, {
-    status: 'disbursed',
-    disbursedAt: new Date().toISOString(),
-    bankUtr: paymentData.bankUtr || null,
-    paymentId: paymentData.razorpayPaymentId || paymentData.paymentId || null,
-    reviewNotes: paymentData.bankUtr
-      ? `Escrow funded and capital disbursed via Razorpay Route. UTR: ${paymentData.bankUtr}`
-      : `Escrow funded and capital disbursed via Razorpay Route (Payment ID: ${paymentData.razorpayPaymentId || paymentData.paymentId || 'Captured'}). Pending bank settlement.`,
-    financierId: paymentData.financierId,
-    financierName: paymentData.financierName,
-    financierEmail: paymentData.financierEmail,
-  });
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_financing_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return { id: targetKey, status: 'offer_received', offeredAmount, interestRate, tenorDays };
 }
 
 /**
- * Repay financing loan directly to the specific financial institution that funded it
+ * Step 2: Borrower accepts the Term-Sheet Offer and locks the lender (Server-Enforced RPC)
+ */
+export async function acceptFinancierOffer(requestOrId, acceptanceNotes = '') {
+  const targetKey = typeof requestOrId === 'object' && requestOrId !== null
+    ? (requestOrId.id || requestOrId.requestNumber || '')
+    : String(requestOrId || '');
+
+  const { error: rpcErr } = await supabase.rpc('accept_financier_offer_atomic', {
+    p_request_id: String(targetKey),
+    p_notes: acceptanceNotes || 'Borrower accepted terms. Ready for escrow disbursement.',
+  });
+
+  if (rpcErr) {
+    if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('accept_financier_offer_atomic')) {
+      return underwriteFinancingRequest(requestOrId, {
+        status: 'borrower_accepted',
+        borrowerAcceptedAt: new Date().toISOString(),
+        reviewNotes: acceptanceNotes || 'Borrower accepted terms. Ready for escrow disbursement.',
+      });
+    }
+    throw new Error(rpcErr.message || 'Server rejected financing offer acceptance.');
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_financing_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return { id: targetKey, status: 'approved' };
+}
+
+/**
+ * Step 3: Accepted Financier disburses the loan capital into Escrow (Server-Enforced RPC)
+ */
+export async function disburseAcceptedLoan(requestId, paymentData = {}) {
+  const targetKey = typeof requestId === 'object' && requestId !== null
+    ? (requestId.id || requestId.requestNumber || '')
+    : String(requestId || '');
+  const disbAmount = Number(paymentData.approvedAmount || paymentData.offeredAmount || 0);
+
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('disburse_loan_atomic', {
+    p_request_id: String(targetKey),
+    p_approved_amount: disbAmount,
+    p_payment_id: paymentData.razorpayPaymentId || paymentData.paymentId || null,
+    p_bank_utr: paymentData.bankUtr || null,
+  });
+
+  if (rpcErr) {
+    if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('disburse_loan_atomic')) {
+      if (paymentData.financierId) {
+        const pool = getLiquidityPool(paymentData.financierId);
+        const updatedPool = {
+          ...pool,
+          availableLiquidity: Math.max(0, (Number(pool.availableLiquidity) || 0) - disbAmount),
+          deployedLiquidity: (Number(pool.deployedLiquidity) || 0) + disbAmount,
+        };
+        serverLiquidityPools.set(String(paymentData.financierId), updatedPool);
+        await syncLiquidityPoolToDb(paymentData.financierId, updatedPool);
+      }
+      return underwriteFinancingRequest(requestId, {
+        status: 'disbursed',
+        disbursedAt: new Date().toISOString(),
+        bankUtr: paymentData.bankUtr || null,
+        paymentId: paymentData.razorpayPaymentId || paymentData.paymentId || null,
+        financierId: paymentData.financierId,
+        financierName: paymentData.financierName,
+        financierEmail: paymentData.financierEmail,
+      });
+    }
+    throw new Error(rpcErr.message || 'Server rejected loan disbursement.');
+  }
+
+  if (rpcRes?.liquidity_pool && paymentData.financierId) {
+    serverLiquidityPools.set(String(paymentData.financierId), rpcRes.liquidity_pool);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: rpcRes.liquidity_pool }));
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_financing_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return rpcRes;
+}
+
+/**
+ * Repay financing loan directly to the specific financial institution that funded it (Server-Enforced RPC)
  */
 export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
   try {
@@ -929,46 +748,13 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
 
     const targetFinancierId = existing?.financierId || repaymentDetails.financierId || 'default';
     const targetFinancierName = existing?.financierName || repaymentDetails.financierName || 'Financial Institution';
+    const notes = repaymentDetails.notes || `Full settlement of ₹${totalAmount.toLocaleString('en-IN')} (Principal: ₹${principal.toLocaleString('en-IN')}, Interest: ₹${interest.toLocaleString('en-IN')}) with ${targetFinancierName}.`;
 
-    const repaymentData = {
-      status: 'repaid',
-      repaidAt: new Date().toISOString(),
-      repaymentMethod: repaymentDetails.method || 'razorpay',
-      repaymentTransactionId: txnId,
-      repaymentAmount: totalAmount,
-      repaymentPrincipal: principal,
-      repaymentInterest: interest,
-      financierId: targetFinancierId,
-      financierName: targetFinancierName,
-      financierEmail: existing?.financierEmail || null,
-      repaymentNotes: repaymentDetails.notes || `Full settlement of ₹${totalAmount.toLocaleString('en-IN')} (Principal: ₹${principal.toLocaleString('en-IN')}, Interest: ₹${interest.toLocaleString('en-IN')}) with ${targetFinancierName}.`,
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Replenish ONLY the specific financial institution's liquidity pool with the recovered principal!
-    if (targetFinancierId && typeof window !== 'undefined') {
-      try {
-        const pool = getLiquidityPool(targetFinancierId);
-        const key = getLiquidityPoolKey(targetFinancierId);
-        const updatedPool = {
-          ...pool,
-          availableLiquidity: (Number(pool.availableLiquidity) || 0) + principal,
-          deployedLiquidity: Math.max(0, (Number(pool.deployedLiquidity) || 0) - principal),
-        };
-        localStorage.setItem(key, JSON.stringify(updatedPool));
-        window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updatedPool }));
-        syncLiquidityPoolToDb(targetFinancierId, updatedPool);
-      } catch {}
-    }
-
-    // When the Edge Function already persisted status='repaid' and released collateral via service_role,
-    // refresh the authoritative list and sync local state cleanly without attempting a restricted client update.
     if (repaymentDetails.serverUpdated) {
       const refreshedAll = await getFinancingRequests();
       const matchedServer =
         refreshedAll.find((r) => r.id === requestId || r.requestNumber === requestId || r.orderNumber === requestId) ||
-        { ...(existing || { id: requestId }), ...repaymentData };
-      saveLocalFinancingRequest(matchedServer);
+        existing;
       if (typeof window !== 'undefined') {
         broadcastDataChange('financing', 'UPDATE', matchedServer);
         window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: matchedServer }));
@@ -977,27 +763,50 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
       return matchedServer;
     }
 
-    // Non-server path (only permitted for Admin/Financier or local DEV fallback when Edge Function is offline)
-    const { data: verifyRow } = existing?.id
-      ? await supabase.from('financing_requests').select('id, status').eq('id', existing.id).maybeSingle()
-      : { data: null };
+    const targetKey = existing?.id || String(requestId || '');
+    const { error: rpcErr } = await supabase.rpc('repay_loan_atomic', {
+      p_request_id: String(targetKey),
+      p_amount: totalAmount,
+      p_principal: principal,
+      p_interest: interest,
+      p_txn_id: txnId,
+      p_method: repaymentDetails.method || 'razorpay',
+      p_notes: notes,
+    });
 
-    if (verifyRow && ['repaid', 'settled'].includes(verifyRow.status)) {
-      const refreshedAll = await getFinancingRequests();
-      const matched = refreshedAll.find((r) => r.id === verifyRow.id) || existing;
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: matched }));
-        window.dispatchEvent(new Event('storage'));
+    if (rpcErr) {
+      if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('repay_loan_atomic')) {
+        const repaymentData = {
+          status: 'repaid',
+          repaidAt: new Date().toISOString(),
+          repaymentMethod: repaymentDetails.method || 'razorpay',
+          repaymentTransactionId: txnId,
+          repaymentAmount: totalAmount,
+          repaymentPrincipal: principal,
+          repaymentInterest: interest,
+          financierId: targetFinancierId,
+          financierName: targetFinancierName,
+          financierEmail: existing?.financierEmail || null,
+          repaymentNotes: notes,
+          updatedAt: new Date().toISOString(),
+        };
+        const updated = await underwriteFinancingRequest(requestId, repaymentData);
+        return updated;
       }
-      return matched;
+      throw new Error(rpcErr.message || 'Server rejected loan repayment settlement.');
     }
 
-    const updated = await underwriteFinancingRequest(requestId, repaymentData);
+    if (targetFinancierId) {
+      await loadFinancierLiquidityPool(targetFinancierId).catch(() => {});
+    }
+
+    const refreshedAll = await getFinancingRequests();
+    const matched = refreshedAll.find((r) => r.id === targetKey || r.requestNumber === requestId) || existing;
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: updated }));
+      window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: matched }));
       window.dispatchEvent(new Event('storage'));
     }
-    return updated;
+    return matched;
   } catch (err) {
     console.error('Error repaying financing loan:', err);
     throw err;
@@ -1278,13 +1087,11 @@ export async function syncLiquidityPoolToDb(financierUserOrId, poolData) {
 }
 
 /**
- * Load latest liquidity pool for a financier, checking Supabase profiles database first
- * Performs smart merge to never wipe active capital with stale 0 records
+ * Load latest liquidity pool for a financier strictly from Supabase profiles database (never inflates from localStorage)
  */
 export async function loadFinancierLiquidityPool(financierUserOrId) {
   const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
   const fid = targetId || targetEmail || 'default';
-  const local = getLiquidityPool(financierUserOrId || fid);
 
   if (targetId || targetEmail) {
     try {
@@ -1301,83 +1108,42 @@ export async function loadFinancierLiquidityPool(financierUserOrId) {
 
       if (existingProf?.meta?.liquidity_pool) {
         const dbPool = existingProf.meta.liquidity_pool;
-        
-        // Smart merge: Preserve whichever record has the active committed capital
-        const dbCommitted = Number(dbPool.totalCommitted) || 0;
-        const localCommitted = Number(local?.totalCommitted) || 0;
-        const maxCommitted = Math.max(dbCommitted, localCommitted);
-
-        const dbAvailable = Number(dbPool.availableLiquidity) || 0;
-        const localAvailable = Number(local?.availableLiquidity) || 0;
-        const maxAvailable = Math.max(dbAvailable, localAvailable, maxCommitted);
-
-        const mergedPool = {
+        const authoritativePool = {
           ...dbPool,
-          ...local,
-          totalCommitted: maxCommitted,
-          availableLiquidity: maxAvailable,
+          totalCommitted: Number(dbPool.totalCommitted) || 0,
+          availableLiquidity: Number(dbPool.availableLiquidity) || 0,
+          deployedLiquidity: Number(dbPool.deployedLiquidity) || 0,
           financierId: existingProf.id || fid,
         };
 
-        const keysToSync = new Set([getLiquidityPoolKey(fid)]);
-        if (targetId) keysToSync.add(getLiquidityPoolKey(targetId));
-        if (targetEmail) keysToSync.add(getLiquidityPoolKey(targetEmail));
-        if (existingProf.id) keysToSync.add(getLiquidityPoolKey(existingProf.id));
-        if (existingProf.email) keysToSync.add(getLiquidityPoolKey(existingProf.email));
+        if (targetId) serverLiquidityPools.set(String(targetId), authoritativePool);
+        if (targetEmail) serverLiquidityPools.set(String(targetEmail), authoritativePool);
+        if (existingProf.id) serverLiquidityPools.set(String(existingProf.id), authoritativePool);
+        if (existingProf.email) serverLiquidityPools.set(String(existingProf.email), authoritativePool);
+        serverLiquidityPools.set(String(fid), authoritativePool);
 
-        keysToSync.forEach((k) => {
-          try {
-            localStorage.setItem(k, JSON.stringify(mergedPool));
-          } catch {}
-        });
-
-        // If local had higher committed capital than remote DB, sync up remote DB immediately
-        if (localCommitted > dbCommitted) {
-          syncLiquidityPoolToDb(existingProf, mergedPool);
-        }
-
-        return mergedPool;
-      } else if (local && (Number(local.totalCommitted) > 0 || Number(local.availableLiquidity) > 0)) {
-        // Push local pool to DB if DB doesn't have it yet
-        syncLiquidityPoolToDb(existingProf || financierUserOrId, local);
+        return authoritativePool;
       }
     } catch (err) {
       console.warn('loadFinancierLiquidityPool db notice:', err);
     }
   }
 
-  return local;
+  return getLiquidityPool(financierUserOrId || fid);
 }
 
 /**
- * Get liquidity pool details for a specific financial institution (synchronous local cache)
+ * Get liquidity pool details for a specific financial institution (in-memory server-hydrated snapshot, zero localStorage trust)
  */
 export function getLiquidityPool(financierUserOrId) {
   const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
   const fid = targetId || targetEmail || (typeof financierUserOrId === 'string' ? financierUserOrId : 'default');
 
-  const keysToCheck = [
-    getLiquidityPoolKey(fid),
-    targetId ? getLiquidityPoolKey(targetId) : null,
-    targetEmail ? getLiquidityPoolKey(targetEmail) : null,
-    getLiquidityPoolKey('default'),
-  ].filter(Boolean);
-
-  let poolData = null;
-  for (const k of keysToCheck) {
-    try {
-      const raw = localStorage.getItem(k);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && (Number(parsed.totalCommitted) > 0 || Number(parsed.availableLiquidity) > 0)) {
-          poolData = parsed;
-          break;
-        } else if (!poolData && parsed) {
-          poolData = parsed;
-        }
-      }
-    } catch {}
-  }
+  const poolData =
+    serverLiquidityPools.get(String(fid)) ||
+    (targetId ? serverLiquidityPools.get(String(targetId)) : null) ||
+    (targetEmail ? serverLiquidityPools.get(String(targetEmail)) : null) ||
+    null;
 
   const totalCommitted = Number(poolData?.totalCommitted) || 0;
   return {
@@ -1385,7 +1151,7 @@ export function getLiquidityPool(financierUserOrId) {
     availableLiquidity: poolData?.availableLiquidity !== undefined ? Number(poolData.availableLiquidity) : totalCommitted,
     deployedLiquidity: poolData?.deployedLiquidity !== undefined ? Number(poolData.deployedLiquidity) : 0,
     utilizationRate: totalCommitted > 0 ? Math.round(((Number(poolData?.deployedLiquidity) || 0) / totalCommitted) * 100) : 0,
-    weightedAvgReturn: 0.95, // 0.95% per month
+    weightedAvgReturn: 0.95,
     nonPerformingRate: 0.0,
     activeTranches: poolData?.activeTranches || (totalCommitted > 0 ? 1 : 0),
     lastAllocatedAt: poolData?.lastAllocatedAt || null,
@@ -1396,43 +1162,44 @@ export function getLiquidityPool(financierUserOrId) {
 
 export async function addLiquidityPoolFunds(amount, financierUserOrId) {
   const numAmount = Number(amount) || 0;
+  if (numAmount <= 0) {
+    throw new Error('Liquidity allocation amount must be greater than zero.');
+  }
   const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
   const fid = targetId || targetEmail || (typeof financierUserOrId === 'string' ? financierUserOrId : 'default');
 
-  const currentPool = getLiquidityPool(financierUserOrId || fid);
-  const newCommitted = (Number(currentPool.totalCommitted) || 0) + numAmount;
-  const newAvailable = (Number(currentPool.availableLiquidity) || 0) + numAmount;
-
-  const updated = {
-    ...currentPool,
-    totalCommitted: newCommitted,
-    availableLiquidity: newAvailable,
-    activeTranches: (currentPool.activeTranches || 0) + 1,
-    lastAllocatedAt: new Date().toISOString(),
-    lastAllocatedAmount: numAmount,
-    financierId: fid,
-  };
-
-  const keysToSync = new Set([getLiquidityPoolKey(fid)]);
-  if (targetId) keysToSync.add(getLiquidityPoolKey(targetId));
-  if (targetEmail) keysToSync.add(getLiquidityPoolKey(targetEmail));
-
-  keysToSync.forEach((k) => {
-    try {
-      localStorage.setItem(k, JSON.stringify(updated));
-    } catch (err) {
-      console.warn('Failed to save liquidity pool:', err);
-    }
+  const { data: rpcPool, error: rpcErr } = await supabase.rpc('add_financier_liquidity_atomic', {
+    p_amount: numAmount,
   });
+
+  let updated = rpcPool;
+  if (rpcErr) {
+    if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('add_financier_liquidity_atomic')) {
+      const currentPool = getLiquidityPool(financierUserOrId || fid);
+      updated = {
+        ...currentPool,
+        totalCommitted: (Number(currentPool.totalCommitted) || 0) + numAmount,
+        availableLiquidity: (Number(currentPool.availableLiquidity) || 0) + numAmount,
+        activeTranches: (currentPool.activeTranches || 0) + 1,
+        lastAllocatedAt: new Date().toISOString(),
+        lastAllocatedAmount: numAmount,
+        financierId: fid,
+      };
+      await syncLiquidityPoolToDb(financierUserOrId || fid, updated);
+    } else {
+      throw new Error(rpcErr.message || 'Server rejected liquidity pool allocation.');
+    }
+  }
+
+  if (targetId) serverLiquidityPools.set(String(targetId), updated);
+  if (targetEmail) serverLiquidityPools.set(String(targetEmail), updated);
+  serverLiquidityPools.set(String(fid), updated);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('agrolnk_liquidity_updated', { detail: updated }));
     window.dispatchEvent(new Event('storage'));
     broadcastDataChange('financing', 'UPDATE', { id: `pool_${fid}`, liquidity_pool: updated });
   }
-
-  // Persist directly to Supabase Database (profiles table meta JSONB)
-  await syncLiquidityPoolToDb(financierUserOrId || fid, updated);
 
   return updated;
 }

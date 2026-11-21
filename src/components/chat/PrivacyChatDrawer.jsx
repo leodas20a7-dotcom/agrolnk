@@ -189,11 +189,7 @@ export default function PrivacyChatDrawer({
         const supportKeys = Object.keys(allStored).filter(
           (k) => k.startsWith('support_') && Array.isArray(allStored[k]) && allStored[k].length > 0
         );
-        let registry = [];
-        try {
-          const raw = localStorage.getItem('agrolnk_admin_kyc_registry');
-          if (raw) registry = JSON.parse(raw);
-        } catch {}
+        const registry = [];
 
         supportKeys.forEach((sKey) => {
           const userIdentifier = sKey.replace(/^support_/, '');

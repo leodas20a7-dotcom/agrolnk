@@ -18,12 +18,18 @@ CREATE OR REPLACE FUNCTION public.place_auction_bid_atomic(
     p_bid_amount NUMERIC,
     p_bidder_id TEXT DEFAULT NULL,
     p_bidder_name TEXT DEFAULT NULL
-) RETURNS JSONB AS $$
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 DECLARE
     v_auction RECORD;
     v_new_bid_id TEXT;
     v_prev_bidder_id TEXT;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_caller_id TEXT := auth.uid()::text;
+    v_is_privileged BOOLEAN := (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role');
     v_bidder_id TEXT;
     v_bidder_name TEXT;
     v_kyc_status TEXT;
@@ -33,10 +39,17 @@ DECLARE
     v_extended BOOLEAN := false;
 BEGIN
     -- 1. Cryptographically bind bidder identity from Supabase Auth session
-    v_bidder_id := auth.uid()::text;
-    IF v_bidder_id IS NULL THEN
-        -- Fallback for direct testing / service role if explicit param provided
-        v_bidder_id := NULLIF(TRIM(p_bidder_id), '');
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required: You must be logged in to place a bid.';
+    END IF;
+
+    IF NOT v_is_privileged THEN
+        IF p_bidder_id IS NOT NULL AND TRIM(p_bidder_id) <> '' AND TRIM(p_bidder_id) <> v_caller_id THEN
+            RAISE EXCEPTION 'Forbidden: Bidder identity mismatch (cannot place a bid on behalf of another user).';
+        END IF;
+        v_bidder_id := v_caller_id;
+    ELSE
+        v_bidder_id := COALESCE(NULLIF(TRIM(p_bidder_id), ''), v_caller_id);
     END IF;
 
     IF v_bidder_id IS NULL THEN
@@ -324,11 +337,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.finalize_auction_atomic(
     p_auction_id TEXT
-) RETURNS JSONB AS $$
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 DECLARE
     v_auction RECORD;
     v_existing_order RECORD;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_privileged BOOLEAN := false;
     v_order_id TEXT;
     v_order_num TEXT;
     v_total_amt NUMERIC;
@@ -336,6 +355,15 @@ DECLARE
     v_delivery_num TEXT;
     v_final_status TEXT;
 BEGIN
+    v_is_privileged := public.is_admin()
+        OR (auth.jwt() ->> 'role') = 'service_role'
+        OR auth.role() = 'service_role'
+        OR current_setting('agrolnk.trusted_rpc', true) = 'true';
+
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required to finalize auction.';
+    END IF;
+
     -- 1. Lock auction row
     SELECT * INTO v_auction 
     FROM public.auctions 
@@ -353,6 +381,13 @@ BEGIN
             'status', v_auction.status,
             'message', 'Auction already settled.'
         );
+    END IF;
+
+    -- Prevent premature auction termination by non-owners before end_time
+    IF NOT v_is_privileged AND v_caller_id IS DISTINCT FROM v_auction.farmer_id THEN
+        IF v_auction.end_time IS NULL OR v_auction.end_time > v_now THEN
+            RAISE EXCEPTION 'Forbidden: Only the auction creator or platform administrator can settle an auction before its scheduled end time.';
+        END IF;
     END IF;
 
     -- 2. Evaluate Reserve Price based on Auction Type (Forward vs Reverse)
@@ -668,13 +703,23 @@ GRANT EXECUTE ON FUNCTION public.accept_auction_bid_early_atomic(TEXT, NUMERIC) 
 -- Safe for concurrent execution via pg_cron, serverless daemon, or client RPC
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.finalize_expired_auctions_batch()
-RETURNS JSONB AS $$
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 DECLARE
     v_rec RECORD;
     v_finalized_count INT := 0;
     v_errors_count INT := 0;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_service BOOLEAN := ((auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role');
 BEGIN
+    IF NOT v_is_service AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.';
+    END IF;
+
     FOR v_rec IN 
         SELECT id 
         FROM public.auctions 
@@ -699,7 +744,10 @@ BEGIN
         'timestamp', v_now
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.finalize_expired_auctions_batch() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.finalize_expired_auctions_batch() TO authenticated, service_role;
 
 
 -- ----------------------------------------------------------------------------
@@ -768,10 +816,17 @@ CREATE OR REPLACE FUNCTION public.create_direct_order_atomic(
     p_delivery_location JSONB DEFAULT '{}'::jsonb,
     p_is_trade_credit BOOLEAN DEFAULT false,
     p_buyer_unit TEXT DEFAULT NULL
-) RETURNS JSONB AS $$
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 DECLARE
     v_listing RECORD;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_privileged BOOLEAN := (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role');
+    v_buyer_id TEXT;
     v_deduct_qty NUMERIC;
     v_order_id TEXT;
     v_order_num TEXT;
@@ -787,6 +842,19 @@ DECLARE
     v_escrow_status TEXT;
     v_status TEXT;
 BEGIN
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required to create an order.';
+    END IF;
+
+    IF NOT v_is_privileged THEN
+        IF p_buyer_id IS NOT NULL AND TRIM(p_buyer_id) <> '' AND TRIM(p_buyer_id) <> v_caller_id THEN
+            RAISE EXCEPTION 'Forbidden: Buyer identity mismatch (cannot create an order for another user).';
+        END IF;
+        v_buyer_id := v_caller_id;
+    ELSE
+        v_buyer_id := COALESCE(NULLIF(TRIM(p_buyer_id), ''), v_caller_id);
+    END IF;
+
     -- 1. Acquire exclusive lock on the listing row
     SELECT * INTO v_listing
     FROM public.listings
@@ -804,7 +872,7 @@ BEGIN
 
     -- 2b. Prevent Self-Trading (Sellers cannot buy their own produce)
     IF v_listing.farmer_id IS NOT NULL AND (
-        v_listing.farmer_id = p_buyer_id OR 
+        v_listing.farmer_id = v_buyer_id OR 
         (auth.uid() IS NOT NULL AND v_listing.farmer_id = auth.uid()::text)
     ) THEN
         RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgrowLink.';
@@ -839,11 +907,11 @@ BEGIN
         updated_at = v_now
     WHERE id = p_listing_id;
 
-    -- 6. Create Order atomically
+    -- 6. Create Order atomically (never pre-funded before escrow verification)
     v_order_id := 'ord_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 9);
     v_order_num := '#AGM-' || floor(1000 + random() * 9000)::text;
-    v_escrow_status := CASE WHEN p_is_trade_credit THEN 'pending' ELSE 'funded' END;
-    v_status := 'order_placed';
+    v_escrow_status := 'pending';
+    v_status := 'pending';
 
     INSERT INTO public.orders (
         id, order_number, listing_id, auction_id, buyer_id, buyer_name,
@@ -852,7 +920,7 @@ BEGIN
         platform_commission_amount, net_seller_amount, delivery_location,
         state, district, escrow_status, status, created_at, updated_at
     ) VALUES (
-        v_order_id, v_order_num, v_listing.id, NULL, p_buyer_id, COALESCE(p_buyer_name, 'Wholesale Buyer'),
+        v_order_id, v_order_num, v_listing.id, NULL, v_buyer_id, COALESCE(p_buyer_name, 'Wholesale Buyer'),
         v_listing.farmer_id, COALESCE(v_listing.farmer_name, 'Verified Producer'), v_listing.commodity,
         v_listing.variety, v_listing.grade, p_quantity, COALESCE(p_buyer_unit, v_listing.unit),
         v_unit_price, v_total_amt, v_buyer_fee, v_seller_fee,

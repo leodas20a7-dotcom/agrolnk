@@ -2,7 +2,9 @@ import React from 'react';
 import { Building2, ThermometerSnowflake, Sparkles, Receipt, Eye, Truck, Clock, ArrowRight, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
 import { calculateStorageRentalDues, calculateMonthlyRentDeadline } from '../../utils/warehouses';
+import { buildStorageRentReceipt, hasStorageRentPaid } from '../../utils/paymentReceipt';
 
 export default function InventoryRow({
   inventory,
@@ -217,6 +219,14 @@ export default function InventoryRow({
             List Produce
           </Button>
         ) : null}
+
+        {hasStorageRentPaid(inventory) && (
+          <ReceiptDownloadButton
+            size="md"
+            title="Download storage rent payment receipt"
+            buildReceipt={() => buildStorageRentReceipt(inventory)}
+          />
+        )}
 
         <Button
           variant="ghost"

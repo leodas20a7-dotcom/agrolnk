@@ -4,6 +4,8 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import CopyButton from '../ui/CopyButton';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
+import { canDownloadOrderReceipt, getOrderReceiptForRole } from '../../utils/paymentReceipt';
 import OrderStatus from './OrderStatus';
 import FinancingStatusBadge from '../financing/FinancingStatusBadge';
 import { getFinancingRequestForOrder } from '../../utils/financing';
@@ -109,16 +111,25 @@ export default function OrderCard({ order, viewerRole = 'farmer', onView }) {
           <span>100% Escrow Protected</span>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => onView(order)}
-          icon={ArrowRight}
-          iconPosition="right"
-          className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]"
-        >
-          View Order Lifecycle
-        </Button>
+        <div className="flex items-center gap-2">
+          {canDownloadOrderReceipt(order, viewerRole) && (
+            <ReceiptDownloadButton
+              size="md"
+              title={(viewerRole === 'farmer' || viewerRole === 'fpo') ? 'Download payout receipt' : 'Download payment receipt'}
+              buildReceipt={() => getOrderReceiptForRole(order, viewerRole)}
+            />
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onView(order)}
+            icon={ArrowRight}
+            iconPosition="right"
+            className="text-xs font-bold py-2 border-[#E5EDE8] hover:border-[#10B981] hover:bg-[#F2FBF6]"
+          >
+            View Order Lifecycle
+          </Button>
+        </div>
       </div>
     </Card>
   );

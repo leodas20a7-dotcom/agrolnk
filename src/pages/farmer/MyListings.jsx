@@ -230,13 +230,13 @@ export default function MyListings({ currentUser, onNavigate }) {
     }
   };
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
       if (!safeListings || safeListings.length === 0) {
         toast.info('No produce listings available to export.');
         return;
       }
-      const filename = exportListingsToExcel(
+      const filename = await exportListingsToExcel(
         safeListings,
         `AgrowLink_Produce_Listings_${user.name ? user.name.replace(/\s+/g, '_') : 'Farmer'}`
       );

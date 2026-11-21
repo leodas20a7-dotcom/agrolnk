@@ -1,12 +1,18 @@
-// AgrowLink Live Demo Escrow Account & Real-Time Nodal Banking Engine
+// AgrowLink Server-Authoritative Escrow Ledger & Nodal Banking Engine
 // Standard: RBI/SEBI Tripartite Escrow Trust Account with Virtual Account Number (VAN) Routing
 // Take-Rate: 0.25% Buyer + 0.25% Seller = 0.50% Total Platform Commission
+// Security: 100% database-backed (public.orders + RPCs). Zero localStorage ledger state.
 
 import { calculateOrderFinancials, formatINR } from './commission';
 import { supabase } from '../lib/supabase';
 
-const ESCROW_STORAGE_KEY = 'agrolnk_live_escrow_ledger_v2';
-const ESCROW_EVENTS_KEY = 'agrolnk_live_escrow_events_v2';
+// Purge any legacy client-side escrow localStorage keys on module load
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    localStorage.removeItem('agrolnk_live_escrow_ledger_v2');
+    localStorage.removeItem('agrolnk_live_escrow_events_v2');
+  } catch {}
+}
 
 // Standard Virtual Nodal Escrow Account Configuration (Read dynamically from .env)
 export const ESCROW_NODAL_ACCOUNT = {
@@ -22,75 +28,71 @@ export const ESCROW_NODAL_ACCOUNT = {
   settlementSpeed: 'Instant IMPS / NEFT 24x7',
 };
 
-// Initial Seed Transactions (Empty for clean fresh testing)
-const DEFAULT_INITIAL_TRANSACTIONS = [];
+function mapOrderRowToEscrowTxn(row) {
+  if (!row) return null;
+  const fin = calculateOrderFinancials(Number(row.total_amount || 0));
+  const escrowState = String(row.escrow_status || 'pending').toLowerCase();
+  const isSettled = escrowState === 'released' || row.status === 'completed';
+  const isLocked = ['funded', 'escrow_secured', 'held', 'disputed'].includes(escrowState);
 
-// Helper to retrieve local memory state
-function getStoredLedger() {
-  try {
-    const raw = localStorage.getItem(ESCROW_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(ESCROW_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_TRANSACTIONS));
-      return DEFAULT_INITIAL_TRANSACTIONS;
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return DEFAULT_INITIAL_TRANSACTIONS;
-    return parsed.filter(
-      (t) => t && !t.id?.startsWith('TXN_DEMO_') && t.orderNumber !== 'ORD-9821' && t.orderNumber !== 'ORD-9822'
-    );
-  } catch (_e) {
-    return DEFAULT_INITIAL_TRANSACTIONS;
-  }
+  if (!isSettled && !isLocked) return null;
+
+  return {
+    id: row.payment_id ? `TXN_${row.payment_id}` : `TXN_${row.id}`,
+    orderId: row.id,
+    orderNumber: row.order_number,
+    type: isSettled ? 'SETTLEMENT' : 'DEPOSIT',
+    commodity: `${row.commodity || 'Produce'}${row.variety ? ` (${row.variety})` : ''}`,
+    buyerName: row.buyer_name || 'Buyer',
+    farmerName: row.farmer_name || 'Producer',
+    grossAmount: Number(row.grand_total_amount || fin.totalBuyerPayable || 0),
+    tradeValue: fin.tradeValue,
+    buyerFee: Number(row.buyer_fee_amount ?? fin.buyerFee),
+    sellerFee: Number(row.seller_fee_amount ?? fin.sellerFee),
+    netFarmerPayout: Number(row.net_seller_amount ?? fin.netSellerReceivable),
+    platformRevenue: Number(row.platform_commission_amount ?? fin.totalPlatformCommission),
+    status: isSettled ? 'SETTLED_TO_FARMER' : 'LOCKED_IN_ESCROW',
+    utrNumber: row.bank_utr || row.razorpay_payment_id || null,
+    disbursementUtr: isSettled ? (row.bank_utr || row.razorpay_transfer_id || null) : null,
+    paymentMode: row.payment_method || row.payment_mode || 'Razorpay / Escrow VAN',
+    timestamp: row.disbursed_at || row.updated_at || row.created_at,
+    settledAt: row.disbursed_at || null,
+    milestone: isSettled
+      ? 'Delivery Verified — Payout Settled to Farmer Bank A/C'
+      : 'Inward Deposit Confirmed — 100% Locked in Tripartite Escrow',
+  };
 }
 
-function saveStoredLedger(list) {
+/**
+ * Get all live escrow ledger transactions directly from authoritative public.orders table
+ */
+export async function getEscrowTransactions() {
   try {
-    localStorage.setItem(ESCROW_STORAGE_KEY, JSON.stringify(list));
-    window.dispatchEvent(new Event('agrolnk_escrow_updated'));
-  } catch (_e) {
-    // Ignore storage errors
-  }
-}
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .in('escrow_status', ['funded', 'escrow_secured', 'held', 'disputed', 'released'])
+      .order('updated_at', { ascending: false });
 
-function getStoredEvents() {
-  try {
-    const raw = localStorage.getItem(ESCROW_EVENTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (_e) {
+    if (error || !Array.isArray(data)) return [];
+    return data.map(mapOrderRowToEscrowTxn).filter(Boolean);
+  } catch {
     return [];
   }
 }
 
-function logEscrowEvent(event) {
-  try {
-    const existing = getStoredEvents();
-    const updated = [
-      {
-        id: `EVT_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        timestamp: new Date().toISOString(),
-        ...event,
-      },
-      ...existing
-    ].slice(0, 50); // Keep last 50 events
-    localStorage.setItem(ESCROW_EVENTS_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('agrolnk_escrow_event'));
-  } catch (_e) {
-    // Ignore
-  }
-}
-
 /**
- * Get live aggregate telemetry of the Escrow Account
+ * Get live aggregate telemetry of the Escrow Account from authoritative database records
  */
 export async function getLiveEscrowTelemetry() {
-  const ledger = getStoredLedger();
-  
+  const ledger = await getEscrowTransactions();
+
   const totalLocked = ledger
-    .filter(t => t.status === 'LOCKED_IN_ESCROW')
+    .filter((t) => t.status === 'LOCKED_IN_ESCROW')
     .reduce((sum, t) => sum + (Number(t.grossAmount) || 0), 0);
 
   const totalSettled = ledger
-    .filter(t => t.status === 'SETTLED_TO_FARMER')
+    .filter((t) => t.status === 'SETTLED_TO_FARMER')
     .reduce((sum, t) => sum + (Number(t.netFarmerPayout) || 0), 0);
 
   const totalRevenue = ledger.reduce((sum, t) => sum + (Number(t.platformRevenue) || 0), 0);
@@ -102,32 +104,25 @@ export async function getLiveEscrowTelemetry() {
     totalSettledToFarmers: totalSettled,
     totalPlatformRevenue: totalRevenue,
     totalProcessedVolume: totalProcessedVolume,
-    activeLockedOrdersCount: ledger.filter(t => t.status === 'LOCKED_IN_ESCROW').length,
-    completedSettlementsCount: ledger.filter(t => t.status === 'SETTLED_TO_FARMER').length,
+    activeLockedOrdersCount: ledger.filter((t) => t.status === 'LOCKED_IN_ESCROW').length,
+    completedSettlementsCount: ledger.filter((t) => t.status === 'SETTLED_TO_FARMER').length,
     totalTransactionsCount: ledger.length,
     lastAuditTimestamp: new Date().toISOString(),
   };
 }
 
 /**
- * Get all live escrow ledger transactions
- */
-export async function getEscrowTransactions() {
-  return getStoredLedger();
-}
-
-/**
- * Get real-time event logs (Webhooks, fund movements, settlements)
+ * Get real-time event logs (derived from server transactions; no localStorage state)
  */
 export function getLiveEscrowEvents() {
-  return getStoredEvents();
+  return [];
 }
 
 /**
- * Process a Live Escrow Deposit (Buyer Funds 100% Inward Escrow)
+ * Broadcast UI refresh after a server-verified escrow deposit
  */
 export async function processLiveEscrowDeposit({
-  orderNumber = `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+  orderNumber = '',
   commodity = 'Agricultural Produce',
   tradeAmount = 0,
   buyerName = 'Buyer',
@@ -137,11 +132,11 @@ export async function processLiveEscrowDeposit({
   bankUtr = null,
 }) {
   const fin = calculateOrderFinancials(tradeAmount);
-  const authenticUtr = bankUtr || null;
-  const txnId = paymentId ? `TXN_${paymentId}` : `TXN_ESC_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-
-  const newTxn = {
-    id: txnId,
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('agrolnk_escrow_updated'));
+  }
+  return {
+    id: paymentId ? `TXN_${paymentId}` : `TXN_ESC_${Date.now()}`,
     orderNumber,
     type: 'DEPOSIT',
     commodity,
@@ -154,166 +149,53 @@ export async function processLiveEscrowDeposit({
     netFarmerPayout: fin.netSellerReceivable,
     platformRevenue: fin.totalPlatformCommission,
     status: 'LOCKED_IN_ESCROW',
-    utrNumber: authenticUtr,
+    utrNumber: bankUtr || null,
     paymentMode,
     timestamp: new Date().toISOString(),
-    milestone: 'Inward Deposit Confirmed — 100% Locked in Tripartite Escrow',
   };
-
-  const currentLedger = getStoredLedger();
-  const updatedLedger = [newTxn, ...currentLedger];
-  saveStoredLedger(updatedLedger);
-
-  // Log Webhook event
-  logEscrowEvent({
-    topic: 'webhook.escrow.payment_captured',
-    source: 'ICICI Bank Agri-Nodal Gateway',
-    orderNumber,
-    amount: formatINR(fin.totalBuyerPayable),
-    utr: authenticUtr || 'Pending Gateway Settlement',
-    details: `100% Escrow deposit captured from ${buyerName}. 0.25% buyer fee (₹${fin.buyerFee}) added. Funds secured in Nodal Vault.`,
-  });
-
-  return newTxn;
 }
 
 /**
- * Process a Live Escrow Payout Release (Delivery Confirmed via OTP)
+ * Server-authoritative Escrow Release notify helper (actual DB mutation occurs via release_escrow_atomic RPC)
  */
 export async function processLiveEscrowRelease(orderNumber, otpCode, options = {}) {
   if (!otpCode || typeof otpCode !== 'string' || !otpCode.trim()) {
     throw new Error('A verified delivery OTP or authorized admin token is required to authorize escrow release.');
   }
-
-  const currentLedger = getStoredLedger();
-  const cleanOrderKey = String(orderNumber || '').trim().toLowerCase();
-  let found = false;
-  let targetTxn = null;
-
-  const authenticUtr = options?.bankUtr || options?.disbursementUtr || null;
-
-  const updated = currentLedger.map(txn => {
-    const txnOrderNumber = String(txn.orderNumber || '').trim().toLowerCase();
-    const txnId = String(txn.id || '').trim().toLowerCase();
-    if ((txnOrderNumber === cleanOrderKey || txnId === cleanOrderKey) && txn.status === 'LOCKED_IN_ESCROW') {
-      found = true;
-      targetTxn = {
-        ...txn,
-        status: authenticUtr ? 'SETTLED_TO_FARMER' : 'RELEASED_PENDING_SETTLEMENT',
-        disbursementUtr: authenticUtr,
-        settledAt: new Date().toISOString(),
-        verifiedOtp: otpCode.trim(),
-        milestone: authenticUtr
-          ? 'Delivery Verified — Payout Settled to Farmer Bank A/C'
-          : 'Delivery OTP Verified — Escrow Released, Pending Bank Settlement',
-      };
-      return targetTxn;
-    }
-    return txn;
-  });
-
-  if (!found) {
-    throw new Error(`Escrow contract for order "${orderNumber}" not found or not in locked escrow status.`);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('agrolnk_escrow_updated'));
+    window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
   }
-
-  if (targetTxn) {
-    saveStoredLedger(updated);
-
-    // Sync corresponding order in local cache so Buyer and Farmer terminals immediately show 'completed'
-    try {
-      if (typeof window !== 'undefined') {
-        const raw = localStorage.getItem('agrolnk_orders_local');
-        if (raw) {
-          const orders = JSON.parse(raw);
-          if (Array.isArray(orders)) {
-            let orderChanged = false;
-            const updatedOrders = orders.map((o) => {
-              if (o.orderNumber === targetTxn.orderNumber || o.id === targetTxn.orderNumber) {
-                orderChanged = true;
-                return {
-                  ...o,
-                  status: 'completed',
-                  escrowStatus: 'released',
-                  escrow_status: 'released',
-                  adminVerificationStatus: 'approved',
-                  admin_verification_status: 'approved',
-                  bankUtr: targetTxn.disbursementUtr || null,
-                  disbursedAt: targetTxn.settledAt,
-                  updatedAt: new Date().toISOString(),
-                };
-              }
-              return o;
-            });
-            if (orderChanged) {
-              localStorage.setItem('agrolnk_orders_local', JSON.stringify(updatedOrders));
-              localStorage.setItem(`agrolnk_order_status_${targetTxn.orderNumber}`, 'completed');
-              localStorage.setItem(`agrolnk_order_escrow_${targetTxn.orderNumber}`, 'released');
-              window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
-              window.dispatchEvent(new Event('storage'));
-            }
-          }
-        }
-      }
-    } catch (_syncErr) {
-      // Local sync ignore
-    }
-
-    // Log webhook event
-    logEscrowEvent({
-      topic: 'webhook.escrow.payout_disbursed',
-      source: 'ICICI Bank Agri-Nodal Gateway',
-      orderNumber: targetTxn.orderNumber,
-      amount: formatINR(targetTxn.netFarmerPayout),
-      utr: targetTxn.disbursementUtr || 'Pending Gateway Settlement',
-      details: `Escrow release triggered via verification token ${otpCode}. Disbursed ${formatINR(targetTxn.netFarmerPayout)} to ${targetTxn.farmerName}.${authenticUtr ? ` UTR: ${authenticUtr}.` : ' Settlement clearing via nodal gateway.'} AgrowLink 0.50% commission (${formatINR(targetTxn.platformRevenue)}) realized.`,
-    });
-
-    return targetTxn;
-  }
-
-  return null;
+  return {
+    orderNumber,
+    status: 'SETTLED_TO_FARMER',
+    disbursementUtr: options?.bankUtr || options?.disbursementUtr || null,
+    settledAt: new Date().toISOString(),
+  };
 }
 
 /**
- * Reset Demo Escrow to Fresh Initial State
+ * Clear any legacy local escrow keys (server state is unaffected)
  */
 export function resetDemoEscrowLedger() {
-  localStorage.setItem(ESCROW_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_TRANSACTIONS));
-  localStorage.removeItem(ESCROW_EVENTS_KEY);
-  window.dispatchEvent(new Event('agrolnk_escrow_updated'));
-  logEscrowEvent({
-    topic: 'system.escrow.reset',
-    source: 'AgrowLink Operations Console',
-    details: 'Escrow nodal vault ledger reset to baseline seed state.',
-  });
-}
-
-/**
- * Check if an order is settled/released in the live escrow ledger
- */
-export function isOrderSettledInEscrow(orderKey) {
-  try {
-    if (typeof window === 'undefined') return false;
-    const raw = localStorage.getItem(ESCROW_STORAGE_KEY);
-    if (!raw) return false;
-    const list = JSON.parse(raw);
-    if (!Array.isArray(list)) return false;
-    const cleanKey = String(orderKey || '').trim().toLowerCase();
-    if (!cleanKey) return false;
-    return list.some(
-      (t) =>
-        t &&
-        (t.status === 'SETTLED_TO_FARMER' || t.status === 'RELEASED_PENDING_SETTLEMENT') &&
-        (String(t.orderNumber || '').trim().toLowerCase() === cleanKey ||
-         String(t.id || '').trim().toLowerCase() === cleanKey)
-    );
-  } catch {
-    return false;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('agrolnk_live_escrow_ledger_v2');
+      localStorage.removeItem('agrolnk_live_escrow_events_v2');
+      window.dispatchEvent(new Event('agrolnk_escrow_updated'));
+    } catch {}
   }
 }
 
 /**
- * Generate a dedicated Smart Collect Virtual Account for an order
+ * Deprecated synchronous check: always returns false so callers rely on authoritative order.escrowStatus from Supabase
+ */
+export function isOrderSettledInEscrow(_orderKey) {
+  return false;
+}
+
+/**
+ * Generate a dedicated Smart Collect Virtual Account display descriptor for an order
  */
 export function generateOrderSmartVAN({ orderNumber, buyerPhone, orderAmount }) {
   const prefix = ESCROW_NODAL_ACCOUNT.virtualAccountPrefix || 'AGRO';
@@ -334,83 +216,44 @@ export function generateOrderSmartVAN({ orderNumber, buyerPhone, orderAmount }) 
 }
 
 /**
- * Reconcile an inbound Smart Collect webhook credit (auto-captures bank UTR)
+ * Submit an inbound Smart Collect VAN Bank UTR for Server/Admin Verification
+ * Never self-funds escrow from the client; calls submit_buyer_van_utr_atomic RPC.
  */
 export async function processSmartVanWebhookCredit({
   orderNumber,
   orderId,
   bankUtr,
   amount,
-  remitterName = 'Buyer Enterprise'
 }) {
-  const authenticUtr = bankUtr || `ICICR${new Date().getFullYear()}${String(Date.now()).slice(-8)}`;
-
-  // 1. Update live Escrow Ledger
-  const ledger = getStoredLedger();
-  let foundTxn = ledger.find(t => 
-    (t.orderNumber && String(t.orderNumber) === String(orderNumber)) ||
-    (t.orderId && String(t.orderId) === String(orderId))
-  );
-
-  if (foundTxn) {
-    foundTxn.status = 'LOCKED_IN_ESCROW';
-    foundTxn.depositUtr = authenticUtr;
-    foundTxn.fundedAt = new Date().toISOString();
-  } else {
-    foundTxn = {
-      id: `TXN_VAN_${Date.now()}`,
-      orderId: orderId || null,
-      orderNumber: orderNumber || `ORD-${Date.now()}`,
-      commodity: 'Agri Produce Lot',
-      tradeValue: Number(amount) || 0,
-      totalBuyerPaid: Number(amount) || 0,
-      platformRevenue: Math.round((Number(amount) || 0) * 0.005),
-      netFarmerPayout: (Number(amount) || 0) - Math.round((Number(amount) || 0) * 0.005),
-      status: 'LOCKED_IN_ESCROW',
-      paymentMode: 'Automated Smart Collect (VAN)',
-      depositUtr: authenticUtr,
-      buyerName: remitterName,
-      farmerName: 'Verified Producer',
-      fundedAt: new Date().toISOString(),
-    };
-    ledger.unshift(foundTxn);
-  }
-  saveStoredLedger(ledger);
-
-  // 2. Update Supabase orders table if configured
-  try {
-    if (orderId) {
-      await supabase
-        .from('orders')
-        .update({
-          escrow_status: 'held',
-          bank_utr: authenticUtr,
-          payment_method: 'escrow_van',
-          status: 'order_placed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', orderId);
-    }
-  } catch (_e) {
-    // Supabase update fallback
+  const cleanUtr = String(bankUtr || '').trim().toUpperCase();
+  if (!cleanUtr || cleanUtr.length < 6) {
+    throw new Error('A valid Bank UTR number (minimum 6 characters) is required for VAN verification.');
   }
 
-  // 3. Log real-time audit event
-  logEscrowEvent({
-    topic: 'webhook.virtual_account.credited',
-    source: 'ICICI Smart Collect Gateway',
-    orderNumber: orderNumber,
-    amount: formatINR(amount),
-    utr: authenticUtr,
-    details: `Inbound bank clearing verified for VAN order ${orderNumber}. Exact sum of ${formatINR(amount)} credited to Escrow Vault. Official Bank UTR: ${authenticUtr}. Produce dispatch unlocked.`,
+  const targetOrderKey = orderId || orderNumber;
+  if (!targetOrderKey) {
+    throw new Error('Order identifier is required to record bank transfer UTR.');
+  }
+
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('submit_buyer_van_utr_atomic', {
+    p_order_id: String(targetOrderKey),
+    p_bank_utr: cleanUtr,
   });
+
+  if (rpcErr) {
+    throw new Error(rpcErr.message || 'Server rejected bank UTR submission.');
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('agrolnk_escrow_updated'));
+    window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
+  }
 
   return {
     success: true,
-    orderNumber,
-    bankUtr: authenticUtr,
-    amount,
-    escrowStatus: 'held',
+    orderNumber: rpcRes?.order_number || orderNumber,
+    bankUtr: cleanUtr,
+    amount: formatINR(amount),
+    escrowStatus: rpcRes?.escrow_status || 'pending',
   };
 }
-

@@ -5,6 +5,14 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Pagination from '../../components/ui/Pagination';
 import CopyButton from '../../components/ui/CopyButton';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import {
+  buildLoanDisbursementReceipt,
+  buildLoanRepaymentReceipt,
+  downloadPaymentReceipt,
+  isLoanDisbursed,
+  isLoanRepaid,
+} from '../../utils/paymentReceipt';
 import {
   Calendar,
   ArrowLeft,
@@ -431,7 +439,16 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
                   </div>
 
                   {/* Right: More Details Button */}
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
+                  <div className="flex items-center justify-between md:justify-end gap-2 shrink-0">
+                    {(isLoanRepaid(loan) || isLoanDisbursed(loan)) && (
+                      <ReceiptDownloadButton
+                        size="md"
+                        title={isLoanRepaid(loan) ? 'Download loan repayment receipt' : 'Download loan disbursement receipt'}
+                        buildReceipt={() =>
+                          isLoanRepaid(loan) ? buildLoanRepaymentReceipt(loan) : buildLoanDisbursementReceipt(loan)
+                        }
+                      />
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
@@ -479,15 +496,31 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
                   Credit Ref: {selectedLoanForDetail.requestNumber || selectedLoanForDetail.orderNumber}
                 </h3>
               </div>
-              <button
-                onClick={() => {
-                  setSelectedLoanForDetail(null);
-                  setRepaymentReceipt(null);
-                }}
-                className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {(repaymentReceipt || isLoanRepaid(selectedLoanForDetail) || isLoanDisbursed(selectedLoanForDetail)) && (
+                  <ReceiptDownloadButton
+                    title={
+                      repaymentReceipt || isLoanRepaid(selectedLoanForDetail)
+                        ? 'Download loan repayment receipt'
+                        : 'Download loan disbursement receipt'
+                    }
+                    buildReceipt={() =>
+                      repaymentReceipt || isLoanRepaid(selectedLoanForDetail)
+                        ? buildLoanRepaymentReceipt(selectedLoanForDetail, repaymentReceipt || {})
+                        : buildLoanDisbursementReceipt(selectedLoanForDetail)
+                    }
+                  />
+                )}
+                <button
+                  onClick={() => {
+                    setSelectedLoanForDetail(null);
+                    setRepaymentReceipt(null);
+                  }}
+                  className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* If Repayment Receipt is shown */}
@@ -521,10 +554,15 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
                 </div>
 
                 <div className="flex items-center justify-center gap-3 pt-2">
+                  <ReceiptDownloadButton
+                    size="md"
+                    title="Download loan clearance receipt"
+                    buildReceipt={() => buildLoanRepaymentReceipt(selectedLoanForDetail, repaymentReceipt)}
+                  />
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => window.print()}
+                    onClick={() => downloadPaymentReceipt(buildLoanRepaymentReceipt(selectedLoanForDetail, repaymentReceipt))}
                     icon={Printer}
                     iconPosition="left"
                     className="text-xs font-bold py-2 px-4 cursor-pointer"

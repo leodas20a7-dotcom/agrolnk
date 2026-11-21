@@ -27,6 +27,14 @@ import { getFinancingRequests } from '../../utils/financing';
 import { calculateOrderFinancials, calculateFreightFinancials, calculateWarehouseRentFinancials, calculateFinancingFinancials, formatINR } from '../../utils/commission';
 import AdminCallVerificationModal from '../../components/admin/AdminCallVerificationModal';
 import Pagination from '../../components/ui/Pagination';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import {
+  buildOrderEscrowReceipt,
+  buildSellerPayoutReceipt,
+  buildFreightReceipt,
+  buildStorageRentReceipt,
+  buildLoanDisbursementReceipt,
+} from '../../utils/paymentReceipt';
 import { Zap, PhoneCall, Phone, UserCheck, ShieldAlert, X } from 'lucide-react';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
@@ -791,31 +799,49 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                                   Verify Deposit
                                 </Button>
                               ) : item.escrowState === 'released' ? (
-                                <div className="space-y-0.5">
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
-                                  </span>
-                                  {item.bankUtr && (
-                                    <span className="font-mono text-[10px] text-[#566861] block">
-                                      UTR: {item.bankUtr}
+                                <div className="inline-flex items-center justify-center gap-2">
+                                  <div className="space-y-0.5 text-left">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
+                                      <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
                                     </span>
-                                  )}
+                                    {item.bankUtr && (
+                                      <span className="font-mono text-[10px] text-[#566861] block">
+                                        UTR: {item.bankUtr}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <ReceiptDownloadButton
+                                    title="Download settlement receipt"
+                                    buildReceipt={() => buildSellerPayoutReceipt(item)}
+                                  />
                                 </div>
                               ) : item.status === 'delivered' || item.buyerArrivalConfirmed ? (
-                                <Button
-                                  variant="accent"
-                                  size="sm"
-                                  icon={PhoneCall}
-                                  iconPosition="left"
-                                  onClick={() => setOrderForVerification(item)}
-                                  className="text-xs font-bold py-1.5 px-3 cursor-pointer"
-                                >
-                                  Call Buyer &amp; Release
-                                </Button>
+                                <div className="inline-flex items-center justify-center gap-2">
+                                  <Button
+                                    variant="accent"
+                                    size="sm"
+                                    icon={PhoneCall}
+                                    iconPosition="left"
+                                    onClick={() => setOrderForVerification(item)}
+                                    className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                                  >
+                                    Call Buyer &amp; Release
+                                  </Button>
+                                  <ReceiptDownloadButton
+                                    title="Download escrow deposit receipt"
+                                    buildReceipt={() => buildOrderEscrowReceipt(item)}
+                                  />
+                                </div>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0B3326] bg-[#EBF5F0] px-2.5 py-1 rounded-full">
-                                  <Clock className="w-3.5 h-3.5 text-[#10B981]" /> In Escrow • Awaiting Delivery
-                                </span>
+                                <div className="inline-flex items-center justify-center gap-2">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0B3326] bg-[#EBF5F0] px-2.5 py-1 rounded-full">
+                                    <Clock className="w-3.5 h-3.5 text-[#10B981]" /> In Escrow • Awaiting Delivery
+                                  </span>
+                                  <ReceiptDownloadButton
+                                    title="Download escrow deposit receipt"
+                                    buildReceipt={() => buildOrderEscrowReceipt(item)}
+                                  />
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -915,10 +941,16 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                                   Verify Freight
                                 </Button>
                               ) : item.freightState === 'released' ? (
-                                <div className="space-y-0.5">
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
-                                  </span>
+                                <div className="space-y-1 flex flex-col items-center">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981]">
+                                      <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
+                                    </span>
+                                    <ReceiptDownloadButton
+                                      title="Download freight settlement receipt"
+                                      buildReceipt={() => buildFreightReceipt(item, 'transporter')}
+                                    />
+                                  </div>
                                   {item.freightDisbursalUtr && (
                                     <span className="font-mono text-[10px] text-[#566861] block">
                                       Ref: {item.freightDisbursalUtr}
@@ -926,16 +958,22 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                                   )}
                                 </div>
                               ) : item.freightState === 'locked' ? (
-                                <Button
-                                  variant="accent"
-                                  size="sm"
-                                  icon={CheckCircle2}
-                                  iconPosition="left"
-                                  onClick={() => setReleasingFreightDelivery(item)}
-                                  className="text-xs font-bold py-1.5 px-3 cursor-pointer"
-                                >
-                                  Release Fare
-                                </Button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <Button
+                                    variant="accent"
+                                    size="sm"
+                                    icon={CheckCircle2}
+                                    iconPosition="left"
+                                    onClick={() => setReleasingFreightDelivery(item)}
+                                    className="text-xs font-bold py-1.5 px-3 cursor-pointer"
+                                  >
+                                    Release Fare
+                                  </Button>
+                                  <ReceiptDownloadButton
+                                    title="Download freight escrow receipt"
+                                    buildReceipt={() => buildFreightReceipt(item, 'buyer')}
+                                  />
+                                </div>
                               ) : (
                                 <span className="text-gray-400 text-xs italic">Awaiting Buyer Escrow</span>
                               )}
@@ -1010,10 +1048,18 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Razorpay Direct
-                                </span>
+                              <div className="space-y-0.5 flex flex-col items-center">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Razorpay Direct
+                                  </span>
+                                  {item.warehousePaymentState === 'settled' && (
+                                    <ReceiptDownloadButton
+                                      title="Download storage rent receipt"
+                                      buildReceipt={() => buildStorageRentReceipt(item)}
+                                    />
+                                  )}
+                                </div>
                                 <span className="text-[10px] text-[#566861] block">
                                   No Escrow Hold
                                 </span>
@@ -1089,10 +1135,18 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> RBI LSP Direct
-                                </span>
+                              <div className="space-y-0.5 flex flex-col items-center">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> RBI LSP Direct
+                                  </span>
+                                  {item.financingState === 'disbursed' && (
+                                    <ReceiptDownloadButton
+                                      title="Download loan disbursement receipt"
+                                      buildReceipt={() => buildLoanDisbursementReceipt({ ...item, approvedAmount: item.principal })}
+                                    />
+                                  )}
+                                </div>
                                 <span className="text-[10px] text-[#566861] block">
                                   Direct RE Account
                                 </span>
@@ -1117,7 +1171,17 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               {item.commodity} • {item.quantity} {item.unit}
                             </span>
                           </div>
-                          <div>
+                          <div className="flex items-center gap-1.5">
+                            {(item.escrowState === 'released' || item.escrowState === 'locked') && (
+                              <ReceiptDownloadButton
+                                title="Download escrow receipt"
+                                buildReceipt={() =>
+                                  item.escrowState === 'released'
+                                    ? buildSellerPayoutReceipt(item)
+                                    : buildOrderEscrowReceipt(item)
+                                }
+                              />
+                            )}
                             {item.escrowState === 'awaiting_rfq' ? (
                               <Badge variant="amber" size="sm" dot={true}>
                                 {item.status === 'freight_quoted' ? 'Freight Quoted' : 'Awaiting Freight'}
@@ -1225,7 +1289,15 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               Order: {item.orderNumber} • {item.commodity}
                             </span>
                           </div>
-                          <div>
+                          <div className="flex items-center gap-1.5">
+                            {(item.freightState === 'released' || item.freightState === 'locked') && (
+                              <ReceiptDownloadButton
+                                title="Download freight receipt"
+                                buildReceipt={() =>
+                                  buildFreightReceipt(item, item.freightState === 'released' ? 'transporter' : 'buyer')
+                                }
+                              />
+                            )}
                             {item.freightState === 'pending_verification' ? (
                               <Badge variant="amber" size="sm" dot={true}>
                                 UTR Pending
@@ -1317,7 +1389,13 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               {item.commodity} ({item.totalQuantity} {item.unit}) • {item.farmerName}
                             </span>
                           </div>
-                          <div>
+                          <div className="flex items-center gap-1.5">
+                            {item.warehousePaymentState === 'settled' && (
+                              <ReceiptDownloadButton
+                                title="Download storage rent receipt"
+                                buildReceipt={() => buildStorageRentReceipt(item)}
+                              />
+                            )}
                             {item.warehousePaymentState === 'settled' ? (
                               <Badge variant="emerald" size="sm">
                                 Settled Direct
@@ -1376,7 +1454,13 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                               {item.commodity} • {item.purposeLabel || 'Trade Credit'}
                             </span>
                           </div>
-                          <div>
+                          <div className="flex items-center gap-1.5">
+                            {item.financingState === 'disbursed' && (
+                              <ReceiptDownloadButton
+                                title="Download loan disbursement receipt"
+                                buildReceipt={() => buildLoanDisbursementReceipt({ ...item, approvedAmount: item.principal })}
+                              />
+                            )}
                             {item.financingState === 'disbursed' ? (
                               <Badge variant="emerald" size="sm">
                                 Disbursed

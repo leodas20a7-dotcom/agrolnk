@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
 import { calculateLoanMaturity, repayFinancingLoan } from '../../utils/financing';
+import { buildLoanRepaymentReceipt, downloadPaymentReceipt } from '../../utils/paymentReceipt';
 import { initiateRazorpayLoanRepaymentCheckout } from '../../utils/razorpayRouteClient';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 
@@ -466,10 +468,15 @@ export default function LoanDeadlinesRepaymentModal({
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <ReceiptDownloadButton
+                size="md"
+                title="Download loan clearance receipt"
+                buildReceipt={() => buildLoanRepaymentReceipt(selectedLoan, repaymentReceipt)}
+              />
               <Button
                 variant="secondary"
                 size="md"
-                onClick={() => window.print()}
+                onClick={() => downloadPaymentReceipt(buildLoanRepaymentReceipt(selectedLoan, repaymentReceipt))}
                 icon={Printer}
                 iconPosition="left"
                 className="w-full sm:w-auto font-bold text-xs py-2.5 px-4 cursor-pointer"

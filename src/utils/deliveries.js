@@ -283,41 +283,15 @@ function getDeliveryCacheOwnerId() {
   }
 }
 
-function readScopedLocalDeliveries(scopeKey) {
-  try {
-    const raw = localStorage.getItem(LOCAL_DELIVERIES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    const activeOwner = getDeliveryCacheOwnerId();
-    if (!parsed || typeof parsed !== 'object' || parsed.ownerId !== activeOwner) {
-      return [];
-    }
-    const items = parsed.scopes?.[scopeKey];
-    return Array.isArray(items) ? items : [];
-  } catch {
-    return [];
-  }
+function readScopedLocalDeliveries(_scopeKey) {
+  return [];
 }
 
-function replaceScopedLocalDeliveries(scopeKey, items = []) {
+function replaceScopedLocalDeliveries(_scopeKey, _items = []) {
   try {
-    const activeOwner = getDeliveryCacheOwnerId();
-    const raw = localStorage.getItem(LOCAL_DELIVERIES_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    const prevScopes =
-      parsed && typeof parsed === 'object' && parsed.ownerId === activeOwner && parsed.scopes
-        ? parsed.scopes
-        : {};
-    localStorage.setItem(
-      LOCAL_DELIVERIES_KEY,
-      JSON.stringify({
-        ownerId: activeOwner,
-        scopes: {
-          ...prevScopes,
-          [scopeKey]: Array.isArray(items) ? items : [],
-        },
-      })
-    );
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(LOCAL_DELIVERIES_KEY);
+    }
   } catch {}
 }
 
@@ -1124,32 +1098,38 @@ export async function confirmBuyerReceipt(deliveryId) {
       console.warn('Supabase delivery update note in confirmBuyerReceipt:', error);
     }
 
-    // Auto-sync linked order in orders table to 'delivered' (escrow remains securely held until Admin Call Verification)
+    // Auto-sync linked order in orders table to 'delivered' via atomic RPC (escrow remains securely held until Admin Call Verification)
     try {
       const orderIdentifier = data?.order_id || data?.order_number || deliveryId;
       if (orderIdentifier) {
-        const nowIso = new Date().toISOString();
-        const { error: syncErr } = await supabase
-          .from('orders')
-          .update({
-            status: 'delivered',
-            admin_verification_status: 'pending',
-            buyer_confirmed_arrival: true,
-            buyer_arrival_verified: true,
-            buyer_verified_at: nowIso,
-            updated_at: nowIso,
-          })
-          .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+        const { error: rpcErr } = await supabase.rpc('confirm_buyer_order_receipt_atomic', {
+          p_order_id: String(orderIdentifier),
+        });
 
-        if (syncErr) {
-          await supabase
+        if (rpcErr && (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('confirm_buyer_order_receipt_atomic'))) {
+          const nowIso = new Date().toISOString();
+          const { error: syncErr } = await supabase
             .from('orders')
             .update({
               status: 'delivered',
               admin_verification_status: 'pending',
+              buyer_confirmed_arrival: true,
+              buyer_arrival_verified: true,
+              buyer_verified_at: nowIso,
               updated_at: nowIso,
             })
             .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+
+          if (syncErr) {
+            await supabase
+              .from('orders')
+              .update({
+                status: 'delivered',
+                admin_verification_status: 'pending',
+                updated_at: nowIso,
+              })
+              .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+          }
         }
       }
     } catch (orderSyncErr) {
@@ -1262,13 +1242,19 @@ export async function updateDeliveryStatus(deliveryId, newStatus) {
         }
 
         if (nextOrderStatus) {
-          await supabase
-            .from('orders')
-            .update({
-              status: nextOrderStatus,
-              updated_at: new Date().toISOString(),
-            })
-            .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+          const { error: rpcErr } = await supabase.rpc('update_order_status_atomic', {
+            p_order_id: String(orderIdentifier),
+            p_new_status: nextOrderStatus,
+          });
+          if (rpcErr && (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('update_order_status_atomic'))) {
+            await supabase
+              .from('orders')
+              .update({
+                status: nextOrderStatus,
+                updated_at: new Date().toISOString(),
+              })
+              .or(`id.eq.${orderIdentifier},order_number.eq.${orderIdentifier}`);
+          }
         }
       }
     } catch (orderSyncErr) {

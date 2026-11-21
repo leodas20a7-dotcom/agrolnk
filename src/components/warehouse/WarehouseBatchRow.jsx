@@ -2,6 +2,8 @@ import React from 'react';
 import { Building2, ThermometerSnowflake, CheckCircle2, ArrowRight, Eye, Truck } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
+import { buildStorageRentReceipt, hasStorageRentPaid } from '../../utils/paymentReceipt';
 
 export default function WarehouseBatchRow({
   item,
@@ -131,6 +133,14 @@ export default function WarehouseBatchRow({
           >
             Mark Dispatched
           </Button>
+        )}
+
+        {hasStorageRentPaid(item) && (
+          <ReceiptDownloadButton
+            size="md"
+            title="Download storage rent payment receipt"
+            buildReceipt={() => buildStorageRentReceipt(item)}
+          />
         )}
 
         <Button

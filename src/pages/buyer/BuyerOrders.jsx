@@ -14,6 +14,8 @@ import FinancingReviewModal from '../../components/financing/FinancingReviewModa
 import BorrowerTermAcceptanceModal from '../../components/financing/BorrowerTermAcceptanceModal';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
 import BuyerInspectionModal from '../../components/inspection/BuyerInspectionModal';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import { buildOrderEscrowReceipt, isOrderEscrowPaid } from '../../utils/paymentReceipt';
 import {
   ShoppingBag,
   ArrowLeft,
@@ -183,24 +185,13 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
 
   const isBuyerArrivalConfirmed = (ord) => {
     if (!ord) return false;
-    if (ord.buyerConfirmedArrival || ord.buyerArrivalVerified || ord.status === 'completed') return true;
-    if (typeof window !== 'undefined') {
-      if (ord.id && localStorage.getItem(`agrolnk_buyer_verified_${ord.id}`) === 'true') return true;
-      if (ord.orderNumber && localStorage.getItem(`agrolnk_buyer_verified_${ord.orderNumber}`) === 'true') return true;
-    }
-    return false;
+    return Boolean(ord.buyerConfirmedArrival || ord.buyerArrivalVerified || ord.status === 'completed');
   };
 
   const handleConfirmOrderReceipt = async (orderOrDelivery) => {
     const orderKey = orderOrDelivery?.id || orderOrDelivery?.orderNumber;
     try {
       showGlobalLoader('Confirming Arrival...', 'Logging arrival verification & notifying AgrowLink Admin...');
-      if (typeof window !== 'undefined') {
-        if (orderOrDelivery?.id) localStorage.setItem(`agrolnk_buyer_verified_${orderOrDelivery.id}`, 'true');
-        if (orderOrDelivery?.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${orderOrDelivery.orderNumber}`, 'true');
-        if (selectedOrder?.id) localStorage.setItem(`agrolnk_buyer_verified_${selectedOrder.id}`, 'true');
-        if (selectedOrder?.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${selectedOrder.orderNumber}`, 'true');
-      }
       await confirmOrderReceipt(orderKey);
       try {
         await confirmBuyerReceipt(orderKey);
@@ -396,12 +387,20 @@ export default function BuyerOrders({ currentUser, onNavigate, navState }) {
                   Order Tracking: {selectedOrder.orderNumber}
                 </span>
               </div>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {isOrderEscrowPaid(selectedOrder) && (
+                  <ReceiptDownloadButton
+                    title="Download escrow payment receipt"
+                    buildReceipt={() => buildOrderEscrowReceipt(selectedOrder)}
+                  />
+                )}
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="p-1.5 rounded-xl text-[#566861] hover:text-[#0B3326] hover:bg-[#F8FAF8] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Order Summary Spec with In-Order Delivery and Quality Inspection */}

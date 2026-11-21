@@ -2,7 +2,14 @@ import React from 'react';
 import { Landmark, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
 import FinancingStatusBadge from './FinancingStatusBadge';
+import {
+  buildLoanDisbursementReceipt,
+  buildLoanRepaymentReceipt,
+  isLoanDisbursed,
+  isLoanRepaid,
+} from '../../utils/paymentReceipt';
 
 export default function FinancingRow({
   request,
@@ -119,6 +126,16 @@ export default function FinancingRow({
             <FinancingStatusBadge status={request.status} applicantKycStatus={request.applicantKycStatus} size="sm" />
           )}
         </div>
+
+        {(isLoanRepaid(request) || isLoanDisbursed(request)) && (
+          <ReceiptDownloadButton
+            size="md"
+            title={isLoanRepaid(request) ? 'Download loan repayment receipt' : 'Download loan disbursement receipt'}
+            buildReceipt={() =>
+              isLoanRepaid(request) ? buildLoanRepaymentReceipt(request) : buildLoanDisbursementReceipt(request)
+            }
+          />
+        )}
 
         <Button
           variant={

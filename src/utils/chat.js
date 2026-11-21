@@ -601,34 +601,6 @@ export function getPlatformContacts(user) {
     },
   ];
 
-  // Dynamically load other verified users from registry if present
-  try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agrolnk_admin_kyc_registry') : null;
-    if (raw) {
-      const registry = JSON.parse(raw);
-      if (Array.isArray(registry)) {
-        const myIdentifier = user?.id || (user?.email ? user.email.replace(/[^a-z0-9]/g, '_') : 'usr');
-        registry.forEach((u) => {
-          if (u.id !== user?.id && u.email !== user?.email && u.role !== 'admin') {
-            const partnerIdentifier = u.id || (u.email ? u.email.replace(/[^a-z0-9]/g, '_') : 'partner');
-            const directKey = getSharedThreadKey(myIdentifier, partnerIdentifier);
-            baseContacts.push({
-              id: u.id || `usr_${u.email}`,
-              threadKey: directKey,
-              name: u.name || 'Verified Partner',
-              role: (u.role || 'Partner').charAt(0).toUpperCase() + (u.role || 'Partner').slice(1),
-              category: u.role === 'farmer' || u.role === 'fpo' || u.role === 'buyer' ? 'orders' : u.role === 'warehouse' ? 'warehouse' : 'logistics',
-              status: `${u.district || 'Tamil Nadu'} • Verified AgrowLink Partner`,
-              avatarColor: u.role === 'farmer' || u.role === 'fpo' ? 'bg-emerald-600 text-white' : u.role === 'buyer' ? 'bg-indigo-600 text-white' : 'bg-amber-600 text-white',
-              phoneMask: '+91 ***** *****',
-              initials: (u.name || 'AP').slice(0, 2).toUpperCase(),
-            });
-          }
-        });
-      }
-    }
-  } catch {}
-
   return baseContacts;
 }
 

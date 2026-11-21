@@ -77,29 +77,7 @@ export default function AdminCallVerificationModal({
         let district = order.district || '';
         let state = order.state || '';
 
-        // 1. Check local KYC registry
-        try {
-          const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-          if (storedRaw) {
-            const registry = JSON.parse(storedRaw);
-            if (Array.isArray(registry)) {
-              const found = registry.find(
-                (u) =>
-                  (order.buyerId && u.id === order.buyerId) ||
-                  (order.buyerEmail && (u.email || '').toLowerCase() === (order.buyerEmail || '').toLowerCase()) ||
-                  (order.buyerName && (u.name || '').toLowerCase() === (order.buyerName || '').toLowerCase())
-              );
-              if (found) {
-                if (!phone && found.phone) phone = found.phone;
-                if (!company && (found.orgName || found.companyName)) company = found.orgName || found.companyName;
-                if (!district && found.district) district = found.district;
-                if (!state && found.state) state = found.state;
-              }
-            }
-          }
-        } catch {}
-
-        // 2. Query Supabase profiles
+        // Query Supabase profiles
         if (!phone && (order.buyerId || order.buyerName || order.buyerEmail)) {
           try {
             let query = supabase.from('profiles').select('id, name, email, phone, company_name, district, state');

@@ -2,7 +2,14 @@ import React from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
 import FinancingStatusBadge from './FinancingStatusBadge';
+import {
+  buildLoanDisbursementReceipt,
+  buildLoanRepaymentReceipt,
+  isLoanDisbursed,
+  isLoanRepaid,
+} from '../../utils/paymentReceipt';
 import { ArrowRight, Landmark, FileText, User, ShieldCheck, Tag } from 'lucide-react';
 
 export default function FinancingCard({
@@ -109,36 +116,48 @@ export default function FinancingCard({
           <span>{isMarginSettled ? '100% Escrow Secured (Margin Paid ✓)' : needsMarginPayment ? `Balance Margin: ₹${Number(marginAmount).toLocaleString('en-IN')}` : 'Underwritten by Collateral'}</span>
         </div>
 
-        <Button
-          variant={
-            needsMarginPayment
-              ? 'accent'
+        <div className="flex items-center gap-2">
+          {(isLoanRepaid(request) || isLoanDisbursed(request)) && (
+            <ReceiptDownloadButton
+              size="md"
+              title={isLoanRepaid(request) ? 'Download loan repayment receipt' : 'Download loan disbursement receipt'}
+              buildReceipt={() =>
+                isLoanRepaid(request) ? buildLoanRepaymentReceipt(request) : buildLoanDisbursementReceipt(request)
+              }
+            />
+          )}
+
+          <Button
+            variant={
+              needsMarginPayment
+                ? 'accent'
+                : viewerRole !== 'financier' && request.status === 'offer_received'
+                ? 'accent'
+                : viewerRole === 'financier' && (request.status === 'pending' || request.status === 'under_review' || request.status === 'borrower_accepted')
+                ? 'primary'
+                : 'secondary'
+            }
+            size="sm"
+            onClick={() => onView(request)}
+            icon={ArrowRight}
+            iconPosition="right"
+            className="text-xs font-bold py-2 cursor-pointer"
+          >
+            {needsMarginPayment
+              ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
               : viewerRole !== 'financier' && request.status === 'offer_received'
-              ? 'accent'
-              : viewerRole === 'financier' && (request.status === 'pending' || request.status === 'under_review' || request.status === 'borrower_accepted')
-              ? 'primary'
-              : 'secondary'
-          }
-          size="sm"
-          onClick={() => onView(request)}
-          icon={ArrowRight}
-          iconPosition="right"
-          className="text-xs font-bold py-2 cursor-pointer"
-        >
-          {needsMarginPayment
-            ? `Pay Margin (₹${Number(marginAmount).toLocaleString('en-IN')})`
-            : viewerRole !== 'financier' && request.status === 'offer_received'
-            ? 'Review & Accept Offer'
-            : viewerRole === 'financier'
-            ? (request.status === 'borrower_accepted'
-                ? 'Disburse to Escrow'
-                : request.status === 'offer_received'
-                ? 'Offer Sent (Awaiting)'
-                : request.status === 'approved' || request.status === 'disbursed'
-                ? 'Active Loan'
-                : 'Structure Quote')
-            : 'View Details'}
-        </Button>
+              ? 'Review & Accept Offer'
+              : viewerRole === 'financier'
+              ? (request.status === 'borrower_accepted'
+                  ? 'Disburse to Escrow'
+                  : request.status === 'offer_received'
+                  ? 'Offer Sent (Awaiting)'
+                  : request.status === 'approved' || request.status === 'disbursed'
+                  ? 'Active Loan'
+                  : 'Structure Quote')
+              : 'View Details'}
+          </Button>
+        </div>
       </div>
     </Card>
   );

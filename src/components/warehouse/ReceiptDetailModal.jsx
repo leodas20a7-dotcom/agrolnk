@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
+import { buildStorageRentReceipt, hasStorageRentPaid } from '../../utils/paymentReceipt';
 
 export default function ReceiptDetailModal({
   inventory,
@@ -193,6 +195,13 @@ export default function ReceiptDetailModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {hasStorageRentPaid(inventory) && (
+              <ReceiptDownloadButton
+                size="md"
+                title="Download storage rent payment receipt"
+                buildReceipt={() => buildStorageRentReceipt(inventory)}
+              />
+            )}
             {onPayRent && (
               <Button
                 variant="outline"

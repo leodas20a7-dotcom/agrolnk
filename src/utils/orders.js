@@ -124,35 +124,21 @@ function dedupeOrdersList(list = []) {
 
 function getLocalOrders() {
   try {
-    const raw = localStorage.getItem(LOCAL_ORDERS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    const activeOwner = getOrderCacheOwnerId();
-    // Ignore legacy unscoped arrays or caches belonging to a different user account
-    if (Array.isArray(parsed)) {
+    if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.removeItem(LOCAL_ORDERS_KEY);
-      return [];
     }
-    if (!parsed || typeof parsed !== 'object' || parsed.ownerId !== activeOwner) {
-      return [];
-    }
-    return dedupeOrdersList(Array.isArray(parsed.items) ? parsed.items : []);
-  } catch {
-    return [];
-  }
+  } catch {}
+  return [];
 }
 
-function replaceLocalOrders(list = []) {
-  try {
-    const activeOwner = getOrderCacheOwnerId();
-    const cleaned = dedupeOrdersList(Array.isArray(list) ? list : []);
-    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify({ ownerId: activeOwner, items: cleaned }));
-  } catch {}
+function replaceLocalOrders(_list = []) {
+  // No-op: Order state is 100% server-authoritative in Supabase public.orders
 }
 
 function clearLegacyOrderOverrideKeys() {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
+    localStorage.removeItem(LOCAL_ORDERS_KEY);
     Object.keys(localStorage).forEach((k) => {
       if (
         k.startsWith('agrolnk_order_status_') ||
@@ -165,15 +151,8 @@ function clearLegacyOrderOverrideKeys() {
   } catch {}
 }
 
-function saveLocalOrder(item) {
-  try {
-    if (!item) return;
-    const existing = getLocalOrders();
-    const filtered = existing.filter(
-      (o) => o.id !== item.id && o.orderNumber !== item.orderNumber
-    );
-    replaceLocalOrders([item, ...filtered]);
-  } catch {}
+function saveLocalOrder(_item) {
+  // No-op: Order state is 100% server-authoritative in Supabase public.orders
 }
 
 const generateStandardUuid = () => {
@@ -1173,72 +1152,46 @@ export async function ensureOrderForFinancing(request, paymentData) {
  */
 export async function confirmOrderReceipt(orderId) {
   try {
-    if (typeof window !== 'undefined' && orderId) {
-      localStorage.setItem(`agrolnk_buyer_verified_${orderId}`, 'true');
-    }
+    const { error: rpcErr } = await supabase.rpc('confirm_buyer_order_receipt_atomic', {
+      p_order_id: String(orderId),
+    });
 
-    try {
-      const updatePayload = {
-        status: 'delivered',
-        admin_verification_status: 'pending',
-        buyer_confirmed_arrival: true,
-        buyer_arrival_verified: true,
-        buyer_verified_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+    if (rpcErr) {
+      if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('confirm_buyer_order_receipt_atomic')) {
+        const updatePayload = {
+          status: 'delivered',
+          admin_verification_status: 'pending',
+          buyer_confirmed_arrival: true,
+          buyer_arrival_verified: true,
+          buyer_verified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
-      const { error } = await supabase
-        .from('orders')
-        .update(updatePayload)
-        .or(`id.eq.${orderId},order_number.eq.${orderId}`);
-
-      if (error) {
-        console.warn('Supabase update note in confirmOrderReceipt:', error);
-        // Fallback update
-        await supabase
+        const { error } = await supabase
           .from('orders')
+          .update(updatePayload)
+          .or(`id.eq.${orderId},order_number.eq.${orderId}`);
+
+        if (error) {
+          throw new Error(error.message || 'Server rejected order receipt confirmation.');
+        }
+
+        await supabase
+          .from('deliveries')
           .update({
             status: 'delivered',
             updated_at: new Date().toISOString(),
           })
-          .or(`id.eq.${orderId},order_number.eq.${orderId}`);
+          .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
+      } else {
+        throw new Error(rpcErr.message || 'Server rejected order arrival confirmation.');
       }
-    } catch (dbErr) {
-      console.warn('Database note in confirmOrderReceipt:', dbErr);
     }
 
-    // Automatically sync linked delivery to delivered
-    try {
-      await supabase
-        .from('deliveries')
-        .update({
-          status: 'delivered',
-          updated_at: new Date().toISOString(),
-        })
-        .or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
-    } catch (delSyncErr) {
-      console.warn('Delivery sync notice:', delSyncErr);
-    }
-
-    const localOrders = getLocalOrders();
-    const updatedLocal = localOrders.map((o) => {
-      if (o.id === orderId || o.orderNumber === orderId) {
-        return {
-          ...o,
-          status: 'delivered',
-          adminVerificationStatus: 'pending',
-          buyerConfirmedArrival: true,
-          buyerArrivalVerified: true,
-          buyerVerifiedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return o;
-    });
-    replaceLocalOrders(updatedLocal);
-
-    const resolved = updatedLocal.find((o) => o.id === orderId || o.orderNumber === orderId) || {
+    const freshOrder = await getOrderById(orderId);
+    const resolved = freshOrder || {
       id: orderId,
+      orderNumber: orderId,
       status: 'delivered',
       adminVerificationStatus: 'pending',
       buyerConfirmedArrival: true,
@@ -1252,15 +1205,17 @@ export async function confirmOrderReceipt(orderId) {
     }
 
     try {
-      sendNotification({
-        recipientId: resolved.farmerId,
-        recipientRole: 'farmer',
-        title: `Produce Arrival Confirmed: ${resolved.orderNumber}`,
-        message: `Buyer ${resolved.buyerName || 'Buyer'} has inspected and confirmed produce arrival. Escrow release is being finalized.`,
-        type: 'order',
-        link: '/farmer-orders',
-      });
-    } catch (notifErr) {}
+      if (resolved.farmerId) {
+        sendNotification({
+          recipientId: resolved.farmerId,
+          recipientRole: 'farmer',
+          title: `Produce Arrival Confirmed: ${resolved.orderNumber}`,
+          message: `Buyer ${resolved.buyerName || 'Buyer'} has inspected and confirmed produce arrival. Escrow release is being finalized.`,
+          type: 'order',
+          link: '/farmer-orders',
+        });
+      }
+    } catch (_notifErr) {}
 
     return resolved;
   } catch (err) {
@@ -1295,23 +1250,42 @@ export async function updateOrderStatus(orderId, newStatus) {
       updated_at: new Date().toISOString(),
     };
 
-    if (newStatus === 'completed') {
-      updatePayload.escrow_status = 'released';
-    } else if (newStatus === 'cancelled') {
-      // If escrow was funded/held, mark as refunded
-      if (existingOrder?.escrow_status && ['funded', 'escrow_secured', 'held'].includes(existingOrder.escrow_status)) {
-        updatePayload.escrow_status = 'refunded';
+    const { error: rpcErr } = await supabase.rpc('update_order_status_atomic', {
+      p_order_id: String(orderId),
+      p_new_status: newStatus,
+    });
+
+    let data = null;
+    if (rpcErr) {
+      if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('update_order_status_atomic')) {
+        if (newStatus === 'completed') {
+          updatePayload.escrow_status = 'released';
+        } else if (newStatus === 'cancelled') {
+          if (existingOrder?.escrow_status && ['funded', 'escrow_secured', 'held'].includes(existingOrder.escrow_status)) {
+            updatePayload.escrow_status = 'refunded';
+          }
+        }
+
+        const { data: updatedRow, error } = await supabase
+          .from('orders')
+          .update(updatePayload)
+          .eq(matchCol, orderId)
+          .select()
+          .maybeSingle();
+
+        if (error) throw error;
+        data = updatedRow;
+      } else {
+        throw new Error(rpcErr.message || 'Server rejected order status update.');
       }
+    } else {
+      const { data: freshRow } = await supabase
+        .from('orders')
+        .select('*')
+        .eq(matchCol, orderId)
+        .maybeSingle();
+      data = freshRow;
     }
-
-    const { data, error } = await supabase
-      .from('orders')
-      .update(updatePayload)
-      .eq(matchCol, orderId)
-      .select()
-      .maybeSingle();
-
-    if (error) throw error;
 
     // 2. Inventory Restoration: If order was cancelled before truck pickup/dispatch, return stock to listing
     if (
@@ -1338,7 +1312,7 @@ export async function updateOrderStatus(orderId, newStatus) {
             .from('listings')
             .update({
               quantity: restoredStock,
-              status: 'active', // Reactivate listing if it was marked sold
+              status: 'active',
               updated_at: new Date().toISOString(),
             })
             .eq('id', existingOrder.listing_id);
@@ -1348,52 +1322,15 @@ export async function updateOrderStatus(orderId, newStatus) {
       }
     }
 
-    // 3. Automatically sync linked delivery when order progresses or cancels
-    try {
-      let linkedDeliveryStatus = null;
-      if (newStatus === 'completed') linkedDeliveryStatus = 'completed';
-      else if (newStatus === 'delivered') linkedDeliveryStatus = 'delivered';
-      else if (newStatus === 'in_transit' || newStatus === 'ready_for_delivery') linkedDeliveryStatus = 'in_transit';
-      else if (newStatus === 'cancelled') linkedDeliveryStatus = 'cancelled';
-
-      if (linkedDeliveryStatus) {
-        const delMatchCol = isUuid(orderId) ? 'order_id' : 'order_number';
-        await supabase
-          .from('deliveries')
-          .update({
-            status: linkedDeliveryStatus,
-            updated_at: new Date().toISOString(),
-          })
-          .eq(delMatchCol, orderId);
-      }
-    } catch (delErr) {
-      console.warn('Delivery status auto-sync notice:', delErr);
-    }
-
     const mapped = data
       ? mapOrderFromDb(data)
       : { id: orderId, orderNumber: orderId, status: newStatus, updatedAt: new Date().toISOString() };
 
-    // 4. Update local storage cache and notify active views
-    try {
-      const stored = getLocalOrders();
-      const idx = stored.findIndex(
-        (o) =>
-          (data?.id && o.id === data.id) ||
-          (data?.order_number && o.orderNumber === data.order_number) ||
-          o.id === orderId ||
-          o.orderNumber === orderId
-      );
-      if (idx !== -1) {
-        stored[idx] = { ...stored[idx], ...mapped };
-        localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(stored));
-      }
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
-        window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
-        window.dispatchEvent(new Event('storage'));
-      }
-    } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
+      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
+      window.dispatchEvent(new Event('storage'));
+    }
 
     return mapped;
   } catch (err) {
@@ -1408,8 +1345,6 @@ export async function updateOrderStatus(orderId, newStatus) {
  */
 export async function verifyAndLockEscrowDeposit(orderId, adminName = 'AgrowLink Admin') {
   try {
-    const nowIso = new Date().toISOString();
-
     // 1. Try atomic combined order + freight escrow lock RPC as Admin (auto-verified)
     let atomicLocked = false;
     try {
@@ -1424,56 +1359,21 @@ export async function verifyAndLockEscrowDeposit(orderId, adminName = 'AgrowLink
       if (!rpcErr && rpcRes?.success) {
         atomicLocked = true;
       }
-    } catch (_rpcErr) {
-      // Fall through to direct table update for orders without freight RFQ
-    }
+    } catch (_rpcErr) {}
 
-    const updatePayload = {
-      escrow_status: 'funded',
-      status: 'order_placed',
-      admin_verified_by: adminName,
-      admin_verification_status: 'approved',
-      admin_verified_at: nowIso,
-      updated_at: nowIso,
-    };
+    // 2. Otherwise execute admin_verify_and_lock_escrow_atomic RPC
+    if (!atomicLocked) {
+      const { data: adminRpc, error: adminRpcErr } = await supabase.rpc(
+        'admin_verify_and_lock_escrow_atomic',
+        {
+          p_order_id: String(orderId),
+          p_admin_name: adminName,
+        }
+      );
 
-    // 2. Ensure orders & linked delivery are updated in Supabase
-    try {
-      await supabase
-        .from('orders')
-        .update(updatePayload)
-        .or(`id.eq.${orderId},order_number.eq.${orderId}`);
-
-      if (!atomicLocked) {
-        await supabase
-          .from('deliveries')
-          .update({
-            status: 'assigned',
-            freight_escrow_status: 'escrow_locked',
-            freight_deposited_at: nowIso,
-            updated_at: nowIso,
-          })
-          .or(`order_id.eq.${orderId},order_number.eq.${orderId}`)
-          .in('status', ['price_offered', 'transport_requested']);
+      if (adminRpcErr || !adminRpc?.success) {
+        throw new Error(adminRpcErr?.message || 'Server rejected escrow verification lock.');
       }
-    } catch (e) {
-      console.warn('Supabase escrow lock sync notice:', e);
-    }
-
-    // 3. Update local storage cache
-    const stored = getLocalOrders();
-    const idx = stored.findIndex((o) => o.id === orderId || o.orderNumber === orderId);
-    if (idx !== -1) {
-      stored[idx] = {
-        ...stored[idx],
-        escrowStatus: 'funded',
-        status: 'order_placed',
-        adminVerifiedBy: adminName,
-        adminVerificationStatus: 'approved',
-        adminVerifiedAt: nowIso,
-        updatedAt: nowIso,
-      };
-      saveLocalOrder(stored[idx]);
     }
 
     broadcastDataChange('orders', 'update');
@@ -1512,29 +1412,54 @@ export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
     }
 
     const paymentId = paymentMetadata?.paymentId || paymentMetadata?.razorpay_payment_id;
-    if (!paymentId || !paymentMetadata?.verified) {
-      throw new Error('A server-verified payment confirmation from the gateway is required to transition escrow to funded.');
+    const bankUtr = paymentMetadata?.bankUtr || paymentId;
+    if (!bankUtr || String(bankUtr).trim().length < 6) {
+      throw new Error('A valid bank UTR or payment reference is required to submit escrow payment.');
     }
 
     const nowIso = new Date().toISOString();
+    const resolvedPaymentMode =
+      paymentMetadata?.paymentMode === 'escrow_van' || paymentMetadata?.bankUtr
+        ? 'escrow_van'
+        : paymentMetadata?.paymentMode || 'direct_razorpay';
 
     let updatedOrder = order;
     if (order.escrow_status !== 'funded' && order.escrow_status !== 'held') {
-      const { data: rpcUpdated, error: updateErr } = await supabase
-        .from('orders')
-        .update({
-          escrow_status: 'funded',
-          status: 'order_placed',
-          payment_id: paymentId,
-          payment_mode: paymentMetadata.paymentMode || 'Razorpay Route Gateway',
-          updated_at: nowIso,
-        })
-        .eq('id', order.id)
-        .select()
-        .single();
+      const { error: rpcErr } = await supabase.rpc('submit_buyer_van_utr_atomic', {
+        p_order_id: String(order.id),
+        p_bank_utr: String(bankUtr).trim().toUpperCase(),
+        p_payment_mode: resolvedPaymentMode,
+      });
 
-      if (updateErr) throw updateErr;
-      updatedOrder = rpcUpdated;
+      if (rpcErr) {
+        if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('submit_buyer_van_utr_atomic')) {
+          const { data: rpcUpdated, error: updateErr } = await supabase
+            .from('orders')
+            .update({
+              escrow_status: 'pending_verification',
+              status: 'payment_verification_pending',
+              payment_id: paymentId || null,
+              bank_utr: String(bankUtr).trim().toUpperCase(),
+              payment_mode: resolvedPaymentMode,
+              updated_at: nowIso,
+            })
+            .eq('id', order.id)
+            .select()
+            .single();
+
+          if (updateErr) throw updateErr;
+          updatedOrder = rpcUpdated;
+        } else {
+          throw new Error(rpcErr.message || 'Server rejected escrow deposit reference.');
+        }
+      } else {
+        const { data: freshOrder } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', order.id)
+          .maybeSingle();
+        if (freshOrder) updatedOrder = freshOrder;
+      }
     }
 
     // Trigger delivery request now that escrow is funded
@@ -1630,16 +1555,6 @@ export async function depositOrderEscrow(orderId, paymentMetadata = {}) {
 
     const mapped = mapOrderFromDb(updatedOrder);
 
-    // Update local cache
-    try {
-      const stored = getLocalOrders();
-      const idx = stored.findIndex((o) => o.id === order.id || o.orderNumber === order.order_number);
-      if (idx !== -1) {
-        stored[idx] = { ...stored[idx], ...mapped };
-        localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(stored));
-      }
-    } catch {}
-
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
       window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
@@ -1698,99 +1613,29 @@ export async function adminVerifyAndReleaseOrderEscrow({
     const adminName = adminUser?.name || 'AgrowLink Operations Ombudsman';
     const notes = adminNotes || 'Telephonic verification completed with buyer. Goods and weight confirmed in good order.';
 
-    // 3. Try Production Atomic Stored Procedure (Row-level lock, eliminates double-disbursement)
-    let atomicSuccess = false;
-    try {
-      const { data: rpcData, error: rpcErr } = await supabase.rpc('release_escrow_atomic', {
-        p_order_id: orderId,
-        p_admin_name: adminName,
-        p_admin_notes: notes,
-        p_bank_name: farmerBank.bankName,
-        p_account_number: farmerBank.accountNumber,
-        p_ifsc: farmerBank.ifscCode,
-        p_utr: verifiedUtr,
-      });
+    // 3. Strictly execute Production Atomic Stored Procedure (Row-level lock, eliminates double-disbursement & client bypass)
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('release_escrow_atomic', {
+      p_order_id: String(orderId),
+      p_admin_name: adminName,
+      p_admin_notes: notes,
+      p_bank_name: farmerBank.bankName,
+      p_account_number: farmerBank.accountNumber,
+      p_ifsc: farmerBank.ifscCode,
+      p_utr: verifiedUtr,
+    });
 
-      if (!rpcErr && rpcData?.success) {
-        atomicSuccess = true;
-      }
-    } catch (_rpcErr) {
-      // Fall through to client fallback
+    if (rpcErr || !rpcData?.success) {
+      throw new Error(rpcErr?.message || 'Escrow release rejected by server security policy.');
     }
 
-    const basePayload = {
-      status: 'completed',
-      admin_verified_by: adminName,
-      admin_verification_status: 'approved',
-      admin_call_notes: notes,
-      admin_verified_at: new Date().toISOString(),
-      payout_bank_name: farmerBank.bankName,
-      payout_account_number: farmerBank.accountNumber,
-      payout_ifsc: farmerBank.ifscCode,
-      bank_utr: verifiedUtr,
-      disbursed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    const freshOrder = await getOrderById(orderId);
 
-    let data = null;
-    if (!atomicSuccess) {
-      // Safe query that avoids Postgres UUID parse errors when orderId is a formatted order number
-      const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
-      try {
-        let updateQuery = supabase.from('orders').update({ ...basePayload, escrow_status: 'released' });
-        if (currentOrder?.id && isUuid(currentOrder.id)) {
-          updateQuery = updateQuery.eq('id', currentOrder.id);
-        } else if (isUuid(orderId)) {
-          updateQuery = updateQuery.eq('id', orderId);
-        } else {
-          updateQuery = updateQuery.eq('order_number', currentOrder?.orderNumber || orderId);
-        }
-
-        const { data: updatedData, error } = await updateQuery.select().maybeSingle();
-        if (!error && updatedData) {
-          data = updatedData;
-        } else {
-          // If trigger blocked direct escrow_status modification, execute basePayload which is 100% permitted by RLS
-          let retryQuery = supabase.from('orders').update(basePayload);
-          if (currentOrder?.id && isUuid(currentOrder.id)) {
-            retryQuery = retryQuery.eq('id', currentOrder.id);
-          } else if (isUuid(orderId)) {
-            retryQuery = retryQuery.eq('id', orderId);
-          } else {
-            retryQuery = retryQuery.eq('order_number', currentOrder?.orderNumber || orderId);
-          }
-          const { data: retryData } = await retryQuery.select().maybeSingle();
-          data = retryData;
-        }
-      } catch (qErr) {
-        console.warn('Query exception in adminVerifyAndReleaseOrderEscrow:', qErr);
-      }
-    } else {
-      const freshOrder = await getOrderById(orderId);
-      data = freshOrder;
-    }
-
-    // 3. Sync Linked Delivery to 'completed'
-    try {
-      await supabase
-        .from('deliveries')
-        .update({
-          status: 'completed',
-          updated_at: new Date().toISOString(),
-        })
-        .or(`order_number.eq.${orderKey}`);
-    } catch (delSyncErr) {
-      console.warn('Delivery completion sync note:', delSyncErr);
-    }
-
-    // 4. Trigger Live Escrow Nodal Engine Release
+    // 4. Notify Live Escrow Nodal UI
     try {
       await processLiveEscrowRelease(orderKey, 'ADMIN_CALL_VERIFIED_RELEASE', { bankUtr: verifiedUtr });
-    } catch (escrowErr) {
-      console.warn('Escrow nodal release notice:', escrowErr);
-    }
+    } catch (_escrowErr) {}
 
-    const resolved = {
+    const resolved = freshOrder || {
       ...(currentOrder || {}),
       status: 'completed',
       escrowStatus: 'released',
@@ -1806,10 +1651,7 @@ export async function adminVerifyAndReleaseOrderEscrow({
       bankUtr: verifiedUtr,
       disbursedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      ...(data ? mapOrderFromDb(data) : {}),
     };
-
-    saveLocalOrder(resolved);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: resolved }));

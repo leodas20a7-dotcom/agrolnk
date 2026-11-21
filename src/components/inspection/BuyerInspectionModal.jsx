@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
+import { buildInspectionFeeReceipt } from '../../utils/paymentReceipt';
 import { getInspectionForOrder, requestQualityInspection, payInspectionFee, getInspectionCertificateUrl } from '../../utils/inspection';
 import { initiateRazorpayInspectionFeeCheckout } from '../../utils/razorpayRouteClient';
 import { toast } from '../../context/ToastContext';
@@ -528,9 +530,15 @@ export default function BuyerInspectionModal({
                     </span>
                   </div>
                 </div>
-                <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                  Settled ✓
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                    Settled ✓
+                  </span>
+                  <ReceiptDownloadButton
+                    title="Download lab inspection fee receipt"
+                    buildReceipt={() => buildInspectionFeeReceipt(inspection)}
+                  />
+                </div>
               </div>
             ) : (
               <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs space-y-2">

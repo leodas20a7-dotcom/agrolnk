@@ -4,7 +4,9 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import CopyButton from '../../components/ui/CopyButton';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
 import Pagination from '../../components/ui/Pagination';
+import { buildLoanDisbursementReceipt, buildLoanRepaymentReceipt } from '../../utils/paymentReceipt';
 import {
   Receipt,
   Download,
@@ -283,12 +285,34 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
                         </td>
 
                         <td className="p-4">
-                          <Badge
-                            variant={d.status === 'settled' ? 'emerald' : 'blue'}
-                            size="sm"
-                          >
-                            {d.status === 'settled' ? 'Settled & Realized ✓' : 'Active Facility'}
-                          </Badge>
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge
+                              variant={d.status === 'settled' ? 'emerald' : 'blue'}
+                              size="sm"
+                            >
+                              {d.status === 'settled' ? 'Settled & Realized ✓' : 'Active Facility'}
+                            </Badge>
+                            <ReceiptDownloadButton
+                              title={d.status === 'settled' ? 'Download loan repayment receipt' : 'Download loan disbursement receipt'}
+                              buildReceipt={() =>
+                                d.status === 'settled'
+                                  ? buildLoanRepaymentReceipt(d, {
+                                      loanNumber: d.requestNumber || d.refNumber,
+                                      principal: d.amount,
+                                      interest: d.realizedYield,
+                                      totalPaid: d.actualReturn,
+                                      txnId: d.repaymentTransactionId || d.bankUtr,
+                                      paymentMethod: d.paymentMethod,
+                                      paidAt: d.repaidAt || d.disbursedAt,
+                                    })
+                                  : buildLoanDisbursementReceipt({
+                                      ...d,
+                                      approvedAmount: d.amount,
+                                      requestNumber: d.requestNumber || d.refNumber,
+                                    })
+                              }
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))

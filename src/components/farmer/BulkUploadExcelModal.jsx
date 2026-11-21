@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -56,7 +56,7 @@ export default function BulkUploadExcelModal({ isOpen, onClose, currentUser, onS
     { name: 'Image URL', required: false, example: 'https://... (Auto-filled if empty)' },
   ];
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     const sampleData = [
       {
         Commodity: 'Yellow Peas',
@@ -99,10 +99,24 @@ export default function BulkUploadExcelModal({ isOpen, onClose, currentUser, onS
       }
     ];
 
-    const worksheet = XLSX.utils.json_to_sheet(sampleData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Produce Listings');
-    XLSX.writeFile(workbook, 'agrolnk_produce_bulk_template.xlsx');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Produce Listings');
+    const headers = Object.keys(sampleData[0]);
+    worksheet.columns = headers.map((h) => ({ header: h, key: h, width: 18 }));
+    sampleData.forEach((row) => worksheet.addRow(row));
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'agrolnk_produce_bulk_template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleFileChange = (e) => {
@@ -120,45 +134,132 @@ export default function BulkUploadExcelModal({ isOpen, onClose, currentUser, onS
     }
   };
 
-  const processFile = (inputFile) => {
+  const parseCsvText = (text) => {
+    const rows = [];
+    let currentRow = [];
+    let currentField = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"' && text[i + 1] === '"') {
+          currentField += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          currentField += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        currentRow.push(currentField);
+        currentField = '';
+      } else if (ch === '\r' || ch === '\n') {
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        currentRow.push(currentField);
+        if (currentRow.some((cell) => cell.trim() !== '')) rows.push(currentRow);
+        currentRow = [];
+        currentField = '';
+      } else {
+        currentField += ch;
+      }
+    }
+    currentRow.push(currentField);
+    if (currentRow.some((cell) => cell.trim() !== '')) rows.push(currentRow);
+
+    if (rows.length < 2) return [];
+    const headers = rows[0].map((h) => String(h || '').trim());
+    return rows.slice(1).map((vals) => {
+      const obj = {};
+      headers.forEach((h, idx) => {
+        if (h) obj[h] = vals[idx] !== undefined ? String(vals[idx]).trim() : '';
+      });
+      return obj;
+    });
+  };
+
+  const normalizeExcelCellValue = (val) => {
+    if (val === null || val === undefined) return '';
+    if (val instanceof Date) return val.toISOString().split('T')[0];
+    if (typeof val === 'object') {
+      if (val.text !== undefined) return String(val.text);
+      if (val.result !== undefined) return val.result;
+      if (Array.isArray(val.richText)) return val.richText.map((r) => r.text || '').join('');
+      return String(val);
+    }
+    return val;
+  };
+
+  const processFile = async (inputFile) => {
     setErrorMsg(null);
     setFile(inputFile);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+    try {
+      const lowerName = String(inputFile.name || '').toLowerCase();
+      let json = [];
 
-        if (!Array.isArray(json) || json.length === 0) {
-          setErrorMsg('The selected spreadsheet does not contain any data rows.');
-          setParsedRows([]);
-          return;
-        }
-
-        // Find extra columns that will be added to the description
-        const extraColsSet = new Set();
-        json.forEach((row) => {
-          Object.keys(row).forEach((key) => {
-            const cleanKey = key.trim().toLowerCase();
-            if (!knownKeys.has(cleanKey)) {
-              extraColsSet.add(key.trim());
-            }
-          });
-        });
-
-        setDetectedExtraCols(Array.from(extraColsSet));
-        setParsedRows(json);
-      } catch (err) {
-        console.error('Error parsing spreadsheet:', err);
-        setErrorMsg('Failed to read the file. Please ensure it is a valid .xlsx, .xls, or .csv document.');
+      if (lowerName.endsWith('.csv')) {
+        const csvText = await inputFile.text();
+        json = parseCsvText(csvText);
+      } else if (lowerName.endsWith('.xls')) {
+        setErrorMsg('Legacy .xls binary format is not supported. Please save as .xlsx or .csv and upload again.');
         setParsedRows([]);
+        return;
+      } else {
+        const arrayBuffer = await inputFile.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        const worksheet = workbook.worksheets[0];
+
+        if (worksheet) {
+          const headers = [];
+          worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            headers[colNumber] = String(normalizeExcelCellValue(cell.value) || '').trim();
+          });
+
+          worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+            if (rowNumber === 1) return;
+            const rowObj = {};
+            let hasAnyValue = false;
+            headers.forEach((header, colNumber) => {
+              if (!header) return;
+              const cellVal = normalizeExcelCellValue(row.getCell(colNumber).value);
+              if (cellVal !== '' && cellVal !== null && cellVal !== undefined) {
+                hasAnyValue = true;
+              }
+              rowObj[header] = cellVal === null || cellVal === undefined ? '' : cellVal;
+            });
+            if (hasAnyValue) json.push(rowObj);
+          });
+        }
       }
-    };
-    reader.readAsArrayBuffer(inputFile);
+
+      if (!Array.isArray(json) || json.length === 0) {
+        setErrorMsg('The selected spreadsheet does not contain any data rows.');
+        setParsedRows([]);
+        return;
+      }
+
+      // Find extra columns that will be added to the description
+      const extraColsSet = new Set();
+      json.forEach((row) => {
+        Object.keys(row).forEach((key) => {
+          const cleanKey = key.trim().toLowerCase();
+          if (!knownKeys.has(cleanKey)) {
+            extraColsSet.add(key.trim());
+          }
+        });
+      });
+
+      setDetectedExtraCols(Array.from(extraColsSet));
+      setParsedRows(json);
+    } catch (err) {
+      console.error('Error parsing spreadsheet:', err);
+      setErrorMsg('Failed to read the file. Please ensure it is a valid .xlsx or .csv document.');
+      setParsedRows([]);
+    }
   };
 
   const handleConfirmUpload = async () => {

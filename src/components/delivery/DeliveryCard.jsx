@@ -2,8 +2,10 @@ import React from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
 import DeliveryStatusBadge from './DeliveryStatusBadge';
 import { getPrivacySafeLocationLabel, getTransporterQuoteStanding } from '../../utils/deliveries';
+import { buildFreightReceipt, isFreightPaid } from '../../utils/paymentReceipt';
 import {
   Truck,
   ArrowRight,
@@ -265,6 +267,14 @@ export default function DeliveryCard({
             >
               {isVerified ? 'Quote & Accept' : 'Verify to Quote'}
             </Button>
+          )}
+
+          {isFreightPaid(delivery) && (
+            <ReceiptDownloadButton
+              size="md"
+              title="Download freight payment receipt"
+              buildReceipt={() => buildFreightReceipt(delivery, viewerRole)}
+            />
           )}
 
           {/* View Details Button */}

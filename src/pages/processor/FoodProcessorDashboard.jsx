@@ -8,6 +8,13 @@ import Pagination from '../../components/ui/Pagination';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import Modal from '../../components/ui/Modal';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import {
+  buildOrderEscrowReceipt,
+  buildSellerPayoutReceipt,
+  isOrderEscrowPaid,
+  isOrderPayoutReleased,
+} from '../../utils/paymentReceipt';
 import { toast } from '../../context/ToastContext';
 import {
   ShoppingBag,
@@ -58,17 +65,9 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
 
   const handleOpenKycAction = () => {
     if (currentKycStatus === 'pending') {
-      try {
-        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-        const registry = storedRaw ? JSON.parse(storedRaw) : [];
-        const found = registry.find((u) => u.id === user.id || u.email === user.email);
-        if (found?.documents && found.documents.length > 0) {
-          setInspectingDoc(found.documents[0]);
-          return;
-        }
-      } catch {}
-      if (user.documents && user.documents.length > 0) {
-        setInspectingDoc(user.documents[0]);
+      const docs = user.documents || user.meta?.documents;
+      if (Array.isArray(docs) && docs.length > 0) {
+        setInspectingDoc(docs[0]);
         return;
       }
     }
@@ -102,13 +101,13 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
   const [blockedDeleteInfo, setBlockedDeleteInfo] = useState(null);
   const [isDeletingProduct, setIsDeletingProduct] = useState(false);
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
       if (!myListings || myListings.length === 0) {
         toast.info('No products listed to export.');
         return;
       }
-      const filename = exportListingsToExcel(
+      const filename = await exportListingsToExcel(
         myListings,
         `AgrowLink_FoodProcessor_Products_${user.name ? user.name.replace(/\s+/g, '_') : 'Processor'}`
       );
@@ -519,14 +518,22 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                               {order.status?.replace('_', ' ') || 'Order Placed'}
                             </td>
                             <td className="py-3.5 px-4 text-right">
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => onNavigate('buyer-orders')}
-                                className="text-xs font-semibold py-1 px-2.5 h-auto"
-                              >
-                                View Details
-                              </Button>
+                              <div className="inline-flex items-center justify-end gap-1.5">
+                                {isOrderEscrowPaid(order) && (
+                                  <ReceiptDownloadButton
+                                    title="Download escrow payment receipt"
+                                    buildReceipt={() => buildOrderEscrowReceipt(order)}
+                                  />
+                                )}
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => onNavigate('buyer-orders')}
+                                  className="text-xs font-semibold py-1 px-2.5 h-auto"
+                                >
+                                  View Details
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -742,14 +749,22 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                                 </Badge>
                               </td>
                               <td className="py-3.5 px-4 text-right">
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => onNavigate('farmer-orders')}
-                                  className="text-xs font-semibold py-1 px-2.5 h-auto"
-                                >
-                                  Dispatch Order
-                                </Button>
+                                <div className="inline-flex items-center justify-end gap-1.5">
+                                  {isOrderPayoutReleased(ord) && (
+                                    <ReceiptDownloadButton
+                                      title="Download seller payout receipt"
+                                      buildReceipt={() => buildSellerPayoutReceipt(ord)}
+                                    />
+                                  )}
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => onNavigate('farmer-orders')}
+                                    className="text-xs font-semibold py-1 px-2.5 h-auto"
+                                  >
+                                    Dispatch Order
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}

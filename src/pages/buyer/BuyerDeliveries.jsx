@@ -100,15 +100,6 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
   const isDeliverySignedOff = (delivery) => {
     if (!delivery) return false;
     if (delivery.id && signedOffIds[delivery.id]) return true;
-    if (typeof window !== 'undefined') {
-      if (
-        (delivery.id && localStorage.getItem(`agrolnk_buyer_verified_${delivery.id}`) === 'true') ||
-        (delivery.orderId && localStorage.getItem(`agrolnk_buyer_verified_${delivery.orderId}`) === 'true') ||
-        (delivery.orderNumber && localStorage.getItem(`agrolnk_buyer_verified_${delivery.orderNumber}`) === 'true')
-      ) {
-        return true;
-      }
-    }
     const linkedOrder = orders.find(
       (o) => (delivery.orderId && o.id === delivery.orderId) || (delivery.orderNumber && o.orderNumber === delivery.orderNumber)
     );
@@ -120,11 +111,6 @@ export default function BuyerDeliveries({ currentUser, onNavigate }) {
       setSignedOffIds((prev) => ({ ...prev, [delivery.id]: true }));
     }
     try {
-      if (typeof window !== 'undefined') {
-        if (delivery.id) localStorage.setItem(`agrolnk_buyer_verified_${delivery.id}`, 'true');
-        if (delivery.orderId) localStorage.setItem(`agrolnk_buyer_verified_${delivery.orderId}`, 'true');
-        if (delivery.orderNumber) localStorage.setItem(`agrolnk_buyer_verified_${delivery.orderNumber}`, 'true');
-      }
       await confirmBuyerReceipt(delivery.id);
       toast.success('Arrival signed off! AgrowLink Admin will verify and release escrow.');
       await loadData();

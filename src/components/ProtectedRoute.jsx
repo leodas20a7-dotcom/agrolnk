@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getCurrentUser, isAuthenticated, getUserRole, logoutUser } from '../utils/auth';
+import { getCurrentUser, isAuthenticated, getUserRole, logoutUser, syncAuthenticatedUserWithServer } from '../utils/auth';
 import { supabase } from '../lib/supabase';
 
 export default function ProtectedRoute({ children, requiredRole, allowedRoles, onNavigate }) {
@@ -109,6 +109,41 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles, o
       };
 
       verifyServerAdmin();
+    } else {
+      // Reconcile non-admin session with authoritative server role & KYC status (overwrites DevTools localStorage tampering)
+      syncAuthenticatedUserWithServer()
+        .then((serverUser) => {
+          if (!isMounted) return;
+          if (!serverUser) {
+            if (!hasRedirectedRef.current) {
+              hasRedirectedRef.current = true;
+              logoutUser();
+              onNavigate('login', { user: null }, true);
+            }
+            return;
+          }
+          const serverRole = serverUser.role;
+          let allowed = true;
+          if (allowedRoles && Array.isArray(allowedRoles)) {
+            allowed = allowedRoles.includes(serverRole);
+          } else if (requiredRole) {
+            if (requiredRole === 'farmer') {
+              allowed = serverRole === 'farmer' || serverRole === 'fpo' || serverRole === 'food_processor';
+            } else if (requiredRole === 'buyer') {
+              allowed = serverRole === 'buyer' || serverRole === 'food_processor';
+            } else {
+              allowed = serverRole === requiredRole;
+            }
+          }
+          if (!allowed && !hasRedirectedRef.current) {
+            hasRedirectedRef.current = true;
+            const targetDashboard = serverRole === 'food_processor'
+              ? 'food-processor-dashboard'
+              : (serverRole ? `${serverRole}-dashboard` : 'role-selection');
+            onNavigate(targetDashboard, { user: serverUser }, true);
+          }
+        })
+        .catch(() => {});
     }
 
     return () => {

@@ -47,81 +47,33 @@ export async function verifyPaymentOnServer({
     throw new Error('Payment gateway response did not return a valid payment ID.');
   }
 
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
-  const isTestMode = Boolean(import.meta.env?.DEV) && String(razorpayKeyId).startsWith('rzp_test_');
+  const { data: verifyRes, error: verifyErr } = await supabase.functions.invoke('razorpay-route', {
+    body: {
+      action: 'verify_payment',
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      expected_amount_paise: expectedAmountPaise,
+      expected_currency: expectedCurrency,
+      payment_context: paymentContext,
+      loan_id: loanId,
+      inspection_id: inspectionId,
+    },
+  });
 
-  try {
-    const { data: verifyRes, error: verifyErr } = await supabase.functions.invoke('razorpay-route', {
-      body: {
-        action: 'verify_payment',
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature,
-        expected_amount_paise: expectedAmountPaise,
-        expected_currency: expectedCurrency,
-        payment_context: paymentContext,
-        loan_id: loanId,
-        inspection_id: inspectionId,
-      },
-    });
-
-    if (!verifyErr && verifyRes?.verified === true) {
-      return verifyRes;
-    }
-
-    // If the edge function actively rejected the signature (tampering / bad signature)
-    if (!verifyErr && verifyRes && verifyRes.verified === false) {
-      throw new Error(verifyRes.error || 'Payment signature verification failed. Possible tampering or unauthorized callback.');
-    }
-
-    if (verifyErr) {
-      const errMsg = String(verifyErr.message || '');
-      const isEdgeUnavailable =
-        verifyErr.name === 'FunctionsFetchError' ||
-        errMsg.includes('Failed to send a request') ||
-        verifyErr.status === 404;
-
-      if (isTestMode && isEdgeUnavailable) {
-        console.warn(
-          'DEV test mode: Supabase Edge Function "razorpay-route" unreachable. Confirming payment in local dev only:',
-          razorpay_payment_id
-        );
-        return {
-          verified: true,
-          mode: 'test_fallback',
-          paymentId: razorpay_payment_id,
-          orderId: razorpay_order_id,
-        };
-      }
-
-      throw new Error(errMsg || 'Payment verification request failed on server.');
-    }
-
-    if (!verifyRes?.verified) {
-      throw new Error(verifyRes?.error || 'Server did not confirm payment verification.');
-    }
-
+  if (!verifyErr && verifyRes?.verified === true) {
     return verifyRes;
-  } catch (err) {
-    const errMsg = String(err?.message || '');
-    const isEdgeUnavailable =
-      err?.name === 'FunctionsFetchError' ||
-      errMsg.includes('Failed to send a request');
-
-    if (isTestMode && isEdgeUnavailable) {
-      console.warn(
-        'DEV test mode: Supabase Edge Function unavailable. Confirming payment in local dev only:',
-        razorpay_payment_id
-      );
-      return {
-        verified: true,
-        mode: 'test_fallback',
-        paymentId: razorpay_payment_id,
-        orderId: razorpay_order_id,
-      };
-    }
-    throw err;
   }
+
+  if (!verifyErr && verifyRes && verifyRes.verified === false) {
+    throw new Error(verifyRes.error || 'Payment signature verification failed. Possible tampering or unauthorized callback.');
+  }
+
+  if (verifyErr) {
+    throw new Error(verifyErr.message || 'Payment verification request failed on server.');
+  }
+
+  throw new Error(verifyRes?.error || 'Server did not confirm payment verification.');
 }
 
 /**

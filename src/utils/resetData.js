@@ -86,18 +86,11 @@ export async function resetAllTestingData() {
       Object.keys(localStorage).forEach((key) => {
         if (
           key.startsWith('agrolnk_') &&
-          key !== 'agrolnk_admin_kyc_registry' &&
           key !== 'agrolnkUser'
         ) {
           localStorage.removeItem(key);
         }
       });
-    } catch {}
-
-    // Reset Admin KYC Registry to ONLY Admin
-    try {
-      const adminOnlyRegistry = [ADMIN_USER];
-      localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(adminOnlyRegistry));
     } catch {}
 
     // Check current logged in user session

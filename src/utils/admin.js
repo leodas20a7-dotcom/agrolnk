@@ -7,65 +7,27 @@ import { getInventory } from './warehouses';
 import { BUYER_COMMISSION_RATE, SELLER_COMMISSION_RATE } from './commission';
 
 const ADMIN_KYC_STORAGE_KEY = 'agrolnk_admin_kyc_registry';
-
-// Seed Initial KYC Verification Registry (Empty for production)
 const INITIAL_KYC_USERS = [];
 
-function getStoredKYC() {
+if (typeof window !== 'undefined' && window.localStorage) {
   try {
-    const raw = localStorage.getItem(ADMIN_KYC_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    // Filter out dummy sample users from previous sessions
-    return parsed.filter(
-      (u) =>
-        u.id !== 'usr_farmer_01' &&
-        u.id !== 'usr_buyer_02' &&
-        u.id !== 'usr_transporter_03' &&
-        u.id !== 'usr_warehouse_04' &&
-        u.id !== 'usr_financier_05'
-    );
-  } catch {
-    return [];
-  }
-}
-
-function saveStoredKYC(users) {
-  try {
-    localStorage.setItem(ADMIN_KYC_STORAGE_KEY, JSON.stringify(users));
-  } catch (err) {
-    console.error('Failed to save KYC users:', err);
-  }
+    localStorage.removeItem(ADMIN_KYC_STORAGE_KEY);
+  } catch {}
 }
 
 /**
- * Extract and synthesize all user documents from meta, pendingChanges, or profile caches
+ * Extract and synthesize all user documents strictly from authoritative database profile & meta
  */
 export function extractUserDocuments(p) {
   if (!p) return [];
   const meta = p.meta || {};
 
-  // Retrieve cached warehouse profile if available to enrich URLs
-  let cachedWp = null;
-  if (typeof localStorage !== 'undefined') {
-    try {
-      const rawWp = localStorage.getItem('agrolnk_warehouse_profiles');
-      const wpProfiles = rawWp ? JSON.parse(rawWp) : {};
-      cachedWp = (p.id && wpProfiles[p.id]) || (p.email && wpProfiles[p.email]) || null;
-    } catch {}
-  }
-
   const docNames = {
-    ...(cachedWp?.documentNames || {}),
     ...(p.documentNames || {}),
     ...(meta.pendingChanges?.documentNames || {}),
     ...(meta.documentNames || {}),
   };
   const docUrls = {
-    ...(cachedWp?.documentUrls || {}),
     ...(p.documentUrls || {}),
     ...(meta.pendingChanges?.documentUrls || {}),
     ...(meta.documentUrls || {}),
@@ -105,7 +67,7 @@ export function extractUserDocuments(p) {
   if (docNames.wdraCert || docUrls.wdraCert) {
     docs.push({
       type: 'WDRA Accreditation Certificate',
-      number: meta.wdraCode || p.wdraCode || cachedWp?.wdraCode || 'WDRA Submitted',
+      number: meta.wdraCode || p.wdraCode || 'WDRA Submitted',
       status: p.verificationStatus || p.kyc_status || 'pending',
       fileUrl: docUrls.wdraCert || '',
       fileName: docNames.wdraCert || 'wdra_accreditation_certificate.png',
@@ -114,7 +76,7 @@ export function extractUserDocuments(p) {
   if (docNames.gstinCert || docUrls.gstinCert) {
     docs.push({
       type: 'GST / Commercial Storage License',
-      number: meta.gstin || p.gstin || cachedWp?.gstin || 'GST Submitted',
+      number: meta.gstin || p.gstin || 'GST Submitted',
       status: p.verificationStatus || p.kyc_status || 'pending',
       fileUrl: docUrls.gstinCert || '',
       fileName: docNames.gstinCert || 'gst_certificate.pdf',
@@ -159,114 +121,78 @@ export function extractUserDocuments(p) {
     });
   }
 
-  // 4. Check cached warehouse documents array
-  if (docs.length === 0 && cachedWp && Array.isArray(cachedWp.documents) && cachedWp.documents.length > 0) {
-    return cachedWp.documents.map(enrichDocUrl);
-  }
-
   return docs;
 }
 
 /**
- * Get all users with KYC status (Authoritative Supabase profiles + Local Cache Fallback)
+ * Get all users with KYC status strictly from authoritative Supabase profiles table
  */
 export async function getAllKYCUsers() {
-  const localList = getStoredKYC();
-
   try {
     const { data: dbProfiles, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && Array.isArray(dbProfiles)) {
-      if (dbProfiles.length === 0) {
-        // Database is online and empty! Purge stale local cache so deleted users do not resurrect
-        try {
-          localStorage.removeItem(ADMIN_KYC_STORAGE_KEY);
-        } catch {}
-        return [];
-      }
-
-      const localMap = new Map();
-      localList.forEach((u) => {
-        if (u.id) localMap.set(u.id, u);
-        if (u.email) localMap.set(u.email.toLowerCase(), u);
-      });
-
-      const merged = dbProfiles.map((p) => {
-        const localMatch = localMap.get(p.id) || (p.email ? localMap.get(p.email.toLowerCase()) : null);
-        const dbKycStatus = p.kyc_status || 'pending';
-        const meta = p.meta || {};
-        const resolvedDocs = extractUserDocuments(p);
-        const localDocs = localMatch?.documents;
-
-        return {
-          id: p.id,
-          name: p.name || localMatch?.name || 'Registered Partner',
-          role: p.role || localMatch?.role || 'farmer',
-          email: p.email || localMatch?.email || '',
-          phone: p.phone || localMatch?.phone || '',
-          state: p.state || localMatch?.state || 'Tamil Nadu',
-          district: p.district || localMatch?.district || 'Salem',
-          orgName: p.company_name || localMatch?.orgName || `${p.name || 'Partner'} Enterprise`,
-          verificationStatus: dbKycStatus,
-          submittedAt: p.created_at || localMatch?.submittedAt || new Date().toISOString(),
-          verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || localMatch?.verifiedAt || new Date().toISOString()) : null,
-          verifiedBy: dbKycStatus === 'verified' ? (localMatch?.verifiedBy || 'Admin') : null,
-          documents: resolvedDocs.length > 0 ? resolvedDocs : (Array.isArray(localDocs) && localDocs.length > 0 ? localDocs : []),
-          auditNotes: meta.auditNotes || localMatch?.auditNotes || `Registered ${p.role || 'user'}.`,
-          // VAN (Virtual Account Number) Banking Provision fields
-          // Authoritative resolution:
-          // 1. Rejected if explicitly rejected
-          // 2. Active if localMatch is active (recent admin action), or meta is active, or DB is active
-          // 3. Auto-active if KYC status is verified (since verified participants are authorized for escrow)
-          // 4. Default to pending
-          vanStatus: (() => {
-            const candidate = localMatch?.vanStatus || meta.van_status || p.van_status;
-            if (candidate === 'rejected' || p.van_status === 'rejected' || meta.van_status === 'rejected') {
-              return 'rejected';
-            }
-            if (candidate === 'active' || meta.van_status === 'active' || p.van_status === 'active' || localMatch?.vanStatus === 'active') {
-              return 'active';
-            }
-            if (dbKycStatus === 'verified') {
-              return 'active';
-            }
-            return candidate || 'pending_bank_approval';
-          })(),
-          virtualAccountNumber: p.virtual_account_number || meta.virtual_account_number || localMatch?.virtualAccountNumber || '',
-          virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || localMatch?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
-          vanBankName: p.van_bank_name || meta.van_bank_name || localMatch?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
-          vanNotes: meta.van_notes || localMatch?.vanNotes || '',
-          bankDetails: meta.bankDetails || localMatch?.bankDetails || p.bank_details || null,
-        };
-      });
-
-      saveStoredKYC(merged);
-      return merged;
+    if (error || !Array.isArray(dbProfiles)) {
+      return [];
     }
-  } catch (err) {
-    console.warn('Could not fetch DB profiles for KYC queue, fallback to local:', err);
-  }
 
-  return localList;
+    return dbProfiles.map((p) => {
+      const dbKycStatus = p.kyc_status || 'pending';
+      const meta = p.meta || {};
+      const resolvedDocs = extractUserDocuments(p);
+
+      return {
+        id: p.id,
+        name: p.name || 'Registered Partner',
+        role: p.role || 'farmer',
+        email: p.email || '',
+        phone: p.phone || '',
+        state: p.state || 'Tamil Nadu',
+        district: p.district || 'Salem',
+        orgName: p.company_name || `${p.name || 'Partner'} Enterprise`,
+        verificationStatus: dbKycStatus,
+        submittedAt: p.created_at || new Date().toISOString(),
+        verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || new Date().toISOString()) : null,
+        verifiedBy: dbKycStatus === 'verified' ? 'Admin' : null,
+        documents: resolvedDocs,
+        auditNotes: meta.auditNotes || `Registered ${p.role || 'user'}.`,
+        vanStatus: (() => {
+          const candidate = p.van_status || meta.van_status;
+          if (candidate === 'rejected') return 'rejected';
+          if (candidate === 'active') return 'active';
+          if (dbKycStatus === 'verified') return 'active';
+          return candidate || 'pending_bank_approval';
+        })(),
+        virtualAccountNumber: p.virtual_account_number || meta.virtual_account_number || '',
+        virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || 'ICIC0000104',
+        vanBankName: p.van_bank_name || meta.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'ICICI Bank Ltd.',
+        vanNotes: meta.van_notes || '',
+        bankDetails: meta.bankDetails || p.bank_details || null,
+      };
+    });
+  } catch (err) {
+    console.warn('Could not fetch DB profiles for KYC queue:', err);
+    return [];
+  }
 }
 
 /**
- * Get single user KYC record
+ * Get single user KYC record strictly from Supabase profiles
  */
 export async function getUserKYC(userId) {
+  if (!userId) return null;
   const all = await getAllKYCUsers();
   return all.find((u) => u.id === userId || u.email === userId) || null;
 }
 
 /**
- * Check if a user is verified to trade/interact on AgrowLink
+ * Check if a user is verified to trade/interact on AgrowLink (Fail Closed)
  */
 export async function isUserVerified(userId) {
   const user = await getUserKYC(userId);
-  if (!user) return true; // Default fallback for platform demo
+  if (!user) return false;
   return user.verificationStatus === 'verified';
 }
 
@@ -339,74 +265,66 @@ async function updateProfileRowSafely(userId, buildPayloads) {
 }
 
 /**
- * Update KYC Verification status (Admin Action)
+ * Update KYC Verification status (Server-Enforced Admin RPC)
  */
 export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifiedBy = 'AgrowLink Admin') {
-  const all = getStoredKYC();
-  const index = all.findIndex((u) => u.id === userId || u.email === userId);
   const vanStatusUpdate =
     newStatus === 'verified'
       ? 'active'
       : newStatus === 'rejected'
         ? 'rejected'
-        : all[index]?.vanStatus || 'pending_bank_approval';
+        : 'pending_bank_approval';
 
   const nowIso = new Date().toISOString();
 
-  // Authoritatively persist to Supabase FIRST so failures never masquerade as local success
-  await updateProfileRowSafely(userId, (existingMeta) => {
-    const mergedMeta = {
-      ...existingMeta,
-      van_status: vanStatusUpdate,
-      ...(auditNotes ? { auditNotes } : {}),
-    };
-    return {
-      fullPayload: {
-        kyc_status: newStatus,
-        van_status: vanStatusUpdate,
-        meta: mergedMeta,
-        updated_at: nowIso,
-      },
-      minimalPayload: {
-        kyc_status: newStatus,
-        meta: mergedMeta,
-        updated_at: nowIso,
-      },
-    };
+  // 1. Primary path: Server-enforced SECURITY DEFINER RPC
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_update_kyc_status_atomic', {
+    p_user_id: String(userId),
+    p_new_status: newStatus,
+    p_audit_notes: auditNotes || null,
   });
 
-  let targetUser = null;
-  if (index === -1) {
-    const newUser = {
-      id: userId,
-      name: 'Registered Partner',
-      role: 'farmer',
-      verificationStatus: newStatus,
-      vanStatus: vanStatusUpdate,
-      submittedAt: nowIso,
-      verifiedAt: newStatus === 'verified' ? nowIso : null,
-      verifiedBy: newStatus === 'verified' ? verifiedBy : null,
-      auditNotes,
-      documents: [],
-    };
-    all.unshift(newUser);
-    targetUser = newUser;
-  } else {
-    all[index] = {
-      ...all[index],
-      verificationStatus: newStatus,
-      vanStatus: vanStatusUpdate,
-      verifiedAt: newStatus === 'verified' ? nowIso : all[index].verifiedAt,
-      verifiedBy: newStatus === 'verified' ? verifiedBy : all[index].verifiedBy,
-      auditNotes: auditNotes || all[index].auditNotes,
-    };
-    targetUser = all[index];
+  if (rpcErr) {
+    // Fallback to direct DB update only if the RPC migration hasn't been executed yet (still protected by RLS & trigger)
+    if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('admin_update_kyc_status_atomic')) {
+      await updateProfileRowSafely(userId, (existingMeta) => {
+        const mergedMeta = {
+          ...existingMeta,
+          van_status: vanStatusUpdate,
+          verificationStatus: newStatus,
+          hasPendingReview: false,
+          ...(auditNotes ? { auditNotes } : {}),
+        };
+        return {
+          fullPayload: {
+            kyc_status: newStatus,
+            van_status: vanStatusUpdate,
+            meta: mergedMeta,
+            updated_at: nowIso,
+          },
+          minimalPayload: {
+            kyc_status: newStatus,
+            meta: mergedMeta,
+            updated_at: nowIso,
+          },
+        };
+      });
+    } else {
+      throw new Error(rpcErr.message || 'Server rejected KYC status update.');
+    }
   }
 
-  saveStoredKYC(all);
+  const targetUser = {
+    id: rpcRes?.id || userId,
+    role: rpcRes?.role || 'farmer',
+    verificationStatus: newStatus,
+    vanStatus: rpcRes?.van_status || vanStatusUpdate,
+    verifiedAt: newStatus === 'verified' ? nowIso : null,
+    verifiedBy: newStatus === 'verified' ? verifiedBy : null,
+    auditNotes,
+  };
 
-  // If this is a warehouse operator, update warehouse profile state
-  if (targetUser?.role === 'warehouse') {
+  if (targetUser.role === 'warehouse') {
     try {
       if (newStatus === 'verified') {
         const { approveWarehouseProfileModification } = await import('./warehouses');
@@ -420,27 +338,13 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
     }
   }
 
-  // Update current user cached session if matching
-  try {
-    const rawUser = localStorage.getItem('agrolnkUser');
-    if (rawUser) {
-      const parsed = JSON.parse(rawUser);
-      if (parsed.id === userId || parsed.email === userId) {
-        parsed.kycStatus = newStatus;
-        parsed.verificationStatus = newStatus;
-        parsed.vanStatus = targetUser.vanStatus;
-        localStorage.setItem('agrolnkUser', JSON.stringify(parsed));
-      }
-    }
-  } catch (_e) {}
-
   window.dispatchEvent(new Event('agrolnk_kyc_updated'));
   window.dispatchEvent(new Event('agrolnk_user_profile_updated'));
   return targetUser;
 }
 
 /**
- * Update User Virtual Account Number (VAN) Banking Provision (Admin Action)
+ * Update User Virtual Account Number (VAN) Banking Provision (Server-Enforced Admin RPC)
  */
 export async function updateUserVANProvision(userId, {
   vanStatus = 'active',
@@ -449,8 +353,6 @@ export async function updateUserVANProvision(userId, {
   vanBankName = '',
   vanNotes = '',
 }) {
-  const all = getStoredKYC();
-  const index = all.findIndex((u) => u.id === userId || u.email === userId);
   const nowIso = new Date().toISOString();
 
   const updatedData = {
@@ -462,58 +364,56 @@ export async function updateUserVANProvision(userId, {
     vanAssignedAt: nowIso,
   };
 
-  await updateProfileRowSafely(userId, (existingMeta) => {
-    const mergedMeta = {
-      ...existingMeta,
-      van_status: vanStatus,
-      virtual_account_number: updatedData.virtualAccountNumber,
-      virtual_account_ifsc: updatedData.virtualAccountIfsc,
-      van_bank_name: updatedData.vanBankName,
-      van_notes: updatedData.vanNotes,
-      van_assigned_at: updatedData.vanAssignedAt,
-    };
-    return {
-      fullPayload: {
-        van_status: vanStatus,
-        virtual_account_number: updatedData.virtualAccountNumber,
-        virtual_account_ifsc: updatedData.virtualAccountIfsc,
-        van_bank_name: updatedData.vanBankName,
-        van_notes: updatedData.vanNotes,
-        van_assigned_at: updatedData.vanAssignedAt,
-        meta: mergedMeta,
-        updated_at: nowIso,
-      },
-      minimalPayload: {
-        meta: mergedMeta,
-        updated_at: nowIso,
-      },
-    };
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_update_van_provision_atomic', {
+    p_user_id: String(userId),
+    p_van_status: vanStatus,
+    p_virtual_account_number: updatedData.virtualAccountNumber,
+    p_virtual_account_ifsc: updatedData.virtualAccountIfsc || 'ICIC0000104',
+    p_van_bank_name: updatedData.vanBankName || 'ICICI Bank Ltd.',
+    p_van_notes: updatedData.vanNotes,
   });
 
-  if (index !== -1) {
-    all[index] = { ...all[index], ...updatedData };
-    saveStoredKYC(all);
-  }
-
-  // Also update active session cache if current logged-in user
-  try {
-    const rawUser = localStorage.getItem('agrolnkUser');
-    if (rawUser) {
-      const parsed = JSON.parse(rawUser);
-      if (parsed.id === userId || parsed.email === userId) {
-        parsed.vanStatus = vanStatus;
-        parsed.virtualAccountNumber = updatedData.virtualAccountNumber;
-        parsed.virtualAccountIfsc = updatedData.virtualAccountIfsc;
-        parsed.vanBankName = updatedData.vanBankName;
-        parsed.vanNotes = updatedData.vanNotes;
-        localStorage.setItem('agrolnkUser', JSON.stringify(parsed));
-      }
+  if (rpcErr) {
+    if (rpcErr.code === 'PGRST202' || String(rpcErr.message || '').includes('admin_update_van_provision_atomic')) {
+      await updateProfileRowSafely(userId, (existingMeta) => {
+        const mergedMeta = {
+          ...existingMeta,
+          van_status: vanStatus,
+          virtual_account_number: updatedData.virtualAccountNumber,
+          virtual_account_ifsc: updatedData.virtualAccountIfsc,
+          van_bank_name: updatedData.vanBankName,
+          van_notes: updatedData.vanNotes,
+          van_assigned_at: updatedData.vanAssignedAt,
+        };
+        return {
+          fullPayload: {
+            van_status: vanStatus,
+            virtual_account_number: updatedData.virtualAccountNumber,
+            virtual_account_ifsc: updatedData.virtualAccountIfsc,
+            van_bank_name: updatedData.vanBankName,
+            van_notes: updatedData.vanNotes,
+            van_assigned_at: updatedData.vanAssignedAt,
+            meta: mergedMeta,
+            updated_at: nowIso,
+          },
+          minimalPayload: {
+            meta: mergedMeta,
+            updated_at: nowIso,
+          },
+        };
+      });
+    } else {
+      throw new Error(rpcErr.message || 'Server rejected VAN provisioning update.');
     }
-  } catch (_e) {}
+  }
 
   window.dispatchEvent(new Event('agrolnk_kyc_updated'));
   window.dispatchEvent(new Event('agrolnk_user_profile_updated'));
-  return { id: userId, ...updatedData };
+  return {
+    id: rpcRes?.id || userId,
+    ...updatedData,
+    virtualAccountNumber: rpcRes?.virtual_account_number || updatedData.virtualAccountNumber,
+  };
 }
 
 /**
@@ -596,26 +496,26 @@ export async function getAdminMetrics() {
   } catch (err) {
     console.error('Error fetching admin metrics:', err);
     return {
-      totalGMV: 1540000,
-      totalOrdersCount: 18,
-      completedOrdersCount: 12,
-      totalCommissionsEarned: 7700,
-      buyerCommissions: 3850,
-      sellerCommissions: 3850,
-      totalEscrowLocked: 420000,
-      activeEscrowOrdersCount: 6,
-      pendingKYCCount: 2,
-      verifiedKYCCount: 3,
-      totalKYCUsers: 5,
-      totalFinancingDeployed: 285000,
-      activeDeliveriesCount: 4,
-      storedWarehouseTonnes: 12.5,
+      totalGMV: 0,
+      totalOrdersCount: 0,
+      completedOrdersCount: 0,
+      totalCommissionsEarned: 0,
+      buyerCommissions: 0,
+      sellerCommissions: 0,
+      totalEscrowLocked: 0,
+      activeEscrowOrdersCount: 0,
+      pendingKYCCount: 0,
+      verifiedKYCCount: 0,
+      totalKYCUsers: 0,
+      totalFinancingDeployed: 0,
+      activeDeliveriesCount: 0,
+      storedWarehouseTonnes: 0,
     };
   }
 }
 
 /**
- * Create a new user in Supabase profiles & local registry from Admin Settings
+ * Create a new user in Supabase profiles from Admin Settings (Server-Enforced)
  */
 export async function createAdminUser(userData) {
   const userId = userData.id || `usr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
@@ -629,108 +529,33 @@ export async function createAdminUser(userData) {
   const district = userData.district || 'Salem';
   const companyName = userData.orgName || userData.companyName || userData.farmName || `${name} Agri`;
 
-  let dbEmailChecked = false;
-  let dbPhoneChecked = false;
+  if (email) {
+    const { data: existingEmail, error: emailErr } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle();
+    if (!emailErr && existingEmail) {
+      throw new Error('An account with this email already exists.');
+    }
+  }
 
-  // 1. Check duplicate in Supabase DB (source of truth)
-  try {
-    if (email) {
-      const { data: existingEmail, error: emailErr } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('email', email)
-        .maybeSingle();
-      if (!emailErr) {
-        dbEmailChecked = true;
-        if (existingEmail) {
-          throw new Error('An account with this email already exists.');
-        }
+  if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
+    const { data: phoneMatches, error: phoneErr } = await supabase
+      .from('profiles')
+      .select('id, phone')
+      .ilike('phone', `%${normalizedPhoneDigits}%`);
+    if (!phoneErr && Array.isArray(phoneMatches)) {
+      const hasMatch = phoneMatches.some((p) => (p.phone || '').replace(/\D/g, '').slice(-10) === normalizedPhoneDigits);
+      if (hasMatch) {
+        throw new Error('This mobile number is already registered with another account.');
       }
     }
-    if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-      const { data: phoneMatches, error: phoneErr } = await supabase
-        .from('profiles')
-        .select('id, phone')
-        .ilike('phone', `%${normalizedPhoneDigits}%`);
-      if (!phoneErr) {
-        dbPhoneChecked = true;
-        if (phoneMatches && phoneMatches.length > 0) {
-          const hasMatch = phoneMatches.some((p) => {
-            const pDigits = (p.phone || '').replace(/\D/g, '').slice(-10);
-            return pDigits === normalizedPhoneDigits;
-          });
-          if (hasMatch) {
-            throw new Error('This mobile number is already registered with another account.');
-          }
-        }
-      }
-    }
-  } catch (dbCheckErr) {
-    if (dbCheckErr.message && (dbCheckErr.message.includes('already exists') || dbCheckErr.message.includes('already registered'))) {
-      throw dbCheckErr;
-    }
   }
 
-  // 2. Clean & check local KYC list
-  let localList = getStoredKYC();
-  if (dbEmailChecked && email) {
-    localList = localList.filter((u) => (u.email || '').trim().toLowerCase() !== email);
-    saveStoredKYC(localList);
-  } else if (!dbEmailChecked && email && localList.some((u) => (u.email || '').trim().toLowerCase() === email)) {
-    throw new Error('An account with this email already exists.');
-  }
-
-  if (dbPhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-    localList = localList.filter((u) => {
-      const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-      return uDigits !== normalizedPhoneDigits;
-    });
-    saveStoredKYC(localList);
-  } else if (!dbPhoneChecked && normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-    const dupLocalPhone = localList.some((u) => {
-      const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-      return uDigits === normalizedPhoneDigits;
-    });
-    if (dupLocalPhone) {
-      throw new Error('This mobile number is already registered with another account.');
-    }
-  }
-
-  const newRecord = {
-    id: userId,
-    name,
-    role,
-    email,
-    phone,
-    state,
-    district,
-    orgName: companyName,
-    company_name: companyName,
-    verificationStatus: kycStatus,
-    submittedAt: new Date().toISOString(),
-    verifiedAt: kycStatus === 'verified' ? new Date().toISOString() : null,
-    verifiedBy: kycStatus === 'verified' ? 'AgrowLink Platform Administrator' : null,
-    documents: [
-      {
-        type: 'Aadhaar / Identity Document',
-        number: '1234 5678 9012',
-        fileName: 'identity_doc.pdf',
-        format: 'PDF',
-        fileSize: '1.2 MB',
-        status: kycStatus,
-        fileUrl: '',
-      },
-    ],
-    auditNotes: `Account created directly via Admin Command Center.`,
-  };
-
-  // 3. Save to local KYC registry
-  localList.unshift(newRecord);
-  saveStoredKYC(localList);
-
-  // 2. Insert into Supabase profiles table
-  try {
-    const { error } = await supabase.from('profiles').upsert({
+  const { data: inserted, error } = await supabase
+    .from('profiles')
+    .upsert({
       id: userId,
       name,
       email,
@@ -741,110 +566,83 @@ export async function createAdminUser(userData) {
       company_name: companyName,
       kyc_status: kycStatus,
       updated_at: new Date().toISOString(),
-    });
-    if (error) console.warn('Supabase profile create notice:', error.message);
-  } catch (err) {
-    console.warn('Supabase profile create exception:', err);
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(error.message || 'Server rejected user creation.');
   }
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('agrolnk_kyc_updated'));
   }
 
-  return newRecord;
+  return {
+    id: inserted.id,
+    name: inserted.name,
+    role: inserted.role,
+    email: inserted.email,
+    phone: inserted.phone,
+    state: inserted.state,
+    district: inserted.district,
+    orgName: inserted.company_name,
+    company_name: inserted.company_name,
+    verificationStatus: inserted.kyc_status,
+    submittedAt: inserted.created_at || new Date().toISOString(),
+  };
 }
 
 /**
- * Update an existing user in Supabase profiles & local registry
+ * Update an existing user in Supabase profiles (Server-Enforced)
  */
 export async function updateAdminUser(userId, updates) {
   if (!userId) return null;
 
-  // 1. Update local registry
-  const localList = getStoredKYC();
-  const index = localList.findIndex((u) => u.id === userId || u.email === userId);
-  let updatedRecord = null;
+  const dbUpdate = {
+    updated_at: new Date().toISOString(),
+  };
+  if (updates.name !== undefined) dbUpdate.name = updates.name;
+  if (updates.email !== undefined) dbUpdate.email = updates.email;
+  if (updates.role !== undefined) dbUpdate.role = updates.role;
+  if (updates.phone !== undefined) dbUpdate.phone = updates.phone;
+  if (updates.state !== undefined) dbUpdate.state = updates.state;
+  if (updates.district !== undefined) dbUpdate.district = updates.district;
+  if (updates.companyName || updates.orgName) dbUpdate.company_name = updates.companyName || updates.orgName;
+  if (updates.verificationStatus || updates.kycStatus) dbUpdate.kyc_status = updates.verificationStatus || updates.kycStatus;
 
-  if (index >= 0) {
-    localList[index] = {
-      ...localList[index],
-      ...updates,
-      verificationStatus: updates.verificationStatus || updates.kycStatus || localList[index].verificationStatus,
-      orgName: updates.companyName || updates.orgName || localList[index].orgName,
-    };
-    updatedRecord = localList[index];
-    saveStoredKYC(localList);
+  const { data: updatedRow, error } = await supabase
+    .from('profiles')
+    .update(dbUpdate)
+    .eq('id', userId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Server rejected profile update.');
   }
-
-  // 2. Update Supabase profiles table
-  try {
-    const dbUpdate = {
-      updated_at: new Date().toISOString(),
-    };
-    if (updates.name !== undefined) dbUpdate.name = updates.name;
-    if (updates.email !== undefined) dbUpdate.email = updates.email;
-    if (updates.role !== undefined) dbUpdate.role = updates.role;
-    if (updates.phone !== undefined) dbUpdate.phone = updates.phone;
-    if (updates.state !== undefined) dbUpdate.state = updates.state;
-    if (updates.district !== undefined) dbUpdate.district = updates.district;
-    if (updates.companyName || updates.orgName) dbUpdate.company_name = updates.companyName || updates.orgName;
-    if (updates.verificationStatus || updates.kycStatus) dbUpdate.kyc_status = updates.verificationStatus || updates.kycStatus;
-
-    const { error } = await supabase
-      .from('profiles')
-      .update(dbUpdate)
-      .eq('id', userId);
-
-    if (error) console.warn('Supabase profile update notice:', error.message);
-  } catch (err) {
-    console.warn('Supabase profile update exception:', err);
-  }
-
-  // Sync current active session if updating active user
-  try {
-    const rawUser = localStorage.getItem('agrolnkUser');
-    if (rawUser) {
-      const parsed = JSON.parse(rawUser);
-      if (parsed.id === userId || parsed.email === userId) {
-        const mergedUser = {
-          ...parsed,
-          ...updates,
-          kycStatus: updates.verificationStatus || updates.kycStatus || parsed.kycStatus,
-        };
-        localStorage.setItem('agrolnkUser', JSON.stringify(mergedUser));
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: mergedUser }));
-        }
-      }
-    }
-  } catch (_e) {}
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('agrolnk_kyc_updated'));
+    window.dispatchEvent(new Event('agrolnk_user_profile_updated'));
   }
 
-  return updatedRecord || updates;
+  return updatedRow || updates;
 }
 
 /**
- * Delete a user from Supabase profiles & local registry
+ * Delete a user from Supabase profiles (Server-Enforced)
  */
 export async function deleteAdminUser(userId) {
   if (!userId) return false;
 
-  // 1. Remove from local KYC registry
-  const localList = getStoredKYC().filter((u) => u.id !== userId && u.email !== userId);
-  saveStoredKYC(localList);
+  const { error } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', userId);
 
-  // 2. Remove from Supabase profiles table
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
-    if (error) console.warn('Supabase profile delete notice:', error.message);
-  } catch (err) {
-    console.warn('Supabase profile delete exception:', err);
+  if (error) {
+    throw new Error(error.message || 'Server rejected profile deletion.');
   }
 
   if (typeof window !== 'undefined') {

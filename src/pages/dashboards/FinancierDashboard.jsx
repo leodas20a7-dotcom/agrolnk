@@ -8,6 +8,12 @@ import InstitutionalUnderwriteModal from '../../components/financing/Institution
 import AddLiquidityModal from '../../components/financing/AddLiquidityModal';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import {
+  buildLoanDisbursementReceipt,
+  buildLoanRepaymentReceipt,
+  isLoanDisbursed,
+} from '../../utils/paymentReceipt';
 import {
   Landmark,
   Clock,
@@ -71,17 +77,9 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
   const handleOpenKycAction = () => {
     if (currentKycStatus === 'pending') {
-      try {
-        const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-        const registry = storedRaw ? JSON.parse(storedRaw) : [];
-        const found = registry.find((u) => u.id === user.id || u.email === user.email);
-        if (found?.documents && found.documents.length > 0) {
-          setInspectingDoc(found.documents[0]);
-          return;
-        }
-      } catch { }
-      if (user.documents && user.documents.length > 0) {
-        setInspectingDoc(user.documents[0]);
+      const docs = user.documents || user.meta?.documents;
+      if (Array.isArray(docs) && docs.length > 0) {
+        setInspectingDoc(docs[0]);
         return;
       }
     }
@@ -691,13 +689,21 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                           </span>
                         </div>
 
-                        <div className="text-right">
-                          <span className="font-bold text-[#0B3326] block">
-                            ₹{totalDue.toLocaleString('en-IN')}
-                          </span>
-                          <span className="text-[10px] text-[#10B981] font-semibold">
-                            +₹{estInterest.toLocaleString('en-IN')} Profit
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="font-bold text-[#0B3326] block">
+                              ₹{totalDue.toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-[10px] text-[#10B981] font-semibold">
+                              +₹{estInterest.toLocaleString('en-IN')} Profit
+                            </span>
+                          </div>
+                          {isLoanDisbursed(loan) && (
+                            <ReceiptDownloadButton
+                              title="Download loan disbursement receipt"
+                              buildReceipt={() => buildLoanDisbursementReceipt(loan)}
+                            />
+                          )}
                         </div>
                       </div>
                     );
@@ -811,9 +817,15 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
                         <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
                         <span>Escrow Lien Cleared &bull; Txn Ref: <b className="font-mono text-[#14211D]">{loan.repaymentTransactionId || loan.paymentId || 'TXN-SETTLED'}</b></span>
                       </div>
-                      <span className="text-emerald-800 font-medium">
-                        Settled on {loan.repaidAt ? new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-800 font-medium">
+                          Settled on {loan.repaidAt ? new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent'}
+                        </span>
+                        <ReceiptDownloadButton
+                          title="Download loan repayment receipt"
+                          buildReceipt={() => buildLoanRepaymentReceipt(loan)}
+                        />
+                      </div>
                     </div>
                   </Card>
                 );

@@ -11,6 +11,8 @@ import WarehouseInwardModal from '../../components/warehouse/WarehouseInwardModa
 import WarehouseBatchRow from '../../components/warehouse/WarehouseBatchRow';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
+import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
+import { buildStorageRentReceipt, hasStorageRentPaid } from '../../utils/paymentReceipt';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import {
   Building2,
@@ -1107,6 +1109,12 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                           </Button>
 
                           <div className="flex items-center gap-1.5 shrink-0">
+                            {hasStorageRentPaid(item) && (
+                              <ReceiptDownloadButton
+                                title="Download storage rent payment receipt"
+                                buildReceipt={() => buildStorageRentReceipt(item)}
+                              />
+                            )}
                             {item.availableQuantity === 0 && (
                               <Button
                                 variant="secondary"
@@ -1458,6 +1466,13 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
 
               {/* Action Buttons */}
               <div className="pt-2 border-t border-[#E5EDE8] flex items-center justify-end gap-2.5">
+                {hasStorageRentPaid(selectedLotForRentNotice) && (
+                  <ReceiptDownloadButton
+                    size="md"
+                    title="Download storage rent payment receipt"
+                    buildReceipt={() => buildStorageRentReceipt(selectedLotForRentNotice)}
+                  />
+                )}
                 <Button
                   type="button"
                   variant="secondary"

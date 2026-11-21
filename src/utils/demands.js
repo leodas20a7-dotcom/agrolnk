@@ -448,8 +448,37 @@ export async function acceptDemandOffer(demandId, offer) {
   };
 
   try {
-    const existingLocalOrders = JSON.parse(localStorage.getItem('agrolnk_orders_local') || '[]');
-    localStorage.setItem('agrolnk_orders_local', JSON.stringify([fallbackOrder, ...existingLocalOrders]));
+    await supabase.from('orders').insert([
+      {
+        id: orderId,
+        order_number: orderNum,
+        buyer_id: demand.buyer_id,
+        buyer_name: demand.buyer_name || 'Buyer Partner',
+        farmer_id: offer.farmer_id,
+        farmer_name: offer.farmer_name || 'Farmer Partner',
+        commodity: demand.commodity,
+        variety: demand.variety || 'None',
+        grade: demand.grade || 'A',
+        quantity: qty,
+        unit,
+        price_per_unit: unitPrice,
+        total_amount: fin.tradeValue,
+        buyer_fee_amount: fin.buyerFee,
+        seller_fee_amount: fin.sellerFee,
+        platform_commission_amount: fin.totalPlatformCommission,
+        net_seller_amount: fin.netSellerReceivable,
+        freight_amount: 0,
+        freight_fee_amount: 0,
+        grand_total_amount: fin.totalBuyerPayable,
+        rfq_expires_at: rfqExpiresAt,
+        state: demand.delivery_state || '',
+        district: demand.delivery_district || '',
+        escrow_status: 'awaiting_freight_quote',
+        status: 'awaiting_freight_quote',
+        created_at: nowIso,
+        updated_at: nowIso,
+      },
+    ]);
   } catch {}
 
   try {

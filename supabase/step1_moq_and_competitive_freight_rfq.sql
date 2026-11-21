@@ -229,6 +229,9 @@ DECLARE
     v_listing RECORD;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
     v_rfq_expiry TIMESTAMP WITH TIME ZONE := NOW() + INTERVAL '30 minutes';
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_privileged BOOLEAN := (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role');
+    v_buyer_id TEXT;
     v_deduct_qty NUMERIC;
     v_effective_moq NUMERIC;
     v_order_id TEXT;
@@ -245,6 +248,19 @@ DECLARE
     v_escrow_status TEXT;
     v_status TEXT;
 BEGIN
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required to create an order.';
+    END IF;
+
+    IF NOT v_is_privileged THEN
+        IF p_buyer_id IS NOT NULL AND TRIM(p_buyer_id) <> '' AND TRIM(p_buyer_id) <> v_caller_id THEN
+            RAISE EXCEPTION 'Forbidden: Buyer identity mismatch (cannot create an order for another user).';
+        END IF;
+        v_buyer_id := v_caller_id;
+    ELSE
+        v_buyer_id := COALESCE(NULLIF(TRIM(p_buyer_id), ''), v_caller_id);
+    END IF;
+
     PERFORM set_config('agrolnk.trusted_rpc', 'true', true);
 
     -- 1. Lock the listing row
@@ -264,7 +280,7 @@ BEGIN
 
     -- 2b. Prevent Self-Trading
     IF v_listing.farmer_id IS NOT NULL AND (
-        v_listing.farmer_id = p_buyer_id OR
+        v_listing.farmer_id = v_buyer_id OR
         (auth.uid() IS NOT NULL AND v_listing.farmer_id = auth.uid()::text)
     ) THEN
         RAISE EXCEPTION 'You cannot buy your own produce. Self-trading is not permitted on AgrowLink.';
@@ -306,19 +322,16 @@ BEGIN
         updated_at = v_now
     WHERE id = p_listing_id;
 
-    -- 6. Create Order atomically
+    -- 6. Create Order atomically (never pre-funded before escrow verification)
     v_order_id := 'ord_' || extract(epoch from v_now)::bigint || '_' || substr(md5(random()::text), 1, 9);
     v_order_num := '#AGM-' || floor(1000 + random() * 9000)::text;
 
     IF p_awaiting_freight_quote THEN
         v_escrow_status := 'awaiting_freight_quote';
         v_status := 'awaiting_freight_quote';
-    ELSIF p_is_trade_credit THEN
-        v_escrow_status := 'pending';
-        v_status := 'order_placed';
     ELSE
-        v_escrow_status := 'funded';
-        v_status := 'order_placed';
+        v_escrow_status := 'pending';
+        v_status := 'pending';
     END IF;
 
     INSERT INTO public.orders (
@@ -329,7 +342,7 @@ BEGIN
         freight_amount, freight_fee_amount, grand_total_amount, rfq_expires_at,
         delivery_location, state, district, escrow_status, status, created_at, updated_at
     ) VALUES (
-        v_order_id, v_order_num, v_listing.id, NULL, p_buyer_id, COALESCE(p_buyer_name, 'Wholesale Buyer'),
+        v_order_id, v_order_num, v_listing.id, NULL, v_buyer_id, COALESCE(p_buyer_name, 'Wholesale Buyer'),
         v_listing.farmer_id, COALESCE(v_listing.farmer_name, 'Verified Producer'), v_listing.commodity,
         v_listing.variety, v_listing.grade, p_quantity, COALESCE(p_buyer_unit, v_listing.unit),
         v_unit_price, v_total_amt, v_buyer_fee, v_seller_fee,
@@ -403,6 +416,10 @@ SET search_path = public, auth
 AS $$
 DECLARE
     v_delivery RECORD;
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_privileged BOOLEAN := (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role');
+    v_caller_role TEXT;
+    v_transporter_id TEXT;
     v_now TIMESTAMP WITH TIME ZONE := NOW();
     v_existing_quotes JSONB;
     v_filtered_quotes JSONB := '[]'::jsonb;
@@ -412,6 +429,27 @@ DECLARE
     v_lowest_amt NUMERIC := NULL;
     v_q_amt NUMERIC;
 BEGIN
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required to submit a freight quote.';
+    END IF;
+
+    IF COALESCE(p_is_admin_assigned, false) AND NOT v_is_privileged THEN
+        RAISE EXCEPTION 'Forbidden: Only AgrowLink Admin can submit an admin-assigned freight quote.';
+    END IF;
+
+    IF NOT v_is_privileged THEN
+        SELECT LOWER(COALESCE(role, '')) INTO v_caller_role FROM public.profiles WHERE id = v_caller_id;
+        IF v_caller_role <> 'transporter' THEN
+            RAISE EXCEPTION 'Forbidden: Only registered Transporter accounts can submit freight quotes.';
+        END IF;
+        IF p_transporter_id IS NOT NULL AND TRIM(p_transporter_id) <> '' AND TRIM(p_transporter_id) <> v_caller_id THEN
+            RAISE EXCEPTION 'Forbidden: Transporter identity mismatch.';
+        END IF;
+        v_transporter_id := v_caller_id;
+    ELSE
+        v_transporter_id := COALESCE(NULLIF(TRIM(p_transporter_id), ''), v_caller_id, 'transporter');
+    END IF;
+
     PERFORM set_config('agrolnk.trusted_rpc', 'true', true);
 
     IF p_freight_amount IS NULL OR p_freight_amount <= 0 THEN
@@ -427,7 +465,7 @@ BEGIN
         RAISE EXCEPTION 'Delivery job % not found.', p_delivery_id;
     END IF;
 
-    IF v_delivery.status NOT IN ('transport_requested', 'price_offered') AND NOT p_is_admin_assigned THEN
+    IF v_delivery.status NOT IN ('transport_requested', 'price_offered') AND NOT COALESCE(p_is_admin_assigned, false) THEN
         RAISE EXCEPTION 'This freight job is already assigned and no longer accepting quotes.';
     END IF;
 
@@ -436,13 +474,13 @@ BEGIN
     -- Remove previous quote from the same transporter (if updating their bid)
     FOR v_elem IN SELECT * FROM jsonb_array_elements(v_existing_quotes)
     LOOP
-        IF COALESCE(v_elem->>'transporterId', '') <> COALESCE(p_transporter_id, '') THEN
+        IF COALESCE(v_elem->>'transporterId', '') <> COALESCE(v_transporter_id, '') THEN
             v_filtered_quotes := v_filtered_quotes || jsonb_build_array(v_elem);
         END IF;
     END LOOP;
 
     v_new_quote := jsonb_build_object(
-        'transporterId', COALESCE(p_transporter_id, 'transporter'),
+        'transporterId', v_transporter_id,
         'transporterName', COALESCE(p_transporter_name, 'Verified Transporter'),
         'vehicleType', COALESCE(p_vehicle_type, 'Commercial Freight Carrier'),
         'vehicleNumber', UPPER(TRIM(COALESCE(p_vehicle_number, ''))),
@@ -531,7 +569,7 @@ CREATE OR REPLACE FUNCTION public.lock_buyer_order_and_freight_escrow_atomic(
     p_payment_mode TEXT DEFAULT 'direct_razorpay',
     p_payment_id TEXT DEFAULT NULL,
     p_bank_utr TEXT DEFAULT NULL,
-    p_auto_verified BOOLEAN DEFAULT true
+    p_auto_verified BOOLEAN DEFAULT false
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -540,6 +578,8 @@ AS $$
 DECLARE
     v_order RECORD;
     v_delivery RECORD;
+    v_caller_id TEXT := auth.uid()::TEXT;
+    v_is_privileged BOOLEAN := (public.is_admin() OR (auth.jwt() ->> 'role') = 'service_role' OR auth.role() = 'service_role');
     v_now TIMESTAMP WITH TIME ZONE := NOW();
     v_freight_amt NUMERIC;
     v_freight_fee NUMERIC;
@@ -547,12 +587,16 @@ DECLARE
     v_transporter_net NUMERIC;
     v_buyer_fee NUMERIC;
     v_grand_total NUMERIC;
-    v_is_bank_pending BOOLEAN;
+    v_can_auto_fund BOOLEAN;
     v_order_escrow_status TEXT;
     v_order_status TEXT;
     v_del_status TEXT;
     v_del_escrow_status TEXT;
 BEGIN
+    IF NOT v_is_privileged AND v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.';
+    END IF;
+
     PERFORM set_config('agrolnk.trusted_rpc', 'true', true);
 
     SELECT * INTO v_order
@@ -562,6 +606,10 @@ BEGIN
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Order % not found.', p_order_id;
+    END IF;
+
+    IF NOT v_is_privileged AND v_caller_id IS DISTINCT FROM v_order.buyer_id THEN
+        RAISE EXCEPTION 'Forbidden: Only the purchasing buyer or platform administrator can submit escrow payment for this order.';
     END IF;
 
     SELECT * INTO v_delivery
@@ -578,17 +626,28 @@ BEGIN
     v_buyer_fee := COALESCE(NULLIF(v_order.buyer_fee_amount, 0), ROUND(v_order.total_amount * 0.0025, 2));
     v_grand_total := ROUND(v_order.total_amount + v_buyer_fee + v_freight_amt + v_freight_fee, 2);
 
-    v_is_bank_pending := (p_payment_mode = 'escrow_van' AND NOT COALESCE(p_auto_verified, false));
+    v_can_auto_fund := (v_is_privileged AND COALESCE(p_auto_verified, false));
 
-    IF p_payment_mode = 'trade_credit' THEN
+    IF v_order.escrow_status IN ('funded', 'escrow_secured', 'held', 'released') THEN
+        v_order_escrow_status := v_order.escrow_status;
+        v_order_status := COALESCE(NULLIF(v_order.status, ''), 'order_placed');
+        v_del_status := CASE
+            WHEN COALESCE(v_delivery.status, '') IN ('in_transit', 'delivered', 'completed') THEN v_delivery.status
+            ELSE 'assigned'
+        END;
+        v_del_escrow_status := CASE
+            WHEN COALESCE(v_delivery.freight_escrow_status, '') = 'released' THEN 'released'
+            ELSE 'escrow_locked'
+        END;
+    ELSIF p_payment_mode = 'trade_credit' THEN
         v_order_escrow_status := 'financing_pending';
         v_order_status := 'order_placed';
         v_del_status := 'assigned';
         v_del_escrow_status := 'escrow_locked';
-    ELSIF v_is_bank_pending THEN
-        v_order_escrow_status := 'pending';
-        v_order_status := 'pending';
-        v_del_status := 'price_offered';
+    ELSIF NOT v_can_auto_fund THEN
+        v_order_escrow_status := 'pending_verification';
+        v_order_status := 'payment_verification_pending';
+        v_del_status := COALESCE(v_delivery.status, 'price_offered');
         v_del_escrow_status := 'pending_bank_check';
     ELSE
         v_order_escrow_status := 'funded';

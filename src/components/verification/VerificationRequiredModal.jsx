@@ -206,12 +206,6 @@ export default function VerificationRequiredModal({
 
       const finalFileUrl = publicFileUrl || fileDataUrl || '';
 
-      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-      const registry = storedRaw ? JSON.parse(storedRaw) : [];
-      const userIndex = registry.findIndex(
-        (u) => u.id === currentUser?.id || u.email === currentUser?.email
-      );
-
       const uploadedDocName = fileName;
 
       const submission = {
@@ -240,17 +234,6 @@ export default function VerificationRequiredModal({
         ],
         auditNotes: `Submitted ${docType} (${docNumber.trim().toUpperCase()}) in ${fileFormat} format for trading verification.`,
       };
-
-      if (userIndex >= 0) {
-        registry[userIndex] = {
-          ...registry[userIndex],
-          ...submission,
-        };
-      } else {
-        registry.unshift(submission);
-      }
-
-      localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
 
       // 2. Sync submission with Supabase Database (profiles table)
       try {

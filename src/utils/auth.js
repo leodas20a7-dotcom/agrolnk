@@ -8,7 +8,8 @@ const AGROLNK_USER_KEY = 'agrolnkUser';
 
 const IS_AUTH_KEY = 'isAuthenticated';
 
-
+// In-memory authoritative session snapshot (immune to DevTools localStorage edits during active session)
+let authoritativeSessionUser = null;
 
 export const DEFAULT_DEMO_USERS = [];
 
@@ -83,40 +84,7 @@ export async function registerUser({ name, phone, email, password, role, state, 
 
     // 2. Mobile number enumeration check removed for privacy
 
-    // 3. Sync & Clean up local KYC registry
-    try {
-      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-      if (storedRaw) {
-        let registry = JSON.parse(storedRaw);
-        if (Array.isArray(registry)) {
-          if (supabaseEmailChecked && normalizedEmail) {
-            registry = registry.filter(
-              (u) => (u.email || '').trim().toLowerCase() !== normalizedEmail
-            );
-            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-          } else if (!supabaseEmailChecked && normalizedEmail) {
-            const dupEmail = registry.find((u) => (u.email || '').trim().toLowerCase() === normalizedEmail);
-            if (dupEmail) {
-              throw new Error('An account with this email already exists. Please sign in instead.');
-            }
-          }
-
-          if (normalizedPhoneDigits && normalizedPhoneDigits.length >= 10) {
-            registry = registry.filter((u) => {
-              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
-              return uDigits !== normalizedPhoneDigits;
-            });
-            localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-          }
-        }
-      }
-    } catch (regErr) {
-      if (regErr.message && (regErr.message.includes('already exists') || regErr.message.includes('already registered'))) {
-        throw regErr;
-      }
-    }
-
-    // 4. Attempt native Supabase Auth user registration (Fail Closed)
+    // 3. Attempt native Supabase Auth user registration (Fail Closed)
     const { data: authData, error: authErr } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: trimmedPassword,
@@ -195,60 +163,6 @@ export async function registerUser({ name, phone, email, password, role, state, 
       updated_at: new Date().toISOString(),
 
     };
-
-
-
-    // Sync into local Admin KYC Registry cache
-
-    try {
-
-      const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-
-      const registry = storedRaw ? JSON.parse(storedRaw) : [];
-
-      if (!registry.find(u => u.email === normalizedEmail || u.id === newProfile.id)) {
-
-        registry.unshift({
-
-          id: newProfile.id,
-
-          name: newProfile.name,
-
-          role: newProfile.role,
-
-          email: newProfile.email,
-
-          phone: newProfile.phone,
-
-          state: newProfile.state,
-
-          district: newProfile.district,
-
-          orgName: newProfile.company_name || '',
-
-          verificationStatus: 'pending',
-
-          submittedAt: new Date().toISOString(),
-
-          verifiedAt: null,
-
-          verifiedBy: null,
-
-          documents: [],
-
-          auditNotes: 'Newly registered participant. Awaiting document submission & admin verification.',
-        });
-        localStorage.setItem('agrolnk_admin_kyc_registry', JSON.stringify(registry));
-
-      }
-
-    } catch (regErr) {
-
-      console.warn('Could not sync to admin registry cache:', regErr);
-
-    }
-
-
 
     // 4. Insert/sync Supabase Profiles row (Fail Closed when authenticated;
     // when email confirmation leaves session null, auth.users trigger creates it)
@@ -371,34 +285,6 @@ export async function loginUser({ email, password }) {
         if (resolvedEmail) {
 
           targetEmail = resolvedEmail.toLowerCase();
-
-        } else {
-
-          // Fallback: check local KYC registry if offline/mock
-
-          try {
-
-            const storedRaw = localStorage.getItem('agrolnk_admin_kyc_registry');
-
-            if (storedRaw) {
-
-              const registry = JSON.parse(storedRaw);
-
-              if (Array.isArray(registry)) {
-
-                const match = registry.find(
-
-                  (u) => (u.phone || '').replace(/\D/g, '').slice(-10) === phoneDigits
-
-                );
-
-                if (match?.email) targetEmail = match.email.toLowerCase();
-
-              }
-
-            }
-
-          } catch {}
 
         }
 
@@ -637,37 +523,26 @@ export async function updateUserPassword(newPassword) {
 
 
 export function setCurrentUser(user) {
-
   try {
-
+    authoritativeSessionUser = user ? { ...user } : null;
     localStorage.setItem(AGROLNK_USER_KEY, JSON.stringify(user));
-
     localStorage.setItem(IS_AUTH_KEY, 'true');
-
     if (user?.role) {
-
       localStorage.setItem('selectedRole', user.role);
-
     }
-
   } catch (err) {
-
     console.error('Failed to set session:', err);
-
   }
-
 }
 
-
-
 /**
-
- * Get current cached authenticated user
-
+ * Get current authenticated user (prioritizes in-memory server-verified snapshot over raw localStorage)
  */
-
 export function getCurrentUser() {
   try {
+    if (authoritativeSessionUser && typeof authoritativeSessionUser === 'object') {
+      return { ...authoritativeSessionUser };
+    }
     const session = localStorage.getItem(AGROLNK_USER_KEY);
     if (!session) return null;
     const user = JSON.parse(session);
@@ -687,29 +562,29 @@ export function getCurrentUser() {
 }
 
 /**
- * Resolve authoritative KYC verification status
+ * Resolve authoritative KYC verification status (strictly from server-synced profile status)
  */
 export function getResolvedUserKycStatus(user) {
   if (!user) return 'pending';
 
+  const trusted = (authoritativeSessionUser && authoritativeSessionUser.id === user.id)
+    ? authoritativeSessionUser
+    : user;
+
   // Admin account is verified if authenticated with legitimate administrator email
-  if (user.role === 'admin') {
-    const email = (user.email || '').toLowerCase().trim();
+  if (trusted.role === 'admin') {
+    const email = (trusted.email || '').toLowerCase().trim();
     if (email === 'agrolnkadmin@gmail.com' || email === 'admin@agrolnk.com') {
       return 'verified';
     }
   }
 
-  if (user.isVerified === true || user.is_verified === true) {
-    return 'verified';
-  }
-
-  // Authoritative status directly from profile record (never trusts unverified local overrides)
+  // Authoritative status directly from profile record (never trusts unverified local isVerified boolean flags)
   const status =
-    user.kycStatus ||
-    user.kyc_status ||
-    user.verificationStatus ||
-    user.verification_status ||
+    trusted.kycStatus ||
+    trusted.kyc_status ||
+    trusted.verificationStatus ||
+    trusted.verification_status ||
     'pending';
   return status;
 }
@@ -785,7 +660,8 @@ export async function syncAuthenticatedUserWithServer() {
       createdAt: profile.created_at || session.user.created_at,
     };
 
-    // Reconcile local storage with authoritative server record
+    // Reconcile in-memory & local storage with authoritative server record
+    authoritativeSessionUser = { ...authoritativeUser };
     localStorage.setItem(AGROLNK_USER_KEY, JSON.stringify(authoritativeUser));
     localStorage.setItem(IS_AUTH_KEY, 'true');
     return authoritativeUser;
@@ -797,15 +673,6 @@ export async function syncAuthenticatedUserWithServer() {
 
 export function isUserKycVerified(user) {
   if (!user) return false;
-  if (user.isVerified === true || user.is_verified === true) return true;
-  if (
-    user.kycStatus === 'verified' ||
-    user.kyc_status === 'verified' ||
-    user.verificationStatus === 'verified' ||
-    user.verification_status === 'verified'
-  ) {
-    return true;
-  }
   return getResolvedUserKycStatus(user) === 'verified';
 }
 
@@ -1050,9 +917,13 @@ export function getUserRole() {
 
 export function logoutUser() {
   try {
+    authoritativeSessionUser = null;
     localStorage.removeItem(AGROLNK_USER_KEY);
     localStorage.removeItem(IS_AUTH_KEY);
     localStorage.removeItem('selectedRole');
+    localStorage.removeItem('agrolnk_admin_kyc_registry');
+    localStorage.removeItem('agrolnk_live_escrow_ledger_v2');
+    localStorage.removeItem('agrolnk_live_escrow_events_v2');
     localStorage.removeItem('agrolnk_orders_local');
     localStorage.removeItem('agrolnk_deliveries_local');
     localStorage.removeItem('agrolnk_user_notifications');
@@ -1066,7 +937,8 @@ export function logoutUser() {
       if (
         k.startsWith('agrolnk_order_status_') ||
         k.startsWith('agrolnk_order_escrow_') ||
-        k.startsWith('agrolnk_buyer_verified_')
+        k.startsWith('agrolnk_buyer_verified_') ||
+        k.startsWith('agrolnk_financier_liquidity_pool_')
       ) {
         localStorage.removeItem(k);
       }
@@ -1079,28 +951,23 @@ export function logoutUser() {
   }
 }
 
-
-
-// Synchronize Supabase server-side session termination with client state
-
+// Synchronize Supabase server-side session termination & overwrite any DevTools localStorage tampering
 if (typeof window !== 'undefined') {
-
   try {
-
     supabase.auth.onAuthStateChange((event) => {
-
       if (event === 'SIGNED_OUT') {
-
+        authoritativeSessionUser = null;
         localStorage.removeItem(AGROLNK_USER_KEY);
-
         localStorage.removeItem(IS_AUTH_KEY);
-
       }
-
     });
 
+    window.addEventListener('storage', (e) => {
+      if (e.key === AGROLNK_USER_KEY || e.key === 'selectedRole' || e.key === IS_AUTH_KEY) {
+        syncAuthenticatedUserWithServer().catch(() => {});
+      }
+    });
   } catch {}
-
 }
 
 
