@@ -142,7 +142,7 @@ export default function InventoryCard({
           </div>
 
           <Badge variant="dark" size="sm">
-            Grade {inventory.grade || 'A'}
+            Grade {String(inventory.grade || 'A').replace(/^Grade\s+/i, '')}
           </Badge>
         </div>
 

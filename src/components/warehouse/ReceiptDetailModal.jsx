@@ -126,7 +126,7 @@ export default function ReceiptDetailModal({
                 {inventory.commodity}
               </span>
               <span className="text-[11px] text-[#566861]">
-                {inventory.variety} (Grade {inventory.grade})
+                {inventory.variety} (Grade {String(inventory.grade || 'A').replace(/^Grade\s+/i, '')})
               </span>
             </div>
 
@@ -170,7 +170,7 @@ export default function ReceiptDetailModal({
                 <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" /> NABL Assay
               </span>
               <Badge variant="emerald" size="sm">
-                Certified Grade {inventory.grade || 'A'}
+                Certified Grade {String(inventory.grade || 'A').replace(/^Grade\s+/i, '')}
               </Badge>
             </div>
 

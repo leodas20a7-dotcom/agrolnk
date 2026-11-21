@@ -58,7 +58,7 @@ export default function InventoryRow({
               {inventory.receiptNumber}
             </span>
             <Badge variant="dark" size="sm">
-              Grade {inventory.grade || 'A'}
+              Grade {String(inventory.grade || 'A').replace(/^Grade\s+/i, '')}
             </Badge>
 
             {isPledged && (
@@ -112,8 +112,8 @@ export default function InventoryRow({
             <span className="text-[#0B3326] font-medium">{inventory.warehouseName || 'Warehouse Hub'}</span>
             {inventory.chamber && (
               <>
-                <span>&bull;</span>
-                <span className="text-[11px] text-[#566861]">{inventory.chamber}</span>
+                <span className="hidden sm:inline">&bull;</span>
+                <span className="hidden sm:inline text-[11px] text-[#566861]">{inventory.chamber}</span>
               </>
             )}
           </div>
@@ -121,7 +121,7 @@ export default function InventoryRow({
       </div>
 
       {/* Middle: Volume & Asset Valuation */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-6 py-2 lg:py-0 border-y lg:border-y-0 lg:border-x lg:px-6 border-[#E5EDE8] text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6 py-2 lg:py-0 border-y lg:border-y-0 lg:border-x lg:px-6 border-[#E5EDE8] text-xs">
         <div>
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Available</span>
           <span className="font-extrabold text-sm text-[#0B3326]">
@@ -129,7 +129,7 @@ export default function InventoryRow({
           </span>
         </div>
 
-        <div>
+        <div className="hidden sm:block">
           <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Monthly Storage Fee</span>
           <span className="font-bold text-sm text-[#0B3326]">
             ₹{Number(inventory.quotedMonthlyRent || inventory.storageFeeMonthly || 0).toLocaleString('en-IN')}/mo
@@ -168,9 +168,9 @@ export default function InventoryRow({
           </span>
         )}
 
-        {/* Quote Requested indicator */}
+        {/* Quote Requested indicator (hidden on mobile since top badge already shows Waiting for Quote) */}
         {isQuoteRequested && (
-          <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200 flex items-center gap-1">
+          <span className="hidden sm:inline-flex text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200 items-center gap-1">
             <Clock className="w-3.5 h-3.5" />
             Awaiting Warehouse Quote
           </span>
