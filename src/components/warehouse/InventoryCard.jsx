@@ -74,7 +74,7 @@ export default function InventoryCard({
                 {inventory.receiptNumber}
               </span>
               <span className="text-[10px] font-bold text-[#10B981] uppercase tracking-wider">
-                Storage Receipt
+                {isStored ? 'Storage Receipt' : isInTransit ? 'In Transit to Warehouse' : 'Storage Quote Request'}
               </span>
             </div>
           </div>

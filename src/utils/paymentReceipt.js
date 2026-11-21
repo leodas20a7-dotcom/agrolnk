@@ -384,6 +384,10 @@ export function getLatestRentPayment(inventory) {
 
 export function hasStorageRentPaid(inventory) {
   if (!inventory) return false;
+  const status = String(inventory.status || '').toLowerCase();
+  if (['quote_requested', 'quote_provided', 'pending_approval', 'rejected'].includes(status)) {
+    return false;
+  }
   return (
     (Array.isArray(inventory.rentPaymentHistory) && inventory.rentPaymentHistory.length > 0) ||
     Boolean(inventory.lastRentPaidAt) ||
