@@ -31,6 +31,10 @@ export default function ReceiptDetailModal({
 }) {
   if (!inventory) return null;
 
+  const normalizedStatus = String(inventory.status || '').toLowerCase();
+  const isIssuedEnwr = ['stored', 'partially_listed', 'released'].includes(normalizedStatus);
+  const canPayRentInModal = isIssuedEnwr || ['quote_accepted', 'awaiting_payment'].includes(normalizedStatus);
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs p-4 sm:p-6 flex min-h-full items-start justify-center">
       <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-6 text-left my-6 animate-in fade-in zoom-in-95 duration-200 relative">
@@ -44,11 +48,11 @@ export default function ReceiptDetailModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-extrabold text-[#0B3326] font-heading">
-                  Electronic Negotiable Warehouse Receipt
+                  {isIssuedEnwr ? 'Electronic Negotiable Warehouse Receipt' : 'Storage Deposit Request'}
                 </h3>
               </div>
               <span className="text-xs text-[#10B981] font-bold">
-                {inventory.receiptNumber} • WDRA Accredited Electronic Title
+                {inventory.receiptNumber} • {isIssuedEnwr ? 'WDRA Accredited Electronic Title' : 'Pre-Deposit Booking (e-NWR issued after arrival & assay)'}
               </span>
             </div>
           </div>
@@ -64,7 +68,7 @@ export default function ReceiptDetailModal({
         {/* Official Certificate Box */}
         <div className="p-6 rounded-3xl bg-gradient-to-br from-[#F8FAF8] to-[#EBF5F0]/50 border-2 border-[#10B981]/30 space-y-5 relative overflow-hidden">
           <div className="absolute right-4 -top-8 text-[#10B981]/10 font-mono text-8xl font-black select-none pointer-events-none">
-            e-NWR
+            {isIssuedEnwr ? 'e-NWR' : 'DRAFT'}
           </div>
 
           {/* Certificate Top Line */}
@@ -191,7 +195,11 @@ export default function ReceiptDetailModal({
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="flex items-center gap-2 text-xs text-[#566861]">
             <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-            <span>Digital e-NWR legal title registered on blockchain escrow</span>
+            <span>
+              {isIssuedEnwr
+                ? 'Digital e-NWR legal title registered on blockchain escrow'
+                : 'Official e-NWR title will be issued after warehouse arrival, assay & rent settlement'}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -202,7 +210,7 @@ export default function ReceiptDetailModal({
                 buildReceipt={() => buildStorageRentReceipt(inventory)}
               />
             )}
-            {onPayRent && (
+            {onPayRent && canPayRentInModal && (
               <Button
                 variant="outline"
                 size="md"
@@ -216,7 +224,7 @@ export default function ReceiptDetailModal({
               </Button>
             )}
 
-            {inventory.availableQuantity > 0 && onList && (
+            {isIssuedEnwr && inventory.availableQuantity > 0 && onList && (
               <Button
                 variant="accent"
                 size="md"
@@ -232,7 +240,7 @@ export default function ReceiptDetailModal({
               </Button>
             )}
 
-            {onRequestFinancing && (
+            {isIssuedEnwr && onRequestFinancing && (
               <Button
                 variant="secondary"
                 size="md"
