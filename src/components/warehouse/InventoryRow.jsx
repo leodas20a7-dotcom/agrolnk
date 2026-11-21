@@ -234,7 +234,7 @@ export default function InventoryRow({
           onClick={() => onView(inventory)}
           icon={Eye}
           iconPosition="left"
-          className="text-xs font-bold py-1.5 px-3 bg-[#F2FBF6] text-[#0B3326] hover:bg-[#E5EDE8] cursor-pointer"
+          className="text-xs font-bold py-1.5 px-3 bg-[#F2FBF6] text-[#0B3326] hover:bg-[#E5EDE8] cursor-pointer ml-auto lg:ml-0"
         >
           Details
         </Button>
