@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   X,
   Building2,
@@ -29,18 +29,6 @@ export default function ReceiptDetailModal({
   onPayRent,
   onRequestFinancing,
 }) {
-  useEffect(() => {
-    if (!inventory) return undefined;
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      document.documentElement.style.overflow = prevHtmlOverflow;
-    };
-  }, [inventory]);
-
   if (!inventory) return null;
 
   const normalizedStatus = String(inventory.status || '').toLowerCase();
@@ -48,8 +36,9 @@ export default function ReceiptDetailModal({
   const canPayRentInModal = isIssuedEnwr || ['quote_accepted', 'awaiting_payment'].includes(normalizedStatus);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs p-2 sm:p-6 flex items-center justify-center">
-      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full p-3.5 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-3 sm:space-y-6 text-left max-h-[94dvh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200 relative">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-2xs">
+      <div className="flex min-h-full items-center justify-center p-2 sm:p-6">
+        <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full p-3.5 sm:p-8 border border-[#E5EDE8] shadow-2xl space-y-3 sm:space-y-5 text-left my-2 sm:my-6 animate-in fade-in zoom-in-95 duration-200 relative">
         
         {/* Top Official Header with WDRA Accreditation */}
         <div className="flex items-start sm:items-center justify-between gap-2 pb-2.5 sm:pb-3 border-b border-[#E5EDE8]">
@@ -278,6 +267,7 @@ export default function ReceiptDetailModal({
           </div>
         </div>
 
+      </div>
       </div>
     </div>
   );
