@@ -9,6 +9,8 @@ import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
 import WarehouseSetupModal from '../../components/warehouse/WarehouseSetupModal';
 import WarehouseInwardModal from '../../components/warehouse/WarehouseInwardModal';
 import WarehouseBatchRow from '../../components/warehouse/WarehouseBatchRow';
+import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
+import DeliveryStatusBadge from '../../components/delivery/DeliveryStatusBadge';
 import Pagination from '../../components/ui/Pagination';
 import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
@@ -63,6 +65,7 @@ import {
   recordWarehouseRentPayment,
 } from '../../utils/warehouses';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
+import { getBuyerDeliveries, getDeliverySecretPins } from '../../utils/deliveries';
 import { supabase } from '../../lib/supabase';
 import { sendNotification } from '../../utils/notifications';
 
@@ -103,6 +106,9 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
   const [rentDueAmount, setRentDueAmount] = useState('');
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
+  const [inboundDeliveries, setInboundDeliveries] = useState([]);
+  const [deliveryPinsById, setDeliveryPinsById] = useState({});
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
 
   useEffect(() => {
     const handleBankUpdate = () => setBankDetails(getUserBankDetails(user.id));
@@ -136,13 +142,29 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
         setIsSetupModalOpen(true);
       }
 
-      const [computedStats, inv] = await Promise.all([
+      const [computedStats, inv, warehouseDeliveries] = await Promise.all([
         getWarehouseOperatorStats(activeUser, storedProfile),
         getWarehouseInventory(activeUser, storedProfile),
+        activeUser?.id ? getBuyerDeliveries(activeUser.id) : Promise.resolve([]),
       ]);
       setStats(computedStats);
       const safeInv = Array.isArray(inv) ? inv : [];
       setInventory(safeInv);
+
+      const safeDeliveries = Array.isArray(warehouseDeliveries) ? warehouseDeliveries : [];
+      setInboundDeliveries(safeDeliveries);
+      const inTransitDelivs = safeDeliveries.filter((d) => d.status === 'in_transit');
+      if (inTransitDelivs.length > 0) {
+        const pinEntries = await Promise.all(
+          inTransitDelivs.map(async (d) => {
+            const pins = await getDeliverySecretPins(d.id);
+            return [d.id, pins?.delivery_otp || d.deliveryOtp || null];
+          })
+        );
+        setDeliveryPinsById(Object.fromEntries(pinEntries.filter(([, pin]) => Boolean(pin))));
+      } else {
+        setDeliveryPinsById({});
+      }
       const pendingReqs = safeInv.filter((r) => !r.status || r.status === 'quote_requested' || r.status === 'deposit_requested' || r.status === 'pending');
       const storedCount = safeInv.filter((r) => r.status === 'stored' || r.status === 'partially_listed' || r.status === 'listed').length;
       if (pendingReqs.length > 0 && storedCount === 0) {
@@ -172,12 +194,17 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
     window.addEventListener('agrolnk_warehouse_quote_updated', handleInstantUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_stored', handleInstantUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_deleted', handleInstantUpdate);
+    window.addEventListener('agrolnk_delivery_created', handleInstantUpdate);
+    window.addEventListener('agrolnk_delivery_updated', handleInstantUpdate);
     window.addEventListener('storage', handleInstantUpdate);
 
     // 2. Listen to live Supabase Realtime changes across tabs & devices
     const channel = supabase
       .channel(`wh_dashboard_realtime_${user.id || 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, () => {
+        loadData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, () => {
         loadData(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
@@ -193,6 +220,8 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
       window.removeEventListener('agrolnk_warehouse_quote_updated', handleInstantUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_stored', handleInstantUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_deleted', handleInstantUpdate);
+      window.removeEventListener('agrolnk_delivery_created', handleInstantUpdate);
+      window.removeEventListener('agrolnk_delivery_updated', handleInstantUpdate);
       window.removeEventListener('storage', handleInstantUpdate);
       supabase.removeChannel(channel);
       hideGlobalLoader();
@@ -899,7 +928,17 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
 
               {inTransitLots.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {inTransitLots.map((req) => (
+                  {inTransitLots.map((req) => {
+                    const linkedDelivery = inboundDeliveries.find((d) =>
+                      (req.transportDeliveryId && d.id === req.transportDeliveryId) ||
+                      (req.transportDeliveryNumber && d.deliveryNumber === req.transportDeliveryNumber) ||
+                      (d.farmerId === req.farmerId &&
+                        d.commodity?.toLowerCase() === req.commodity?.toLowerCase() &&
+                        ['assigned', 'picked_up', 'in_transit', 'delivered', 'completed'].includes(d.status))
+                    );
+                    const gatePin = linkedDelivery ? (deliveryPinsById[linkedDelivery.id] || linkedDelivery.deliveryOtp) : null;
+
+                    return (
                     <Card key={req.id} hoverEffect className="p-5 bg-white border border-purple-200/80 rounded-2xl shadow-xs space-y-3 text-left">
                       <div className="flex items-start justify-between">
                         <div>
@@ -925,6 +964,46 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                         <span>Reserved Chamber: <strong>{req.chamber}</strong></span>
                       </div>
 
+                      {linkedDelivery && (
+                        <div className="p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold text-[#0B3326]">
+                                Carrier: {linkedDelivery.deliveryNumber}
+                              </span>
+                              <DeliveryStatusBadge status={linkedDelivery.status} />
+                            </div>
+                            {linkedDelivery.status === 'in_transit' && (
+                              <span className="text-[11px] text-[#566861] block">
+                                Share this Gate Handover PIN with the driver only after truck arrives &amp; lot is inspected.
+                              </span>
+                            )}
+                            {linkedDelivery.status === 'delivered' && (
+                              <span className="text-[11px] text-[#059669] font-semibold block">
+                                ✓ Handover PIN verified by driver. Ready to issue e-NWR.
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {linkedDelivery.status === 'in_transit' && (
+                              <div className="px-3 py-1.5 rounded-lg bg-white border border-[#10B981] shadow-xs">
+                                <span className="font-mono text-base font-extrabold text-[#0B3326] tracking-widest">
+                                  {gatePin || '••••'}
+                                </span>
+                              </div>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedDelivery(linkedDelivery)}
+                              className="text-xs font-semibold cursor-pointer"
+                            >
+                              View Trip
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#E5EDE8]">
                         <Button
                           variant="accent"
@@ -941,13 +1020,91 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                         </Button>
                       </div>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="p-6 rounded-2xl bg-white border border-dashed border-[#E5EDE8] text-center text-xs text-[#566861]">
                   No dispatched lots currently in transit.
                 </div>
               )}
+
+              {(() => {
+                const matchedDeliveryIds = new Set(
+                  inTransitLots
+                    .map((req) =>
+                      inboundDeliveries.find((d) =>
+                        (req.transportDeliveryId && d.id === req.transportDeliveryId) ||
+                        (req.transportDeliveryNumber && d.deliveryNumber === req.transportDeliveryNumber) ||
+                        (d.farmerId === req.farmerId &&
+                          d.commodity?.toLowerCase() === req.commodity?.toLowerCase() &&
+                          ['assigned', 'picked_up', 'in_transit', 'delivered', 'completed'].includes(d.status))
+                      )?.id
+                    )
+                    .filter(Boolean)
+                );
+                const unmatchedActiveDeliveries = inboundDeliveries.filter(
+                  (d) =>
+                    !matchedDeliveryIds.has(d.id) &&
+                    ['assigned', 'picked_up', 'in_transit', 'delivered'].includes(d.status)
+                );
+                if (unmatchedActiveDeliveries.length === 0) return null;
+
+                return (
+                  <div className="space-y-2.5 pt-2">
+                    <h3 className="text-sm font-bold text-[#0B3326] flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-[#10B981]" />
+                      Active Inbound Truck Deliveries (Gate Handover PIN)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {unmatchedActiveDeliveries.map((deliv) => {
+                        const gatePin = deliveryPinsById[deliv.id] || deliv.deliveryOtp;
+                        return (
+                          <Card key={deliv.id} hoverEffect className="p-4 bg-white border border-[#E5EDE8] rounded-2xl shadow-xs space-y-3 text-left">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-[#0B3326]">{deliv.deliveryNumber}</span>
+                                  <DeliveryStatusBadge status={deliv.status} />
+                                </div>
+                                <h4 className="text-sm font-bold text-[#0B3326] mt-1">
+                                  {deliv.commodity} • {deliv.quantity} {deliv.unit || 'kg'}
+                                </h4>
+                                <span className="text-xs text-[#566861]">
+                                  Carrier: <strong>{deliv.transporterName || 'Assigned Transporter'}</strong> • Ref: {deliv.orderNumber}
+                                </span>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedDelivery(deliv)}
+                                className="text-xs font-semibold cursor-pointer shrink-0"
+                              >
+                                View Trip
+                              </Button>
+                            </div>
+                            {deliv.status === 'in_transit' && (
+                              <div className="p-3 rounded-xl bg-[#EBF5F0] border border-[#10B981]/30 flex items-center justify-between gap-3">
+                                <div className="space-y-0.5">
+                                  <span className="text-xs font-bold text-[#0B3326] block">Gate Delivery Handover PIN</span>
+                                  <span className="text-[11px] text-[#566861]">
+                                    Provide to driver only after physical arrival &amp; inspection.
+                                  </span>
+                                </div>
+                                <div className="px-3.5 py-1.5 rounded-xl bg-white border border-[#10B981] shadow-xs shrink-0">
+                                  <span className="font-mono text-lg font-extrabold text-[#0B3326] tracking-widest">
+                                    {gatePin || '••••'}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -1626,6 +1783,17 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
           onClose={() => setIsBankModalOpen(false)}
           currentUser={user}
           onSaved={(updated) => setBankDetails(updated)}
+        />
+      )}
+
+      {/* Inbound Delivery Detail & Gate Handover PIN Modal */}
+      {selectedDelivery && (
+        <DeliveryDetailModal
+          delivery={selectedDelivery}
+          viewerRole="warehouse"
+          currentUser={user}
+          onClose={() => setSelectedDelivery(null)}
+          onStatusUpdated={() => loadData(false)}
         />
       )}
     </DashboardLayout>

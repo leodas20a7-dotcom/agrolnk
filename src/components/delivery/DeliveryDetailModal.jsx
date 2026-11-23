@@ -56,7 +56,8 @@ export default function DeliveryDetailModal({
 
   useEffect(() => {
     setCurrentDelivery(delivery);
-    if (delivery?.id && viewerRole === 'buyer') {
+    setBuyerPin(delivery?.deliveryOtp || null);
+    if (delivery?.id && (viewerRole === 'buyer' || viewerRole === 'warehouse')) {
       getDeliverySecretPins(delivery.id).then((pins) => {
         if (pins?.delivery_otp) {
           setBuyerPin(pins.delivery_otp);
@@ -70,6 +71,8 @@ export default function DeliveryDetailModal({
   const isTransporter = viewerRole === 'transporter';
   const isFarmer = viewerRole === 'farmer' || viewerRole === 'fpo' || viewerRole === 'food_processor' || viewerRole === 'processor';
   const isBuyer = viewerRole === 'buyer';
+  const isWarehouseRecipient = viewerRole === 'warehouse';
+  const isRecipient = isBuyer || isWarehouseRecipient;
   const isAdmin = viewerRole === 'admin' || currentUser?.role === 'admin';
   const isAssignedTransporter =
     isTransporter &&
@@ -85,13 +88,13 @@ export default function DeliveryDetailModal({
 
   // Visibility & Privacy Guard:
   // - Farmer sees their own Origin address & phone, but only District/State for Buyer Destination
-  // - Buyer sees only District/State for Origin Farmgate, and their own Destination address & phone
+  // - Buyer/Warehouse sees only District/State for Origin Farmgate, and their own Destination address & phone
   // - Transporter sees exact pickup & drop addresses (plus landmark & Maps) to quote accurately,
   //   but Farmer/Buyer phone numbers & Call/WhatsApp links stay hidden until order/job is confirmed.
   const canViewFullPickupAddress = isFarmer || isAdmin || isTransporter;
-  const canViewFullDestAddress = isBuyer || isAdmin || isTransporter;
+  const canViewFullDestAddress = isRecipient || isAdmin || isTransporter;
   const canViewPickupPhone = isFarmer || isAdmin || (isTransporter && transporterUnlocked);
-  const canViewDestPhone = isBuyer || isAdmin || (isTransporter && transporterUnlocked);
+  const canViewDestPhone = isRecipient || isAdmin || (isTransporter && transporterUnlocked);
 
   const pickupStr = getPrivacySafeLocationLabel(
     currentDelivery.pickupLocation,
@@ -653,8 +656,8 @@ export default function DeliveryDetailModal({
           </div>
         )}
 
-        {/* Buyer Secure Delivery Handover PIN Display */}
-        {isBuyer && currentDelivery.status === 'in_transit' && (
+        {/* Recipient (Buyer or Warehouse) Secure Delivery Handover PIN Display */}
+        {isRecipient && currentDelivery.status === 'in_transit' && (
           <div className="p-4 rounded-2xl bg-[#EBF5F0] border border-[#10B981]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="space-y-0.5">
               <span className="text-xs font-bold text-[#0B3326] block">
