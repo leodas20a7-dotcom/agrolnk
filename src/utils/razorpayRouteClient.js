@@ -42,6 +42,7 @@ export async function verifyPaymentOnServer({
   paymentContext = 'order',
   loanId = null,
   inspectionId = null,
+  deliveryId = null,
 }) {
   if (!razorpay_payment_id) {
     throw new Error('Payment gateway response did not return a valid payment ID.');
@@ -58,6 +59,7 @@ export async function verifyPaymentOnServer({
       payment_context: paymentContext,
       loan_id: loanId,
       inspection_id: inspectionId,
+      delivery_id: deliveryId,
     },
   });
 
@@ -325,6 +327,7 @@ export async function initiateRazorpayTransportCheckout({
           expectedAmountPaise: totalAmountInPaise,
           expectedCurrency: 'INR',
           paymentContext: 'transport_escrow',
+          deliveryId: delivery?.id || delivery?.deliveryNumber || null,
         });
 
         onSuccess?.({

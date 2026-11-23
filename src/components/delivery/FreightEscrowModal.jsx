@@ -98,15 +98,22 @@ export default function FreightEscrowModal({
           },
           farmerUser: currentUser,
           onSuccess: async (rzpPayment) => {
-            await depositFreightEscrow({
-              deliveryId: delivery.id,
-              paymentMode: 'direct_razorpay',
-              bankUtr: rzpPayment?.razorpay_payment_id || null,
-              payerUser: currentUser,
-              freightBreakdown: fin,
-            });
-            if (onSuccess) onSuccess();
-            onClose();
+            try {
+              await depositFreightEscrow({
+                deliveryId: delivery.id,
+                paymentMode: 'direct_razorpay',
+                bankUtr: rzpPayment?.razorpay_payment_id || null,
+                payerUser: currentUser,
+                freightBreakdown: fin,
+              });
+              if (onSuccess) onSuccess();
+              onClose();
+            } catch (err) {
+              console.error('Error finalizing freight escrow:', err);
+              setUtrError(err?.message || 'Payment captured, but could not sync delivery status. Please refresh.');
+            } finally {
+              setIsSubmitting(false);
+            }
           },
           onFailure: (err) => {
             console.warn('Transport payment cancelled:', err);

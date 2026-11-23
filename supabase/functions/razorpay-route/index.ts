@@ -1247,6 +1247,78 @@ serve(async (req: Request) => {
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+
+        if (payment_context === "transport_escrow") {
+          let targetDeliveryId = body.delivery_id || body.deliveryId || null;
+          if (!targetDeliveryId) {
+            const ordRes = await fetch(`${RAZORPAY_API_BASE}/orders/${razorpay_order_id}`, {
+              method: "GET",
+              headers: {
+                Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+                "Content-Type": "application/json",
+              },
+            });
+            if (ordRes.ok) {
+              const ordJson = await ordRes.json();
+              targetDeliveryId = ordJson?.notes?.ref_id || null;
+            }
+          }
+
+          if (targetDeliveryId) {
+            let { data: dlv } = await supabase
+              .from("deliveries")
+              .select("*")
+              .eq("id", targetDeliveryId)
+              .maybeSingle();
+            if (!dlv) {
+              const byNum = await supabase
+                .from("deliveries")
+                .select("*")
+                .eq("delivery_number", targetDeliveryId)
+                .maybeSingle();
+              dlv = byNum.data;
+            }
+
+            if (dlv && callerRole !== "admin" && dlv.buyer_id !== callerUser.id && dlv.farmer_id !== callerUser.id && dlv.freight_payer_id !== callerUser.id) {
+              return new Response(
+                JSON.stringify({ success: false, error: "Forbidden: You are not authorized to fund freight escrow for this delivery." }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+
+            if (dlv) {
+              const paidRupees = Math.round(Number(payData.amount)) / 100;
+              const baseFare = Number(dlv.freight_base_amount || dlv.freight_amount || 0) || Math.round((paidRupees / 1.0025) * 100) / 100;
+              const consignorFee = Math.round(baseFare * 0.0025 * 100) / 100;
+              const transporterFee = Math.round(baseFare * 0.0025 * 100) / 100;
+              const netTransporterPayout = Math.round((baseFare - transporterFee) * 100) / 100;
+              const nowIso = new Date().toISOString();
+
+              const { error: dlvUpdateErr } = await supabase
+                .from("deliveries")
+                .update({
+                  freight_escrow_status: "escrow_locked",
+                  freight_payer_id: callerUser.id,
+                  freight_payer_role: callerRole || "buyer",
+                  freight_base_amount: baseFare,
+                  consignor_freight_fee: consignorFee,
+                  total_freight_payable: paidRupees,
+                  transporter_commission_fee: transporterFee,
+                  transporter_net_payout: netTransporterPayout,
+                  freight_payment_mode: "direct_razorpay",
+                  freight_bank_utr: razorpay_payment_id,
+                  freight_deposited_at: nowIso,
+                  status: "assigned",
+                  updated_at: nowIso,
+                })
+                .eq("id", dlv.id);
+
+              if (dlvUpdateErr) {
+                throw new Error(`Failed to persist verified freight escrow lock: ${dlvUpdateErr.message}`);
+              }
+            }
+          }
+        }
       }
 
       return new Response(

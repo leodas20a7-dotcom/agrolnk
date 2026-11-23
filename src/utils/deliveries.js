@@ -838,6 +838,22 @@ export async function depositFreightEscrow({
     const isBankTransfer = paymentMode === 'escrow_van';
     const nowIso = new Date().toISOString();
 
+    // If Razorpay verify_payment already persisted the authoritative escrow_locked state server-side, return it cleanly
+    if (!isBankTransfer && bankUtr) {
+      const { data: verifiedRow } = await supabase
+        .from('deliveries')
+        .select('*')
+        .eq('id', deliveryId)
+        .maybeSingle();
+      if (verifiedRow && verifiedRow.freight_escrow_status === 'escrow_locked') {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('agrolnk_deliveries_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+        return emitDeliveryUpdated(mapDeliveryFromDb(verifiedRow));
+      }
+    }
+
     const updatePayload = {
       freight_escrow_status: isBankTransfer ? 'pending_bank_check' : 'escrow_locked',
       freight_payer_id: payerUser?.id || null,
