@@ -52,7 +52,13 @@ export default function NotificationBell({ currentUser, onNavigate }) {
     };
 
     const unsubscribe = subscribeToCrossTabSync((msg) => {
-      if (msg.domain === 'notifications' || msg.domain === 'orders' || msg.domain === 'deliveries' || msg.domain === 'financing') {
+      if (
+        msg.domain === 'notifications' ||
+        msg.domain === 'orders' ||
+        msg.domain === 'deliveries' ||
+        msg.domain === 'financing' ||
+        msg.domain === 'warehouses'
+      ) {
         handleUpdate();
       }
     });
@@ -60,6 +66,9 @@ export default function NotificationBell({ currentUser, onNavigate }) {
     window.addEventListener('agrolnk_notifications_updated', handleUpdate);
     window.addEventListener('agrolnk_deliveries_updated', handleUpdate);
     window.addEventListener('agrolnk_orders_updated', handleUpdate);
+    window.addEventListener('agrolnk_financing_updated', handleUpdate);
+    window.addEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
+    window.addEventListener('agrolnk_warehouse_receipt_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     const isAdminUser = user.role === 'admin' || user.role === 'super_admin';
@@ -78,6 +87,9 @@ export default function NotificationBell({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_notifications_updated', handleUpdate);
       window.removeEventListener('agrolnk_deliveries_updated', handleUpdate);
       window.removeEventListener('agrolnk_orders_updated', handleUpdate);
+      window.removeEventListener('agrolnk_financing_updated', handleUpdate);
+      window.removeEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
+      window.removeEventListener('agrolnk_warehouse_receipt_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, [user.id, user.role, user.email]);

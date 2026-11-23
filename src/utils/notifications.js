@@ -82,7 +82,7 @@ export function markRoleSeeded(seedKey) {
 function isPersistedNotificationId(id) {
   if (!id) return false;
   const s = String(id);
-  return !s.startsWith('seed_') && !s.startsWith('admin_rfq_');
+  return !s.startsWith('seed_') && !s.startsWith('admin_rfq_') && !s.startsWith('farmer_');
 }
 
 function generateId() {
@@ -383,6 +383,98 @@ export async function getNotificationsForUser(user) {
     }
   }
 
+  // Live actionable alerts for Farmer / FPO (pending orders, warehouse quotes, active loan repayments)
+  if ((currentRole === 'farmer' || currentRole === 'fpo') && currentId) {
+    try {
+      const [ordersRes, warehouseRes, loansRes] = await Promise.allSettled([
+        supabase
+          .from('orders')
+          .select('id, order_number, commodity, quantity, unit, status, escrow_status, created_at')
+          .eq('farmer_id', currentId)
+          .in('status', ['pending', 'pending_confirmation', 'awaiting_confirmation'])
+          .order('created_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('warehouse_receipts')
+          .select('id, receipt_number, commodity, warehouse_name, storage_fee_monthly, status, updated_at, created_at')
+          .eq('farmer_id', currentId)
+          .eq('status', 'quote_provided')
+          .order('updated_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('financing_requests')
+          .select('id, request_number, approved_amount, requested_amount, repayment_label, status, disbursed_at, updated_at, created_at')
+          .eq('applicant_id', currentId)
+          .eq('status', 'disbursed')
+          .order('disbursed_at', { ascending: false })
+          .limit(15),
+      ]);
+
+      const farmerAlerts = [];
+
+      if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value?.data)) {
+        for (const o of ordersRes.value.data) {
+          const id = `farmer_pending_order_${o.id}`;
+          const num = o.order_number || o.id;
+          const refLabel = String(num).startsWith('#') ? num : `#${num}`;
+          farmerAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `Order Awaiting Confirmation: ${refLabel}`,
+            message: `${o.commodity || 'Produce'} (${Number(o.quantity || 0).toLocaleString('en-IN')} ${o.unit || 'kg'}) • Review & confirm order.`,
+            type: 'order',
+            link: '/farmer-orders',
+            isRead: readIds.has(id),
+            createdAt: o.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (warehouseRes.status === 'fulfilled' && Array.isArray(warehouseRes.value?.data)) {
+        for (const w of warehouseRes.value.data) {
+          const id = `farmer_wh_quote_${w.id}`;
+          const fee = Number(w.storage_fee_monthly || 0).toLocaleString('en-IN');
+          farmerAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `Storage Quote Ready: ${w.receipt_number || 'Request'}`,
+            message: `${w.warehouse_name || 'Warehouse'} quoted ₹${fee}/mo for ${w.commodity || 'produce'}. Approve to proceed.`,
+            type: 'escrow',
+            link: '/farmer-inventory',
+            isRead: readIds.has(id),
+            createdAt: w.updated_at || w.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (loansRes.status === 'fulfilled' && Array.isArray(loansRes.value?.data)) {
+        for (const l of loansRes.value.data) {
+          const id = `farmer_loan_due_${l.id}`;
+          const amt = Number(l.approved_amount || l.requested_amount || 0).toLocaleString('en-IN');
+          farmerAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `Active Loan Repayment: ${l.request_number || 'Facility'}`,
+            message: `₹${amt} disbursed (${l.repayment_label || '30 Days Net'}). Tap to view due date or repay.`,
+            type: 'financing',
+            link: '/farmer-loan-repayments',
+            isRead: readIds.has(id),
+            createdAt: l.disbursed_at || l.updated_at || l.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (farmerAlerts.length > 0) {
+        allNotifications = [...farmerAlerts, ...allNotifications];
+      }
+    } catch (err) {
+      console.warn('Farmer live notification synthesis skipped:', err);
+    }
+  }
+
   // Filter out any dismissed items first
   allNotifications = allNotifications.filter((n) => !dismissedIds.has(n.id));
 
@@ -501,7 +593,7 @@ export async function markAllNotificationsAsRead(user) {
   const currentEmail = user.email ? String(user.email).toLowerCase() : '';
   const currentRole = user.role ? String(user.role).toLowerCase() : '';
 
-  const current = getLocalNotifications();
+  const current = getLocalNotifications(user);
   const updated = current.map((n) => {
     const rId = n.recipientId ? String(n.recipientId).toLowerCase() : '';
     const rRole = n.recipientRole ? String(n.recipientRole).toLowerCase() : '';
@@ -511,11 +603,11 @@ export async function markAllNotificationsAsRead(user) {
     return n;
   });
 
-  saveLocalNotifications(updated);
+  saveLocalNotifications(updated, user);
 
-  if (currentRole === 'admin' || currentRole === 'super_admin') {
+  if (['admin', 'super_admin', 'farmer', 'fpo'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
-    allForUser.forEach((n) => saveReadNotificationId(n.id));
+    allForUser.forEach((n) => saveReadNotificationId(n.id, user));
   }
 
   broadcastDataChange('notifications', 'MARK_ALL_READ', { userId: user.id });
@@ -557,7 +649,7 @@ export async function clearAllNotifications(user) {
   const currentEmail = user.email ? String(user.email).toLowerCase() : '';
   const currentRole = user.role ? String(user.role).toLowerCase() : '';
 
-  const current = getLocalNotifications();
+  const current = getLocalNotifications(user);
   const remaining = [];
 
   for (const n of current) {
@@ -566,17 +658,17 @@ export async function clearAllNotifications(user) {
     const isTarget = (currentId && rId === currentId) || (currentEmail && rId === currentEmail) || (!rId && rRole === currentRole);
 
     if (isTarget) {
-      saveDismissedNotificationId(n.id);
+      saveDismissedNotificationId(n.id, user);
     } else {
       remaining.push(n);
     }
   }
 
-  saveLocalNotifications(remaining);
+  saveLocalNotifications(remaining, user);
 
-  if (currentRole === 'admin' || currentRole === 'super_admin') {
+  if (['admin', 'super_admin', 'farmer', 'fpo'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
-    allForUser.forEach((n) => saveDismissedNotificationId(n.id));
+    allForUser.forEach((n) => saveDismissedNotificationId(n.id, user));
   }
 
   broadcastDataChange('notifications', 'CLEAR_ALL', { userId: user.id });
