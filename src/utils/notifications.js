@@ -341,7 +341,7 @@ export async function getNotificationsForUser(user) {
           .limit(25),
         supabase
           .from('profiles')
-          .select('id, full_name, role, updated_at, created_at')
+          .select('id, name, role, updated_at, created_at')
           .eq('kyc_status', 'pending')
           .order('updated_at', { ascending: false })
           .limit(15),
@@ -414,7 +414,7 @@ export async function getNotificationsForUser(user) {
           id,
           recipientId: null,
           recipientRole: currentRole,
-          title: `KYC Review Pending: ${p.full_name || 'User'}`,
+          title: `KYC Review Pending: ${p.name || 'User'}`,
           message: `Role: ${String(p.role || 'user').toUpperCase()} • Review documents & approve account.`,
           type: 'kyc',
           link: '/admin-verification',
