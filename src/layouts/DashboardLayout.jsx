@@ -458,6 +458,12 @@ export default function DashboardLayout({
       page: 'financier-portfolio',
       icon: PieChart,
     },
+    {
+      type: 'single',
+      label: 'Disbursements',
+      page: 'financier-disbursements',
+      icon: Receipt,
+    },
   ];
 
   const foodProcessorNavGroups = [

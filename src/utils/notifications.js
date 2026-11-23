@@ -89,7 +89,8 @@ function isPersistedNotificationId(id) {
     !s.startsWith('processor_') &&
     !s.startsWith('buyer_') &&
     !s.startsWith('transporter_') &&
-    !s.startsWith('warehouse_')
+    !s.startsWith('warehouse_') &&
+    !s.startsWith('financier_')
   );
 }
 
@@ -784,6 +785,45 @@ export async function getNotificationsForUser(user) {
     }
   }
 
+  // Live actionable alerts for Financier (new credit requests + borrower-accepted loans ready to disburse)
+  if (currentRole === 'financier' && currentId) {
+    try {
+      const { data: finRows } = await supabase
+        .from('financing_requests')
+        .select('id, request_number, applicant_name, applicant_role, commodity, requested_amount, approved_amount, financier_id, status, updated_at, created_at')
+        .in('status', ['pending', 'under_review', 'submitted', 'borrower_accepted'])
+        .order('updated_at', { ascending: false })
+        .limit(20);
+
+      const financierAlerts = (Array.isArray(finRows) ? finRows : [])
+        .filter((l) => !l.financier_id || String(l.financier_id).toLowerCase() === currentId)
+        .map((l) => {
+          const isReadyToDisburse = l.status === 'borrower_accepted';
+          const id = `${isReadyToDisburse ? 'financier_disburse' : 'financier_review'}_${l.id}`;
+          const amt = Number(l.approved_amount || l.requested_amount || 0).toLocaleString('en-IN');
+          return {
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: isReadyToDisburse
+              ? `Terms Accepted — Disburse: ${l.request_number || 'Loan'}`
+              : `New Credit Request: ${l.request_number || 'Loan'}`,
+            message: `${l.applicant_name || 'Applicant'} (${l.applicant_role || 'user'}) • ₹${amt}${l.commodity ? ` for ${l.commodity}` : ''}`,
+            type: 'financing',
+            link: '/financier-underwriting',
+            isRead: readIds.has(id),
+            createdAt: l.updated_at || l.created_at || new Date().toISOString(),
+          };
+        });
+
+      if (financierAlerts.length > 0) {
+        allNotifications = [...financierAlerts, ...allNotifications];
+      }
+    } catch (err) {
+      console.warn('Financier live notification synthesis skipped:', err);
+    }
+  }
+
   // Filter out any dismissed items first
   allNotifications = allNotifications.filter((n) => !dismissedIds.has(n.id));
 
@@ -914,7 +954,7 @@ export async function markAllNotificationsAsRead(user) {
 
   saveLocalNotifications(updated, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter', 'warehouse'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter', 'warehouse', 'financier'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveReadNotificationId(n.id, user));
   }
@@ -975,7 +1015,7 @@ export async function clearAllNotifications(user) {
 
   saveLocalNotifications(remaining, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter', 'warehouse'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter', 'warehouse', 'financier'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveDismissedNotificationId(n.id, user));
   }
