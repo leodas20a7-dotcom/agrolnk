@@ -82,7 +82,12 @@ export function markRoleSeeded(seedKey) {
 function isPersistedNotificationId(id) {
   if (!id) return false;
   const s = String(id);
-  return !s.startsWith('seed_') && !s.startsWith('admin_rfq_') && !s.startsWith('farmer_');
+  return (
+    !s.startsWith('seed_') &&
+    !s.startsWith('admin_rfq_') &&
+    !s.startsWith('farmer_') &&
+    !s.startsWith('processor_')
+  );
 }
 
 function generateId() {
@@ -475,6 +480,98 @@ export async function getNotificationsForUser(user) {
     }
   }
 
+  // Live actionable alerts for Food Processor (pending sales orders, inbound deliveries, active credit due)
+  if (currentRole === 'food_processor' && currentId) {
+    try {
+      const [salesOrdersRes, inboundDeliveriesRes, creditLoansRes] = await Promise.allSettled([
+        supabase
+          .from('orders')
+          .select('id, order_number, commodity, quantity, unit, status, created_at')
+          .eq('farmer_id', currentId)
+          .in('status', ['pending', 'pending_confirmation', 'awaiting_confirmation'])
+          .order('created_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('deliveries')
+          .select('id, delivery_number, order_number, commodity, status, updated_at, created_at')
+          .eq('buyer_id', currentId)
+          .in('status', ['in_transit', 'out_for_delivery', 'delivered'])
+          .order('updated_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('financing_requests')
+          .select('id, request_number, approved_amount, requested_amount, repayment_label, status, disbursed_at, updated_at, created_at')
+          .eq('applicant_id', currentId)
+          .eq('status', 'disbursed')
+          .order('disbursed_at', { ascending: false })
+          .limit(15),
+      ]);
+
+      const processorAlerts = [];
+
+      if (salesOrdersRes.status === 'fulfilled' && Array.isArray(salesOrdersRes.value?.data)) {
+        for (const o of salesOrdersRes.value.data) {
+          const id = `processor_sales_order_${o.id}`;
+          const num = o.order_number || o.id;
+          const refLabel = String(num).startsWith('#') ? num : `#${num}`;
+          processorAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `Processed Order Awaiting Confirmation: ${refLabel}`,
+            message: `${o.commodity || 'Processed Goods'} (${Number(o.quantity || 0).toLocaleString('en-IN')} ${o.unit || 'kg'}) • Confirm order to dispatch.`,
+            type: 'order',
+            link: '/farmer-orders',
+            isRead: readIds.has(id),
+            createdAt: o.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (inboundDeliveriesRes.status === 'fulfilled' && Array.isArray(inboundDeliveriesRes.value?.data)) {
+        for (const d of inboundDeliveriesRes.value.data) {
+          const id = `processor_inbound_delivery_${d.id}`;
+          const ref = d.order_number || d.delivery_number || 'Consignment';
+          processorAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: d.status === 'delivered' ? `Confirm Arrival & OTP: ${ref}` : `Inbound Crop In Transit: ${ref}`,
+            message: `${d.commodity || 'Raw Material'} • ${d.status === 'delivered' ? 'Verify delivery to release escrow.' : 'Track carrier arrival.'}`,
+            type: 'delivery',
+            link: '/buyer-deliveries',
+            isRead: readIds.has(id),
+            createdAt: d.updated_at || d.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (creditLoansRes.status === 'fulfilled' && Array.isArray(creditLoansRes.value?.data)) {
+        for (const l of creditLoansRes.value.data) {
+          const id = `processor_loan_due_${l.id}`;
+          const amt = Number(l.approved_amount || l.requested_amount || 0).toLocaleString('en-IN');
+          processorAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `Trade Credit Repayment: ${l.request_number || 'Facility'}`,
+            message: `₹${amt} active (${l.repayment_label || '30 Days Net'}). Tap to view due date or settle.`,
+            type: 'financing',
+            link: '/buyer-loan-repayments',
+            isRead: readIds.has(id),
+            createdAt: l.disbursed_at || l.updated_at || l.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (processorAlerts.length > 0) {
+        allNotifications = [...processorAlerts, ...allNotifications];
+      }
+    } catch (err) {
+      console.warn('Food processor live notification synthesis skipped:', err);
+    }
+  }
+
   // Filter out any dismissed items first
   allNotifications = allNotifications.filter((n) => !dismissedIds.has(n.id));
 
@@ -605,7 +702,7 @@ export async function markAllNotificationsAsRead(user) {
 
   saveLocalNotifications(updated, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveReadNotificationId(n.id, user));
   }
@@ -666,7 +763,7 @@ export async function clearAllNotifications(user) {
 
   saveLocalNotifications(remaining, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveDismissedNotificationId(n.id, user));
   }

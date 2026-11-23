@@ -28,7 +28,10 @@ import {
   Download,
   Trash2,
   AlertTriangle,
-  Gavel
+  Gavel,
+  FileText,
+  Landmark,
+  Settings
 } from 'lucide-react';
 import { getBuyerOrders, getFarmerOrders } from '../../utils/orders';
 import { getFarmerListings, exportListingsToExcel, deleteListing, checkListingBookings } from '../../utils/listings';
@@ -36,6 +39,8 @@ import { getBuyerDeliveries } from '../../utils/deliveries';
 import { getBuyerFinancingRequests } from '../../utils/financing';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 import { getTimeGreeting } from '../../utils/greeting';
+import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
+import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
 
 export default function FoodProcessorDashboard({ currentUser, onNavigate, navState }) {
   const activeSession = getCurrentUser();
@@ -56,10 +61,22 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
   const [productsPage, setProductsPage] = useState(1);
   const [salesOrdersPage, setSalesOrdersPage] = useState(1);
 
-  // KYC Verification state
+  // KYC Verification & Payout Bank state
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [inspectingDoc, setInspectingDoc] = useState(null);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
+
+  useEffect(() => {
+    const handleBankUpdate = () => setBankDetails(getUserBankDetails(user.id));
+    window.addEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+    window.addEventListener('storage', handleBankUpdate);
+    return () => {
+      window.removeEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+      window.removeEventListener('storage', handleBankUpdate);
+    };
+  }, [user.id]);
 
   const isVerified = currentKycStatus === 'verified';
 
@@ -265,8 +282,8 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
             </p>
           </div>
 
-          {/* Primary Action Buttons: 3 Clear Pillars */}
-          <div className="shrink-0 flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* Primary Action Buttons */}
+          <div className="shrink-0 flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
             <Button
               variant="white"
               size="md"
@@ -276,6 +293,16 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               className="py-2.5 px-4 font-bold text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer shadow-sm border border-white"
             >
               Buy Raw Crops
+            </Button>
+            <Button
+              variant="white"
+              size="md"
+              icon={FileText}
+              iconPosition="left"
+              onClick={() => onNavigate('buyer-demands')}
+              className="py-2.5 px-4 font-bold text-xs !bg-[#0F4A37] !text-white hover:!bg-[#14624A] cursor-pointer shadow-sm border border-[#14624A]"
+            >
+              Post Tender
             </Button>
             <Button
               variant="white"
@@ -555,6 +582,38 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
           {/* TAB 2: Processed Goods Catalog & Retailer Orders (Sell Side) */}
           {activeTab === 'sales' && (
             <div className="space-y-8">
+              {/* Escrow Payout Bank Account Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0">
+                    <Landmark className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-bold text-[#0B3326]">Escrow Payout Bank Account</h4>
+                      <Badge variant={bankDetails?.accountNumber ? 'emerald' : 'amber'} size="sm">
+                        {bankDetails?.accountNumber ? 'Linked & Verified' : 'Action Required'}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#566861]">
+                      <span>Bank: <strong className="text-[#14211D]">{bankDetails?.bankName || 'Not configured'}</strong></span>
+                      <span>A/C: <strong className="font-mono text-[#14211D]">{bankDetails?.accountNumber ? maskAccountNumber(bankDetails.accountNumber) : 'Not Linked'}</strong></span>
+                      <span>IFSC: <strong className="font-mono text-[#10B981]">{bankDetails?.ifscCode || '—'}</strong></span>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={Settings}
+                  iconPosition="left"
+                  onClick={() => setIsBankModalOpen(true)}
+                  className="text-xs font-bold shrink-0 cursor-pointer"
+                >
+                  Manage Payout Bank
+                </Button>
+              </div>
+
               {/* Product Stock Section */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -886,6 +945,15 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
             )}
           </div>
         </Modal>
+      )}
+      {/* Payout Bank Account Modal */}
+      {isBankModalOpen && (
+        <FarmerBankSettingsModal
+          isOpen={isBankModalOpen}
+          onClose={() => setIsBankModalOpen(false)}
+          currentUser={user}
+          onSaved={(updated) => setBankDetails(updated)}
+        />
       )}
     </DashboardLayout>
   );

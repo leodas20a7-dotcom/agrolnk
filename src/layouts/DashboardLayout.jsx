@@ -480,6 +480,12 @@ export default function DashboardLayout({
           desc: 'Source grains & harvest lots directly from farmers',
         },
         {
+          label: 'Raw Material Tenders',
+          page: 'buyer-demands',
+          icon: FileText,
+          desc: 'Post bulk procurement tenders & compare farmer quotes',
+        },
+        {
           label: 'Sell Processed Products',
           page: 'farmer-my-listings',
           icon: Package,
@@ -529,7 +535,13 @@ export default function DashboardLayout({
           label: 'Trucks & Deliveries',
           page: 'buyer-deliveries',
           icon: Truck,
-          desc: 'Consignments & delivery OTP verification',
+          desc: 'Inbound raw crop consignments & OTP verification',
+        },
+        {
+          label: 'Sales Deliveries',
+          page: 'farmer-deliveries',
+          icon: Truck,
+          desc: 'Outbound processed goods dispatch to buyers',
         },
       ],
     },
