@@ -96,6 +96,7 @@ export default function DepositProduceModal({
 
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
+    if (isSubmitting) return;
 
     if (!selectedWarehouseId) {
       setError('Please choose a certified storage facility.');

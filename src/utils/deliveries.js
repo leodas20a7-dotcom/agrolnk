@@ -527,6 +527,26 @@ export async function createDelivery(deliveryData) {
       typeof str === 'string' &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
+    // Prevent duplicate non-cancelled deliveries for the same orderId or orderNumber
+    const resolvedOrderId = isUuid(deliveryData.orderId) ? deliveryData.orderId : null;
+    const resolvedOrderNumber = deliveryData.orderNumber ? String(deliveryData.orderNumber).trim() : '';
+    if (resolvedOrderId || (resolvedOrderNumber && resolvedOrderNumber !== '#AGM-1000')) {
+      let dupQuery = supabase
+        .from('deliveries')
+        .select('*')
+        .neq('status', 'cancelled')
+        .limit(1);
+      if (resolvedOrderId) {
+        dupQuery = dupQuery.eq('order_id', resolvedOrderId);
+      } else {
+        dupQuery = dupQuery.eq('order_number', resolvedOrderNumber);
+      }
+      const { data: existingDup } = await dupQuery.maybeSingle();
+      if (existingDup) {
+        return mapDeliveryFromDb(existingDup);
+      }
+    }
+
     const dbRow = {
       id: generateId(),
       delivery_number: generateDeliveryNum(),

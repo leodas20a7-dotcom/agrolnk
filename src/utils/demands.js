@@ -447,8 +447,9 @@ export async function acceptDemandOffer(demandId, offer) {
     updatedAt: nowIso,
   };
 
+  let orderInserted = false;
   try {
-    await supabase.from('orders').insert([
+    const { error: orderErr } = await supabase.from('orders').insert([
       {
         id: orderId,
         order_number: orderNum,
@@ -479,37 +480,40 @@ export async function acceptDemandOffer(demandId, offer) {
         updated_at: nowIso,
       },
     ]);
+    orderInserted = !orderErr;
   } catch {}
 
-  try {
-    await createDelivery({
-      orderId,
-      orderNumber: orderNum,
-      farmerId: offer.farmer_id,
-      farmerName: offer.farmer_name || 'Farmer Partner',
-      buyerId: demand.buyer_id,
-      buyerName: demand.buyer_name || 'Buyer Partner',
-      commodity: demand.commodity,
-      variety: demand.variety || 'None',
-      grade: demand.grade || 'A',
-      quantity: qty,
-      unit,
-      pickupLocation: {
-        state: demand.delivery_state || '',
-        district: demand.delivery_district || '',
-        address: 'Verified Producer Farmgate Hub',
-      },
-      deliveryLocation: {
-        state: demand.delivery_state || '',
-        district: demand.delivery_district || '',
-        pincode: demand.delivery_pincode || '',
-        address: demand.delivery_address || demand.delivery_district || 'Buyer Delivery Hub',
-      },
-      rfqExpiresAt,
-      status: 'transport_requested',
-    });
-  } catch (delErr) {
-    console.warn('Offline delivery RFQ fallback notice:', delErr);
+  if (orderInserted) {
+    try {
+      await createDelivery({
+        orderId,
+        orderNumber: orderNum,
+        farmerId: offer.farmer_id,
+        farmerName: offer.farmer_name || 'Farmer Partner',
+        buyerId: demand.buyer_id,
+        buyerName: demand.buyer_name || 'Buyer Partner',
+        commodity: demand.commodity,
+        variety: demand.variety || 'None',
+        grade: demand.grade || 'A',
+        quantity: qty,
+        unit,
+        pickupLocation: {
+          state: demand.delivery_state || '',
+          district: demand.delivery_district || '',
+          address: 'Verified Producer Farmgate Hub',
+        },
+        deliveryLocation: {
+          state: demand.delivery_state || '',
+          district: demand.delivery_district || '',
+          pincode: demand.delivery_pincode || '',
+          address: demand.delivery_address || demand.delivery_district || 'Buyer Delivery Hub',
+        },
+        rfqExpiresAt,
+        status: 'transport_requested',
+      });
+    } catch (delErr) {
+      console.warn('Offline delivery RFQ fallback notice:', delErr);
+    }
   }
 
   const demands = getLocalDemands();
