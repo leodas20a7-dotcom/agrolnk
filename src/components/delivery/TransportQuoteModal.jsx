@@ -106,13 +106,17 @@ export default function TransportQuoteModal({
   };
 
   const [savedFleet, setSavedFleet] = useState([]);
-  const [selectedVehicleKey, setSelectedVehicleKey] = useState(defaultFareInfo.vehicleKey || 'medium_lcv');
+  const [selectedVehicleKey, setSelectedVehicleKey] = useState(
+    (myExistingQuote?.vehicleCategory && VEHICLE_TARIFF_RATES[myExistingQuote.vehicleCategory]
+      ? myExistingQuote.vehicleCategory
+      : defaultFareInfo.vehicleKey) || 'medium_lcv'
+  );
   const [freightAmount, setFreightAmount] = useState(
     myExistingQuote?.freightAmount ? String(myExistingQuote.freightAmount) : ''
   );
-  const [vehicleNumber, setVehicleNumber] = useState('');
-  const [driverName, setDriverName] = useState('');
-  const [driverPhone, setDriverPhone] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState(myExistingQuote?.vehicleNumber || '');
+  const [driverName, setDriverName] = useState(myExistingQuote?.driverName || '');
+  const [driverPhone, setDriverPhone] = useState(myExistingQuote?.driverPhone || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isAddTruckModalOpen, setIsAddTruckModalOpen] = useState(false);
@@ -124,11 +128,11 @@ export default function TransportQuoteModal({
       if (isMounted && Array.isArray(fleet) && fleet.length > 0) {
         setSavedFleet(fleet);
         const primary = fleet.find((v) => v.isPrimary) || fleet[0];
-        if (primary && !vehicleNumber) {
-          setVehicleNumber(primary.vehicleNumber || '');
-          if (primary.driverName) setDriverName(primary.driverName);
-          if (primary.driverPhone) setDriverPhone(primary.driverPhone);
-          if (primary.vehicleCategory && VEHICLE_TARIFF_RATES[primary.vehicleCategory]) {
+        if (primary) {
+          setVehicleNumber((prev) => prev || primary.vehicleNumber || '');
+          setDriverName((prev) => prev || primary.driverName || '');
+          setDriverPhone((prev) => prev || primary.driverPhone || '');
+          if (!myExistingQuote?.vehicleCategory && primary.vehicleCategory && VEHICLE_TARIFF_RATES[primary.vehicleCategory]) {
             setSelectedVehicleKey(primary.vehicleCategory);
           }
         }
@@ -137,7 +141,7 @@ export default function TransportQuoteModal({
     return () => {
       isMounted = false;
     };
-  }, [user.id, user.email, vehicleNumber]);
+  }, [user.id, user.email]);
 
   // When a fleet vehicle is clicked to assign
   const handleSelectFleetVehicle = (veh) => {
