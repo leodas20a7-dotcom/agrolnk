@@ -27,8 +27,10 @@ import {
   Check,
   Clock,
   AlertCircle,
-  FileCheck
+  FileCheck,
+  FileSpreadsheet
 } from 'lucide-react';
+import BulkUploadExcelModal from '../../components/farmer/BulkUploadExcelModal';
 import { getFarmerListings } from '../../utils/listings';
 import { getFarmerOrders } from '../../utils/orders';
 import { getFarmerAuctions } from '../../utils/auctions';
@@ -54,6 +56,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const [listingsPage, setListingsPage] = useState(1);
   const listingsPerPage = 6;
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [inspectingDoc, setInspectingDoc] = useState(null);
   const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
@@ -441,7 +444,17 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsBulkUploadOpen(true)}
+                icon={FileSpreadsheet}
+                iconPosition="left"
+                className="text-xs font-semibold cursor-pointer"
+              >
+                Bulk Upload
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -536,6 +549,17 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             user={user}
           />
         )}
+
+        {/* Bulk Upload Excel Modal */}
+        <BulkUploadExcelModal
+          isOpen={isBulkUploadOpen}
+          onClose={() => setIsBulkUploadOpen(false)}
+          currentUser={user}
+          onSuccess={async () => {
+            const updated = await getFarmerListings(user.id);
+            setListings(updated || []);
+          }}
+        />
 
       </div>
     </DashboardLayout>
