@@ -87,7 +87,8 @@ function isPersistedNotificationId(id) {
     !s.startsWith('admin_rfq_') &&
     !s.startsWith('farmer_') &&
     !s.startsWith('processor_') &&
-    !s.startsWith('buyer_')
+    !s.startsWith('buyer_') &&
+    !s.startsWith('transporter_')
   );
 }
 
@@ -672,6 +673,77 @@ export async function getNotificationsForUser(user) {
     }
   }
 
+  // Live actionable alerts for Transporter (open freight RFQs + assigned/active trips)
+  if (currentRole === 'transporter' && currentId) {
+    try {
+      const [openLoadsRes, activeTripsRes] = await Promise.allSettled([
+        supabase
+          .from('deliveries')
+          .select('id, delivery_number, order_number, commodity, quantity, unit, status, created_at')
+          .eq('status', 'transport_requested')
+          .order('created_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('deliveries')
+          .select('id, delivery_number, order_number, commodity, quantity, unit, status, freight_escrow_status, updated_at, created_at')
+          .eq('transporter_id', currentId)
+          .in('status', ['assigned', 'picked_up', 'in_transit'])
+          .order('updated_at', { ascending: false })
+          .limit(15),
+      ]);
+
+      const transporterAlerts = [];
+
+      if (openLoadsRes.status === 'fulfilled' && Array.isArray(openLoadsRes.value?.data)) {
+        for (const d of openLoadsRes.value.data) {
+          const id = `transporter_open_load_${d.id}`;
+          const ref = d.delivery_number || d.order_number || 'Load';
+          transporterAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `New Freight Load Open: ${ref}`,
+            message: `${d.commodity || 'Produce'} (${Number(d.quantity || 0).toLocaleString('en-IN')} ${d.unit || 'kg'}) • Submit your freight quote.`,
+            type: 'delivery',
+            link: '/transporter-loads',
+            isRead: readIds.has(id),
+            createdAt: d.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (activeTripsRes.status === 'fulfilled' && Array.isArray(activeTripsRes.value?.data)) {
+        for (const d of activeTripsRes.value.data) {
+          const id = `transporter_trip_${d.id}`;
+          const ref = d.delivery_number || d.order_number || 'Trip';
+          const statusLabel =
+            d.status === 'assigned'
+              ? 'Quote accepted — ready for pickup.'
+              : d.status === 'picked_up'
+              ? 'Picked up — mark in transit.'
+              : 'In transit — complete delivery & OTP.';
+          transporterAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `${d.status === 'assigned' ? 'Assigned Trip Ready' : 'Active Trip'}: ${ref}`,
+            message: `${d.commodity || 'Produce'} (${Number(d.quantity || 0).toLocaleString('en-IN')} ${d.unit || 'kg'}) • ${statusLabel}`,
+            type: 'delivery',
+            link: '/transporter-trips',
+            isRead: readIds.has(id),
+            createdAt: d.updated_at || d.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (transporterAlerts.length > 0) {
+        allNotifications = [...transporterAlerts, ...allNotifications];
+      }
+    } catch (err) {
+      console.warn('Transporter live notification synthesis skipped:', err);
+    }
+  }
+
   // Filter out any dismissed items first
   allNotifications = allNotifications.filter((n) => !dismissedIds.has(n.id));
 
@@ -802,7 +874,7 @@ export async function markAllNotificationsAsRead(user) {
 
   saveLocalNotifications(updated, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveReadNotificationId(n.id, user));
   }
@@ -863,7 +935,7 @@ export async function clearAllNotifications(user) {
 
   saveLocalNotifications(remaining, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveDismissedNotificationId(n.id, user));
   }

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import Badge from '../../components/ui/Badge';
 import DeliveryCard from '../../components/delivery/DeliveryCard';
 import DeliveryRow from '../../components/delivery/DeliveryRow';
 import DeliveryDetailModal from '../../components/delivery/DeliveryDetailModal';
@@ -21,13 +22,17 @@ import {
   PlusCircle,
   Settings2,
   Package,
-  Compass
+  Compass,
+  Landmark,
+  Settings
 } from 'lucide-react';
 import {
   deleteFleetVehicle,
   setPrimaryVehicle
 } from '../../utils/fleet';
 import { getTimeGreeting } from '../../utils/greeting';
+import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
+import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
 
 export default function TransporterDashboard({ currentUser, onNavigate }) {
   const user = currentUser || {
@@ -64,6 +69,18 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
   const [quotingDelivery, setQuotingDelivery] = useState(null);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
+
+  useEffect(() => {
+    const handleBankUpdate = () => setBankDetails(getUserBankDetails(user.id));
+    window.addEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+    window.addEventListener('storage', handleBankUpdate);
+    return () => {
+      window.removeEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+      window.removeEventListener('storage', handleBankUpdate);
+    };
+  }, [user.id]);
 
   const tabs = [
     { id: 'available', label: 'Available Freight Jobs', count: availableJobs.length },
@@ -269,6 +286,44 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             </div>
           </Card>
         </div>
+
+        {/* Freight Payout Bank Account Card */}
+        <Card className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0">
+              <Landmark className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-[#0B3326] font-heading">
+                  Freight Payout Bank Account
+                </h3>
+                <Badge variant={bankDetails?.accountNumber ? 'emerald' : 'amber'} size="sm">
+                  {bankDetails?.accountNumber ? 'Linked & Verified' : 'Action Required'}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#566861]">
+                <span>Bank: <strong className="text-[#14211D]">{bankDetails?.bankName || 'Not configured'}</strong></span>
+                <span>A/C: <strong className="font-mono text-[#14211D]">{bankDetails?.accountNumber ? maskAccountNumber(bankDetails.accountNumber) : 'Not Linked'}</strong></span>
+                <span>IFSC: <strong className="font-mono text-[#10B981]">{bankDetails?.ifscCode || '—'}</strong></span>
+                {bankDetails?.upiId && (
+                  <span>UPI: <strong className="text-[#14211D]">{bankDetails.upiId}</strong></span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={Settings}
+            iconPosition="left"
+            onClick={() => setIsBankModalOpen(true)}
+            className="text-xs font-bold border-[#E5EDE8] bg-[#F8FAF8] hover:bg-[#EBF5F0] hover:text-[#0B3326] shrink-0 cursor-pointer"
+          >
+            Manage Payout Bank
+          </Button>
+        </Card>
 
         {/* Quick Overview Dispatch Hub */}
         <div className="space-y-4 sm:space-y-5">
@@ -505,6 +560,14 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
           onSuccess={(updatedFleet) => {
             setFleetVehicles(updatedFleet);
           }}
+        />
+      )}
+      {isBankModalOpen && (
+        <FarmerBankSettingsModal
+          isOpen={isBankModalOpen}
+          onClose={() => setIsBankModalOpen(false)}
+          currentUser={user}
+          onSaved={(updated) => setBankDetails(updated)}
         />
       )}
     </DashboardLayout>
