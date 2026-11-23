@@ -86,7 +86,8 @@ function isPersistedNotificationId(id) {
     !s.startsWith('seed_') &&
     !s.startsWith('admin_rfq_') &&
     !s.startsWith('farmer_') &&
-    !s.startsWith('processor_')
+    !s.startsWith('processor_') &&
+    !s.startsWith('buyer_')
   );
 }
 
@@ -572,6 +573,105 @@ export async function getNotificationsForUser(user) {
     }
   }
 
+  // Live actionable alerts for Buyer (orders awaiting payment, inbound deliveries, active credit due)
+  if (currentRole === 'buyer' && currentId) {
+    try {
+      const [buyerOrdersRes, buyerDeliveriesRes, buyerLoansRes] = await Promise.allSettled([
+        supabase
+          .from('orders')
+          .select('id, order_number, commodity, quantity, unit, status, escrow_status, created_at')
+          .eq('buyer_id', currentId)
+          .in('status', ['freight_quoted', 'pending'])
+          .order('created_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('deliveries')
+          .select('id, delivery_number, order_number, commodity, status, updated_at, created_at')
+          .eq('buyer_id', currentId)
+          .in('status', ['in_transit', 'out_for_delivery', 'delivered'])
+          .order('updated_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('financing_requests')
+          .select('id, request_number, approved_amount, requested_amount, repayment_label, status, disbursed_at, updated_at, created_at')
+          .eq('applicant_id', currentId)
+          .eq('status', 'disbursed')
+          .order('disbursed_at', { ascending: false })
+          .limit(15),
+      ]);
+
+      const buyerAlerts = [];
+
+      if (buyerOrdersRes.status === 'fulfilled' && Array.isArray(buyerOrdersRes.value?.data)) {
+        for (const o of buyerOrdersRes.value.data) {
+          const escrow = String(o.escrow_status || '').toLowerCase();
+          if (['funded', 'escrow_secured', 'held', 'released'].includes(escrow)) continue;
+          const id = `buyer_order_pay_${o.id}`;
+          const num = o.order_number || o.id;
+          const refLabel = String(num).startsWith('#') ? num : `#${num}`;
+          const isFreightReady = o.status === 'freight_quoted';
+          buyerAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: isFreightReady ? `Freight Quoted — Ready to Pay: ${refLabel}` : `Escrow Payment Pending: ${refLabel}`,
+            message: `${o.commodity || 'Produce'} (${Number(o.quantity || 0).toLocaleString('en-IN')} ${o.unit || 'kg'}) • ${
+              isFreightReady ? 'Review freight quote & lock escrow.' : 'Complete escrow checkout to confirm.'
+            }`,
+            type: 'escrow',
+            link: '/buyer-orders',
+            isRead: readIds.has(id),
+            createdAt: o.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (buyerDeliveriesRes.status === 'fulfilled' && Array.isArray(buyerDeliveriesRes.value?.data)) {
+        for (const d of buyerDeliveriesRes.value.data) {
+          const id = `buyer_delivery_${d.id}`;
+          const ref = d.order_number || d.delivery_number || 'Consignment';
+          buyerAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: d.status === 'delivered' ? `Confirm Arrival & OTP: ${ref}` : `Inbound Delivery In Transit: ${ref}`,
+            message: `${d.commodity || 'Produce'} • ${
+              d.status === 'delivered' ? 'Verify delivery to release escrow.' : 'Track live carrier status.'
+            }`,
+            type: 'delivery',
+            link: '/buyer-deliveries',
+            isRead: readIds.has(id),
+            createdAt: d.updated_at || d.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (buyerLoansRes.status === 'fulfilled' && Array.isArray(buyerLoansRes.value?.data)) {
+        for (const l of buyerLoansRes.value.data) {
+          const id = `buyer_loan_due_${l.id}`;
+          const amt = Number(l.approved_amount || l.requested_amount || 0).toLocaleString('en-IN');
+          buyerAlerts.push({
+            id,
+            recipientId: currentId,
+            recipientRole: currentRole,
+            title: `Trade Credit Repayment: ${l.request_number || 'Facility'}`,
+            message: `₹${amt} active (${l.repayment_label || '30 Days Net'}). Tap to view due date or repay.`,
+            type: 'financing',
+            link: '/buyer-loan-repayments',
+            isRead: readIds.has(id),
+            createdAt: l.disbursed_at || l.updated_at || l.created_at || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (buyerAlerts.length > 0) {
+        allNotifications = [...buyerAlerts, ...allNotifications];
+      }
+    } catch (err) {
+      console.warn('Buyer live notification synthesis skipped:', err);
+    }
+  }
+
   // Filter out any dismissed items first
   allNotifications = allNotifications.filter((n) => !dismissedIds.has(n.id));
 
@@ -702,7 +802,7 @@ export async function markAllNotificationsAsRead(user) {
 
   saveLocalNotifications(updated, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveReadNotificationId(n.id, user));
   }
@@ -763,7 +863,7 @@ export async function clearAllNotifications(user) {
 
   saveLocalNotifications(remaining, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveDismissedNotificationId(n.id, user));
   }
