@@ -23,6 +23,7 @@ export default function SubmitOfferModal({ isOpen, onClose, demand, currentUser,
     if (demand) {
       setQuantityOffered(String(demand.quantity || ''));
       setOfferPrice(isReverse ? String(nextValidBid) : String(demand.target_price || ''));
+      setMessage('');
       setError('');
     }
   }, [demand?.id, isReverse, nextValidBid]);
@@ -34,6 +35,7 @@ export default function SubmitOfferModal({ isOpen, onClose, demand, currentUser,
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError('');
 
     const qty = Number(quantityOffered);
