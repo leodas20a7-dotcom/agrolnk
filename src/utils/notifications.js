@@ -84,7 +84,7 @@ function isPersistedNotificationId(id) {
   const s = String(id);
   return (
     !s.startsWith('seed_') &&
-    !s.startsWith('admin_rfq_') &&
+    !s.startsWith('admin_') &&
     !s.startsWith('farmer_') &&
     !s.startsWith('processor_') &&
     !s.startsWith('buyer_') &&
@@ -329,16 +329,37 @@ export async function getNotificationsForUser(user) {
     allNotifications = localList;
   }
 
-  // Live operational alerts for Admin (e.g., 30-Min Freight RFQ escalations & active RFQs)
+  // Live operational alerts for Admin (Freight RFQs, Pending KYC, Escrow/UTR Actions, Open Disputes)
   if (currentRole === 'admin' || currentRole === 'super_admin') {
     try {
-      const { data: rfqRows } = await supabase
-        .from('deliveries')
-        .select('id, order_number, delivery_number, commodity, quantity, unit, status, freight_amount, quotes_count, rfq_expires_at, created_at')
-        .eq('status', 'transport_requested')
-        .order('created_at', { ascending: false })
-        .limit(25);
+      const [rfqRes, kycRes, escrowOrdersRes, disputeOrdersRes] = await Promise.allSettled([
+        supabase
+          .from('deliveries')
+          .select('id, order_number, delivery_number, commodity, quantity, unit, status, freight_amount, quotes_count, rfq_expires_at, created_at')
+          .eq('status', 'transport_requested')
+          .order('created_at', { ascending: false })
+          .limit(25),
+        supabase
+          .from('profiles')
+          .select('id, full_name, role, updated_at, created_at')
+          .eq('kyc_status', 'pending')
+          .order('updated_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('orders')
+          .select('id, order_number, commodity, buyer_name, total_amount, status, escrow_status, updated_at, created_at')
+          .or('escrow_status.eq.pending_verification,status.eq.payment_verification_pending,status.eq.delivered')
+          .order('updated_at', { ascending: false })
+          .limit(20),
+        supabase
+          .from('orders')
+          .select('id, order_number, commodity, buyer_name, farmer_name, updated_at, created_at')
+          .eq('escrow_status', 'disputed')
+          .order('updated_at', { ascending: false })
+          .limit(15),
+      ]);
 
+      const rfqRows = rfqRes.status === 'fulfilled' ? rfqRes.value?.data : [];
       const unquotedRfqs = (Array.isArray(rfqRows) ? rfqRows : [])
         .map((r) => ({
           id: r.id,
@@ -374,9 +395,9 @@ export async function getNotificationsForUser(user) {
           title: isEscalated
             ? `🚨 30m Freight Escalated: ${refLabel}`
             : `⏳ Freight RFQ Awaiting Quote: ${refLabel}`,
-          message: `${d.cropName || 'Produce'} (${d.quantity || 0} ${d.unit || 'Quintal'}) • ${
+          message: `${d.commodity || 'Produce'} (${d.quantity || 0} ${d.unit || 'Quintal'}) • ${
             isEscalated
-              ? `Call buyer ${d.buyerName || ''}${d.buyerPhone ? ` (${d.buyerPhone})` : ''} & assign concierge quote.`
+              ? 'Assign concierge freight quote now.'
               : '30-min transporter bidding active.'
           }`,
           type: 'delivery',
@@ -385,6 +406,61 @@ export async function getNotificationsForUser(user) {
           createdAt: (isEscalated && d.rfqExpiresAt) ? d.rfqExpiresAt : (d.createdAt || new Date().toISOString()),
         };
       });
+
+      const kycRows = kycRes.status === 'fulfilled' ? kycRes.value?.data : [];
+      for (const p of Array.isArray(kycRows) ? kycRows : []) {
+        const id = `admin_kyc_${p.id}`;
+        adminAlerts.push({
+          id,
+          recipientId: null,
+          recipientRole: currentRole,
+          title: `KYC Review Pending: ${p.full_name || 'User'}`,
+          message: `Role: ${String(p.role || 'user').toUpperCase()} • Review documents & approve account.`,
+          type: 'kyc',
+          link: '/admin-verification',
+          isRead: readIds.has(id),
+          createdAt: p.updated_at || p.created_at || new Date().toISOString(),
+        });
+      }
+
+      const escrowRows = escrowOrdersRes.status === 'fulfilled' ? escrowOrdersRes.value?.data : [];
+      for (const o of Array.isArray(escrowRows) ? escrowRows : []) {
+        const escrow = String(o.escrow_status || '').toLowerCase();
+        if (escrow === 'released' || escrow === 'disputed') continue;
+        const id = `admin_escrow_${o.id}`;
+        const num = o.order_number || o.id;
+        const refLabel = String(num).startsWith('#') ? num : `#${num}`;
+        const isUtrPending = escrow === 'pending_verification' || o.status === 'payment_verification_pending';
+        adminAlerts.push({
+          id,
+          recipientId: null,
+          recipientRole: currentRole,
+          title: isUtrPending ? `UTR Verification Needed: ${refLabel}` : `Call Buyer & Release Escrow: ${refLabel}`,
+          message: `${o.commodity || 'Produce'} • Buyer: ${o.buyer_name || 'Buyer'} • ₹${Number(o.total_amount || 0).toLocaleString('en-IN')}`,
+          type: 'escrow',
+          link: '/admin-escrow',
+          isRead: readIds.has(id),
+          createdAt: o.updated_at || o.created_at || new Date().toISOString(),
+        });
+      }
+
+      const disputeRows = disputeOrdersRes.status === 'fulfilled' ? disputeOrdersRes.value?.data : [];
+      for (const d of Array.isArray(disputeRows) ? disputeRows : []) {
+        const id = `admin_dispute_${d.id}`;
+        const num = d.order_number || d.id;
+        const refLabel = String(num).startsWith('#') ? num : `#${num}`;
+        adminAlerts.push({
+          id,
+          recipientId: null,
+          recipientRole: currentRole,
+          title: `Open Escrow Dispute: ${refLabel}`,
+          message: `${d.commodity || 'Produce'} • ${d.buyer_name || 'Buyer'} vs ${d.farmer_name || 'Seller'}`,
+          type: 'escrow',
+          link: '/admin-disputes',
+          isRead: readIds.has(id),
+          createdAt: d.updated_at || d.created_at || new Date().toISOString(),
+        });
+      }
 
       allNotifications = [...adminAlerts, ...allNotifications];
     } catch (err) {

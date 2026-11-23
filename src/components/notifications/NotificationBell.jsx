@@ -69,6 +69,7 @@ export default function NotificationBell({ currentUser, onNavigate }) {
     window.addEventListener('agrolnk_financing_updated', handleUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_updated', handleUpdate);
+    window.addEventListener('agrolnk_kyc_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     const isAdminUser = user.role === 'admin' || user.role === 'super_admin';
@@ -90,6 +91,7 @@ export default function NotificationBell({ currentUser, onNavigate }) {
       window.removeEventListener('agrolnk_financing_updated', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_updated', handleUpdate);
+      window.removeEventListener('agrolnk_kyc_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, [user.id, user.role, user.email]);
