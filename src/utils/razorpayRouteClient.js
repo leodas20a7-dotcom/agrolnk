@@ -76,6 +76,26 @@ export async function verifyPaymentOnServer({
   throw new Error(verifyRes?.error || 'Server did not confirm payment verification.');
 }
 
+async function createServerRazorpayOrder({ paymentContext, amount, refId, receiptId, deliveryId, loanId }) {
+  const { data, error } = await supabase.functions.invoke('razorpay-route', {
+    body: {
+      action: 'create_order',
+      payment_context: paymentContext,
+      amount,
+      refId,
+      receiptId,
+      deliveryId,
+      loanId,
+    },
+  });
+
+  if (error || !data?.orderId) {
+    throw new Error(data?.error || error?.message || `Failed to initialize Razorpay order for ${paymentContext}.`);
+  }
+
+  return data;
+}
+
 /**
  * Launch Razorpay Test Mode Checkout for an Order
  * @param {object} params - { listing, quantity, buyerUser, onSuccess, onFailure }
@@ -248,11 +268,24 @@ export async function initiateRazorpayTransportCheckout({
 
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const freightAmount = Number(delivery?.freightAmount) || 2400;
-  const totalAmountInPaise = Math.round(freightAmount * 100);
-  const testOrderId = `transport_${Date.now()}`;
+  let serverOrder;
+  try {
+    serverOrder = await createServerRazorpayOrder({
+      paymentContext: 'transport_escrow',
+      amount: freightAmount,
+      deliveryId: delivery?.id || delivery?.deliveryNumber,
+    });
+  } catch (orderErr) {
+    onFailure?.(orderErr);
+    return;
+  }
+
+  const totalAmountInPaise = Number(serverOrder.amount) || Math.round(freightAmount * 100);
+  const serverOrderId = serverOrder.orderId;
 
   const options = {
-    key: razorpayKeyId,
+    key: serverOrder.keyId || razorpayKeyId,
+    order_id: serverOrderId,
     amount: totalAmountInPaise,
     currency: 'INR',
     name: 'AgrowLink Agri-Logistics',
@@ -286,7 +319,7 @@ export async function initiateRazorpayTransportCheckout({
         }
 
         await verifyPaymentOnServer({
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           expectedAmountPaise: totalAmountInPaise,
@@ -296,7 +329,7 @@ export async function initiateRazorpayTransportCheckout({
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_signature: response.razorpay_signature,
           freightAmount: freightAmount,
           verified: true,
@@ -337,11 +370,24 @@ export async function initiateRazorpayWarehouseRentCheckout({
 
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const payAmount = Number(amount) || 350;
-  const totalAmountInPaise = Math.round(payAmount * 100);
-  const testOrderId = `wh_rent_${Date.now()}`;
+  let serverOrder;
+  try {
+    serverOrder = await createServerRazorpayOrder({
+      paymentContext: 'warehouse_rent',
+      amount: payAmount,
+      receiptId: inventory?.id || inventory?.receiptNumber,
+    });
+  } catch (orderErr) {
+    onFailure?.(orderErr);
+    return;
+  }
+
+  const totalAmountInPaise = Number(serverOrder.amount) || Math.round(payAmount * 100);
+  const serverOrderId = serverOrder.orderId;
 
   const options = {
-    key: razorpayKeyId,
+    key: serverOrder.keyId || razorpayKeyId,
+    order_id: serverOrderId,
     amount: totalAmountInPaise,
     currency: 'INR',
     name: 'AgrowLink Warehouse Storage',
@@ -375,7 +421,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
         }
 
         await verifyPaymentOnServer({
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           expectedAmountPaise: totalAmountInPaise,
@@ -385,7 +431,7 @@ export async function initiateRazorpayWarehouseRentCheckout({
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_signature: response.razorpay_signature,
           amount: payAmount,
           rentAmount: payAmount,
@@ -569,11 +615,24 @@ export async function initiateFinancierEscrowDisbursement({
 
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const disburseAmount = Number(approvedAmount) || Number(request?.approvedAmount) || Number(request?.requestedAmount) || 10000;
-  const totalAmountInPaise = Math.round(disburseAmount * 100);
-  const testOrderId = `disb_escrow_${Date.now()}`;
+  let serverOrder;
+  try {
+    serverOrder = await createServerRazorpayOrder({
+      paymentContext: 'institution_disbursement',
+      amount: disburseAmount,
+      loanId: request?.id || request?.requestNumber,
+    });
+  } catch (orderErr) {
+    onFailure?.(orderErr);
+    return;
+  }
+
+  const totalAmountInPaise = Number(serverOrder.amount) || Math.round(disburseAmount * 100);
+  const serverOrderId = serverOrder.orderId;
 
   const options = {
-    key: razorpayKeyId,
+    key: serverOrder.keyId || razorpayKeyId,
+    order_id: serverOrderId,
     amount: totalAmountInPaise,
     currency: 'INR',
     name: 'AgrowLink Escrow Capital Vault',
@@ -609,7 +668,7 @@ export async function initiateFinancierEscrowDisbursement({
         }
 
         await verifyPaymentOnServer({
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           expectedAmountPaise: totalAmountInPaise,
@@ -619,7 +678,7 @@ export async function initiateFinancierEscrowDisbursement({
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_signature: response.razorpay_signature || null,
           bankUtr: null,
           disbursedAmount: disburseAmount,
@@ -660,11 +719,24 @@ export async function initiateBuyerMarginDepositCheckout({
 
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TWlkH1pRzS8UWz';
   const payMargin = Number(marginAmount) || 5000;
-  const totalAmountInPaise = Math.round(payMargin * 100);
-  const testOrderId = `margin_${Date.now()}`;
+  let serverOrder;
+  try {
+    serverOrder = await createServerRazorpayOrder({
+      paymentContext: 'margin_deposit',
+      amount: payMargin,
+      loanId: request?.id || request?.requestNumber,
+    });
+  } catch (orderErr) {
+    onFailure?.(orderErr);
+    return;
+  }
+
+  const totalAmountInPaise = Number(serverOrder.amount) || Math.round(payMargin * 100);
+  const serverOrderId = serverOrder.orderId;
 
   const options = {
-    key: razorpayKeyId,
+    key: serverOrder.keyId || razorpayKeyId,
+    order_id: serverOrderId,
     amount: totalAmountInPaise,
     currency: 'INR',
     name: 'AgrowLink Escrow Trade Margin',
@@ -699,7 +771,7 @@ export async function initiateBuyerMarginDepositCheckout({
         }
 
         await verifyPaymentOnServer({
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           expectedAmountPaise: totalAmountInPaise,
@@ -709,7 +781,7 @@ export async function initiateBuyerMarginDepositCheckout({
 
         onSuccess?.({
           razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id || testOrderId,
+          razorpay_order_id: response.razorpay_order_id || serverOrderId,
           razorpay_signature: response.razorpay_signature,
           marginAmount: payMargin,
           verified: true,

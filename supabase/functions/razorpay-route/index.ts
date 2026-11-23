@@ -447,6 +447,82 @@ serve(async (req: Request) => {
         );
       }
 
+      // General Auxiliary Escrow / Rent / Freight / Margin Order Creation
+      if (
+        payment_context === "warehouse_rent" ||
+        payment_context === "transport_escrow" ||
+        payment_context === "institution_disbursement" ||
+        payment_context === "margin_deposit"
+      ) {
+        let authAmountRupees = Number(body.amount || 0);
+        const refId = body.receiptId || body.deliveryId || body.loanId || body.refId || "";
+
+        if (payment_context === "warehouse_rent" && refId) {
+          let { data: wh } = await supabase
+            .from("warehouse_receipts")
+            .select("id, farmer_id, storage_fee_monthly, receipt_number")
+            .eq("id", refId)
+            .maybeSingle();
+          if (!wh) {
+            const byNum = await supabase
+              .from("warehouse_receipts")
+              .select("id, farmer_id, storage_fee_monthly, receipt_number")
+              .eq("receipt_number", refId)
+              .maybeSingle();
+            wh = byNum.data;
+          }
+          if (wh && callerRole !== "admin" && wh.farmer_id && wh.farmer_id !== callerUser.id) {
+            return new Response(
+              JSON.stringify({ success: false, error: "Forbidden: You can only pay rent for your own storage lot." }),
+              { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (!(authAmountRupees > 0) && wh?.storage_fee_monthly) {
+            authAmountRupees = Number(wh.storage_fee_monthly);
+          }
+        }
+
+        if (!Number.isFinite(authAmountRupees) || authAmountRupees <= 0) {
+          throw new Error(`Invalid payment amount for ${payment_context}.`);
+        }
+
+        const orderAmountPaise = Math.round(authAmountRupees * 100);
+        const rzpRes = await fetch(`${RAZORPAY_API_BASE}/orders`, {
+          method: "POST",
+          headers: {
+            Authorization: getRazorpayAuthHeader(razorpayKeyId, razorpayKeySecret),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: orderAmountPaise,
+            currency: "INR",
+            receipt: `agro_${payment_context.slice(0, 6)}_${Date.now()}`.slice(0, 40),
+            notes: {
+              platform: "AgrowLink",
+              payment_context,
+              ref_id: String(refId || ""),
+              payer_id: callerUser.id,
+            },
+          }),
+        });
+
+        const rzpOrder = await rzpRes.json();
+        if (!rzpRes.ok) {
+          throw new Error(rzpOrder.error?.description || `Failed to create Razorpay Order for ${payment_context}.`);
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            keyId: razorpayKeyId,
+            orderId: rzpOrder.id,
+            amount: orderAmountPaise,
+            currency: "INR",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Combined Crop + Freight Checkout for an existing reserved/quoted order
       if (existingOrderId) {
         let { data: existingOrder, error: existingErr } = await supabase
@@ -1155,6 +1231,22 @@ serve(async (req: Request) => {
 
         inspectionUpdated = true;
         verifiedInspectionId = inspection.id;
+      } else if (
+        payment_context === "warehouse_rent" ||
+        payment_context === "transport_escrow" ||
+        payment_context === "institution_disbursement" ||
+        payment_context === "margin_deposit"
+      ) {
+        const expectedPaise = Number(body.expected_amount_paise || 0);
+        if (expectedPaise > 0 && Math.abs(Number(payData.amount) - expectedPaise) > 2) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Payment amount mismatch for ${payment_context}: expected ${expectedPaise} paise, captured ${payData.amount} paise.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       return new Response(
