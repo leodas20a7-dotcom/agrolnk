@@ -27,12 +27,14 @@ export default function PayStorageRentModal({
   const [extendedDays, setExtendedDays] = useState(30);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
+  const [paymentError, setPaymentError] = useState('');
 
   useEffect(() => {
     if (isOpen && inventory) {
       setExtendedDays(30);
       setIsProcessing(false);
       setPaymentSuccess(null);
+      setPaymentError('');
     }
   }, [isOpen, inventory]);
 
@@ -45,6 +47,7 @@ export default function PayStorageRentModal({
   const handlePay = async (e) => {
     e.preventDefault();
     setIsProcessing(true);
+    setPaymentError('');
 
     try {
       // Launch Razorpay Payment Gateway
@@ -54,26 +57,36 @@ export default function PayStorageRentModal({
         extendedDays,
         farmerUser: currentUser || { name: 'Authorized Account', role: 'farmer' },
         onSuccess: async (rzpRes) => {
-          const res = await recordWarehouseRentPayment(inventory.id, {
-            amount: calculatedPayAmount,
-            transactionRef: rzpRes.razorpay_payment_id,
-            method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
-            extendedDays,
-            paidBy: currentUser?.name || 'Authorized Account',
-          });
-          setIsProcessing(false);
-          if (res?.success) {
-            setPaymentSuccess(res.payment);
-            onSuccess?.(res.receipt);
+          try {
+            const res = await recordWarehouseRentPayment(inventory.id, {
+              amount: calculatedPayAmount,
+              transactionRef: rzpRes.razorpay_payment_id,
+              method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
+              extendedDays,
+              paidBy: currentUser?.name || 'Authorized Account',
+            });
+            if (res?.success) {
+              setPaymentSuccess(res.payment);
+              onSuccess?.(res.receipt);
+            } else {
+              setPaymentError(res?.error || 'Payment captured, but recording rent extension failed. Please refresh.');
+            }
+          } catch (err) {
+            console.error('Failed to record storage rent payment:', err);
+            setPaymentError(err?.message || 'Payment captured, but recording rent extension failed. Please refresh.');
+          } finally {
+            setIsProcessing(false);
           }
         },
         onFailure: (err) => {
           console.warn('Warehouse rent payment cancelled / notice:', err);
+          setPaymentError(err?.message || 'Payment was not completed. Please try again.');
           setIsProcessing(false);
         },
       });
     } catch (err) {
       console.error('Payment error:', err);
+      setPaymentError(err?.message || 'Failed to launch payment gateway. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -313,6 +326,11 @@ export default function PayStorageRentModal({
                   </div>
                 </div>
               </div>
+              {paymentError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700">
+                  {paymentError}
+                </div>
+              )}
             </div>
 
             {/* Footer Buttons */}

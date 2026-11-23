@@ -51,16 +51,22 @@ export default function FarmerQuoteReviewModal({
         extendedDays: 30,
         farmerUser: { name: receipt.farmerName || 'Farmer Depositor', role: 'farmer' },
         onSuccess: async (rzpRes) => {
-          const updated = await acceptWarehouseQuote(receipt.id, {
-            mode: 'razorpay',
-            isPaid: true,
-            amount: monthlyRent,
-            method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
-            transactionRef: rzpRes.razorpay_payment_id,
-          });
-          setLoading(false);
-          onSuccess?.(updated);
-          onClose();
+          try {
+            const updated = await acceptWarehouseQuote(receipt.id, {
+              mode: 'razorpay',
+              isPaid: true,
+              amount: monthlyRent,
+              method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
+              transactionRef: rzpRes.razorpay_payment_id,
+            });
+            onSuccess?.(updated);
+            onClose();
+          } catch (err) {
+            console.error('Failed to record advance rent payment:', err);
+            setError(err?.message || 'Payment captured, but recording quote acceptance failed. Please refresh or contact support.');
+          } finally {
+            setLoading(false);
+          }
         },
         onFailure: (err) => {
           console.warn('Advance rent checkout canceled or notice:', err);
