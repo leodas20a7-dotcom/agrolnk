@@ -131,8 +131,35 @@ export default function DepositProduceModal({
     setError('');
 
     try {
-      let linkedDelivery = null;
-      if (transportMode === 'transporter') {
+      const depositData = {
+        farmerId: user.id || 'farmer_guest',
+        farmerName: user.name || 'Farmer Depositor',
+        warehouseId: selectedWarehouseId || currentWarehouse?.id || '',
+        warehouseName: currentWarehouse?.name || 'Agri Storage Facility',
+        warehouseEmail: currentWarehouse?.email || '',
+        wdraCode: currentWarehouse?.wdraCode || '',
+        commodity: commodity.trim(),
+        variety: (variety || 'Standard').trim(),
+        grade: grade || 'Grade A',
+        quantity: Number(quantity),
+        unit: unit || 'kg',
+        priceEstimate: Number(priceEstimate),
+        chamber: chamber || availableChambers[0] || 'Chamber A1',
+        storageDays: Number(storageDays || 30),
+        monthlyRatePerTonne: effectiveRatePerTonne,
+        storageFeeMonthly: monthlyRentalEst,
+        minBillingDays: currentWarehouse?.minBillingDays || 0,
+        handlingFeePerTonne: 0,
+        transportMode,
+        transportRequested: transportMode === 'transporter',
+        transportDeliveryId: null,
+        transportDeliveryNumber: '',
+        pickupAddress: transportMode === 'transporter' ? pickupAddress.trim() : '',
+      };
+
+      const created = await depositProduceToWarehouse(depositData);
+
+      if (transportMode === 'transporter' && created?.id) {
         const dropAddress = [
           currentWarehouse?.name,
           currentWarehouse?.address,
@@ -140,7 +167,7 @@ export default function DepositProduceModal({
           currentWarehouse?.state,
         ].filter(Boolean).join(', ');
 
-        linkedDelivery = await createDelivery({
+        await createDelivery({
           orderNumber: `WH-IN-${Date.now().toString().slice(-6)}`,
           farmerId: user.id || null,
           farmerName: user.name || 'Farmer Depositor',
@@ -168,33 +195,6 @@ export default function DepositProduceModal({
         });
       }
 
-      const depositData = {
-        farmerId: user.id || 'farmer_guest',
-        farmerName: user.name || 'Farmer Depositor',
-        warehouseId: selectedWarehouseId || currentWarehouse?.id || '',
-        warehouseName: currentWarehouse?.name || 'Agri Storage Facility',
-        warehouseEmail: currentWarehouse?.email || '',
-        wdraCode: currentWarehouse?.wdraCode || '',
-        commodity: commodity.trim(),
-        variety: (variety || 'Standard').trim(),
-        grade: grade || 'Grade A',
-        quantity: Number(quantity),
-        unit: unit || 'kg',
-        priceEstimate: Number(priceEstimate),
-        chamber: chamber || availableChambers[0] || 'Chamber A1',
-        storageDays: Number(storageDays || 30),
-        monthlyRatePerTonne: effectiveRatePerTonne,
-        storageFeeMonthly: monthlyRentalEst,
-        minBillingDays: currentWarehouse?.minBillingDays || 0,
-        handlingFeePerTonne: 0,
-        transportMode,
-        transportRequested: transportMode === 'transporter',
-        transportDeliveryId: linkedDelivery?.id || null,
-        transportDeliveryNumber: linkedDelivery?.deliveryNumber || '',
-        pickupAddress: transportMode === 'transporter' ? pickupAddress.trim() : '',
-      };
-
-      const created = await depositProduceToWarehouse(depositData);
       setIsSubmitting(false);
       onSuccess?.(created);
       onClose();
