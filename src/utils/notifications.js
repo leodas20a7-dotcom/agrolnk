@@ -88,7 +88,8 @@ function isPersistedNotificationId(id) {
     !s.startsWith('farmer_') &&
     !s.startsWith('processor_') &&
     !s.startsWith('buyer_') &&
-    !s.startsWith('transporter_')
+    !s.startsWith('transporter_') &&
+    !s.startsWith('warehouse_')
   );
 }
 
@@ -744,6 +745,45 @@ export async function getNotificationsForUser(user) {
     }
   }
 
+  // Live actionable alerts for Warehouse (new deposit quote requests + incoming gate-in lots)
+  if (currentRole === 'warehouse' && currentId) {
+    try {
+      const { data: whRows } = await supabase
+        .from('warehouse_receipts')
+        .select('id, receipt_number, farmer_name, commodity, total_quantity, unit, status, updated_at, created_at')
+        .eq('warehouse_id', currentId)
+        .in('status', ['quote_requested', 'in_transit'])
+        .order('updated_at', { ascending: false })
+        .limit(20);
+
+      const warehouseAlerts = (Array.isArray(whRows) ? whRows : []).map((w) => {
+        const isQuoteReq = w.status === 'quote_requested';
+        const id = `${isQuoteReq ? 'warehouse_quote_req' : 'warehouse_gate_in'}_${w.id}`;
+        const ref = w.receipt_number || 'Request';
+        const qty = `${Number(w.total_quantity || 0).toLocaleString('en-IN')} ${w.unit || 'kg'}`;
+        return {
+          id,
+          recipientId: currentId,
+          recipientRole: currentRole,
+          title: isQuoteReq ? `New Storage Quote Request: ${ref}` : `Incoming Lot — Gate-In Pending: ${ref}`,
+          message: `${w.commodity || 'Produce'} (${qty}) from ${w.farmer_name || 'Farmer'} • ${
+            isQuoteReq ? 'Review & send monthly rent quote.' : 'Verify arrival & issue e-NWR.'
+          }`,
+          type: isQuoteReq ? 'order' : 'delivery',
+          link: '/warehouse-requests',
+          isRead: readIds.has(id),
+          createdAt: w.updated_at || w.created_at || new Date().toISOString(),
+        };
+      });
+
+      if (warehouseAlerts.length > 0) {
+        allNotifications = [...warehouseAlerts, ...allNotifications];
+      }
+    } catch (err) {
+      console.warn('Warehouse live notification synthesis skipped:', err);
+    }
+  }
+
   // Filter out any dismissed items first
   allNotifications = allNotifications.filter((n) => !dismissedIds.has(n.id));
 
@@ -874,7 +914,7 @@ export async function markAllNotificationsAsRead(user) {
 
   saveLocalNotifications(updated, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter', 'warehouse'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveReadNotificationId(n.id, user));
   }
@@ -935,7 +975,7 @@ export async function clearAllNotifications(user) {
 
   saveLocalNotifications(remaining, user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter'].includes(currentRole)) {
+  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter', 'warehouse'].includes(currentRole)) {
     const allForUser = await getNotificationsForUser(user);
     allForUser.forEach((n) => saveDismissedNotificationId(n.id, user));
   }
