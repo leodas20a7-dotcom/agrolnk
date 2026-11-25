@@ -111,27 +111,38 @@ export default function WarehouseBatchRow({
 
       {/* Right: Actions */}
       <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0 flex-wrap">
-        {!isDispatched && onViewRentStatus && item.isPendingRent && (
+        {!isDispatched && onViewRentStatus && (
           <Button
-            variant="primary"
+            variant={item.isPendingRent ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => onViewRentStatus(item)}
-            className="text-xs font-bold py-1.5 px-3 cursor-pointer bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+            className={`text-xs font-bold py-1.5 px-3 cursor-pointer ${
+              item.isPendingRent
+                ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
+                : 'border-[#E5EDE8] text-[#0B3326] hover:bg-[#F2FBF6]'
+            }`}
           >
-            {`Rent Due: ₹${item.rentDeadline?.totalDue || item.storageFeeMonthly || 700}`}
+            {item.isPendingRent
+              ? `Rent Due: ₹${item.rentDeadline?.totalDue || item.storageFeeMonthly || 700}`
+              : 'Extend Rent'}
           </Button>
         )}
 
-        {!isDispatched && item.availableQuantity === 0 && onDispatch && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onDispatch(item)}
-            className="text-xs font-semibold py-1.5 px-2.5 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 cursor-pointer"
-          >
-            Mark Dispatched
-          </Button>
-        )}
+        {!isDispatched &&
+          onDispatch &&
+          (item.availableQuantity === 0 ||
+            (Number(item.availableQuantity || 0) > 0 &&
+              Number(item.lockedQuantity || 0) === 0 &&
+              item.lienStatus !== 'pledged')) && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onDispatch(item)}
+              className="text-xs font-semibold py-1.5 px-2.5 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 cursor-pointer"
+            >
+              {item.availableQuantity === 0 ? 'Mark Dispatched' : 'Release to Farmer'}
+            </Button>
+          )}
 
         {hasStorageRentPaid(item) && (
           <ReceiptDownloadButton

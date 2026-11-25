@@ -384,13 +384,27 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
     if (!confirmDispatchLot) return;
     setIsDispatching(true);
     try {
-      await dispatchProduceFromWarehouse(confirmDispatchLot.id);
-      setFeedbackToast(`✓ Outbound Gate Pass issued. Lot #${confirmDispatchLot.receiptNumber} moved to Dispatched History.`);
+      const isUnsoldReturn =
+        Number(confirmDispatchLot.availableQuantity || 0) > 0 &&
+        Number(confirmDispatchLot.lockedQuantity || 0) === 0;
+      await dispatchProduceFromWarehouse(
+        confirmDispatchLot.id,
+        isUnsoldReturn
+          ? { fromAvailable: true, quantity: Number(confirmDispatchLot.availableQuantity) }
+          : {}
+      );
+      setFeedbackToast(
+        isUnsoldReturn
+          ? `✓ Batch #${confirmDispatchLot.receiptNumber} released back to farmer and moved to Dispatched.`
+          : `✓ Outbound Gate Pass issued. Lot #${confirmDispatchLot.receiptNumber} moved to Dispatched History.`
+      );
       setTimeout(() => setFeedbackToast(''), 4000);
       setConfirmDispatchLot(null);
       await loadData();
     } catch (err) {
       console.error('Failed to dispatch lot:', err);
+      setFeedbackToast(`⚠ ${err?.message || 'Could not dispatch this batch.'}`);
+      setTimeout(() => setFeedbackToast(''), 5000);
     } finally {
       setIsDispatching(false);
     }
@@ -1315,7 +1329,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                           >
                             {item.isPendingRent
                               ? `Collect Rent (₹${item.rentDeadline?.totalDue || item.storageFeeMonthly || 700})`
-                              : 'Settle / Extend'}
+                              : 'Extend Rent'}
                           </Button>
 
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -1325,15 +1339,22 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                                 buildReceipt={() => buildStorageRentReceipt(item)}
                               />
                             )}
-                            {item.availableQuantity === 0 && (
+                            {(item.availableQuantity === 0 ||
+                              (Number(item.availableQuantity || 0) > 0 &&
+                                Number(item.lockedQuantity || 0) === 0 &&
+                                item.lienStatus !== 'pledged')) && (
                               <Button
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => handleOpenDispatchConfirm(item)}
                                 className="text-[11px] font-semibold py-1.5 px-2 text-[#D97706] hover:text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 cursor-pointer"
-                                title="Issue gate pass & clear lot"
+                                title={
+                                  item.availableQuantity === 0
+                                    ? 'Issue gate pass & clear lot'
+                                    : 'Release unsold produce back to farmer'
+                                }
                               >
-                                Mark Dispatched
+                                {item.availableQuantity === 0 ? 'Mark Dispatched' : 'Release to Farmer'}
                               </Button>
                             )}
                             <Button
@@ -1721,22 +1742,34 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
       )}
 
       {/* Dispatch Confirmation Overlay Modal */}
-      {confirmDispatchLot && (
-        <AlertModal
-          isOpen={Boolean(confirmDispatchLot)}
-          onClose={() => setConfirmDispatchLot(null)}
-          title="Confirm Gate Exit & Outbound Dispatch"
-          type="dispatch"
-          message={`Generate Outbound Gate Pass & dispatch ${confirmDispatchLot.receiptNumber?.startsWith('#') ? confirmDispatchLot.receiptNumber : '#' + confirmDispatchLot.receiptNumber}?`}
-          description={`Commodity: ${confirmDispatchLot.commodity} (${confirmDispatchLot.totalQuantity} ${confirmDispatchLot.unit}) • Depositor: ${confirmDispatchLot.farmerName}. Once dispatched, this batch will be permanently recorded in your Dispatched History and excluded from active chamber capacity counts.`}
-          confirmText="Issue Gate Pass & Dispatch"
-          cancelText="Cancel"
-          showCancel={true}
-          isProcessing={isDispatching}
-          onConfirm={handleExecuteDispatch}
-          onCancel={() => setConfirmDispatchLot(null)}
-        />
-      )}
+      {confirmDispatchLot && (() => {
+        const isUnsoldReturn =
+          Number(confirmDispatchLot.availableQuantity || 0) > 0 &&
+          Number(confirmDispatchLot.lockedQuantity || 0) === 0;
+        const cleanReceipt = confirmDispatchLot.receiptNumber?.startsWith('#')
+          ? confirmDispatchLot.receiptNumber
+          : `#${confirmDispatchLot.receiptNumber}`;
+        return (
+          <AlertModal
+            isOpen={Boolean(confirmDispatchLot)}
+            onClose={() => setConfirmDispatchLot(null)}
+            title={isUnsoldReturn ? 'Release Unsold Produce to Farmer' : 'Confirm Gate Exit & Outbound Dispatch'}
+            type="dispatch"
+            message={
+              isUnsoldReturn
+                ? `Release ${cleanReceipt} back to ${confirmDispatchLot.farmerName || 'Farmer'}?`
+                : `Generate Outbound Gate Pass & dispatch ${cleanReceipt}?`
+            }
+            description={`Commodity: ${confirmDispatchLot.commodity} (${confirmDispatchLot.totalQuantity} ${confirmDispatchLot.unit}) • Depositor: ${confirmDispatchLot.farmerName}. Once confirmed, this batch will be moved to Dispatched History and removed from active chamber space.`}
+            confirmText={isUnsoldReturn ? 'Confirm Release & Clear Batch' : 'Issue Gate Pass & Dispatch'}
+            cancelText="Cancel"
+            showCancel={true}
+            isProcessing={isDispatching}
+            onConfirm={handleExecuteDispatch}
+            onCancel={() => setConfirmDispatchLot(null)}
+          />
+        );
+      })()}
 
       {/* e-NWR Inspection Modal */}
       {selectedReceipt && (
