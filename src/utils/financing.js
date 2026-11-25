@@ -823,11 +823,12 @@ export async function repayFinancingLoan(requestId, repaymentDetails = {}) {
  * Calculate loan maturity date, days remaining, and estimated interest
  */
 export function calculateLoanMaturity(request) {
-  if (!request) return { dueDate: null, daysLeft: 30, isOverdue: false, interest: 0, totalDue: 0, principal: 0 };
+  if (!request) return { dueDate: null, daysLeft: 30, daysOverdue: 0, isOverdue: false, interest: 0, totalDue: 0, principal: 0 };
 
   const principal = Number(request.approvedAmount || request.requestedAmount || 0);
-  const createdDate = request.createdAt && !isNaN(new Date(request.createdAt).getTime())
-    ? new Date(request.createdAt)
+  const baseDateRaw = request.disbursedAt || request.createdAt;
+  const createdDate = baseDateRaw && !isNaN(new Date(baseDateRaw).getTime())
+    ? new Date(baseDateRaw)
     : new Date();
 
   const tenureDays = request.tenorDays ? Number(request.tenorDays) : (request.repaymentOption === '60_day_extended' ? 60 : 30);
@@ -836,7 +837,9 @@ export function calculateLoanMaturity(request) {
   const now = new Date();
   const diffTime = dueDate.getTime() - now.getTime();
   const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  const isOverdue = daysLeft < 0;
+  const isRepaid = request.status === 'repaid' || request.status === 'settled' || request.status === 'closed';
+  const isOverdue = !isRepaid && daysLeft < 0;
+  const daysOverdue = isOverdue ? Math.abs(daysLeft) : 0;
 
   // Institutional rate (default 1.2% / month or custom rate on request)
   const monthlyRate = request.interestRate ? (Number(request.interestRate) / 100) : 0.012;
@@ -851,8 +854,9 @@ export function calculateLoanMaturity(request) {
     dueDate,
     dueDateFormatted: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
     daysLeft: Math.max(0, daysLeft),
+    daysOverdue,
     isOverdue,
-    isRepaid: request.status === 'repaid' || request.status === 'settled' || request.status === 'closed',
+    isRepaid,
   };
 }
 

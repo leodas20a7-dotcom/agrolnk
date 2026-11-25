@@ -23,7 +23,9 @@ import {
   ArrowUpRight,
   RotateCcw
 } from 'lucide-react';
-import { getFinancingRequests, isFinancierMatch, isDeclinedByFinancier } from '../../utils/financing';
+import { getFinancingRequests, isFinancierMatch, isDeclinedByFinancier, calculateLoanMaturity } from '../../utils/financing';
+import { sendNotification } from '../../utils/notifications';
+import { toast } from '../../context/ToastContext';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
@@ -135,6 +137,32 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
   const farmerCount = requests.filter((r) => r.applicantRole === 'farmer').length;
   const buyerCount = requests.filter((r) => r.applicantRole === 'buyer').length;
 
+  const isLoanOverdue = (r) =>
+    (r.status === 'approved' || r.status === 'disbursed') &&
+    isFinancierMatch(r, user) &&
+    calculateLoanMaturity(r).isOverdue;
+
+  const handleSendReminder = async (req) => {
+    if (!req?.applicantId) return;
+    try {
+      const m = calculateLoanMaturity(req);
+      const dueAmt = Number(m?.totalDue || req.approvedAmount || req.requestedAmount || 0).toLocaleString('en-IN');
+      const reqLabel = req.requestNumber || `#${String(req.id || '').slice(0, 6)}`;
+      await sendNotification({
+        recipientId: req.applicantId,
+        recipientRole: req.applicantRole || 'farmer',
+        title: `Overdue Loan Repayment Reminder (${reqLabel})`,
+        message: `Your loan ${reqLabel} of ₹${dueAmt} is overdue by ${m.daysOverdue} day(s) (Due: ${m.dueDateFormatted}). Please complete repayment soon.`,
+        type: 'warning',
+        link: req.applicantRole === 'buyer' ? '/buyer-repayments' : '/farmer-repayments',
+      });
+      toast.success(`Repayment reminder sent to ${req.applicantName || 'borrower'}.`);
+    } catch (err) {
+      console.error('Failed to send reminder:', err);
+      toast.error(err?.message || 'Could not send reminder.');
+    }
+  };
+
   const filteredRequests = requests.filter((r) => {
     const q = (searchQuery || '').toLowerCase().trim();
     const matchesSearch =
@@ -153,6 +181,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
       (selectedStatusFilter === 'offer_received' && r.status === 'offer_received') ||
       (selectedStatusFilter === 'borrower_accepted' && r.status === 'borrower_accepted') ||
       (selectedStatusFilter === 'approved' && (r.status === 'approved' || r.status === 'disbursed')) ||
+      (selectedStatusFilter === 'overdue' && isLoanOverdue(r)) ||
       (selectedStatusFilter === 'repaid' && (r.status === 'repaid' || r.status === 'settled')) ||
       (selectedStatusFilter === 'rejected' && (r.status === 'rejected' || declinedByMe)) ||
       r.status === selectedStatusFilter;
@@ -325,7 +354,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                     : 'text-[#566861] hover:bg-gray-100'
                 }`}
               >
-                New Applications ({roleScopedRequests.filter((r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified').length})
+                New Applications ({roleScopedRequests.filter((r) => (r.status === 'pending' || r.status === 'under_review') && r.applicantKycStatus === 'verified' && !isDeclinedByFinancier(r, user)).length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('offer_received')}
@@ -356,6 +385,16 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                 }`}
               >
                 Disbursed Active ({roleScopedRequests.filter((r) => (r.status === 'approved' || r.status === 'disbursed') && isFinancierMatch(r, user)).length})
+              </button>
+              <button
+                onClick={() => setSelectedStatusFilter('overdue')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  selectedStatusFilter === 'overdue'
+                    ? 'bg-red-600 text-white font-bold'
+                    : 'text-red-700 bg-red-50/70 hover:bg-red-100'
+                }`}
+              >
+                Overdue ({roleScopedRequests.filter((r) => isLoanOverdue(r)).length})
               </button>
               <button
                 onClick={() => setSelectedStatusFilter('repaid')}
@@ -614,6 +653,7 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
                   request={req}
                   viewerRole="financier"
                   onView={() => setSelectedRequestForReview(req)}
+                  onSendReminder={handleSendReminder}
                 />
               ))}
           </div>

@@ -1,9 +1,10 @@
 import React from 'react';
-import { Landmark, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
+import { Landmark, ArrowRight, ShieldCheck, Bell } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import ReceiptDownloadButton from '../ui/ReceiptDownloadButton';
 import FinancingStatusBadge from './FinancingStatusBadge';
+import { calculateLoanMaturity } from '../../utils/financing';
 import {
   buildLoanDisbursementReceipt,
   buildLoanRepaymentReceipt,
@@ -15,6 +16,7 @@ export default function FinancingRow({
   request,
   viewerRole = 'farmer',
   onView,
+  onSendReminder,
 }) {
   const isApproved = request.status === 'approved' || request.status === 'disbursed';
   const displayAmount = isApproved && Number(request.approvedAmount) > 0 ? Number(request.approvedAmount) : Number(request.requestedAmount || 0);
@@ -23,6 +25,8 @@ export default function FinancingRow({
   const isFinancier = viewerRole === 'financier';
   const isSettled = request.status === 'repaid' || request.status === 'settled' || request.status === 'closed';
   const isMarginSettled = Boolean(request.marginPaid || isSettled);
+  const loanMaturity = isApproved && !isSettled ? calculateLoanMaturity(request) : null;
+  const isOverdueLoan = Boolean(loanMaturity?.isOverdue);
   const marginAmount = Math.max(0, Number(request.transactionValue || 0) - displayAmount);
   const needsMarginPayment = isBuyer && isApproved && !isMarginSettled && !isSettled;
 
@@ -118,6 +122,10 @@ export default function FinancingRow({
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Repaid & Settled ✓</span>
             </span>
+          ) : isOverdueLoan ? (
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-300 whitespace-nowrap">
+              Overdue ({loanMaturity.daysOverdue}d)
+            </span>
           ) : isMarginSettled ? (
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
               Escrow Secured ✓
@@ -126,6 +134,22 @@ export default function FinancingRow({
             <FinancingStatusBadge status={request.status} applicantKycStatus={request.applicantKycStatus} size="sm" />
           )}
         </div>
+
+        {isFinancier && isOverdueLoan && onSendReminder && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSendReminder(request);
+            }}
+            icon={Bell}
+            iconPosition="left"
+            className="text-xs font-bold py-1.5 px-2.5 text-red-700 border-red-200 bg-red-50 hover:bg-red-100 cursor-pointer shrink-0"
+          >
+            Remind
+          </Button>
+        )}
 
         {(isLoanRepaid(request) || isLoanDisbursed(request)) && (
           <ReceiptDownloadButton

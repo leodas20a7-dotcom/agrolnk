@@ -16,15 +16,18 @@ import {
   XCircle,
   Zap,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Bell
 } from 'lucide-react';
 import {
   submitFinancierOffer,
   disburseAcceptedLoan,
   declineFinancingRequestForInstitution,
   isDeclinedByFinancier,
+  calculateLoanMaturity,
   getLiquidityPool,
 } from '../../utils/financing';
+import { sendNotification } from '../../utils/notifications';
 import { initiateFinancierEscrowDisbursement } from '../../utils/razorpayRouteClient';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 
@@ -109,6 +112,7 @@ export default function InstitutionalUnderwriteModal({
   const isDisbursed = request?.status === 'disbursed' || request?.status === 'approved';
   const isDeclinedByMe = isDeclinedByFinancier(request, currentUser);
   const isPending = !isRepaid && !isDisbursed && !isAcceptedByBorrower && !isDeclinedByMe && request?.status !== 'rejected';
+  const loanMaturity = isDisbursed ? calculateLoanMaturity(request) : null;
 
   // Lending Balance Validation
   const pool = getLiquidityPool(currentUser?.id || currentUser?.email || 'default');
@@ -240,6 +244,37 @@ export default function InstitutionalUnderwriteModal({
     } catch (err) {
       console.error('Error declining loan for institution:', err);
       setError(err?.message || 'Failed to decline loan application.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSendRepaymentReminder = async () => {
+    if (!request?.applicantId) {
+      setError('Borrower account ID is missing for this loan.');
+      return;
+    }
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const m = loanMaturity || calculateLoanMaturity(request);
+      const dueAmt = Number(m?.totalDue || totalSettlementReturn || approvedAmount).toLocaleString('en-IN');
+      const reqLabel = request.requestNumber || `#${String(request.id || '').slice(0, 6)}`;
+      const overdueText = m?.isOverdue
+        ? `is overdue by ${m.daysOverdue} day(s) (Due: ${m.dueDateFormatted})`
+        : `is due on ${m?.dueDateFormatted || 'maturity'}`;
+      await sendNotification({
+        recipientId: request.applicantId,
+        recipientRole: request.applicantRole || 'farmer',
+        title: m?.isOverdue ? `Overdue Loan Repayment Reminder (${reqLabel})` : `Loan Repayment Reminder (${reqLabel})`,
+        message: `Your loan ${reqLabel} of ₹${dueAmt} ${overdueText}. Please complete repayment to release collateral/clear dues.`,
+        type: m?.isOverdue ? 'warning' : 'financing',
+        link: request.applicantRole === 'buyer' ? '/buyer-repayments' : '/farmer-repayments',
+      });
+      setActionSuccess(`Repayment reminder sent to ${request.applicantName || 'borrower'}!`);
+    } catch (err) {
+      console.error('Failed to send repayment reminder:', err);
+      setError(err?.message || 'Could not send repayment reminder.');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -593,17 +628,63 @@ export default function InstitutionalUnderwriteModal({
             </div>
           </form>
         ) : (
-          /* Read-Only Footer */
-          <div className="pt-3 border-t border-[#E5EDE8] flex justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={onClose}
-              className="px-5 text-xs font-bold"
-            >
-              Close
-            </Button>
+          /* Read-Only / Active Loan Footer */
+          <div className="space-y-3">
+            {isDisbursed && loanMaturity && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 ${
+                  loanMaturity.isOverdue
+                    ? 'bg-red-50 border-red-200 text-red-900'
+                    : 'bg-[#F8FAF8] border-[#E5EDE8] text-[#0B3326]'
+                }`}
+              >
+                <div>
+                  <span className="font-bold block">
+                    {loanMaturity.isOverdue
+                      ? `Loan Overdue by ${loanMaturity.daysOverdue} day(s)`
+                      : `Due Date: ${loanMaturity.dueDateFormatted}`}
+                  </span>
+                  <span className="text-[11px] opacity-85">
+                    {loanMaturity.isOverdue
+                      ? `Original due date was ${loanMaturity.dueDateFormatted} • Total Due: ₹${loanMaturity.totalDue.toLocaleString('en-IN')}`
+                      : `${loanMaturity.daysLeft} day(s) remaining • Total Due: ₹${loanMaturity.totalDue.toLocaleString('en-IN')}`}
+                  </span>
+                </div>
+                {loanMaturity.isOverdue && (
+                  <Badge variant="rose" size="sm">Overdue</Badge>
+                )}
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-[#E5EDE8] flex items-center justify-between gap-2 flex-wrap">
+              {isDisbursed && !isRepaid ? (
+                <Button
+                  type="button"
+                  variant={loanMaturity?.isOverdue ? 'primary' : 'outline'}
+                  size="sm"
+                  icon={Bell}
+                  iconPosition="left"
+                  disabled={isSubmitting}
+                  onClick={handleSendRepaymentReminder}
+                  className={`text-xs font-bold cursor-pointer ${
+                    loanMaturity?.isOverdue ? 'bg-red-600 hover:bg-red-700 text-white' : ''
+                  }`}
+                >
+                  {isSubmitting ? 'Sending...' : 'Send Repayment Reminder'}
+                </Button>
+              ) : (
+                <span />
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={onClose}
+                className="px-5 text-xs font-bold"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         )}
       </div>
