@@ -1544,17 +1544,45 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
         {/* Content Section 3: Chambers Telemetry */}
         {pageMode !== 'dashboard' && activeTab === 'chambers' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-[#0B3326] font-heading">
-                  Storage Chambers & Atmosphere Cells
+                  Storage Chambers &amp; Rooms
                 </h2>
                 <p className="text-xs text-[#566861]">
-                  Live temperature control and storage utilization monitoring
+                  Monitor room capacity, temperature zones, and live space used
                 </p>
               </div>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Settings}
+                iconPosition="left"
+                onClick={() => setIsSetupModalOpen(true)}
+                className="text-xs font-bold shadow-xs cursor-pointer shrink-0"
+              >
+                Add / Edit Chambers
+              </Button>
             </div>
 
+            {chambersList.length === 0 ? (
+              <Card className="p-8 text-center border-2 border-dashed border-[#E5EDE8] rounded-3xl space-y-3">
+                <p className="text-sm font-bold text-[#0B3326]">No storage chambers added yet</p>
+                <p className="text-xs text-[#566861]">
+                  Add your cold rooms or dry storage halls so farmers can book space and you can track capacity.
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={Settings}
+                  iconPosition="left"
+                  onClick={() => setIsSetupModalOpen(true)}
+                  className="text-xs font-bold cursor-pointer mx-auto"
+                >
+                  Add Chambers Now
+                </Button>
+              </Card>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {chambersList.map((ch, idx) => (
                 <Card key={idx} className="p-6 bg-white border border-[#E5EDE8] shadow-xs space-y-4">
@@ -1598,6 +1626,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                 </Card>
               ))}
             </div>
+            )}
           </div>
         )}
       </div>
