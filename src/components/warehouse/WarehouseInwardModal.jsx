@@ -128,7 +128,7 @@ export default function WarehouseInwardModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-[#0B3326] font-heading">
-                {mode === 'quote' ? 'Review & Quote Storage Fee' : 'Confirm Gate Inward & Issue eNWR'}
+                {mode === 'quote' ? 'Send Storage Price' : 'Confirm Arrival & Store Batch'}
               </h3>
               <span className="text-xs text-[#566861]">
                 {receipt.receiptNumber} • Depositor: {receipt.farmerName || 'Farmer'}
@@ -278,14 +278,14 @@ export default function WarehouseInwardModal({
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-emerald-900">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                 <span className="text-[11px] leading-relaxed">
-                  Physical lot arrived at warehouse gate. Record weighbridge readings and assayer moisture test to issue legal <strong>e-NWR</strong>.
+                  Truck arrived at your gate. Enter the actual weight, moisture, and quality grade to store this batch.
                 </span>
               </div>
 
-              {/* Weighbridge Net Weight */}
+              {/* Actual Weight at Gate */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                  Weighbridge Net Weight ({receipt.unit || 'kg'}) <span className="text-red-500">*</span>
+                  Actual Weight at Gate ({receipt.unit || 'kg'}) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -303,11 +303,11 @@ export default function WarehouseInwardModal({
                 </div>
               </div>
 
-              {/* Assayer Moisture & Grade */}
+              {/* Moisture & Quality Grade */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                    Moisture Content (%)
+                    Moisture (%)
                   </label>
                   <input
                     type="number"
@@ -324,7 +324,7 @@ export default function WarehouseInwardModal({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                    Assayed Grade
+                    Quality Grade
                   </label>
                   <select
                     value={assayerGrade}
@@ -413,7 +413,7 @@ export default function WarehouseInwardModal({
                 iconPosition="left"
                 className="font-extrabold text-xs shadow-md"
               >
-                Confirm Inward & Issue Official e-NWR
+                Confirm Arrival & Store Batch
               </Button>
             </div>
           </form>

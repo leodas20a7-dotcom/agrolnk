@@ -1016,7 +1016,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                           iconPosition="left"
                           className="w-full justify-center text-xs font-bold py-2 shadow-xs cursor-pointer"
                         >
-                          Confirm Gate Arrival & Issue Official e-NWR
+                          Confirm Arrival & Store Batch
                         </Button>
                       </div>
                     </Card>
