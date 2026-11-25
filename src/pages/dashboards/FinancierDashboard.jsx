@@ -42,7 +42,8 @@ import {
   getLiquidityPool,
   loadFinancierLiquidityPool,
   getDisbursements,
-  isFinancierMatch
+  isFinancierMatch,
+  isDeclinedByFinancier
 } from '../../utils/financing';
 import { getTimeGreeting } from '../../utils/greeting';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
@@ -171,11 +172,12 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
 
   const safeRequests = Array.isArray(requests) ? requests : [];
   
-  // Only display pending loan requests from KYC-verified borrowers to financial institutions
+  // Only display pending loan requests from KYC-verified borrowers to financial institutions (excluding ones declined by this institution)
   const pendingRequests = safeRequests.filter(
     (r) =>
       (r.status === 'pending' || r.status === 'under_review') &&
       r.applicantKycStatus === 'verified' &&
+      !isDeclinedByFinancier(r, user) &&
       (!r.financierId || isFinancierMatch(r, user))
   );
 

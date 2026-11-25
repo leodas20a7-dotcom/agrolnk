@@ -18,7 +18,13 @@ import {
   Lock,
   ArrowRight
 } from 'lucide-react';
-import { submitFinancierOffer, disburseAcceptedLoan, updateFinancingStatus, getLiquidityPool } from '../../utils/financing';
+import {
+  submitFinancierOffer,
+  disburseAcceptedLoan,
+  declineFinancingRequestForInstitution,
+  isDeclinedByFinancier,
+  getLiquidityPool,
+} from '../../utils/financing';
 import { initiateFinancierEscrowDisbursement } from '../../utils/razorpayRouteClient';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 
@@ -101,7 +107,8 @@ export default function InstitutionalUnderwriteModal({
   const isOfferPending = request?.status === 'offer_received';
   const isRepaid = request?.status === 'repaid' || request?.status === 'settled';
   const isDisbursed = request?.status === 'disbursed' || request?.status === 'approved';
-  const isPending = !isRepaid && !isDisbursed && !isAcceptedByBorrower && request?.status !== 'rejected';
+  const isDeclinedByMe = isDeclinedByFinancier(request, currentUser);
+  const isPending = !isRepaid && !isDisbursed && !isAcceptedByBorrower && !isDeclinedByMe && request?.status !== 'rejected';
 
   // Lending Balance Validation
   const pool = getLiquidityPool(currentUser?.id || currentUser?.email || 'default');
@@ -216,12 +223,14 @@ export default function InstitutionalUnderwriteModal({
 
   const handleReject = async () => {
     setIsSubmitting(true);
+    setError('');
     try {
-      await updateFinancingStatus(request, {
-        status: 'rejected',
-        reviewNotes: reviewNotes || 'Application declined by risk policy.',
-      });
-      setActionSuccess('Application marked as declined.');
+      await declineFinancingRequestForInstitution(
+        request,
+        currentUser,
+        reviewNotes || 'Application declined by institution risk policy.'
+      );
+      setActionSuccess('Application passed for your institution. Other lenders can still review it.');
       setTimeout(() => {
         onUpdated?.();
         onClose();
@@ -229,8 +238,8 @@ export default function InstitutionalUnderwriteModal({
         setIsSubmitting(false);
       }, 1200);
     } catch (err) {
-      console.error('Error rejecting loan:', err);
-      setError('Failed to reject loan application.');
+      console.error('Error declining loan for institution:', err);
+      setError(err?.message || 'Failed to decline loan application.');
       setIsSubmitting(false);
     }
   };

@@ -34,6 +34,7 @@ function mapFinancingFromDb(row) {
     financierId,
     financierName,
     financierEmail,
+    declinedByFinanciers: Array.isArray(extra.declinedByFinanciers) ? extra.declinedByFinanciers : [],
     interestRate,
     tenorDays,
     offeredAmount,
@@ -427,6 +428,11 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
       borrowerAcceptedAt: approvalData.borrowerAcceptedAt,
       disbursedAt: approvalData.disbursedAt,
       bankUtr: approvalData.bankUtr,
+      declinedByFinanciers: Array.isArray(approvalData.declinedByFinanciers)
+        ? approvalData.declinedByFinanciers
+        : Array.isArray(reqObj?.declinedByFinanciers)
+        ? reqObj.declinedByFinanciers
+        : undefined,
     });
 
     const updatePayload = {
@@ -852,6 +858,134 @@ export function calculateLoanMaturity(request) {
 
 export const updateFinancingStatus = underwriteFinancingRequest;
 export const underwriteLoan = underwriteFinancingRequest;
+
+/**
+ * Check if a specific financial institution has declined/passed on a financing request
+ */
+export function isDeclinedByFinancier(request, financierUserOrId) {
+  if (!request) return false;
+  const list = Array.isArray(request.declinedByFinanciers) ? request.declinedByFinanciers : [];
+  if (list.length === 0) return false;
+  const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
+  const rawId = typeof financierUserOrId === 'string' ? financierUserOrId.trim().toLowerCase() : '';
+  const idMatch = (targetId || rawId || '').toLowerCase();
+  const emailMatch = (targetEmail || '').toLowerCase();
+
+  return list.some((entry) => {
+    const eid = String(entry?.financierId || '').trim().toLowerCase();
+    const eemail = String(entry?.financierEmail || '').trim().toLowerCase();
+    return Boolean((idMatch && eid && eid === idMatch) || (emailMatch && eemail && eemail === emailMatch));
+  });
+}
+
+/**
+ * Decline/pass on a financing request ONLY for the current financial institution
+ * so other banks/institutions on the platform can still review and fund it.
+ */
+export async function declineFinancingRequestForInstitution(requestOrId, financierUserOrId, reason = '') {
+  const reqObj = typeof requestOrId === 'object' && requestOrId !== null ? requestOrId : null;
+  const targetKey = typeof requestOrId === 'string' ? requestOrId.trim() : (reqObj?.id || reqObj?.requestNumber || '');
+  if (!targetKey) throw new Error('Financing request reference is missing.');
+
+  const { targetId, targetEmail } = resolveFinancierIdentifiers(financierUserOrId);
+  const fid = targetId || targetEmail || (typeof financierUserOrId === 'string' ? financierUserOrId : 'default');
+  const fName =
+    (typeof financierUserOrId === 'object' && financierUserOrId
+      ? financierUserOrId.name || financierUserOrId.company_name
+      : null) || 'Financial Institution';
+  const cleanReason = String(reason || '').trim() || 'Application declined by institution risk policy.';
+
+  const lookupField = isUuid(targetKey) ? 'id' : 'request_number';
+  const { data: existingRow, error: fetchErr } = await supabase
+    .from('financing_requests')
+    .select('*')
+    .eq(lookupField, targetKey)
+    .maybeSingle();
+
+  if (fetchErr || !existingRow) {
+    throw new Error(fetchErr?.message || 'Financing request not found.');
+  }
+
+  let extra = {};
+  if (existingRow.review_notes && typeof existingRow.review_notes === 'string' && existingRow.review_notes.trim().startsWith('{')) {
+    try {
+      extra = JSON.parse(existingRow.review_notes);
+    } catch {}
+  } else if (existingRow.review_notes) {
+    extra = { legacyNotes: existingRow.review_notes };
+  }
+
+  const prevDeclined = Array.isArray(extra.declinedByFinanciers) ? extra.declinedByFinanciers : [];
+  const filteredDeclined = prevDeclined.filter((entry) => {
+    const eid = String(entry?.financierId || '').trim().toLowerCase();
+    const eemail = String(entry?.financierEmail || '').trim().toLowerCase();
+    return !(
+      (fid && eid && eid === String(fid).toLowerCase()) ||
+      (targetEmail && eemail && eemail === String(targetEmail).toLowerCase())
+    );
+  });
+
+  const nextDeclined = [
+    ...filteredDeclined,
+    {
+      financierId: fid,
+      financierEmail: targetEmail || null,
+      financierName: fName,
+      reason: cleanReason,
+      declinedAt: new Date().toISOString(),
+    },
+  ];
+
+  const isOwnPendingOffer =
+    existingRow.status === 'offer_received' &&
+    ((fid && existingRow.financier_id && String(existingRow.financier_id).toLowerCase() === String(fid).toLowerCase()) ||
+      (targetEmail && existingRow.financier_email && String(existingRow.financier_email).toLowerCase() === String(targetEmail).toLowerCase()));
+
+  const updatedExtra = {
+    ...extra,
+    declinedByFinanciers: nextDeclined,
+  };
+
+  const updatePayload = {
+    review_notes: JSON.stringify(updatedExtra),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isOwnPendingOffer) {
+    updatePayload.status = 'pending';
+    updatePayload.financier_id = null;
+    updatePayload.financier_name = null;
+    updatePayload.financier_email = null;
+    updatePayload.offered_amount = null;
+    updatePayload.offer_notes = null;
+    updatePayload.offered_at = null;
+    updatedExtra.status = 'pending';
+    delete updatedExtra.financierId;
+    delete updatedExtra.financierName;
+    delete updatedExtra.financierEmail;
+    delete updatedExtra.offeredAmount;
+    updatePayload.review_notes = JSON.stringify(updatedExtra);
+  }
+
+  const { data: updatedRow, error: updateErr } = await supabase
+    .from('financing_requests')
+    .update(updatePayload)
+    .eq('id', existingRow.id)
+    .select()
+    .single();
+
+  if (updateErr) {
+    throw new Error(updateErr.message || 'Could not save institution decline.');
+  }
+
+  const mapped = mapFinancingFromDb(updatedRow);
+  if (typeof window !== 'undefined') {
+    broadcastDataChange('financing', 'UPDATE', mapped);
+    window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: mapped }));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return mapped;
+}
 
 // Setup Supabase Realtime Subscription for Financing Requests Table
 if (typeof window !== 'undefined') {

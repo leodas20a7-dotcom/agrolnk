@@ -23,7 +23,7 @@ import {
   ArrowUpRight,
   RotateCcw
 } from 'lucide-react';
-import { getFinancingRequests, isFinancierMatch } from '../../utils/financing';
+import { getFinancingRequests, isFinancierMatch, isDeclinedByFinancier } from '../../utils/financing';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile } from '../../utils/auth';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
@@ -145,23 +145,26 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
       (r.orderNumber || '').toLowerCase().includes(q);
 
     const matchesRole = selectedRoleFilter === 'all' || r.applicantRole === selectedRoleFilter;
+    const declinedByMe = isDeclinedByFinancier(r, user);
+    const isPending = r.status === 'pending' || r.status === 'under_review';
     const matchesStatus =
       selectedStatusFilter === 'all' ||
-      (selectedStatusFilter === 'pending' && (r.status === 'pending' || r.status === 'under_review')) ||
+      (selectedStatusFilter === 'pending' && isPending && !declinedByMe) ||
       (selectedStatusFilter === 'offer_received' && r.status === 'offer_received') ||
       (selectedStatusFilter === 'borrower_accepted' && r.status === 'borrower_accepted') ||
       (selectedStatusFilter === 'approved' && (r.status === 'approved' || r.status === 'disbursed')) ||
       (selectedStatusFilter === 'repaid' && (r.status === 'repaid' || r.status === 'settled')) ||
+      (selectedStatusFilter === 'rejected' && (r.status === 'rejected' || declinedByMe)) ||
       r.status === selectedStatusFilter;
     const matchesCommodity = selectedCommodity === 'all' || (r.commodity || '').includes(selectedCommodity);
 
     // KYC Verification Gate: Only show pending loan requests to institutions if the borrower has verified KYC
-    const isPending = r.status === 'pending' || r.status === 'under_review';
     if (isPending) {
       if (r.applicantKycStatus !== 'verified') return false;
+      if (selectedStatusFilter !== 'rejected' && declinedByMe) return false;
     } else {
       // Non-pending requests (offers sent, accepted, disbursed, repaid) must belong strictly to this institution
-      if (!isFinancierMatch(r, user)) return false;
+      if (!isFinancierMatch(r, user) && !(r.status === 'rejected' && declinedByMe)) return false;
     }
 
     return matchesSearch && matchesRole && matchesStatus && matchesCommodity;

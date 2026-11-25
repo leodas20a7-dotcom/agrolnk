@@ -866,13 +866,28 @@ export async function getNotificationsForUser(user) {
     try {
       const { data: finRows } = await supabase
         .from('financing_requests')
-        .select('id, request_number, applicant_name, applicant_role, commodity, requested_amount, approved_amount, financier_id, status, updated_at, created_at')
+        .select('id, request_number, applicant_name, applicant_role, commodity, requested_amount, approved_amount, financier_id, review_notes, status, updated_at, created_at')
         .in('status', ['pending', 'under_review', 'submitted', 'borrower_accepted'])
         .order('updated_at', { ascending: false })
         .limit(20);
 
       const financierAlerts = (Array.isArray(finRows) ? finRows : [])
-        .filter((l) => !l.financier_id || String(l.financier_id).toLowerCase() === currentId)
+        .filter((l) => {
+          if (l.financier_id && String(l.financier_id).toLowerCase() !== currentId) return false;
+          if (l.review_notes && typeof l.review_notes === 'string' && l.review_notes.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(l.review_notes);
+              const declined = Array.isArray(parsed?.declinedByFinanciers) ? parsed.declinedByFinanciers : [];
+              const passedByMe = declined.some(
+                (d) =>
+                  (currentId && String(d?.financierId || '').trim().toLowerCase() === currentId) ||
+                  (currentEmail && String(d?.financierEmail || '').trim().toLowerCase() === currentEmail)
+              );
+              if (passedByMe) return false;
+            } catch {}
+          }
+          return true;
+        })
         .map((l) => {
           const isReadyToDisburse = l.status === 'borrower_accepted';
           const id = `${isReadyToDisburse ? 'financier_disburse' : 'financier_review'}_${l.id}`;
