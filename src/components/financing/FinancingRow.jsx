@@ -103,7 +103,7 @@ export default function FinancingRow({
               </span>
               {ltvRatio > 0 && (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#EBF5F0] text-[#0B3326] shrink-0">
-                  {ltvRatio}% LTV
+                  {ltvRatio}% of Value
                 </span>
               )}
             </div>

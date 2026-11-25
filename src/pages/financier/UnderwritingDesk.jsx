@@ -208,13 +208,13 @@ export default function UnderwritingDesk({ currentUser, onNavigate }) {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0F4A37] text-[11px] sm:text-xs font-semibold text-[#34D399] border border-[#14624A]">
               <Landmark className="w-3.5 h-3.5" />
-              <span>Loan Applications & Escrow Desk</span>
+              <span>Loan Requests</span>
             </div>
             <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
-              Credit Assessment & Lending Desk
+              Loan Applications &amp; Approvals
             </h1>
             <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
-              Review verified borrower applications, quote competitive term-sheets, and disburse capital into Escrow.
+              Review borrower loan requests, send loan offers, and release approved funds.
             </p>
           </div>
 

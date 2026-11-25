@@ -293,8 +293,8 @@ export default function InstitutionalUnderwriteModal({
           : isDisbursed
           ? `Active Loan Details — ${request.requestNumber}`
           : isOfferPending
-          ? `Term-Sheet Sent — Awaiting Borrower Confirmation`
-          : `Structure Term-Sheet Offer — ${request.requestNumber}`
+          ? `Loan Offer Sent — Waiting for Borrower`
+          : `Send Loan Offer — ${request.requestNumber}`
       }
       subtitle={`Applicant: ${request.applicantName} (${request.applicantRole?.toUpperCase() || 'USER'}) • Order ${request.orderNumber || 'Working Capital'}`}
       icon={isRepaid ? CheckCircle2 : Landmark}
@@ -444,7 +444,7 @@ export default function InstitutionalUnderwriteModal({
             {/* Credit Structuring Controls */}
             <div className="p-5 rounded-2xl bg-white border border-[#E5EDE8] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#0B3326]">
-                {isAcceptedByBorrower ? 'Agreed Loan Terms' : 'Structure Term-Sheet Offer'}
+                {isAcceptedByBorrower ? 'Agreed Loan Terms' : 'Set Loan Offer'}
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -619,10 +619,10 @@ export default function InstitutionalUnderwriteModal({
                   className="font-bold cursor-pointer justify-center w-full sm:w-auto text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting
-                    ? (isAcceptedByBorrower ? 'Disbursing...' : 'Sending Quote...')
+                    ? (isAcceptedByBorrower ? 'Sending Funds...' : 'Sending Offer...')
                     : isAcceptedByBorrower
-                    ? `Disburse ₹${approvedAmount.toLocaleString('en-IN')} to Escrow`
-                    : `Send Term-Sheet to Borrower (₹${approvedAmount.toLocaleString('en-IN')})`}
+                    ? `Send Loan ₹${approvedAmount.toLocaleString('en-IN')}`
+                    : `Send Loan Offer (₹${approvedAmount.toLocaleString('en-IN')})`}
                 </Button>
               </div>
             </div>

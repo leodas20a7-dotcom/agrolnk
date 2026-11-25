@@ -108,10 +108,10 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
               <span className="hidden sm:inline">Institutional Settlement & Escrow Audit Ledger</span>
             </div>
             <h1 className="text-xl sm:text-3xl font-extrabold font-heading">
-              Disbursements & Yields
+              Loans Sent &amp; Profit
             </h1>
             <p className="hidden sm:block text-xs sm:text-sm text-[#DCFCE7]/85">
-              Complete transactional audit log with banking UTR numbers, legal escrow liens, and realized interest income.
+              Full record of loans sent, bank payment IDs, collateral security, and interest earned.
             </p>
           </div>
 
@@ -141,37 +141,37 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
           <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
             <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
-              Total Capital Disbursed
+              Total Money Sent
             </span>
             <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               ₹{totalDisbursed.toLocaleString('en-IN')}
             </div>
             <div className="text-[10px] sm:text-[11px] text-[#566861]">
-              Across {disbursements.length} facility dispatches
+              Across {disbursements.length} loan payouts
             </div>
           </Card>
 
           <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
             <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
-              Settled Escrow Realized
+              Money Returned + Profit
             </span>
             <div className="text-xl sm:text-3xl font-extrabold text-[#10B981] font-heading">
               ₹{totalSettled.toLocaleString('en-IN')}
             </div>
             <div className="text-[10px] sm:text-[11px] text-[#10B981] font-semibold">
-              Principal + Realized Interest
+              Loan Amount + Interest Earned
             </div>
           </Card>
 
           <Card hoverEffect className="p-4 sm:p-6 bg-white border border-[#E5EDE8] space-y-1.5 sm:space-y-2 shadow-xs">
             <span className="text-[11px] sm:text-xs font-semibold text-[#566861] block">
-              Escrow Lien Protection
+              Collateral Protection
             </span>
             <div className="text-xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
               100%
             </div>
             <div className="text-[10px] sm:text-[11px] text-[#10B981] font-bold">
-              0 Defaults • Direct NACH & Escrow
+              Secured by Crop &amp; Escrow Hold
             </div>
           </Card>
         </div>
@@ -196,12 +196,12 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] font-bold uppercase text-[10px] tracking-wider">
-                  <th className="p-4">Disbursement Ref</th>
-                  <th className="p-4">Borrower & Facility</th>
-                  <th className="p-4">Principal Amount</th>
-                  <th className="p-4">Rate & Tenor</th>
-                  <th className="p-4">Maturity / Return</th>
-                  <th className="p-4">Bank UTR & Escrow Lien</th>
+                  <th className="p-4">Payout ID</th>
+                  <th className="p-4">Borrower &amp; Crop</th>
+                  <th className="p-4">Loan Amount</th>
+                  <th className="p-4">Rate &amp; Duration</th>
+                  <th className="p-4">Due / Return</th>
+                  <th className="p-4">Payment Ref &amp; Security</th>
                   <th className="p-4">Status</th>
                 </tr>
               </thead>
