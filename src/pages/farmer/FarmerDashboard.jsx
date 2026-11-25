@@ -42,6 +42,7 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
 import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
+import { supabase } from '../../lib/supabase';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
@@ -115,8 +116,10 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
-    showGlobalLoader('Opening Farm Operations Desk...', 'Fetching active harvest lots, bids & dispatch schedules...');
-    const loadAll = async () => {
+    const loadAll = async (showLoader = false) => {
+      if (showLoader) {
+        showGlobalLoader('Opening Farm Operations Desk...', 'Fetching active harvest lots, bids & dispatch schedules...');
+      }
       try {
         const [listingData, orderData, auctionData, financingData, deliveryData, invData] = await Promise.all([
           getFarmerListings(user.id),
@@ -138,13 +141,47 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
       } catch (err) {
         console.error('Failed to load farmer dashboard data:', err);
       } finally {
-        hideGlobalLoader();
+        if (showLoader) {
+          hideGlobalLoader();
+        }
       }
     };
 
-    loadAll();
+    loadAll(true);
+
+    const handleLiveRefresh = () => {
+      loadAll(false);
+    };
+
+    const events = [
+      'agrolnk_orders_updated',
+      'agrolnk_deliveries_updated',
+      'agrolnk_delivery_updated',
+      'agrolnk_listings_updated',
+      'agrolnk_auctions_updated',
+      'agrolnk_financing_updated',
+      'agrolnk_warehouse_receipt_created',
+      'agrolnk_warehouse_quote_updated',
+      'agrolnk_warehouse_receipt_stored',
+      'agrolnk_warehouse_receipt_deleted',
+      'storage',
+    ];
+    events.forEach((evt) => window.addEventListener(evt, handleLiveRefresh));
+
+    const channel = supabase
+      .channel(`farmer_dashboard_realtime_${user.id || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleLiveRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, handleLiveRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, handleLiveRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, handleLiveRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financing_requests' }, handleLiveRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, handleLiveRefresh)
+      .subscribe();
+
     return () => {
       isMounted = false;
+      events.forEach((evt) => window.removeEventListener(evt, handleLiveRefresh));
+      supabase.removeChannel(channel);
       hideGlobalLoader();
     };
   }, [user.id]);
