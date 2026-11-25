@@ -1762,6 +1762,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
         <WarehouseInwardModal
           receipt={inwardModalReceipt}
           mode={inwardModalMode}
+          chambers={chambersList}
           isOpen={Boolean(inwardModalReceipt)}
           onClose={() => setInwardModalReceipt(null)}
           onSuccess={() => {

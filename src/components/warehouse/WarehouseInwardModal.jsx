@@ -8,26 +8,51 @@ import { toast } from '../../context/ToastContext';
 export default function WarehouseInwardModal({
   receipt,
   mode = 'quote', // 'quote' | 'inward'
+  chambers = [],
   isOpen,
   onClose,
   onSuccess,
 }) {
   const [loading, setLoading] = useState(false);
 
+  const configuredChambers = Array.isArray(chambers)
+    ? chambers
+        .map((ch) => {
+          const name = typeof ch === 'string' ? ch.trim() : String(ch?.name || '').trim();
+          if (!name) return null;
+          const details = typeof ch === 'object' && ch ? [ch.capacity, ch.temp].filter(Boolean).join(' • ') : '';
+          return {
+            value: name,
+            label: details ? `${name} (${details})` : name,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  const existingReceiptChamber = String(receipt?.chamber || '').trim();
+  const chamberOptions =
+    existingReceiptChamber && !configuredChambers.some((opt) => opt.value.toLowerCase() === existingReceiptChamber.toLowerCase())
+      ? [{ value: existingReceiptChamber, label: existingReceiptChamber }, ...configuredChambers]
+      : configuredChambers;
+
+  const matchedDefaultChamber =
+    chamberOptions.find((opt) => opt.value.toLowerCase() === existingReceiptChamber.toLowerCase())?.value ||
+    existingReceiptChamber ||
+    chamberOptions[0]?.value ||
+    'Chamber A1 - Cold Storage';
+
   // Quote mode state
   const [quotedRatePerTonne, setQuotedRatePerTonne] = useState(
     receipt?.quotedRatePerTonne || receipt?.monthlyRatePerTonne || 350
   );
-  const [assignedChamber, setAssignedChamber] = useState(
-    receipt?.chamber || 'Chamber A1 - Cold Storage'
-  );
+  const [assignedChamber, setAssignedChamber] = useState(matchedDefaultChamber);
   const [notes, setNotes] = useState('');
 
   // Inward mode state (Gate weighbridge & Assayer check)
   const [actualWeight, setActualWeight] = useState(receipt?.totalQuantity || 1000);
   const [assayerGrade, setAssayerGrade] = useState(receipt?.grade || 'A');
   const [moisture, setMoisture] = useState('11.5');
-  const [chamberBay, setChamberBay] = useState(receipt?.chamber || 'Chamber A1 - Bay 4');
+  const [chamberBay, setChamberBay] = useState(matchedDefaultChamber);
   const [collectedGatePayment, setCollectedGatePayment] = useState(true);
 
   if (!isOpen || !receipt) return null;
@@ -186,16 +211,31 @@ export default function WarehouseInwardModal({
               {/* Assign Chamber */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                  Assigned Storage Chamber / Cell
+                  Assigned Storage Chamber / Room
                 </label>
-                <input
-                  type="text"
-                  value={assignedChamber}
-                  onChange={(e) => setAssignedChamber(e.target.value)}
-                  placeholder="e.g. Chamber A1 - Cold Storage"
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  required
-                />
+                {chamberOptions.length > 0 ? (
+                  <select
+                    value={assignedChamber}
+                    onChange={(e) => setAssignedChamber(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-[#E5EDE8] bg-white text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    required
+                  >
+                    {chamberOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={assignedChamber}
+                    onChange={(e) => setAssignedChamber(e.target.value)}
+                    placeholder="e.g. Chamber A1 - Cold Storage"
+                    className="w-full px-4 py-2.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    required
+                  />
+                )}
               </div>
 
               {/* Operator Notes */}
@@ -301,16 +341,31 @@ export default function WarehouseInwardModal({
               {/* Chamber & Bay Allocation */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#0B3326] uppercase tracking-wider block">
-                  Assigned Chamber & Bay Location
+                  Assigned Chamber / Room
                 </label>
-                <input
-                  type="text"
-                  value={chamberBay}
-                  onChange={(e) => setChamberBay(e.target.value)}
-                  placeholder="Chamber A1 - Bay 4"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
-                  required
-                />
+                {chamberOptions.length > 0 ? (
+                  <select
+                    value={chamberBay}
+                    onChange={(e) => setChamberBay(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] bg-white text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    required
+                  >
+                    {chamberOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={chamberBay}
+                    onChange={(e) => setChamberBay(e.target.value)}
+                    placeholder="Chamber A1 - Bay 4"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-semibold text-[#0B3326] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                    required
+                  />
+                )}
               </div>
 
               {/* Payment Mode & Collection Status Card */}
