@@ -443,12 +443,12 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 sm:p-6 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-sm">
             <div className="space-y-1 text-left">
               <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-white tracking-tight">
-                {pageMode === 'requests' && 'Gate Inbound & Deposit Quotes'}
+                {pageMode === 'requests' && 'Storage Requests & Incoming Trucks'}
                 {pageMode === 'inventory' && 'Stored Produce & Rent Collection'}
                 {pageMode === 'chambers' && 'Storage Chambers & Facility Setup'}
               </h1>
               <p className="text-xs sm:text-sm text-[#DCFCE7]/85">
-                {pageMode === 'requests' && 'Review farmer deposit requests, issue storage quotes, and log inward gate-ins.'}
+                {pageMode === 'requests' && 'Check farmer requests, send storage prices, and receive arriving trucks.'}
                 {pageMode === 'inventory' && 'Manage active e-NWR stored lots, rent notices, and outward dispatches.'}
                 {pageMode === 'chambers' && 'Monitor chamber occupancy, storage rates, and facility KYC compliance.'}
               </p>
@@ -805,11 +805,11 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-[#0B3326] font-heading flex items-center gap-2">
-                    <span>1. Incoming Deposit Quote Requests</span>
-                    <Badge variant="yellow" size="sm">{quoteRequests.length} Waiting for Quote</Badge>
+                    <span>New Storage Requests</span>
+                    <Badge variant="yellow" size="sm">{quoteRequests.length} Waiting</Badge>
                   </h2>
                   <p className="text-xs text-[#566861]">
-                    Farmers requesting storage space. Review lot details, quote your monthly fee, and assign chamber.
+                    Farmers want to store crops here. Check details, set your monthly price, and pick a room.
                   </p>
                 </div>
               </div>
@@ -878,7 +878,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                 </div>
               ) : (
                 <div className="p-6 rounded-2xl bg-white border border-dashed border-[#E5EDE8] text-center text-xs text-[#566861]">
-                  No pending quote requests right now. New requests submitted by farmers will appear here.
+                  No new storage requests right now.
                 </div>
               )}
             </div>
@@ -887,8 +887,8 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
             {quotedPendingFarmer.length > 0 && (
               <div className="space-y-3">
                 <h2 className="text-base font-bold text-[#0B3326] font-heading flex items-center gap-2">
-                  <span>2. Quotes Sent to Farmers (Awaiting Farmer Dispatch)</span>
-                  <Badge variant="blue" size="sm">{quotedPendingFarmer.length} Pending</Badge>
+                  <span>Prices Sent (Waiting for Farmer)</span>
+                  <Badge variant="blue" size="sm">{quotedPendingFarmer.length} Waiting</Badge>
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {quotedPendingFarmer.map((req) => (
@@ -917,11 +917,11 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-[#0B3326] font-heading flex items-center gap-2">
-                    <span>3. Lots In Transit / Awaiting Gate Arrival</span>
-                    <Badge variant="purple" size="sm">{inTransitLots.length} In Transit</Badge>
+                    <span>Incoming Trucks</span>
+                    <Badge variant="purple" size="sm">{inTransitLots.length} On the Way</Badge>
                   </h2>
                   <p className="text-xs text-[#566861]">
-                    Farmers accepted your quote and dispatched goods. When the truck arrives at your gate, record weighbridge reading to issue official e-NWR.
+                    Farmers agreed to your price and sent their crops. When the truck arrives, enter weight to store the batch.
                   </p>
                 </div>
               </div>
@@ -1025,7 +1025,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                 </div>
               ) : (
                 <div className="p-6 rounded-2xl bg-white border border-dashed border-[#E5EDE8] text-center text-xs text-[#566861]">
-                  No dispatched lots currently in transit.
+                  No trucks on the way right now.
                 </div>
               )}
 
