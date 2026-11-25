@@ -15,6 +15,7 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
   const [amount, setAmount] = useState(500000);
   const [allocating, setAllocating] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   const presets = [
     { label: '₹2.5 Lakhs', value: 250000 },
@@ -26,6 +27,7 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
   const handleSubmit = async (e) => {
     e.preventDefault();
     setAllocating(true);
+    setError('');
 
     try {
       await addLiquidityPoolFunds(amount, currentUser || 'default');
@@ -38,6 +40,7 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
       }, 1000);
     } catch (err) {
       console.error(err);
+      setError(err?.message || 'Could not update lending balance. Please try again.');
       setAllocating(false);
     }
   };
@@ -46,8 +49,8 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Deploy Capital to Liquidity Pool"
-      subtitle="Expand your institutional lending allocation for farmgate advances & invoice financing"
+      title="Add Lending Balance (For Reference)"
+      subtitle="Set the lending budget you have in hand to track how much you can lend"
       icon={Landmark}
       iconColor="text-[#10B981]"
       iconBg="bg-[#EBF5F0]"
@@ -57,13 +60,19 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
         {success && (
           <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Successfully added ₹{amount.toLocaleString('en-IN')} to lending liquidity pool!</span>
+            <span>Added ₹{amount.toLocaleString('en-IN')} to your lending balance!</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+            {error}
           </div>
         )}
 
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#14211D] block">
-            Allocation Amount (₹)
+            Budget Amount to Add (₹)
           </label>
           <input
             type="number"
@@ -95,11 +104,11 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
 
         <div className="p-4 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs text-[#0B3326] space-y-1.5">
           <div className="flex items-center gap-2 font-bold">
-            <TrendingUp className="w-4 h-4 text-[#10B981]" />
-            <span>Target Portfolio Yield: 0.95% / month</span>
+            <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+            <span>For your reference only — no bank money is deducted now</span>
           </div>
           <p className="text-[11px] text-[#566861]">
-            Funds are earmarked exclusively for certified WDRA warehouse inventory loans and verified buyer escrow trade discounting.
+            This sets the lending budget you have in hand so AgrowLink can track your available limit. Actual money is paid via Razorpay only when you disburse an approved loan.
           </p>
         </div>
 
@@ -122,7 +131,7 @@ export default function AddLiquidityModal({ isOpen, onClose, onAdded, currentUse
             iconPosition="left"
             className="font-bold cursor-pointer"
           >
-            {allocating ? 'Deploying...' : `Confirm Allocation ₹${amount.toLocaleString('en-IN')}`}
+            {allocating ? 'Saving...' : `Add ₹${amount.toLocaleString('en-IN')} to Budget`}
           </Button>
         </div>
       </form>
