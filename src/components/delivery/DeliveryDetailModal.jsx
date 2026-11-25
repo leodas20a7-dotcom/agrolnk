@@ -180,8 +180,13 @@ export default function DeliveryDetailModal({
   };
 
   const handleTransporterDropoffWithOtp = async () => {
+    const isWarehouseDrop = String(currentDelivery?.orderNumber || '').toUpperCase().startsWith('WH-IN-');
     if (!enteredOtp || enteredOtp.trim().length < 4) {
-      setErrorMessage('Please enter the 4-digit Delivery Handover PIN provided by the recipient buyer.');
+      setErrorMessage(
+        isWarehouseDrop
+          ? 'Please enter the 4-digit Gate Handover PIN provided by the warehouse.'
+          : 'Please enter the 4-digit Delivery Handover PIN provided by the recipient buyer.'
+      );
       return;
     }
     setIsUpdating(true);
@@ -196,7 +201,12 @@ export default function DeliveryDetailModal({
       onClose();
     } catch (err) {
       console.error('Failed to confirm delivery dropoff with OTP:', err);
-      setErrorMessage(err.message || 'Invalid Delivery Handover PIN. Please verify with buyer.');
+      setErrorMessage(
+        err.message ||
+          (isWarehouseDrop
+            ? 'Invalid Gate Handover PIN. Please verify with the warehouse.'
+            : 'Invalid Delivery Handover PIN. Please verify with buyer.')
+      );
       setIsUpdating(false);
     }
   };
@@ -640,8 +650,12 @@ export default function DeliveryDetailModal({
                     maxLength={6}
                     value={enteredOtp}
                     onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter Buyer PIN"
-                    className="w-full sm:w-36 px-3 py-2 text-center font-mono font-bold text-xs rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-[#34D399]"
+                    placeholder={
+                      String(currentDelivery?.orderNumber || '').toUpperCase().startsWith('WH-IN-')
+                        ? 'Enter Warehouse PIN'
+                        : 'Enter Buyer PIN'
+                    }
+                    className="w-full sm:w-40 px-3 py-2 text-center font-mono font-bold text-xs rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-[#34D399]"
                   />
                   <Button
                     variant="accent"
