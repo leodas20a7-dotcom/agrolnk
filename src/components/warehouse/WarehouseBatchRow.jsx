@@ -34,7 +34,11 @@ export default function WarehouseBatchRow({
               {item.receiptNumber}
             </span>
             <Badge variant={isDispatched ? 'emerald' : 'dark'} size="sm">
-              {isDispatched ? 'Gate Exit Verified' : `Grade ${item.grade || 'A'}`}
+              {isDispatched
+                ? 'Gate Exit Verified'
+                : /^grade\b/i.test(String(item.grade || '').trim())
+                ? String(item.grade).trim()
+                : `Grade ${item.grade || 'A'}`}
             </Badge>
           </div>
 
@@ -107,20 +111,14 @@ export default function WarehouseBatchRow({
 
       {/* Right: Actions */}
       <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0 flex-wrap">
-        {!isDispatched && onViewRentStatus && (
+        {!isDispatched && onViewRentStatus && item.isPendingRent && (
           <Button
-            variant={item.isPendingRent ? 'primary' : 'secondary'}
+            variant="primary"
             size="sm"
             onClick={() => onViewRentStatus(item)}
-            className={`text-xs font-bold py-1.5 px-3 cursor-pointer ${
-              item.isPendingRent
-                ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
-                : 'border-[#E5EDE8] text-[#0B3326] hover:bg-[#F2FBF6]'
-            }`}
+            className="text-xs font-bold py-1.5 px-3 cursor-pointer bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
           >
-            {item.isPendingRent
-              ? `Rent Due: ₹${item.rentDeadline?.totalDue || item.storageFeeMonthly || 700}`
-              : 'Rent Settled'}
+            {`Rent Due: ₹${item.rentDeadline?.totalDue || item.storageFeeMonthly || 700}`}
           </Button>
         )}
 
