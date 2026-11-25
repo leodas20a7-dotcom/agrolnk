@@ -211,13 +211,13 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2.5 flex-1 min-w-0 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Sprout className="w-3.5 h-3.5" /> Producer Trading Desk
+              <Sprout className="w-3.5 h-3.5" /> Farmer Home
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-heading text-white tracking-tight leading-snug">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
             <p className="text-sm text-[#DCFCE7]/85 leading-relaxed font-normal max-w-xl">
-              Manage live exchange listings, deposit harvest into certified cold storage, arrange freight, and secure liquidity.
+              Sell your crops, store in cold storage, book trucks, and track payments.
             </p>
           </div>
 
@@ -376,9 +376,9 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             className="cursor-pointer"
           >
             <StatCard
-              label="Financing Desk"
+              label="Crop Loans"
               value={`₹${(financingRequests.reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.requestedAmount) || 0), 0) / 1000).toFixed(0)}k`}
-              subtext="Transaction liquidity"
+              subtext="Loans & advances"
               icon={Landmark}
               iconColor="#D97706"
               iconBg="#FEF3C7"
@@ -465,7 +465,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             iconPosition="right"
             className="text-xs font-bold shrink-0"
           >
-            Warehouse Vault
+            Open Warehouse
           </Button>
         </Card>
 
@@ -477,7 +477,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
                 Your Active Listings
               </h2>
               <p className="text-xs text-[#566861] mt-0.5">
-                Manage your active commodity lots on the live exchange
+                Crops you currently have listed for sale
               </p>
             </div>
 
