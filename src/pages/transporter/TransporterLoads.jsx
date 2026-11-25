@@ -362,6 +362,10 @@ export default function TransporterLoads({ currentUser, onNavigate, navState, pa
           currentUser={user}
           onClose={() => setSelectedDelivery(null)}
           onStatusUpdated={() => loadData()}
+          onRequestQuote={(d) => {
+            setSelectedDelivery(null);
+            handleStartQuote(d);
+          }}
         />
       )}
     </DashboardLayout>

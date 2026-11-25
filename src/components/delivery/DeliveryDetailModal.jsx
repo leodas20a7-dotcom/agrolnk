@@ -37,6 +37,7 @@ import {
   getPrivacySafeLocationLabel
 } from '../../utils/deliveries';
 import FreightEscrowModal from './FreightEscrowModal';
+import TransportQuoteModal from './TransportQuoteModal';
 
 export default function DeliveryDetailModal({
   delivery,
@@ -46,6 +47,7 @@ export default function DeliveryDetailModal({
   onClose,
   onStatusUpdated,
   onNavigate,
+  onRequestQuote,
 }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -53,6 +55,7 @@ export default function DeliveryDetailModal({
   const [enteredOtp, setEnteredOtp] = useState('');
   const [buyerPin, setBuyerPin] = useState(delivery?.deliveryOtp || null);
   const [isFreightEscrowModalOpen, setIsFreightEscrowModalOpen] = useState(false);
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
 
   useEffect(() => {
     setCurrentDelivery(delivery);
@@ -552,34 +555,53 @@ export default function DeliveryDetailModal({
         )}
 
         {/* Transporter Action Bar */}
-        {isTransporter && (
+        {isTransporter && (() => {
+          const isOpenForBidding =
+            currentDelivery.status === 'transport_requested' ||
+            currentDelivery.status === 'price_offered';
+          const myExistingQuote = Array.isArray(currentDelivery.freightQuotes)
+            ? currentDelivery.freightQuotes.find(
+                (q) => String(q.transporterId) === String(currentUser?.id)
+              )
+            : null;
+
+          return (
           <div className="p-5 rounded-2xl bg-[#0B3326] text-white border border-[#14624A] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-0.5 text-xs text-left">
               <span className="font-bold text-[#34D399] uppercase tracking-wider block">
-                Transporter Control Station
+                Trip Actions
               </span>
               <span className="text-white/80">
-                {currentDelivery.status === 'transport_requested' && 'Accept this freight load and assign your vehicle.'}
-                {currentDelivery.status === 'assigned' && 'Confirm arrival and lot loading at the farmgate.'}
-                {currentDelivery.status === 'picked_up' && 'Start active transit along the delivery corridor.'}
-                {currentDelivery.status === 'in_transit' && 'Confirm produce drop-off at buyer destination.'}
-                {currentDelivery.status === 'delivered' && 'Delivered. Awaiting buyer quality check & confirmation.'}
-                {currentDelivery.status === 'completed' && 'Trip fully settled & freight payment released.'}
+                {isOpenForBidding &&
+                  (myExistingQuote
+                    ? `Your quote of ₹${Number(myExistingQuote.quoteAmount || 0).toLocaleString('en-IN')} is live. You can lower your price before escrow locks.`
+                    : 'Send your freight price quote to bid on this load.')}
+                {currentDelivery.status === 'assigned' && 'Confirm arrival and crop loading at the pickup point.'}
+                {currentDelivery.status === 'picked_up' && 'Tap Start Transit when you leave for delivery.'}
+                {currentDelivery.status === 'in_transit' && 'Enter the 4-digit PIN from the recipient to complete drop-off.'}
+                {currentDelivery.status === 'delivered' && 'Delivered. Awaiting recipient confirmation.'}
+                {currentDelivery.status === 'completed' && 'Trip settled & freight payment released.'}
               </span>
             </div>
 
             <div className="shrink-0 w-full sm:w-auto">
-              {currentDelivery.status === 'transport_requested' && (
+              {isOpenForBidding && (
                 <Button
                   variant="accent"
                   size="md"
                   disabled={isUpdating}
-                  onClick={() => handleTransporterAction('assigned')}
+                  onClick={() => {
+                    if (onRequestQuote) {
+                      onRequestQuote(currentDelivery);
+                    } else {
+                      setIsQuoteModalOpen(true);
+                    }
+                  }}
                   icon={Truck}
                   iconPosition="left"
                   className="w-full sm:w-auto font-bold py-2.5 px-5 shadow-xs cursor-pointer"
                 >
-                  {isUpdating ? 'Accepting...' : 'Accept Delivery Job'}
+                  {myExistingQuote ? 'Lower Quote' : 'Send Freight Quote'}
                 </Button>
               )}
 
@@ -635,7 +657,7 @@ export default function DeliveryDetailModal({
                 </div>
               )}
 
-              {!isAssignedTransporter && currentDelivery.status !== 'transport_requested' && currentDelivery.status !== 'delivered' && currentDelivery.status !== 'completed' && (
+              {!isAssignedTransporter && !isOpenForBidding && currentDelivery.status !== 'delivered' && currentDelivery.status !== 'completed' && (
                 <Badge variant="dark" size="md">
                   Assigned Carrier: {currentDelivery.transporterName || 'External Transporter'}
                 </Badge>
@@ -654,7 +676,8 @@ export default function DeliveryDetailModal({
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Recipient (Buyer or Warehouse) Secure Delivery Handover PIN Display */}
         {isRecipient && currentDelivery.status === 'in_transit' && (
@@ -738,6 +761,19 @@ export default function DeliveryDetailModal({
           onClose();
         }}
       />
+
+      {isQuoteModalOpen && (
+        <TransportQuoteModal
+          delivery={currentDelivery}
+          currentUser={currentUser}
+          onClose={() => setIsQuoteModalOpen(false)}
+          onSuccess={async () => {
+            setIsQuoteModalOpen(false);
+            if (onStatusUpdated) await onStatusUpdated();
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 
