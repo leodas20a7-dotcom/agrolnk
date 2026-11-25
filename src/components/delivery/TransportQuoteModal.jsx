@@ -21,6 +21,7 @@ import {
   estimateDistanceKm,
   calculateEstimatedFare,
   submitTransportQuote,
+  withdrawTransportQuote,
   VEHICLE_TARIFF_RATES,
   getPrivacySafeLocationLabel
 } from '../../utils/deliveries';
@@ -83,6 +84,10 @@ export default function TransportQuoteModal({
   );
 
   const [rfqRemainingSec, setRfqRemainingSec] = useState(30 * 60);
+  const [showWithdrawBox, setShowWithdrawBox] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState('Truck booked on another route');
+  const [withdrawNote, setWithdrawNote] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
   useEffect(() => {
     const expiryIso =
       delivery?.rfqExpiresAt ||
@@ -455,30 +460,116 @@ export default function TransportQuoteModal({
                 <span>{error}</span>
               </div>
             )}
+
+            {myExistingQuote && showWithdrawBox && (
+              <div className="p-3.5 rounded-2xl bg-red-50/70 border border-red-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-red-900">
+                    Why are you cancelling? (Sent to who booked)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowWithdrawBox(false)}
+                    className="text-[11px] font-semibold text-red-700 hover:underline cursor-pointer"
+                  >
+                    Back
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Truck booked on another route',
+                    'Vehicle not available',
+                    'Schedule changed',
+                    'Entered wrong price',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setWithdrawReason(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition ${
+                        withdrawReason === preset
+                          ? 'bg-red-600 text-white border-red-600'
+                          : 'bg-white text-red-900 border-red-200 hover:bg-red-100/60'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={withdrawNote}
+                  onChange={(e) => setWithdrawNote(e.target.value)}
+                  placeholder="Optional short message..."
+                  className="w-full px-3 py-1.5 rounded-xl border border-red-200 bg-white text-xs text-[#14211D] focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={isWithdrawing}
+                    onClick={async () => {
+                      setIsWithdrawing(true);
+                      setError('');
+                      try {
+                        const finalReason = [withdrawReason, withdrawNote.trim()].filter(Boolean).join(' — ');
+                        await withdrawTransportQuote(delivery.id, finalReason);
+                        toast.success('Quote withdrawn and booker notified.');
+                        if (onSuccess) await onSuccess();
+                        onClose();
+                      } catch (err) {
+                        console.error('Failed to withdraw quote:', err);
+                        setError(err?.message || 'Could not withdraw quote.');
+                      } finally {
+                        setIsWithdrawing(false);
+                      }
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs cursor-pointer"
+                  >
+                    {isWithdrawing ? 'Withdrawing...' : 'Withdraw & Notify'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Pinned Footer Actions */}
-          <div className="px-5 sm:px-6 py-3.5 border-t border-[#E5EDE8] bg-white shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              onClick={onClose}
-              className="text-xs text-[#566861] justify-center w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="accent"
-              size="md"
-              disabled={isSubmitting}
-              icon={ArrowRight}
-              iconPosition="right"
-              className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Quote'}
-            </Button>
+          <div className="px-5 sm:px-6 py-3.5 border-t border-[#E5EDE8] bg-white shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            {myExistingQuote && !showWithdrawBox ? (
+              <button
+                type="button"
+                disabled={isSubmitting || isWithdrawing}
+                onClick={() => setShowWithdrawBox(true)}
+                className="px-3 py-2 rounded-xl text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition cursor-pointer text-center"
+              >
+                Withdraw Quote
+              </button>
+            ) : (
+              <span className="hidden sm:inline" />
+            )}
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 sm:ml-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={onClose}
+                className="text-xs text-[#566861] justify-center w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="accent"
+                size="md"
+                disabled={isSubmitting || isWithdrawing}
+                icon={ArrowRight}
+                iconPosition="right"
+                className="font-bold py-2.5 px-6 shadow-xs cursor-pointer justify-center w-full sm:w-auto"
+              >
+                {isSubmitting ? 'Submitting...' : myExistingQuote ? 'Update Quote' : 'Submit Quote'}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

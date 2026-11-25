@@ -792,6 +792,30 @@ export async function submitTransportQuote(deliveryId, quoteData) {
 }
 
 /**
+ * Withdraw an unaccepted transporter quote before escrow is locked.
+ * Recomputes the next lowest quote (or reopens load) and notifies who booked.
+ */
+export async function withdrawTransportQuote(deliveryId, reason = '') {
+  if (!deliveryId) throw new Error('Delivery ID is required.');
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('withdraw_transporter_quote_atomic', {
+    p_delivery_id: deliveryId,
+    p_reason: String(reason || '').trim() || 'Truck unavailable',
+  });
+
+  if (rpcErr) {
+    throw new Error(rpcErr.message || 'Could not withdraw quote.');
+  }
+
+  const refreshed = await getDeliveryById(deliveryId);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: refreshed || { id: deliveryId } }));
+    window.dispatchEvent(new Event('agrolnk_orders_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return { rpcRes, delivery: refreshed };
+}
+
+/**
  * Admin 30-Minute Concierge Fail-Safe:
  * Fetch all open freight requests that have expired (30+ minutes) with 0 transporter bids
  */
