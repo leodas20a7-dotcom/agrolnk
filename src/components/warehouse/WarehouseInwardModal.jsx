@@ -3,6 +3,7 @@ import { X, Building2, CheckCircle2, ShieldCheck, Scale, ThermometerSnowflake, F
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { provideWarehouseQuote, confirmProduceInward, declineWarehouseQuote } from '../../utils/warehouses';
+import { sendNotification } from '../../utils/notifications';
 import { toast } from '../../context/ToastContext';
 
 export default function WarehouseInwardModal({
@@ -47,6 +48,9 @@ export default function WarehouseInwardModal({
   );
   const [assignedChamber, setAssignedChamber] = useState(matchedDefaultChamber);
   const [notes, setNotes] = useState('');
+  const [showDeclineBox, setShowDeclineBox] = useState(false);
+  const [declineReason, setDeclineReason] = useState('Warehouse is currently full');
+  const [declineCustomNote, setDeclineCustomNote] = useState('');
 
   // Inward mode state (Gate weighbridge & Assayer check)
   const [actualWeight, setActualWeight] = useState(receipt?.totalQuantity || 1000);
@@ -100,6 +104,34 @@ export default function WarehouseInwardModal({
     } catch (err) {
       console.error('Error confirming produce inward:', err);
       toast.error(err?.message || 'Failed to confirm produce inward.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeclineRequest = async () => {
+    const finalReason = [declineReason, declineCustomNote.trim()].filter(Boolean).join(' — ') || 'Warehouse cannot accept this batch right now';
+    setLoading(true);
+    try {
+      const declined = await declineWarehouseQuote(receipt.id, finalReason);
+      if (!declined) {
+        throw new Error('Could not decline request.');
+      }
+      if (receipt.farmerId) {
+        await sendNotification({
+          recipientId: receipt.farmerId,
+          title: 'Storage Request Declined',
+          message: `Your storage request ${receipt.receiptNumber || ''} (${receipt.commodity || 'produce'}) could not be accepted: ${finalReason}. Please choose another warehouse.`,
+          type: 'warning',
+          link: 'farmer-inventory',
+        }).catch(() => {});
+      }
+      toast.success('Request declined and farmer notified.');
+      onSuccess?.();
+      onClose();
+    } catch (err) {
+      console.error('Error declining storage request:', err);
+      toast.error(err?.message || 'Failed to decline request.');
     } finally {
       setLoading(false);
     }
@@ -251,24 +283,96 @@ export default function WarehouseInwardModal({
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-medium text-[#14211D] focus:outline-none focus:ring-2 focus:ring-[#10B981]"
                 />
               </div>
+
+              {/* Quick Decline / Can't Store Box */}
+              {showDeclineBox && (
+                <div className="p-4 rounded-2xl bg-red-50/70 border border-red-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-red-900">
+                      Why can&apos;t you store this batch? (Sent to farmer)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeclineBox(false)}
+                      className="text-[11px] font-semibold text-red-700 hover:underline cursor-pointer"
+                    >
+                      Back
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Warehouse is currently full',
+                      'Crop or temperature not supported',
+                      'Quantity not suitable',
+                      'Closed for maintenance',
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setDeclineReason(preset)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition ${
+                          declineReason === preset
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-white text-red-900 border-red-200 hover:bg-red-100/60'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={declineCustomNote}
+                    onChange={(e) => setDeclineCustomNote(e.target.value)}
+                    placeholder="Optional short note for the farmer..."
+                    className="w-full px-3.5 py-2 rounded-xl border border-red-200 bg-white text-xs text-[#14211D] focus:outline-none focus:ring-2 focus:ring-red-400"
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      loading={loading}
+                      onClick={handleDeclineRequest}
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs cursor-pointer"
+                    >
+                      Send Reply &amp; Decline
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
-            <div className="p-5 sm:p-6 pt-3 border-t border-[#E5EDE8] shrink-0 bg-[#F8FAF8] flex items-center justify-end gap-3">
-              <Button type="button" variant="secondary" size="sm" onClick={onClose} className="font-semibold text-xs">
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={loading}
-                icon={ArrowRight}
-                iconPosition="right"
-                className="font-extrabold text-xs shadow-md"
-              >
-                Send Price Quote to Farmer
-              </Button>
+            <div className="p-5 sm:p-6 pt-3 border-t border-[#E5EDE8] shrink-0 bg-[#F8FAF8] flex items-center justify-between gap-3 flex-wrap">
+              {!showDeclineBox ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDeclineBox(true)}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition cursor-pointer"
+                >
+                  Can&apos;t Store / Decline
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2.5 ml-auto">
+                <Button type="button" variant="secondary" size="sm" onClick={onClose} className="font-semibold text-xs">
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  loading={loading}
+                  icon={ArrowRight}
+                  iconPosition="right"
+                  className="font-extrabold text-xs shadow-md"
+                >
+                  Send Price Quote to Farmer
+                </Button>
+              </div>
             </div>
           </form>
         ) : (
