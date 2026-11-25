@@ -288,7 +288,16 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
         </div>
 
         {/* Freight Payout Bank Account Card */}
-        <Card className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {(() => {
+          const paidFreightTotal = completedTrips
+            .filter((d) => d.status === 'completed' || d.freightEscrowStatus === 'released')
+            .reduce((sum, d) => sum + (Number(d.freightCost) || 0), 0);
+          const pendingPayoutTotal = completedTrips
+            .filter((d) => d.status !== 'completed' && d.freightEscrowStatus !== 'released')
+            .reduce((sum, d) => sum + (Number(d.freightCost) || 0), 0);
+
+          return (
+        <Card className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0">
               <Landmark className="w-5 h-5" />
@@ -313,17 +322,29 @@ export default function TransporterDashboard({ currentUser, onNavigate }) {
             </div>
           </div>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={Settings}
-            iconPosition="left"
-            onClick={() => setIsBankModalOpen(true)}
-            className="text-xs font-bold border-[#E5EDE8] bg-[#F8FAF8] hover:bg-[#EBF5F0] hover:text-[#0B3326] shrink-0 cursor-pointer"
-          >
-            Manage Payout Bank
-          </Button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <div className="px-3 py-1.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/25 text-xs">
+              <span className="text-[#566861]">Paid to Bank: </span>
+              <strong className="text-[#0B3326]">₹{paidFreightTotal.toLocaleString('en-IN')}</strong>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs">
+              <span className="text-amber-800">Pending Payout: </span>
+              <strong className="text-amber-950">₹{pendingPayoutTotal.toLocaleString('en-IN')}</strong>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Settings}
+              iconPosition="left"
+              onClick={() => setIsBankModalOpen(true)}
+              className="text-xs font-bold border-[#E5EDE8] bg-[#F8FAF8] hover:bg-[#EBF5F0] hover:text-[#0B3326] shrink-0 cursor-pointer"
+            >
+              Manage Payout Bank
+            </Button>
+          </div>
         </Card>
+          );
+        })()}
 
         {/* Quick Overview Dispatch Hub */}
         <div className="space-y-4 sm:space-y-5">
