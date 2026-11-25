@@ -80,7 +80,7 @@ export default function WarehouseBatchRow({
           <div>
             <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Rent Status</span>
             {item.rentDeadline ? (
-              <span className={`inline-block px-2 py-0.5 rounded-lg text-[11px] font-bold border mt-0.5 ${
+              <span className={`inline-block whitespace-nowrap px-2.5 py-0.5 rounded-lg text-[11px] font-bold border mt-0.5 ${
                 item.rentDeadline.status === 'paid'
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : item.rentDeadline.status === 'due_soon'

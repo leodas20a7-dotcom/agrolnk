@@ -1012,7 +1012,7 @@ export function calculateMonthlyRentDeadline(receipt) {
   if (diffDays > 5) {
     return {
       status: 'paid',
-      label: `Paid • Next cycle in ${diffDays}d`,
+      label: `Paid • ${diffDays}d left`,
       daysRemaining: diffDays,
       daysOverdue: 0,
       overduePenalty: 0,
