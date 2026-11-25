@@ -34,8 +34,11 @@ import {
   SlidersHorizontal,
   Lock,
   ChevronRight,
-  FileCheck
+  FileCheck,
+  Settings
 } from 'lucide-react';
+import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
+import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
 import {
   getFinancingRequests,
   getFinancingStats,
@@ -71,6 +74,18 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
   const [pendingPage, setPendingPage] = useState(1);
   const [activeLoansPage, setActiveLoansPage] = useState(1);
   const [repaidPage, setRepaidPage] = useState(1);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [bankDetails, setBankDetails] = useState(() => getUserBankDetails(user.id));
+
+  useEffect(() => {
+    const handleBankUpdate = () => setBankDetails(getUserBankDetails(user.id));
+    window.addEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+    window.addEventListener('storage', handleBankUpdate);
+    return () => {
+      window.removeEventListener('agrolnk_bank_details_updated', handleBankUpdate);
+      window.removeEventListener('storage', handleBankUpdate);
+    };
+  }, [user.id]);
 
   const [currentKycStatus, setCurrentKycStatus] = useState(() => getResolvedUserKycStatus(user));
 
@@ -466,6 +481,44 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
             <ChevronRight className="w-5 h-5 text-[#566861] group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
+
+        {/* Repayment Payout Bank Account Card */}
+        <Card className="p-4 sm:p-5 bg-white border border-[#E5EDE8] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#0B3326] text-[#34D399] flex items-center justify-center shrink-0">
+              <Landmark className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-[#0B3326] font-heading">
+                  Repayment Payout Bank Account
+                </h3>
+                <Badge variant={bankDetails?.accountNumber ? 'emerald' : 'amber'} size="sm">
+                  {bankDetails?.accountNumber ? 'Linked & Verified' : 'Action Required'}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#566861]">
+                <span>Bank: <strong className="text-[#14211D]">{bankDetails?.bankName || 'Not configured'}</strong></span>
+                <span>A/C: <strong className="font-mono text-[#14211D]">{bankDetails?.accountNumber ? maskAccountNumber(bankDetails.accountNumber) : 'Not Linked'}</strong></span>
+                <span>IFSC: <strong className="font-mono text-[#10B981]">{bankDetails?.ifscCode || '—'}</strong></span>
+                {bankDetails?.upiId && (
+                  <span>UPI: <strong className="text-[#14211D]">{bankDetails.upiId}</strong></span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={Settings}
+            iconPosition="left"
+            onClick={() => setIsBankModalOpen(true)}
+            className="text-xs font-bold border-[#E5EDE8] bg-[#F8FAF8] hover:bg-[#EBF5F0] hover:text-[#0B3326] shrink-0 cursor-pointer"
+          >
+            Manage Bank Account
+          </Button>
+        </Card>
 
         {/* 4. Two Clean Columns: Pending Requests & Upcoming Returns */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -888,6 +941,16 @@ export default function FinancierDashboard({ currentUser, onNavigate }) {
           onClose={() => setInspectingDoc(null)}
           document={inspectingDoc}
           user={user}
+        />
+      )}
+
+      {/* Repayment Payout Bank Account Modal */}
+      {isBankModalOpen && (
+        <FarmerBankSettingsModal
+          isOpen={isBankModalOpen}
+          onClose={() => setIsBankModalOpen(false)}
+          currentUser={user}
+          onSaved={(updated) => setBankDetails(updated)}
         />
       )}
     </DashboardLayout>
