@@ -290,7 +290,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
-              <Building2 className="w-3.5 h-3.5" /> Food Processing & Milling Terminal
+              <Building2 className="w-3.5 h-3.5" /> Food Processor Home
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-white tracking-tight">
               {getTimeGreeting(user.name || 'Food Processor').fullGreeting} {getTimeGreeting().emoji}
@@ -367,13 +367,13 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               <div>
                 <p className="text-xs font-bold text-[#0B3326]">
                   {currentKycStatus === 'pending'
-                    ? 'Compliance Verification Under Review'
-                    : 'FSSAI License & KYC Verification Pending'}
+                    ? 'Verification Under Review'
+                    : 'FSSAI & Business Verification Needed'}
                 </p>
                 <p className="text-[11px] text-[#566861] mt-0.5">
                   {currentKycStatus === 'pending'
-                    ? 'Our compliance desk is reviewing your business & FSSAI certificates. Full enterprise trade facilities will activate shortly.'
-                    : 'Upload your business registration and FSSAI certificate to unlock unrestricted procurement contracts and sales.'}
+                    ? 'Our team is checking your business & FSSAI documents. Full buying and selling will open soon.'
+                    : 'Upload your business and FSSAI documents to buy raw crops and sell freely.'}
                 </p>
               </div>
             </div>
