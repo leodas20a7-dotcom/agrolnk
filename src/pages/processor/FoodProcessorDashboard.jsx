@@ -309,7 +309,7 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
               size="md"
               icon={Gavel}
               iconPosition="left"
-              onClick={() => onNavigate('farmer-my-auctions')}
+              onClick={() => onNavigate('buyer-live-auctions')}
               className="py-2.5 px-4 font-bold text-xs !bg-[#0F4A37] !text-white hover:!bg-[#14624A] cursor-pointer shadow-sm border border-[#14624A]"
             >
               Live Auctions
