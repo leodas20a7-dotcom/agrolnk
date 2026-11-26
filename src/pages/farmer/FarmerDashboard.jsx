@@ -271,10 +271,22 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               icon={Gavel}
               iconPosition="left"
               onClick={() => onNavigate('farmer-my-auctions')}
-              className="col-span-2 justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
+              className={`${user.role === 'fpo' ? '' : 'col-span-2 '}justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap`}
             >
               Live Auctions ({liveAuctionsCount})
             </Button>
+            {user.role === 'fpo' && (
+              <Button
+                variant="secondary"
+                size="md"
+                icon={FileSpreadsheet}
+                iconPosition="left"
+                onClick={() => setIsBulkUploadOpen(true)}
+                className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
+              >
+                Bulk Upload (Excel)
+              </Button>
+            )}
           </div>
         </div>
 
