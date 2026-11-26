@@ -137,7 +137,7 @@ export function sanitizeRoute(rawHash) {
   if (rawHash.includes('type=recovery') || rawHash.includes('reset-password')) {
     return 'reset-password';
   }
-  let clean = rawHash.replace(/^#+\/?/, '').trim();
+  let clean = rawHash.replace(/^[#/]+/, '').trim();
   clean = clean.split('?')[0].split('#')[0].replace(/\/+$/, '').trim();
   return clean;
 }
@@ -184,6 +184,12 @@ export function resolveRoute(rawRoute, user) {
   }
   if (clean === 'marketplace') {
     return 'buyer-marketplace';
+  }
+  if (clean === 'farmer-listings') {
+    return 'farmer-my-listings';
+  }
+  if (clean === 'transporter-desk') {
+    return 'transporter-dashboard';
   }
   if (clean === 'auctions') {
     return (user?.role === 'farmer' || user?.role === 'fpo' || user?.role === 'food_processor') ? 'farmer-my-auctions' : 'buyer-live-auctions';

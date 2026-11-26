@@ -31,7 +31,9 @@ export default function PayStorageRentModal({
 
   useEffect(() => {
     if (isOpen && inventory) {
-      setExtendedDays(30);
+      const bookedDays = Number(inventory.storageDays || inventory.assayedQuality?.storageDays || 30);
+      const isInitialUnpaid = inventory.initialPaymentStatus !== 'paid' && (!Array.isArray(inventory.rentPaymentHistory) || inventory.rentPaymentHistory.length === 0);
+      setExtendedDays(isInitialUnpaid && [30, 60, 90].includes(bookedDays) ? bookedDays : 30);
       setIsProcessing(false);
       setPaymentSuccess(null);
       setPaymentError('');

@@ -395,7 +395,24 @@ export async function acceptWarehouseQuote(receiptId, paymentDetails = {}) {
     const isAdvancePaid = Boolean(paymentDetails.isPaid || paymentDetails.mode === 'online_advance');
     const now = new Date().toISOString();
     const mode = paymentDetails.mode || (isAdvancePaid ? 'online_advance' : 'auto_deduct');
-    const amount = Number(paymentDetails.amount || 0);
+
+    let durationDays = Number(paymentDetails.extendedDays || paymentDetails.storageDays || 0);
+    let existingRow = null;
+    if (!durationDays || !paymentDetails.amount) {
+      const { data: fetchedRow } = await supabase
+        .from('warehouse_receipts')
+        .select('storage_fee_monthly, assayed_quality, total_commission_earned, net_settled_to_warehouse')
+        .eq('id', receiptId)
+        .maybeSingle();
+      existingRow = fetchedRow;
+    }
+
+    if (!durationDays || durationDays <= 0) {
+      durationDays = Math.max(1, Number(existingRow?.assayed_quality?.storageDays || 30));
+    }
+
+    const fallbackMonthly = Number(existingRow?.storage_fee_monthly || 0);
+    const amount = Number(paymentDetails.amount || Math.round(fallbackMonthly * (durationDays / 30)) || 0);
 
     const updatePayload = {
       status: 'in_transit',
@@ -406,17 +423,29 @@ export async function acceptWarehouseQuote(receiptId, paymentDetails = {}) {
     };
 
     if (isAdvancePaid) {
+      const depositorFee = Math.round(amount * 0.0025 * 100) / 100;
+      const warehouseFee = Math.round(amount * 0.0025 * 100) / 100;
+      const totalCommission = Math.round((depositorFee + warehouseFee) * 100) / 100;
+      const netWarehouseSettled = Math.round((amount - warehouseFee) * 100) / 100;
+
       updatePayload.last_rent_paid_at = now;
-      updatePayload.valid_until = new Date(Date.now() + 30 * 86400000).toISOString();
+      updatePayload.valid_until = new Date(Date.now() + durationDays * 86400000).toISOString();
+      updatePayload.total_commission_earned = Math.round((Number(existingRow?.total_commission_earned || 0) + totalCommission) * 100) / 100;
+      updatePayload.net_settled_to_warehouse = Math.round((Number(existingRow?.net_settled_to_warehouse || 0) + netWarehouseSettled) * 100) / 100;
+
       const paymentRecord = {
         id: `rent_init_${Date.now()}`,
         receiptId,
         amount,
-        type: '1st_month_advance',
+        depositorFee,
+        warehouseFee,
+        totalCommission,
+        netWarehouseSettled,
+        type: durationDays > 30 ? `${durationDays}_days_advance` : '1st_month_advance',
         paymentMethod: paymentDetails.method || 'Razorpay / UPI Online',
         transactionRef: paymentDetails.transactionRef || `INIT-RENT-${Math.floor(100000 + Math.random() * 900000)}`,
         paidAt: now,
-        extendedDays: 30,
+        extendedDays: durationDays,
         paidBy: paymentDetails.paidBy || 'Farmer Depositor',
       };
       updatePayload.rent_payment_history = [paymentRecord];
@@ -1003,7 +1032,21 @@ export function calculateMonthlyRentDeadline(receipt) {
   let lastPaid = receipt.lastRentPaidAt ? new Date(receipt.lastRentPaidAt) : deposited;
   if (isNaN(lastPaid.getTime())) lastPaid = deposited;
 
-  const nextDueDate = new Date(lastPaid.getTime() + 30 * 86400000);
+  const paidDurationDays = Math.max(
+    1,
+    Number(
+      receipt.rentPaymentHistory?.[0]?.extendedDays ||
+      receipt.storageDays ||
+      receipt.assayedQuality?.storageDays ||
+      30
+    )
+  );
+  let nextDueDate = receipt.validUntil
+    ? new Date(receipt.validUntil)
+    : new Date(lastPaid.getTime() + paidDurationDays * 86400000);
+  if (isNaN(nextDueDate.getTime())) {
+    nextDueDate = new Date(lastPaid.getTime() + paidDurationDays * 86400000);
+  }
   const diffDays = Math.ceil((nextDueDate - now) / (1000 * 60 * 60 * 24));
   const monthlyAmount = Number(receipt.storageFeeMonthly) || Math.round((Number(receipt.totalQuantity || 0) / 1000) * 350);
 

@@ -35,6 +35,11 @@ export default function FarmerQuoteReviewModal({
 
   const totalQty = Number(receipt.totalQuantity || receipt.quantity || 0);
   const monthlyRent = Number(receipt.quotedMonthlyRent || receipt.storageFeeMonthly || 0);
+  const storageDays = Math.max(1, Number(receipt.storageDays || receipt.assayedQuality?.storageDays || 30));
+  const totalDurationRent = Math.round(monthlyRent * (storageDays / 30));
+  const durationMonthsLabel = storageDays % 30 === 0
+    ? `${storageDays / 30} ${storageDays / 30 === 1 ? 'Month' : 'Months'}`
+    : `${storageDays} Days`;
   const ratePerTonne = Number(receipt.quotedRatePerTonne || (totalQty > 0 ? Math.round((monthlyRent / (totalQty / 1000))) : 350)) || 350;
   const ratePerKg = Number((ratePerTonne / 1000).toFixed(2));
   const approxDaily = Math.round(monthlyRent / 30) || 12;
@@ -44,18 +49,19 @@ export default function FarmerQuoteReviewModal({
     setError('');
 
     try {
-      // Launch Razorpay Payment Gateway for 1st Month Advance
+      // Launch Razorpay Payment Gateway for Full Booked Storage Duration
       await initiateRazorpayWarehouseRentCheckout({
         inventory: receipt,
-        amount: monthlyRent,
-        extendedDays: 30,
+        amount: totalDurationRent,
+        extendedDays: storageDays,
         farmerUser: { name: receipt.farmerName || 'Farmer Depositor', role: 'farmer' },
         onSuccess: async (rzpRes) => {
           try {
             const updated = await acceptWarehouseQuote(receipt.id, {
               mode: 'razorpay',
               isPaid: true,
-              amount: monthlyRent,
+              amount: totalDurationRent,
+              extendedDays: storageDays,
               method: `Razorpay Online (${rzpRes.razorpay_payment_id})`,
               transactionRef: rzpRes.razorpay_payment_id,
             });
@@ -189,11 +195,13 @@ export default function FarmerQuoteReviewModal({
             <div className="flex items-baseline justify-between pt-1">
               <div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#0B3326] font-heading">
-                  ₹{monthlyRent.toLocaleString('en-IN')}
-                  <span className="text-xs font-semibold text-[#566861]"> / month</span>
+                  ₹{totalDurationRent.toLocaleString('en-IN')}
+                  <span className="text-xs font-semibold text-[#566861]">
+                    {' '}for {storageDays} days ({durationMonthsLabel})
+                  </span>
                 </div>
                 <span className="text-[11px] text-[#566861]">
-                  Standard 30-day billing cycle (≈ ₹{approxDaily} / day)
+                  Monthly rate: ₹{monthlyRent.toLocaleString('en-IN')} / 30 days (≈ ₹{approxDaily} / day)
                 </span>
               </div>
             </div>
@@ -226,7 +234,7 @@ export default function FarmerQuoteReviewModal({
                     </Badge>
                   </div>
                   <p className="text-[11px] text-[#566861] leading-relaxed">
-                    Settle the first month storage advance (₹{monthlyRent.toLocaleString('en-IN')}) securely online via Razorpay. Your chamber reservation and deposit request are confirmed immediately.
+                    Settle the storage advance for {storageDays} days / {durationMonthsLabel} (₹{totalDurationRent.toLocaleString('en-IN')}) securely online via Razorpay. Your chamber reservation and deposit request are confirmed immediately.
                   </p>
                 </div>
               </div>
@@ -241,14 +249,14 @@ export default function FarmerQuoteReviewModal({
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-[#E5EDE8] text-[11px]">
               <div>
-                <span className="text-[#566861] block">Due Today:</span>
+                <span className="text-[#566861] block">Due Today ({storageDays}d):</span>
                 <strong className="text-[#0B3326] font-bold">
-                  ₹{monthlyRent.toLocaleString('en-IN')}
+                  ₹{totalDurationRent.toLocaleString('en-IN')}
                 </strong>
               </div>
               <div>
-                <span className="text-[#566861] block">Cycle Length:</span>
-                <strong className="text-[#0B3326] font-bold">30 Days</strong>
+                <span className="text-[#566861] block">Booked Duration:</span>
+                <strong className="text-[#0B3326] font-bold">{storageDays} Days ({durationMonthsLabel})</strong>
               </div>
               <div>
                 <span className="text-[#566861] block">Grace Period:</span>
@@ -327,7 +335,7 @@ export default function FarmerQuoteReviewModal({
             >
               {loading
                 ? 'Processing...'
-                : `Pay ₹${monthlyRent.toLocaleString('en-IN')} with Razorpay & Dispatch Goods`}
+                : `Pay ₹${totalDurationRent.toLocaleString('en-IN')} (${storageDays} Days) with Razorpay & Dispatch Goods`}
             </Button>
           </div>
         )}

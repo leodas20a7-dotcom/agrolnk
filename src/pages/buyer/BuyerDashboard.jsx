@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import MarketplaceCard from '../../components/buyer/MarketplaceCard';
 import Button from '../../components/ui/Button';
@@ -34,6 +34,8 @@ import { getBuyerDeliveries } from '../../utils/deliveries';
 import { getTimeGreeting } from '../../utils/greeting';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
+import { getStateFilterOptions } from '../../utils/locations';
+import { supabase } from '../../lib/supabase';
 
 export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
@@ -114,8 +116,12 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
 
   useEffect(() => {
     let isMounted = true;
-    showGlobalLoader('Opening Buyer Command Center...', 'Loading verified produce lots, live bids & shipments...');
-    const loadAll = async () => {
+    let refreshTimer = null;
+
+    const loadAll = async (withLoader = false) => {
+      if (withLoader) {
+        showGlobalLoader('Opening Buyer Command Center...', 'Loading verified produce lots, live bids & shipments...');
+      }
       try {
         const [activeLots, auctions, orderData, financingData, deliveryData] = await Promise.all([
           getActiveMarketplaceListings(),
@@ -135,18 +141,56 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
       } catch (err) {
         console.error('Error loading buyer dashboard:', err);
       } finally {
-        hideGlobalLoader();
+        if (withLoader) {
+          hideGlobalLoader();
+        }
       }
     };
 
-    loadAll();
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        if (isMounted) loadAll(false);
+      }, 250);
+    };
+
+    loadAll(true);
+
+    window.addEventListener('agrolnk_listings_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_auctions_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_orders_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_financing_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_deliveries_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_delivery_updated', scheduleRefresh);
+    window.addEventListener('storage', scheduleRefresh);
+
+    const channel = supabase
+      .channel(`buyer_dashboard_realtime_${user.id || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_bids' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financing_requests' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, scheduleRefresh)
+      .subscribe();
+
     return () => {
       isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
       hideGlobalLoader();
+      window.removeEventListener('agrolnk_listings_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_auctions_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_orders_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_financing_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_deliveries_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_delivery_updated', scheduleRefresh);
+      window.removeEventListener('storage', scheduleRefresh);
+      supabase.removeChannel(channel);
     };
   }, [user.id]);
 
   const safeListings = Array.isArray(listings) ? listings : [];
+  const locationOptions = useMemo(() => getStateFilterOptions(safeListings), [safeListings]);
   const totalListingsPages = Math.ceil(safeListings.length / listingsPerPage) || 1;
   const safeListingsPage = Math.min(listingsPage, totalListingsPages);
   const paginatedListings = safeListings.slice(
@@ -220,7 +264,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                 iconPosition="left"
                 className="py-2.5 px-3.5 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center shrink-0"
               >
-                Inbound Deliveries ({deliveries.length})
+                Incoming Deliveries ({deliveries.length})
               </Button>
               <Button
                 variant="secondary"
@@ -230,7 +274,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                 iconPosition="left"
                 className="py-2.5 px-3.5 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center shrink-0"
               >
-                Trade Credit ({financingRequests.length})
+                Credit / Financing ({financingRequests.length})
               </Button>
               <Button
                 variant="accent"
@@ -276,12 +320,11 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                   className="w-full text-xs font-semibold text-[#0B3326] bg-transparent focus:outline-none cursor-pointer py-1"
                 >
                   <option value="All">All Regions / States</option>
-                  <option value="Tamil Nadu">Tamil Nadu (Salem/Dindigul)</option>
-                  <option value="Maharashtra">Maharashtra (Nashik/Pune)</option>
-                  <option value="Madhya Pradesh">Madhya Pradesh (Sehore)</option>
-                  <option value="Himachal Pradesh">Himachal Pradesh (Shimla)</option>
-                  <option value="Punjab">Punjab</option>
-                  <option value="Karnataka">Karnataka</option>
+                  {locationOptions.map((stateName) => (
+                    <option key={stateName} value={stateName}>
+                      {stateName}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -318,12 +361,11 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                   className="text-[11px] font-bold text-[#0B3326] bg-transparent focus:outline-none cursor-pointer max-w-[85px] truncate"
                 >
                   <option value="All">All States</option>
-                  <option value="Tamil Nadu">Tamil Nadu</option>
-                  <option value="Maharashtra">Maharashtra</option>
-                  <option value="Madhya Pradesh">MP</option>
-                  <option value="Himachal Pradesh">HP</option>
-                  <option value="Punjab">Punjab</option>
-                  <option value="Karnataka">Karnataka</option>
+                  {locationOptions.map((stateName) => (
+                    <option key={stateName} value={stateName}>
+                      {stateName}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -406,7 +448,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
             </div>
             <div>
               <span className="text-xs font-bold text-[#92400E] uppercase tracking-wider block">
-                Competitive Bidding Exchange
+                Live Crop Auctions
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-xl font-extrabold text-[#0B3326] font-heading">
@@ -457,7 +499,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
             </div>
             <div>
               <span className="text-xs font-bold text-[#566861] uppercase tracking-wider block">
-                Direct Produce Catalog
+                Available Crops
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-extrabold text-[#0B3326] font-heading">

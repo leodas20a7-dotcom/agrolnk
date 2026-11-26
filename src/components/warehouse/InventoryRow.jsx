@@ -130,8 +130,8 @@ export default function InventoryRow({
         </div>
 
         <div className="hidden sm:block">
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block whitespace-nowrap">Storage Fee</span>
-          <span className="font-bold text-sm text-[#0B3326] whitespace-nowrap">
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Monthly Storage Fee</span>
+          <span className="font-bold text-sm text-[#0B3326]">
             ₹{Number(inventory.quotedMonthlyRent || inventory.storageFeeMonthly || 0).toLocaleString('en-IN')}/mo
           </span>
         </div>

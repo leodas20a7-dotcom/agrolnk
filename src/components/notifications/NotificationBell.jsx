@@ -28,13 +28,28 @@ export default function NotificationBell({ currentUser, onNavigate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const dropdownRef = useRef(null);
+  const localReadIdsRef = useRef(new Set());
+  const localDismissedIdsRef = useRef(new Set());
+  const lastMarkAllReadAtRef = useRef(0);
 
   const user = currentUser || { id: '', role: 'farmer' };
 
   const loadNotifications = async () => {
     try {
       const list = await getNotificationsForUser(user);
-      setNotifications(list || []);
+      const readBeforeTs = lastMarkAllReadAtRef.current;
+      const merged = (Array.isArray(list) ? list : [])
+        .filter((n) => n && !localDismissedIdsRef.current.has(String(n.id)))
+        .map((n) => {
+          const strId = String(n.id);
+          const createdMs = n.createdAt ? new Date(n.createdAt).getTime() : 0;
+          const isReadByTs = readBeforeTs > 0 && (!createdMs || isNaN(createdMs) || createdMs <= readBeforeTs + 5000);
+          if (n.isRead || localReadIdsRef.current.has(strId) || isReadByTs) {
+            return { ...n, isRead: true };
+          }
+          return n;
+        });
+      setNotifications(merged);
     } catch (err) {
       console.warn('Error loading notifications:', err);
     }
@@ -114,21 +129,45 @@ export default function NotificationBell({ currentUser, onNavigate }) {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const handleMarkAllRead = async () => {
-    await markAllNotificationsAsRead(user);
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    const currentSnapshot = notifications;
+    lastMarkAllReadAtRef.current = Date.now();
+    for (const n of currentSnapshot) {
+      if (n?.id) localReadIdsRef.current.add(String(n.id));
+    }
+    setNotifications((prev) => {
+      for (const n of prev) {
+        if (n?.id) localReadIdsRef.current.add(String(n.id));
+      }
+      return prev.map((n) => ({ ...n, isRead: true }));
+    });
+    await markAllNotificationsAsRead(user, currentSnapshot);
   };
 
   const handleClearAll = async () => {
-    await clearAllNotifications(user);
+    for (const n of notifications) {
+      if (n?.id) localDismissedIdsRef.current.add(String(n.id));
+    }
     setNotifications([]);
+    await clearAllNotifications(user);
+  };
+
+  const handleMarkSingleRead = async (e, notif) => {
+    e.stopPropagation();
+    if (!notif || notif.isRead) return;
+    localReadIdsRef.current.add(String(notif.id));
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+    );
+    await markNotificationAsRead(notif.id, user);
   };
 
   const handleItemClick = async (notif) => {
     if (!notif.isRead) {
-      await markNotificationAsRead(notif.id, user);
+      localReadIdsRef.current.add(String(notif.id));
       setNotifications((prev) =>
         prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
       );
+      await markNotificationAsRead(notif.id, user);
     }
     if (notif.link && typeof onNavigate === 'function') {
       onNavigate(notif.link);
@@ -141,9 +180,10 @@ export default function NotificationBell({ currentUser, onNavigate }) {
 
   const handleDelete = async (e, notifId) => {
     e.stopPropagation();
+    localDismissedIdsRef.current.add(String(notifId));
     // Immediate optimistic removal from state so UI updates instantly
     setNotifications((prev) => prev.filter((n) => n.id !== notifId));
-    await deleteNotification(notifId);
+    await deleteNotification(notifId, user);
   };
 
   const formatTimeAgo = (dateStr) => {
@@ -279,7 +319,7 @@ export default function NotificationBell({ currentUser, onNavigate }) {
                   </div>
 
                   {/* Body Text */}
-                  <div className="flex-1 min-w-0 pr-4">
+                  <div className="flex-1 min-w-0 pr-11">
                     <div className="flex items-center justify-between gap-1">
                       <span
                         className={`text-xs block truncate ${
@@ -303,15 +343,27 @@ export default function NotificationBell({ currentUser, onNavigate }) {
                     <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0 mt-2" />
                   )}
 
-                  {/* Delete / Dismiss Button (Visible by default on touch screens, on hover on desktop) */}
-                  <button
-                    type="button"
-                    onClick={(e) => handleDelete(e, notif.id)}
-                    className="absolute right-1.5 top-1.5 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
-                    title="Dismiss"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                  {/* Per-item Mark as Read & Dismiss Buttons */}
+                  <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    {!notif.isRead && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleMarkSingleRead(e, notif)}
+                        className="p-1 rounded-md text-[#10B981] hover:text-[#0B3326] hover:bg-emerald-100/80 cursor-pointer"
+                        title="Mark as read"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDelete(e, notif.id)}
+                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                      title="Dismiss"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))
             )}

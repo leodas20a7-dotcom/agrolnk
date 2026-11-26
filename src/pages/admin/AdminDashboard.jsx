@@ -32,7 +32,12 @@ import {
   PhoneCall
 } from 'lucide-react';
 import { getAdminMetrics } from '../../utils/admin';
-import { formatINR } from '../../utils/commission';
+import {
+  formatINR,
+  BUYER_COMMISSION_RATE,
+  SELLER_COMMISSION_RATE,
+  TOTAL_COMMISSION_RATE,
+} from '../../utils/commission';
 import { getListings, checkListingBookings, deleteListing, COMMODITY_IMAGES } from '../../utils/listings';
 import { getDeliveries, assignAdminFailSafeFreightQuote } from '../../utils/deliveries';
 import ProduceDetailModal from '../../components/farmer/ProduceDetailModal';
@@ -40,6 +45,7 @@ import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { toast } from '../../context/ToastContext';
 import { getCurrentUser } from '../../utils/auth';
+import { supabase } from '../../lib/supabase';
 
 export default function AdminDashboard({ currentUser, onNavigate }) {
   const user = currentUser || getCurrentUser() || {};
@@ -65,6 +71,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   const [listings, setListings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const [selectedListing, setSelectedListing] = useState(null);
@@ -77,11 +84,11 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   const [deliveries, setDeliveries] = useState([]);
   const [conciergeRfq, setConciergeRfq] = useState(null);
   const [conciergeFreightAmount, setConciergeFreightAmount] = useState('');
-  const [conciergeTransporterName, setConciergeTransporterName] = useState('AgrowLink Managed Fleet Partner');
-  const [conciergeVehicleType, setConciergeVehicleType] = useState('Medium LCV (14ft Eicher)');
-  const [conciergeVehicleNumber, setConciergeVehicleNumber] = useState('TN 01 AL 9900');
-  const [conciergeDriverName, setConciergeDriverName] = useState('Verified Fleet Driver');
-  const [conciergeDriverPhone, setConciergeDriverPhone] = useState('9840011223');
+  const [conciergeTransporterName, setConciergeTransporterName] = useState('');
+  const [conciergeVehicleType, setConciergeVehicleType] = useState('');
+  const [conciergeVehicleNumber, setConciergeVehicleNumber] = useState('');
+  const [conciergeDriverName, setConciergeDriverName] = useState('');
+  const [conciergeDriverPhone, setConciergeDriverPhone] = useState('');
   const [isAssigningQuote, setIsAssigningQuote] = useState(false);
 
   const fetchListingsData = async () => {
@@ -96,43 +103,66 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
+    let refreshTimer = null;
     showGlobalLoader('Opening Executive Command Center...', 'Aggregating live platform metrics & escrow locks...');
 
     const fetchMetrics = () => {
       return getAdminMetrics()
         .then((data) => {
           if (isMounted && data) setMetrics(data);
-        })
-        .finally(() => {
-          hideGlobalLoader();
         });
     };
 
-    fetchMetrics();
-    fetchListingsData();
+    const refreshAll = () => {
+      if (!isMounted) return;
+      fetchMetrics().catch((err) => console.error('Failed to refresh admin metrics:', err));
+      fetchListingsData();
+    };
 
-    window.addEventListener('agrolnk_kyc_updated', fetchMetrics);
-    window.addEventListener('agrolnk_orders_updated', fetchMetrics);
-    window.addEventListener('agrolnk_order_updated', fetchMetrics);
-    window.addEventListener('agrolnk_financing_updated', fetchMetrics);
-    window.addEventListener('agrolnk_listings_updated', fetchListingsData);
-    window.addEventListener('agrolnk_deliveries_updated', fetchListingsData);
-    window.addEventListener('storage', fetchMetrics);
-    window.addEventListener('storage', fetchListingsData);
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(refreshAll, 250);
+    };
+
+    Promise.all([fetchMetrics(), fetchListingsData()]).finally(() => {
+      hideGlobalLoader();
+    });
+
+    window.addEventListener('agrolnk_kyc_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_user_profile_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_orders_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_order_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_financing_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_listings_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_deliveries_updated', scheduleRefresh);
+    window.addEventListener('agrolnk_delivery_updated', scheduleRefresh);
+    window.addEventListener('storage', scheduleRefresh);
+
+    const channel = supabase
+      .channel(`admin_dashboard_realtime_${user.id || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financing_requests' }, scheduleRefresh)
+      .subscribe();
 
     return () => {
       isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
       hideGlobalLoader();
-      window.removeEventListener('agrolnk_kyc_updated', fetchMetrics);
-      window.removeEventListener('agrolnk_orders_updated', fetchMetrics);
-      window.removeEventListener('agrolnk_order_updated', fetchMetrics);
-      window.removeEventListener('agrolnk_financing_updated', fetchMetrics);
-      window.removeEventListener('agrolnk_listings_updated', fetchListingsData);
-      window.removeEventListener('agrolnk_deliveries_updated', fetchListingsData);
-      window.removeEventListener('storage', fetchMetrics);
-      window.removeEventListener('storage', fetchListingsData);
+      window.removeEventListener('agrolnk_kyc_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_user_profile_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_orders_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_order_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_financing_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_listings_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_deliveries_updated', scheduleRefresh);
+      window.removeEventListener('agrolnk_delivery_updated', scheduleRefresh);
+      window.removeEventListener('storage', scheduleRefresh);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user.id]);
 
   // Unquoted 30-Minute Freight RFQs (including >30-minute escalated loads)
   const unquotedRfqDeliveries = (Array.isArray(deliveries) ? deliveries : []).filter(
@@ -148,31 +178,46 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
   const handleOpenConciergeModal = (dlv) => {
     setConciergeRfq(dlv);
     setConciergeFreightAmount('');
-    setConciergeTransporterName('AgrowLink Managed Fleet Partner');
-    setConciergeVehicleType('Medium LCV (14ft Eicher)');
-    setConciergeVehicleNumber('TN 01 AL 9900');
-    setConciergeDriverName('Verified Fleet Driver');
-    setConciergeDriverPhone('9840011223');
+    setConciergeTransporterName('');
+    setConciergeVehicleType('');
+    setConciergeVehicleNumber('');
+    setConciergeDriverName('');
+    setConciergeDriverPhone('');
   };
 
   const handleAssignConciergeQuote = async () => {
     if (!conciergeRfq) return;
     const amt = Number(conciergeFreightAmount || 0);
+    const transporterName = conciergeTransporterName.trim();
+    const vehicleType = conciergeVehicleType.trim();
+    const vehicleNumber = conciergeVehicleNumber.trim().toUpperCase();
+    const driverName = conciergeDriverName.trim();
+    const driverPhone = conciergeDriverPhone.trim();
+
     if (!amt || amt <= 0) {
       toast.error('Please enter a valid verified freight quote amount (₹).');
       return;
     }
+    if (!transporterName || !vehicleType || !vehicleNumber || !driverName) {
+      toast.error('Please fill in fleet partner, vehicle class, vehicle registration #, and driver name.');
+      return;
+    }
+    if (!/^\d{10}$/.test(driverPhone)) {
+      toast.error('Please enter a valid 10-digit driver phone number.');
+      return;
+    }
+
     setIsAssigningQuote(true);
     try {
       await assignAdminFailSafeFreightQuote(
         conciergeRfq.id,
         {
           freightAmount: amt,
-          transporterName: conciergeTransporterName.trim() || 'AgrowLink Managed Fleet Partner',
-          vehicleType: conciergeVehicleType.trim() || 'Commercial Truck',
-          vehicleNumber: conciergeVehicleNumber.trim().toUpperCase() || 'TN 01 AL 9900',
-          driverName: conciergeDriverName.trim() || 'Fleet Driver',
-          driverPhone: conciergeDriverPhone.trim() || '9840011223',
+          transporterName,
+          vehicleType,
+          vehicleNumber,
+          driverName,
+          driverPhone,
         },
         user
       );
@@ -248,6 +293,12 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
     if (selectedCategory !== 'all' && item.commodity.toLowerCase() !== selectedCategory.toLowerCase()) {
       return false;
     }
+    if (statusFilter === 'active' && item.status === 'sold') {
+      return false;
+    }
+    if (statusFilter === 'sold' && item.status !== 'sold') {
+      return false;
+    }
     return true;
   });
 
@@ -298,7 +349,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               onClick={() => onNavigate('admin-escrow')}
               className="font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 cursor-pointer justify-center py-2 sm:py-1.5"
             >
-              📞 Escrow Desk ({metrics.activeEscrowOrdersCount})
+              Escrow Desk ({metrics.activeEscrowOrdersCount})
             </Button>
           </div>
         </div>
@@ -341,7 +392,9 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
           {/* Platform Revenue */}
           <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
             <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
-              <span className="font-medium text-[11px] sm:text-xs truncate">Revenue (0.50%)</span>
+              <span className="font-medium text-[11px] sm:text-xs truncate">
+                Revenue ({(TOTAL_COMMISSION_RATE * 100).toFixed(2)}%)
+              </span>
               <div className="p-1 sm:p-1.5 rounded-lg bg-[#EBF5F0] text-[#10B981] shrink-0">
                 <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
@@ -350,7 +403,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               {formatINR(metrics.totalCommissionsEarned)}
             </div>
             <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
-              0.25% Buyer + 0.25% Seller
+              {(BUYER_COMMISSION_RATE * 100).toFixed(2)}% Buyer + {(SELLER_COMMISSION_RATE * 100).toFixed(2)}% Seller
             </div>
           </div>
 
@@ -386,6 +439,54 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             </div>
           </div>
 
+        </div>
+
+        {/* 3 Operations, Credit & Warehouse Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-[#10B981]/40 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Active Deliveries</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
+            </div>
+            <div className="text-lg sm:text-2xl font-bold text-[#0B3326] truncate">
+              {Number(metrics.activeDeliveriesCount || 0).toLocaleString('en-IN')}
+            </div>
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              Shipments currently in progress
+            </div>
+          </div>
+
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-indigo-300 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Financing Deployed</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                <Landmark className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
+            </div>
+            <div className="text-lg sm:text-2xl font-bold text-indigo-700 truncate">
+              {formatINR(metrics.totalFinancingDeployed || 0)}
+            </div>
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              Active crop &amp; trade credit
+            </div>
+          </div>
+
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white border border-[#E5EDE8] shadow-xs hover:border-teal-300 transition-colors">
+            <div className="flex items-center justify-between text-xs text-[#566861] mb-1 sm:mb-2">
+              <span className="font-medium text-[11px] sm:text-xs truncate">Warehouse Stock</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-teal-50 text-teal-600 shrink-0">
+                <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
+            </div>
+            <div className="text-lg sm:text-2xl font-bold text-teal-700 truncate">
+              {Number(metrics.storedWarehouseTonnes || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })} MT
+            </div>
+            <div className="text-[10px] sm:text-[11px] text-[#566861] mt-0.5 sm:mt-1 truncate">
+              Stored in partner warehouses
+            </div>
+          </div>
         </div>
 
         {/* 3 Direct Action Cards */}
@@ -444,7 +545,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               Inspection Disputes
             </h3>
             <p className="text-xs text-[#566861] mt-1">
-              Arbitrate quality and moisture discrepancies before escrow release.
+              Review and resolve quality complaints before releasing payment.
             </p>
           </button>
 
@@ -463,7 +564,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-sm sm:text-base font-extrabold text-amber-950 font-heading">
-                      30-Minute Freight RFQ Concierge Desk ({unquotedRfqDeliveries.length} Awaiting Quote)
+                      Pending Transport Requests ({unquotedRfqDeliveries.length} Needs Quote)
                     </h2>
                     {escalatedRfqCount > 0 && (
                       <Badge variant="amber" size="xs">
@@ -557,11 +658,13 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                     <span className="hidden sm:inline">Marketplace Produce Lots</span>
                   </span>
                   <span
-                    title={`${filteredListings.length} Active Lots`}
+                    title={`${filteredListings.filter((l) => l.status !== 'sold').length} Active • ${filteredListings.filter((l) => l.status === 'sold').length} Sold Out`}
                     className="text-xs px-2 py-0.5 rounded-full bg-[#EBF5F0] text-[#10B981] font-bold cursor-help sm:cursor-default shrink-0"
                   >
                     <span className="inline sm:hidden">{filteredListings.length} Lots</span>
-                    <span className="hidden sm:inline">{filteredListings.length} Active Lots</span>
+                    <span className="hidden sm:inline">
+                      {filteredListings.filter((l) => l.status !== 'sold').length} Active &bull; {filteredListings.length} Total
+                    </span>
                   </span>
                 </h2>
                 <p className="hidden sm:block text-xs text-[#566861]">
@@ -570,9 +673,9 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
               </div>
             </div>
 
-            {/* Search & Category Filter */}
+            {/* Search, Status & Category Filter */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-              <div className="relative w-full sm:w-60">
+              <div className="relative w-full sm:w-56">
                 <Search className="w-4 h-4 text-[#566861] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -585,6 +688,20 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                   className="w-full pl-9 pr-3 py-2 sm:py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs focus:outline-none focus:border-[#10B981] focus:bg-white transition-all"
                 />
               </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                aria-label="Filter listings by status"
+                className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl border border-[#E5EDE8] bg-[#F8FAF8] text-xs font-medium text-[#0B3326] focus:outline-none focus:border-[#10B981]"
+              >
+                <option value="all">All Statuses ({listings.length})</option>
+                <option value="active">Active ({listings.filter((l) => l.status !== 'sold').length})</option>
+                <option value="sold">Sold Out ({listings.filter((l) => l.status === 'sold').length})</option>
+              </select>
 
               {uniqueCommodities.length > 0 && (
                 <select
@@ -654,7 +771,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
                             </div>
                             <div className="text-[11px] text-[#566861] flex items-center gap-1">
                               <MapPin className="w-3 h-3 text-[#10B981]" />
-                              <span>{lot.district || 'Tamil Nadu'}, {lot.state || 'India'}</span>
+                              <span>{[lot.district, lot.state].filter(Boolean).join(', ') || 'Location not specified'}</span>
                             </div>
                           </td>
 
@@ -969,7 +1086,7 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
             isOpen={Boolean(conciergeRfq)}
             onClose={() => !isAssigningQuote && setConciergeRfq(null)}
             title="Assign Concierge Freight Quote"
-            subtitle={`30-Minute RFQ Fail-Safe Desk • ${conciergeRfq.orderNumber}`}
+            subtitle={`Pending Transport Requests (Needs Quote) • ${conciergeRfq.orderNumber}`}
             icon={Truck}
             iconColor="text-[#10B981]"
             iconBg="bg-[#EBF5F0]"
@@ -1044,39 +1161,53 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="font-bold text-[#0B3326] block">Fleet Partner Name</label>
+                  <label className="font-bold text-[#0B3326] block">Fleet Partner Name *</label>
                   <input
                     type="text"
                     value={conciergeTransporterName}
                     onChange={(e) => setConciergeTransporterName(e.target.value)}
+                    placeholder="e.g. Sri Balaji Logistics"
                     className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-semibold text-[#14211D]"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-[#0B3326] block">Vehicle Class</label>
+                  <label className="font-bold text-[#0B3326] block">Vehicle Class *</label>
                   <input
                     type="text"
                     value={conciergeVehicleType}
                     onChange={(e) => setConciergeVehicleType(e.target.value)}
+                    placeholder="e.g. Medium LCV (14ft Eicher)"
                     className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-semibold text-[#14211D]"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-[#0B3326] block">Vehicle Registration #</label>
+                  <label className="font-bold text-[#0B3326] block">Vehicle Registration # *</label>
                   <input
                     type="text"
                     value={conciergeVehicleNumber}
                     onChange={(e) => setConciergeVehicleNumber(e.target.value)}
+                    placeholder="e.g. KA 01 AB 4321"
                     className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-mono font-bold text-[#14211D] uppercase"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-[#0B3326] block">Driver Phone (10-digit)</label>
+                  <label className="font-bold text-[#0B3326] block">Driver Name *</label>
+                  <input
+                    type="text"
+                    value={conciergeDriverName}
+                    onChange={(e) => setConciergeDriverName(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-semibold text-[#14211D]"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="font-bold text-[#0B3326] block">Driver Phone (10-digit) *</label>
                   <input
                     type="tel"
                     maxLength={10}
                     value={conciergeDriverPhone}
                     onChange={(e) => setConciergeDriverPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="e.g. 9876543210"
                     className="w-full px-3 py-2 rounded-xl border border-[#E5EDE8] font-mono font-semibold text-[#14211D]"
                   />
                 </div>

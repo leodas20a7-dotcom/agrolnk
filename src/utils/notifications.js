@@ -5,7 +5,41 @@ import { broadcastDataChange, subscribeToCrossTabSync } from './syncChannel';
 const LOCAL_NOTIFICATIONS_KEY = 'agrolnk_user_notifications';
 const DISMISSED_NOTIFICATIONS_KEY = 'agrolnk_dismissed_notifications';
 const READ_NOTIFICATIONS_KEY = 'agrolnk_read_notifications';
+const READ_BEFORE_TIMESTAMP_KEY = 'agrolnk_notifications_read_before';
 const SEEDED_ROLES_KEY = 'agrolnk_seeded_user_roles';
+
+// In-memory store guarantees read/dismissed flags persist even if localStorage is full (QuotaExceededError)
+const inMemoryIdSets = {
+  [READ_NOTIFICATIONS_KEY]: new Set(),
+  [DISMISSED_NOTIFICATIONS_KEY]: new Set(),
+  [SEEDED_ROLES_KEY]: new Set(),
+};
+const inMemoryReadBeforeByOwner = {};
+let inMemoryNotifications = null;
+
+function safeSetStorageItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    // Evict bulky non-essential cache keys if localStorage is full, then retry
+    try {
+      const bulkyKeys = [
+        'agrolnk_live_escrow_events_v2',
+        'agrolnk_listings_local',
+        'agrolnk_orders_local',
+        'agrolnk_deliveries_local',
+      ];
+      for (const k of bulkyKeys) {
+        if (k !== key) localStorage.removeItem(k);
+      }
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
 
 function getActiveNotificationOwner(explicitUser = null) {
   try {
@@ -16,43 +50,53 @@ function getActiveNotificationOwner(explicitUser = null) {
       (typeof localStorage !== 'undefined' &&
         (localStorage.getItem('agrolnkUser') || localStorage.getItem('agrolnk_current_user'))) ||
       null;
-    if (!raw) return 'anon';
+    if (!raw) return String(explicitUser?.role || 'anon').toLowerCase();
     const parsed = JSON.parse(raw);
-    return String(parsed?.id || parsed?.email || 'anon').toLowerCase();
+    return String(parsed?.id || parsed?.email || explicitUser?.role || parsed?.role || 'anon').toLowerCase();
   } catch {
     return 'anon';
   }
 }
 
 function readScopedIdArray(storageKey, explicitUser = null) {
+  const memSet = inMemoryIdSets[storageKey] || new Set();
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return Array.from(memSet);
+    const parsed = JSON.parse(raw);
+    let diskIds = [];
+    if (Array.isArray(parsed)) {
+      diskIds = parsed;
+    } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.ids)) {
+      diskIds = parsed.ids;
+    }
+    for (const item of diskIds) {
+      if (item) memSet.add(String(item));
+    }
+    return Array.from(memSet);
+  } catch {
+    return Array.from(memSet);
+  }
+}
+
+function saveScopedIds(storageKey, idsToAdd, explicitUser = null) {
+  if (!Array.isArray(idsToAdd) || idsToAdd.length === 0) return;
+  const memSet = inMemoryIdSets[storageKey] || (inMemoryIdSets[storageKey] = new Set());
+  for (const id of idsToAdd) {
+    if (id) memSet.add(String(id));
+  }
   try {
     const ownerId = getActiveNotificationOwner(explicitUser);
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      // Discard legacy unscoped arrays so previous accounts' flags do not carry over
-      localStorage.removeItem(storageKey);
-      return [];
-    }
-    if (!parsed || typeof parsed !== 'object' || parsed.ownerId !== ownerId) {
-      return [];
-    }
-    return Array.isArray(parsed.ids) ? parsed.ids : [];
-  } catch {
-    return [];
-  }
+    const list = readScopedIdArray(storageKey, explicitUser);
+    const merged = Array.from(new Set([...list, ...idsToAdd.filter(Boolean).map(String)]));
+    for (const id of merged) memSet.add(id);
+    safeSetStorageItem(storageKey, JSON.stringify({ ownerId, ids: merged }));
+  } catch {}
 }
 
 function saveScopedId(storageKey, id, explicitUser = null) {
   if (!id) return;
-  try {
-    const ownerId = getActiveNotificationOwner(explicitUser);
-    const list = readScopedIdArray(storageKey, explicitUser);
-    if (!list.includes(id)) {
-      localStorage.setItem(storageKey, JSON.stringify({ ownerId, ids: [...list, id] }));
-    }
-  } catch {}
+  saveScopedIds(storageKey, [id], explicitUser);
 }
 
 function getReadNotificationIds(explicitUser = null) {
@@ -63,6 +107,39 @@ function saveReadNotificationId(id, explicitUser = null) {
   saveScopedId(READ_NOTIFICATIONS_KEY, id, explicitUser);
 }
 
+function saveReadNotificationIds(ids, explicitUser = null) {
+  saveScopedIds(READ_NOTIFICATIONS_KEY, ids, explicitUser);
+}
+
+export function getMarkAllReadTimestamp(explicitUser = null) {
+  const ownerId = getActiveNotificationOwner(explicitUser);
+  const memTs = Number(inMemoryReadBeforeByOwner[ownerId] || inMemoryReadBeforeByOwner.__all__ || 0);
+  try {
+    const raw = localStorage.getItem(READ_BEFORE_TIMESTAMP_KEY);
+    if (!raw) return memTs;
+    const parsed = JSON.parse(raw);
+    const diskTs = Number(parsed?.[ownerId] || parsed?.__all__ || parsed?.timestamp || 0);
+    return Math.max(memTs, isNaN(diskTs) ? 0 : diskTs);
+  } catch {
+    return memTs;
+  }
+}
+
+export function saveMarkAllReadTimestamp(ts = Date.now(), explicitUser = null) {
+  const ownerId = getActiveNotificationOwner(explicitUser);
+  const safeTs = Number(ts) || Date.now();
+  inMemoryReadBeforeByOwner[ownerId] = safeTs;
+  inMemoryReadBeforeByOwner.__all__ = safeTs;
+  try {
+    const raw = localStorage.getItem(READ_BEFORE_TIMESTAMP_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const next = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    next[ownerId] = safeTs;
+    next.__all__ = safeTs;
+    safeSetStorageItem(READ_BEFORE_TIMESTAMP_KEY, JSON.stringify(next));
+  } catch {}
+}
+
 export function getDismissedNotificationIds(explicitUser = null) {
   return readScopedIdArray(DISMISSED_NOTIFICATIONS_KEY, explicitUser);
 }
@@ -71,12 +148,12 @@ export function saveDismissedNotificationId(id, explicitUser = null) {
   saveScopedId(DISMISSED_NOTIFICATIONS_KEY, id, explicitUser);
 }
 
-export function isRoleSeeded(seedKey) {
-  return readScopedIdArray(SEEDED_ROLES_KEY).includes(seedKey);
+export function isRoleSeeded(seedKey, explicitUser = null) {
+  return readScopedIdArray(SEEDED_ROLES_KEY, explicitUser).includes(seedKey);
 }
 
-export function markRoleSeeded(seedKey) {
-  saveScopedId(SEEDED_ROLES_KEY, seedKey);
+export function markRoleSeeded(seedKey, explicitUser = null) {
+  saveScopedId(SEEDED_ROLES_KEY, seedKey, explicitUser);
 }
 
 function isPersistedNotificationId(id) {
@@ -125,34 +202,35 @@ export function getLocalNotifications(explicitUser = null) {
   try {
     const ownerId = getActiveNotificationOwner(explicitUser);
     const raw = localStorage.getItem(LOCAL_NOTIFICATIONS_KEY);
-    if (!raw) return [];
+    if (!raw) return Array.isArray(inMemoryNotifications) ? inMemoryNotifications : [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       localStorage.removeItem(LOCAL_NOTIFICATIONS_KEY);
-      return [];
+      return Array.isArray(inMemoryNotifications) ? inMemoryNotifications : [];
     }
-    if (!parsed || typeof parsed !== 'object' || parsed.ownerId !== ownerId) {
-      return [];
+    if (!parsed || typeof parsed !== 'object' || (parsed.ownerId && parsed.ownerId !== ownerId)) {
+      return Array.isArray(inMemoryNotifications) ? inMemoryNotifications : [];
     }
-    return Array.isArray(parsed.items) ? parsed.items : [];
+    return Array.isArray(parsed.items) ? parsed.items : (Array.isArray(inMemoryNotifications) ? inMemoryNotifications : []);
   } catch {
-    return [];
+    return Array.isArray(inMemoryNotifications) ? inMemoryNotifications : [];
   }
 }
 
 /**
- * Save notifications list to user-scoped localStorage and dispatch local event
+ * Save notifications list to user-scoped localStorage and optionally dispatch local event
  */
-function saveLocalNotifications(list, explicitUser = null) {
+function saveLocalNotifications(list, explicitUser = null, emitEvent = true) {
+  const normalized = Array.isArray(list) ? list : [];
+  inMemoryNotifications = normalized;
   try {
     const ownerId = getActiveNotificationOwner(explicitUser);
-    const normalized = Array.isArray(list) ? list : [];
-    localStorage.setItem(LOCAL_NOTIFICATIONS_KEY, JSON.stringify({ ownerId, items: normalized }));
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrolnk_notifications_updated', { detail: normalized }));
-    }
+    safeSetStorageItem(LOCAL_NOTIFICATIONS_KEY, JSON.stringify({ ownerId, items: normalized }));
   } catch (err) {
     console.warn('Failed to save local notifications:', err);
+  }
+  if (emitEvent && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrolnk_notifications_updated', { detail: normalized }));
   }
 }
 
@@ -316,17 +394,23 @@ export async function getNotificationsForUser(user) {
     );
     const map = new Map();
     for (const item of localStarterOnly) {
-      if (item?.id) map.set(item.id, item);
+      if (item?.id) {
+        map.set(item.id, readIds.has(item.id) ? { ...item, isRead: true } : item);
+      }
     }
-    // Insert remote Supabase rows last so authoritative server state (isRead, text, existence) wins unconditionally
+    // Insert remote Supabase rows last, while preserving local read flags
     for (const item of remoteItems) {
-      if (item?.id) map.set(item.id, item);
+      if (item?.id) {
+        map.set(item.id, readIds.has(item.id) ? { ...item, isRead: true } : item);
+      }
     }
     allNotifications = Array.from(map.values());
-    saveLocalNotifications(allNotifications, user);
+    saveLocalNotifications(allNotifications, user, false);
   } else {
     // Offline fallback only when Supabase query failed
-    allNotifications = localList;
+    allNotifications = localList.map((item) =>
+      item?.id && readIds.has(item.id) ? { ...item, isRead: true } : item
+    );
   }
 
   // Live operational alerts for Admin (Freight RFQs, Pending KYC, Escrow/UTR Actions, Open Disputes)
@@ -920,36 +1004,50 @@ export async function getNotificationsForUser(user) {
 
   // Seed starter role notifications ONLY ONCE per user account
   const seedKey = `${currentId || currentEmail || 'user'}_${currentRole || 'all'}`;
-  if (!isRoleSeeded(seedKey)) {
-    const starters = getRoleStarterNotifications(user).filter((n) => !dismissedIds.has(n.id));
+  if (!isRoleSeeded(seedKey, user)) {
+    const starters = getRoleStarterNotifications(user).filter((n) => !dismissedIds.has(String(n.id)));
     if (starters.length > 0) {
       allNotifications = [...starters, ...allNotifications];
-      saveLocalNotifications(allNotifications, user);
+      saveLocalNotifications(allNotifications, user, false);
     }
-    markRoleSeeded(seedKey);
+    markRoleSeeded(seedKey, user);
   }
 
-  // Strict zero-conflict filtering
-  const userSpecificList = allNotifications.filter((n) => {
-    if (!n || dismissedIds.has(n.id)) return false;
+  // Re-read latest read/dismissed IDs (in case markAsRead ran while async queries were in-flight)
+  const latestReadIds = new Set(getReadNotificationIds(user).map(String));
+  const latestDismissedIds = new Set(getDismissedNotificationIds(user).map(String));
+  const readBeforeTs = getMarkAllReadTimestamp(user);
+
+  // Strict zero-conflict filtering & deduplication by id
+  const dedupedMap = new Map();
+  for (const n of allNotifications) {
+    if (!n || !n.id) continue;
+    const strId = String(n.id);
+    if (latestDismissedIds.has(strId)) continue;
+
     const rId = n.recipientId ? String(n.recipientId).toLowerCase() : '';
     const rRole = n.recipientRole ? String(n.recipientRole).toLowerCase() : '';
 
-    // If notification specifies a recipientId, it MUST match the current user ID or email
+    let matchesUser = false;
     if (rId) {
-      return rId === currentId || (currentEmail && rId === currentEmail);
+      matchesUser = rId === currentId || Boolean(currentEmail && rId === currentEmail);
+    } else if (rRole) {
+      matchesUser = rRole === currentRole;
     }
+    if (!matchesUser) continue;
 
-    // Otherwise, if broadcast to role, recipientRole MUST match
-    if (rRole) {
-      return rRole === currentRole;
+    const createdMs = n.createdAt ? new Date(n.createdAt).getTime() : 0;
+    const isReadByTimestamp = readBeforeTs > 0 && (!createdMs || isNaN(createdMs) || createdMs <= readBeforeTs + 5000);
+    const resolvedIsRead = Boolean(n.isRead || latestReadIds.has(strId) || isReadByTimestamp);
+    const existing = dedupedMap.get(strId);
+    if (!existing) {
+      dedupedMap.set(strId, { ...n, isRead: resolvedIsRead });
+    } else if (resolvedIsRead && !existing.isRead) {
+      dedupedMap.set(strId, { ...existing, isRead: true });
     }
+  }
 
-    return false;
-  });
-
-  // Sort descending by date
-  return userSpecificList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return Array.from(dedupedMap.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 /**
@@ -1013,21 +1111,22 @@ export async function markNotificationAsRead(notificationId, user = null) {
 
   const current = getLocalNotifications(user);
   const updated = current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n));
-  saveLocalNotifications(updated, user);
-
-  broadcastDataChange('notifications', 'UPDATE', { id: notificationId, isRead: true });
+  saveLocalNotifications(updated, user, false);
 
   if (isPersistedNotificationId(notificationId)) {
     try {
       await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
     } catch {}
   }
+
+  saveLocalNotifications(updated, user, true);
+  broadcastDataChange('notifications', 'UPDATE', { id: notificationId, isRead: true });
 }
 
 /**
  * Mark all notifications as read for current user
  */
-export async function markAllNotificationsAsRead(user) {
+export async function markAllNotificationsAsRead(user, currentList = null) {
   if (!user) return;
   const currentId = user.id ? String(user.id).toLowerCase() : '';
   const currentEmail = user.email ? String(user.email).toLowerCase() : '';
@@ -1043,33 +1142,51 @@ export async function markAllNotificationsAsRead(user) {
     return n;
   });
 
-  saveLocalNotifications(updated, user);
+  const activeItems = Array.isArray(currentList)
+    ? currentList
+    : await getNotificationsForUser(user);
 
-  if (['admin', 'super_admin', 'farmer', 'fpo', 'food_processor', 'buyer', 'transporter', 'warehouse', 'financier'].includes(currentRole)) {
-    const allForUser = await getNotificationsForUser(user);
-    allForUser.forEach((n) => saveReadNotificationId(n.id, user));
-  }
+  const idsToMark = Array.from(
+    new Set([
+      ...updated.filter((n) => n.isRead).map((n) => n.id),
+      ...activeItems.map((n) => n.id),
+    ].filter(Boolean))
+  );
 
-  broadcastDataChange('notifications', 'MARK_ALL_READ', { userId: user.id });
+  saveMarkAllReadTimestamp(Date.now(), user);
+  saveReadNotificationIds(idsToMark, user);
+  saveLocalNotifications(updated, user, false);
+
+  const persistedIds = idsToMark.filter(isPersistedNotificationId);
 
   try {
+    const dbUpdates = [];
     if (user.id) {
-      await supabase.from('notifications').update({ is_read: true }).eq('recipient_id', user.id);
+      dbUpdates.push(supabase.from('notifications').update({ is_read: true }).eq('recipient_id', user.id));
+    }
+    if (persistedIds.length > 0) {
+      dbUpdates.push(supabase.from('notifications').update({ is_read: true }).in('id', persistedIds));
+    }
+    if (dbUpdates.length > 0) {
+      await Promise.allSettled(dbUpdates);
     }
   } catch {}
+
+  saveLocalNotifications(updated, user, true);
+  broadcastDataChange('notifications', 'MARK_ALL_READ', { userId: user.id });
 }
 
 /**
  * Delete / Dismiss a single notification permanently
  */
-export async function deleteNotification(notificationId) {
+export async function deleteNotification(notificationId, user = null) {
   if (!notificationId) return;
 
-  saveDismissedNotificationId(notificationId);
+  saveDismissedNotificationId(notificationId, user);
 
-  const current = getLocalNotifications();
+  const current = getLocalNotifications(user);
   const updated = current.filter((n) => n.id !== notificationId);
-  saveLocalNotifications(updated);
+  saveLocalNotifications(updated, user);
 
   broadcastDataChange('notifications', 'DELETE', { id: notificationId });
 
@@ -1153,10 +1270,12 @@ if (typeof window !== 'undefined') {
             }
           }
 
-          const current = getLocalNotifications();
-          const updated = [mapped, ...current.filter((n) => n.id !== mapped.id)];
-          saveLocalNotifications(updated);
-          broadcastDataChange('notifications', payload.eventType || 'INSERT', mapped);
+          const readIds = new Set(getReadNotificationIds(activeUser));
+          const normalizedMapped = readIds.has(mapped.id) ? { ...mapped, isRead: true } : mapped;
+          const current = getLocalNotifications(activeUser);
+          const updated = [normalizedMapped, ...current.filter((n) => n.id !== normalizedMapped.id)];
+          saveLocalNotifications(updated, activeUser);
+          broadcastDataChange('notifications', payload.eventType || 'INSERT', normalizedMapped);
         }
       })
       .subscribe();

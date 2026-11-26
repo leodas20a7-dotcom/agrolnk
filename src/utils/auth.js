@@ -929,6 +929,7 @@ export function logoutUser() {
     localStorage.removeItem('agrolnk_user_notifications');
     localStorage.removeItem('agrolnk_dismissed_notifications');
     localStorage.removeItem('agrolnk_read_notifications');
+    localStorage.removeItem('agrolnk_notifications_read_before');
     localStorage.removeItem('agrolnk_seeded_user_roles');
     localStorage.removeItem('agrolnk_chat_threads_v4');
     localStorage.removeItem('agrolnk_financing_requests_local');

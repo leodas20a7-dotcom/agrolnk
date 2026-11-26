@@ -29,6 +29,7 @@ import { getActiveMarketplaceListings, getPlatformCommodities, fetchRemoteCommod
 import { getVarietiesForCommodity } from '../../data/commodityTaxonomy';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
+import { getStateFilterOptions } from '../../utils/locations';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
 
 export default function Marketplace({ currentUser, onNavigate, navState }) {
@@ -209,7 +210,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
 
   const commodities = availableCommodities;
   const grades = ['All', 'A', 'B', 'C'];
-  const locations = ['All', 'Tamil Nadu', 'Maharashtra', 'Madhya Pradesh', 'Himachal Pradesh'];
+  const locations = useMemo(() => ['All', ...getStateFilterOptions(allListings)], [allListings]);
 
   const availableVarieties = useMemo(() => {
     if (!selectedCommodity || selectedCommodity === 'All') return [];

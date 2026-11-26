@@ -159,6 +159,9 @@ export default function ReceiptDetailModal({
               </span>
               <span className="text-[10px] sm:text-[11px] text-[#566861]">
                 Fee: ₹{inventory.storageFeeMonthly}/mo
+                {Number(inventory.storageDays || inventory.assayedQuality?.storageDays || 30) > 30
+                  ? ` (₹${Math.round(Number(inventory.storageFeeMonthly || 0) * (Number(inventory.storageDays || inventory.assayedQuality?.storageDays || 30) / 30)).toLocaleString('en-IN')} / ${Number(inventory.storageDays || inventory.assayedQuality?.storageDays || 30)}d)`
+                  : ''}
               </span>
             </div>
           </div>
