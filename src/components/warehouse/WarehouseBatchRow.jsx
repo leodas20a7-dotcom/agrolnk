@@ -148,7 +148,7 @@ export default function WarehouseBatchRow({
           <ReceiptDownloadButton
             size="md"
             title="Download storage rent payment receipt"
-            buildReceipt={() => buildStorageRentReceipt(item)}
+            buildReceipt={() => buildStorageRentReceipt(item, null, 'warehouse')}
           />
         )}
 

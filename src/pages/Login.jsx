@@ -159,11 +159,11 @@ export default function Login({ onNavigate, navState }) {
     setRegisterError('');
 
     if (!registerData.name.trim()) {
-      setRegisterError('Please enter your full name.');
+      setRegisterError('Please enter your full name or organisation name.');
       return;
     }
-    if (!/^[A-Za-z\s.]{2,}$/.test(registerData.name.trim())) {
-      setRegisterError('Full name must contain only letters and spaces (no numbers).');
+    if (!/[A-Za-z]/.test(registerData.name.trim()) || !/^[A-Za-z0-9\s.&'()/, -]{2,}$/.test(registerData.name.trim())) {
+      setRegisterError('Please enter a valid name or organisation name (at least 2 characters).');
       return;
     }
     if (!registerData.phone.trim()) {
@@ -558,8 +558,8 @@ export default function Login({ onNavigate, navState }) {
                           type="text"
                           value={registerData.name}
                           onChange={(e) => {
-                            const lettersOnly = e.target.value.replace(/[^a-zA-Z\s.]/g, '');
-                            setRegisterData({ ...registerData, name: lettersOnly });
+                            const cleaned = e.target.value.replace(/[^a-zA-Z0-9\s.&'()/, -]/g, '');
+                            setRegisterData({ ...registerData, name: cleaned });
                           }}
                           placeholder={
                             selectedRole === 'fpo' 

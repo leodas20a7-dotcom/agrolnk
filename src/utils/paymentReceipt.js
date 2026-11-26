@@ -396,25 +396,94 @@ export function hasStorageRentPaid(inventory) {
   );
 }
 
-export function buildStorageRentReceipt(inventory, payment) {
+function resolveCurrentViewerRole(explicitRole = null) {
+  if (explicitRole) return String(explicitRole).toLowerCase();
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('agrolnkUser') || localStorage.getItem('agrolnk_current_user');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.role) return String(parsed.role).toLowerCase();
+      }
+      const sel = localStorage.getItem('selectedRole');
+      if (sel) return String(sel).toLowerCase();
+    }
+  } catch {}
+  return 'farmer';
+}
+
+export function buildStorageRentReceipt(inventory, payment, viewerRole = null) {
   const pay = payment || getLatestRentPayment(inventory) || {};
-  const amount = round2(pay.amount ?? inventory?.initialPaymentAmount ?? inventory?.storageFeeMonthly ?? inventory?.quotedMonthlyRent);
-  const depositorFee = round2(pay.depositorFee ?? 0);
-  const warehouseFee = round2(pay.warehouseFee ?? 0);
+  const role = resolveCurrentViewerRole(viewerRole);
+  const isWarehouseView = role === 'warehouse';
+  const durationDays = toNumber(pay.extendedDays || inventory?.storageDays || inventory?.assayedQuality?.storageDays || 30) || 30;
+  const fallbackDurationBase = round2(toNumber(inventory?.storageFeeMonthly ?? inventory?.quotedMonthlyRent) * (durationDays / 30));
+  const baseAmount = round2(pay.baseAmount ?? pay.amount ?? inventory?.initialPaymentAmount ?? fallbackDurationBase);
+  const depositorFee = round2(pay.depositorFee ?? baseAmount * 0.0025);
+  const warehouseFee = round2(pay.warehouseFee ?? baseAmount * 0.0025);
+  const totalFarmerPaid = round2(pay.totalPaid || (baseAmount + depositorFee));
+  const netWarehouseSettled = round2(pay.netWarehouseSettled || (baseAmount - warehouseFee));
   const lotLabel = `${inventory?.commodity || 'Produce'}${inventory?.variety ? ` (${inventory.variety})` : ''}`;
+  const itemNote = `${toNumber(inventory?.totalQuantity).toLocaleString('en-IN')} ${inventory?.unit || 'kg'}${durationDays ? ` · ${durationDays} days` : ''}${inventory?.chamber ? ` · ${inventory.chamber}` : ''}`;
+
+  if (isWarehouseView) {
+    const lineItems = [
+      {
+        label: `Storage Rent — ${lotLabel}`,
+        note: itemNote,
+        amount: baseAmount,
+      },
+      {
+        label: 'AgrowLink Warehouse Facilitation Fee (0.25%)',
+        note: 'Deducted from storage rent settlement (0.25%)',
+        amount: warehouseFee,
+        negative: true,
+      },
+    ];
+
+    return {
+      type: 'storage_rent',
+      receiptNumber: `RCPT-RENT-${sanitizeFilePart(pay.transactionRef || pay.id || inventory?.receiptNumber || inventory?.id)}`,
+      date: pay.paidAt || inventory?.lastRentPaidAt,
+      status: 'Settled to Warehouse',
+      payer: { label: 'Paid By (Depositor)', name: pay.paidBy || inventory?.farmerName || 'Depositor' },
+      payee: { label: 'Settled To (Warehouse)', name: inventory?.warehouseName || 'Warehouse' },
+      references: [
+        { label: 'e-NWR Receipt Number', value: inventory?.receiptNumber },
+        { label: 'Transaction Reference', value: pay.transactionRef },
+        { label: 'Storage Valid Until', value: inventory?.validUntil ? formatReceiptDate(inventory.validUntil) : '' },
+        { label: 'Actual Storage Rent', value: formatReceiptAmount(baseAmount) },
+      ],
+      lineItems,
+      total: { label: 'Net Settled to Warehouse', amount: netWarehouseSettled },
+      paymentMode: pay.paymentMethod || 'Razorpay Gateway',
+      notes: pay.notes || '',
+    };
+  }
 
   const lineItems = [
     {
       label: `Storage Rent — ${lotLabel}`,
-      note: `${toNumber(inventory?.totalQuantity).toLocaleString('en-IN')} ${inventory?.unit || 'kg'}${pay.extendedDays ? ` · ${pay.extendedDays} days` : ''}${inventory?.chamber ? ` · ${inventory.chamber}` : ''}`,
-      amount,
+      note: itemNote,
+      amount: baseAmount,
+    },
+    {
+      label: 'AgrowLink Depositor Facilitation Fee (+0.25%)',
+      note: 'Added at payment time (0.25% platform facilitation fee)',
+      amount: depositorFee,
     },
   ];
-  if (depositorFee > 0) {
-    lineItems.push({ label: 'AgrowLink Depositor Facilitation Fee (0.25%)', amount: depositorFee, note: 'Included in rent paid' });
-  }
-  if (warehouseFee > 0) {
-    lineItems.push({ label: 'AgrowLink Warehouse Facilitation Fee (0.25%)', amount: warehouseFee, note: 'Deducted from warehouse settlement' });
+
+  const references = [
+    { label: 'e-NWR Receipt Number', value: inventory?.receiptNumber },
+    { label: 'Transaction Reference', value: pay.transactionRef },
+    { label: 'Storage Valid Until', value: inventory?.validUntil ? formatReceiptDate(inventory.validUntil) : '' },
+  ];
+  if (role === 'admin' || role === 'super_admin') {
+    references.push({
+      label: 'Net Settled to Warehouse (−0.25%)',
+      value: `${formatReceiptAmount(netWarehouseSettled)} (Warehouse Fee: ${formatReceiptAmount(warehouseFee)})`,
+    });
   }
 
   return {
@@ -424,14 +493,9 @@ export function buildStorageRentReceipt(inventory, payment) {
     status: 'Rent Paid',
     payer: { label: 'Paid By (Depositor)', name: pay.paidBy || inventory?.farmerName || 'Depositor' },
     payee: { label: 'Paid To (Warehouse)', name: inventory?.warehouseName || 'Warehouse' },
-    references: [
-      { label: 'e-NWR Receipt Number', value: inventory?.receiptNumber },
-      { label: 'Transaction Reference', value: pay.transactionRef },
-      { label: 'Storage Valid Until', value: inventory?.validUntil ? formatReceiptDate(inventory.validUntil) : '' },
-      { label: 'Net Settled to Warehouse', value: pay.netWarehouseSettled ? formatReceiptAmount(pay.netWarehouseSettled) : '' },
-    ],
+    references,
     lineItems,
-    total: { label: 'Total Rent Paid', amount },
+    total: { label: 'Total Rent Paid', amount: totalFarmerPaid },
     paymentMode: pay.paymentMethod || 'Razorpay Gateway',
     notes: pay.notes || '',
   };

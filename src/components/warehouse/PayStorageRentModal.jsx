@@ -151,21 +151,25 @@ export default function PayStorageRentModal({
 
             <div className="p-4 rounded-2xl bg-[#F8FAF8] border border-[#E5EDE8] text-left space-y-2.5">
               <div className="flex justify-between text-xs">
-                <span className="text-[#566861]">Storage Rent Paid:</span>
-                <span className="font-bold text-[#0B3326]">₹{paymentSuccess.amount.toLocaleString('en-IN')}</span>
+                <span className="text-[#566861]">Base Storage Rent:</span>
+                <span className="font-semibold text-[#14211D]">
+                  ₹{Number(paymentSuccess.baseAmount || paymentSuccess.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
-              {paymentSuccess.totalCommission > 0 && (
+              {Number(paymentSuccess.depositorFee || 0) > 0 && (
                 <div className="flex justify-between text-xs">
-                  <span className="text-[#566861]">Platform Fee Recorded:</span>
-                  <span className="font-semibold text-[#0B3326]">₹{paymentSuccess.totalCommission.toLocaleString('en-IN')}</span>
+                  <span className="text-[#566861]">Platform Facilitation Fee (+0.25%):</span>
+                  <span className="font-semibold text-[#0B3326]">
+                    +₹{Number(paymentSuccess.depositorFee).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
                 </div>
               )}
-              {paymentSuccess.netWarehouseSettled > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#566861]">Net Warehouse Settlement:</span>
-                  <span className="font-semibold text-[#065F46]">₹{paymentSuccess.netWarehouseSettled.toLocaleString('en-IN')}</span>
-                </div>
-              )}
+              <div className="flex justify-between text-xs pt-1 border-t border-[#E5EDE8]">
+                <span className="font-bold text-[#0B3326]">Total Rent Paid:</span>
+                <span className="font-extrabold text-[#065F46]">
+                  ₹{Number(paymentSuccess.totalPaid || (Number(paymentSuccess.amount || 0) + Number(paymentSuccess.depositorFee || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
               <div className="flex justify-between text-xs">
                 <span className="text-[#566861]">Validity Extended By:</span>
                 <span className="font-bold text-[#10B981]">+{paymentSuccess.extendedDays} Days</span>

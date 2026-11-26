@@ -9,7 +9,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   Lock,
-  Sparkles
+  Sparkles,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -33,6 +35,7 @@ export default function Register({ onNavigate, navState }) {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRoleTooltip, setShowRoleTooltip] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (navState?.role) {
@@ -152,8 +155,8 @@ export default function Register({ onNavigate, navState }) {
     let cleanValue = value;
 
     if (name === 'name') {
-      // Name: Only allow letters, spaces, dots (no numbers)
-      cleanValue = value.replace(/[^a-zA-Z\s.]/g, '');
+      // Name: Allow letters, digits, spaces, and common organisation punctuation (. & - ' ( ) / ,)
+      cleanValue = value.replace(/[^a-zA-Z0-9\s.&'()/, -]/g, '');
     } else if (name === 'phone') {
       // Phone: Only allow digits, max 10 characters (no letters)
       cleanValue = value.replace(/\D/g, '').slice(0, 10);
@@ -170,11 +173,11 @@ export default function Register({ onNavigate, navState }) {
     setError('');
 
     if (!formData.name.trim()) {
-      setError('Please enter your full name.');
+      setError('Please enter your full name or organisation name.');
       return;
     }
-    if (!/^[A-Za-z\s.]{2,}$/.test(formData.name.trim())) {
-      setError('Full name must contain only letters and spaces (no numbers).');
+    if (!/[A-Za-z]/.test(formData.name.trim()) || !/^[A-Za-z0-9\s.&'()/, -]{2,}$/.test(formData.name.trim())) {
+      setError('Please enter a valid name or organisation name (at least 2 characters).');
       return;
     }
     if (!formData.phone.trim()) {
@@ -438,15 +441,25 @@ export default function Register({ onNavigate, navState }) {
                 <label className="block text-xs font-bold text-[#14211D] mb-1.5">
                   Password
                 </label>
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Create a secure password (min 6 chars)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Create a secure password (min 6 chars)"
+                    className="w-full px-3.5 pr-10 py-2.5 rounded-xl border border-[#E5EDE8] text-sm text-[#14211D] placeholder:text-[#566861]/40 focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#566861] hover:text-[#0B3326] transition-colors cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               {/* Terms Checkbox */}

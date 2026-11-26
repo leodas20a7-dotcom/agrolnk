@@ -412,7 +412,7 @@ export async function acceptWarehouseQuote(receiptId, paymentDetails = {}) {
     }
 
     const fallbackMonthly = Number(existingRow?.storage_fee_monthly || 0);
-    const amount = Number(paymentDetails.amount || Math.round(fallbackMonthly * (durationDays / 30)) || 0);
+    const amount = Number(paymentDetails.baseAmount || paymentDetails.amount || Math.round(fallbackMonthly * (durationDays / 30)) || 0);
 
     const updatePayload = {
       status: 'in_transit',
@@ -427,6 +427,7 @@ export async function acceptWarehouseQuote(receiptId, paymentDetails = {}) {
       const warehouseFee = Math.round(amount * 0.0025 * 100) / 100;
       const totalCommission = Math.round((depositorFee + warehouseFee) * 100) / 100;
       const netWarehouseSettled = Math.round((amount - warehouseFee) * 100) / 100;
+      const totalPaidByDepositor = Math.round((amount + depositorFee) * 100) / 100;
 
       updatePayload.last_rent_paid_at = now;
       updatePayload.valid_until = new Date(Date.now() + durationDays * 86400000).toISOString();
@@ -436,7 +437,9 @@ export async function acceptWarehouseQuote(receiptId, paymentDetails = {}) {
       const paymentRecord = {
         id: `rent_init_${Date.now()}`,
         receiptId,
+        baseAmount: amount,
         amount,
+        totalPaid: totalPaidByDepositor,
         depositorFee,
         warehouseFee,
         totalCommission,
@@ -498,17 +501,20 @@ export async function recordWarehouseRentPayment(receiptId, paymentDetails = {})
     const safePrevValid = isNaN(prevValid.getTime()) ? new Date() : prevValid;
     const newValidUntil = new Date(Math.max(Date.now(), safePrevValid.getTime()) + (extendedDays * 86400000)).toISOString();
 
-    const paymentAmount = Number(paymentDetails.amount || receipt.storage_fee_monthly || 0);
+    const paymentAmount = Number(paymentDetails.baseAmount || paymentDetails.amount || receipt.storage_fee_monthly || 0);
     // 0.25% Depositor booking fee + 0.25% Warehouse facilitation fee = 0.50% total platform revenue
     const depositorFee = Math.round(paymentAmount * 0.0025 * 100) / 100;
     const warehouseFee = Math.round(paymentAmount * 0.0025 * 100) / 100;
     const totalCommission = Math.round((depositorFee + warehouseFee) * 100) / 100;
     const netWarehouseSettled = Math.round((paymentAmount - warehouseFee) * 100) / 100;
+    const totalPaidByDepositor = Math.round((paymentAmount + depositorFee) * 100) / 100;
 
     const paymentRecord = {
       id: `rent_rec_${Date.now()}`,
       receiptId,
+      baseAmount: paymentAmount,
       amount: paymentAmount,
+      totalPaid: totalPaidByDepositor,
       depositorFee,
       warehouseFee,
       totalCommission,

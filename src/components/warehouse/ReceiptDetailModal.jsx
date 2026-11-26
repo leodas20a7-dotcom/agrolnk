@@ -231,7 +231,7 @@ export default function ReceiptDetailModal({
               <ReceiptDownloadButton
                 size="md"
                 title="Download storage rent payment receipt"
-                buildReceipt={() => buildStorageRentReceipt(inventory)}
+                buildReceipt={() => buildStorageRentReceipt(inventory, null, currentUser?.role)}
               />
             )}
             {onPayRent && canPayRentInModal && (

@@ -1336,7 +1336,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                             {hasStorageRentPaid(item) && (
                               <ReceiptDownloadButton
                                 title="Download storage rent payment receipt"
-                                buildReceipt={() => buildStorageRentReceipt(item)}
+                                buildReceipt={() => buildStorageRentReceipt(item, null, 'warehouse')}
                               />
                             )}
                             {(item.availableQuantity === 0 ||
@@ -1730,7 +1730,7 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
                   <ReceiptDownloadButton
                     size="md"
                     title="Download storage rent payment receipt"
-                    buildReceipt={() => buildStorageRentReceipt(selectedLotForRentNotice)}
+                    buildReceipt={() => buildStorageRentReceipt(selectedLotForRentNotice, null, 'warehouse')}
                   />
                 )}
                 <Button
