@@ -28,7 +28,9 @@ import {
   Clock,
   AlertCircle,
   FileCheck,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 import BulkUploadExcelModal from '../../components/farmer/BulkUploadExcelModal';
 import { getFarmerListings } from '../../utils/listings';
@@ -207,86 +209,209 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
       <div className="space-y-8 text-left">
 
-        {/* Top Professional Marketplace Welcome Card */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-[#0B3326] text-white border border-[#14624A] shadow-md">
-          <div className="space-y-2.5 flex-1 min-w-0 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37] text-xs font-semibold text-[#34D399] border border-[#14624A]">
+        {/* Top Panoramic Welcome Hero Banner */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B3326] via-[#0F4A37] to-[#14624A] text-white border border-[#14624A] shadow-md p-6 sm:p-8">
+          {/* Subtle Scenic Farm & Tractor Backdrop on Right */}
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-full sm:w-3/5 opacity-35 sm:opacity-45">
+            <svg
+              viewBox="0 0 600 220"
+              preserveAspectRatio="xMaxYMid slice"
+              className="h-full w-full"
+              aria-hidden="true"
+            >
+              <defs>
+                <radialGradient id="farmSun" cx="72%" cy="35%" r="45%">
+                  <stop offset="0%" stopColor="#A7F3D0" stopOpacity="0.65" />
+                  <stop offset="55%" stopColor="#34D399" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#0B3326" stopOpacity="0" />
+                </radialGradient>
+                <linearGradient id="leftFade" x1="0%" y1="0%" x2="55%" y2="0%">
+                  <stop offset="0%" stopColor="#0B3326" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#0B3326" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <rect width="600" height="220" fill="url(#farmSun)" />
+              {/* Rolling hills */}
+              <path d="M120 175 Q260 130 410 155 T600 140 L600 220 L120 220 Z" fill="#08281D" opacity="0.65" />
+              <path d="M180 185 Q340 150 480 170 T600 162 L600 220 L180 220 Z" fill="#062017" opacity="0.8" />
+              {/* Crop furrow perspective lines */}
+              <g stroke="#34D399" strokeOpacity="0.25" strokeWidth="2">
+                <line x1="250" y1="220" x2="420" y2="152" />
+                <line x1="310" y1="220" x2="438" y2="152" />
+                <line x1="375" y1="220" x2="455" y2="152" />
+                <line x1="445" y1="220" x2="474" y2="152" />
+                <line x1="515" y1="220" x2="495" y2="152" />
+                <line x1="585" y1="220" x2="515" y2="152" />
+              </g>
+              {/* Trees */}
+              <g fill="#062017" opacity="0.75">
+                <circle cx="535" cy="126" r="18" />
+                <circle cx="552" cy="130" r="14" />
+                <rect x="539" y="138" width="5" height="18" />
+                <circle cx="330" cy="138" r="11" />
+                <rect x="328" y="145" width="4" height="12" />
+              </g>
+              {/* Tractor silhouette */}
+              <g transform="translate(432, 120)" fill="#041912">
+                <rect x="14" y="10" width="26" height="16" rx="2" />
+                <rect x="20" y="2" width="16" height="10" rx="2" />
+                <rect x="4" y="14" width="14" height="12" rx="2" />
+                <rect x="7" y="6" width="3" height="9" />
+                <circle cx="32" cy="30" r="10" />
+                <circle cx="32" cy="30" r="4.5" fill="#10B981" opacity="0.5" />
+                <circle cx="9" cy="33" r="6.5" />
+                <circle cx="9" cy="33" r="2.5" fill="#10B981" opacity="0.5" />
+              </g>
+              <rect width="600" height="220" fill="url(#leftFade)" />
+            </svg>
+          </div>
+
+          <div className="relative z-10 space-y-2.5 max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F4A37]/90 text-xs font-semibold text-[#34D399] border border-[#34D399]/25">
               <Sprout className="w-3.5 h-3.5" /> {user.role === 'fpo' ? 'FPO Organisation Home' : 'Farmer Home'}
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-heading text-white tracking-tight leading-snug">
               {getTimeGreeting(user.name).fullGreeting} {getTimeGreeting().emoji}
             </h1>
-            <p className="text-sm text-[#DCFCE7]/85 leading-relaxed font-normal max-w-xl">
+            <p className="text-xs sm:text-sm text-[#DCFCE7]/90 leading-relaxed font-normal max-w-xl">
               {user.role === 'fpo'
                 ? 'Sell your FPO crops, store in cold storage, book trucks, and track member payouts.'
                 : 'Sell your crops, store in cold storage, book trucks, and track payments.'}
             </p>
           </div>
+        </div>
 
-          {/* Primary Action Buttons (balanced 2x2 grid) */}
-          <div className="shrink-0 grid grid-cols-2 gap-2.5 w-full lg:w-auto">
-            <Button
-              variant="white"
-              size="md"
-              icon={ShoppingBag}
-              iconPosition="left"
+        {/* Quick Actions Grid (6 clean action cards) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base sm:text-lg font-bold text-[#0B3326] font-heading flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#10B981]" />
+              <span>Quick Actions</span>
+            </h2>
+            <button
+              type="button"
+              onClick={() => onNavigate('farmer-my-listings')}
+              className="text-xs font-bold text-[#10B981] hover:text-[#0B3326] flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <span>View all</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {/* 1. Buyer Requests */}
+            <button
+              type="button"
               onClick={() => onNavigate('farmer-demands')}
-              className="justify-center py-2.5 px-4 font-bold text-xs !bg-white !text-[#0B3326] hover:!bg-[#EBF5F0] cursor-pointer shadow-sm border border-white whitespace-nowrap"
+              className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-sm transition-all flex items-center justify-between gap-3 text-left group cursor-pointer"
             >
-              Buyer Requests
-            </Button>
-            <Button
-              variant="accent"
-              size="md"
-              icon={Plus}
-              iconPosition="left"
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-bold text-[#0B3326] block truncate">Buyer Requests</span>
+                  <span className="text-xs text-[#566861] block truncate">View incoming purchase requests</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
+
+            {/* 2. List Produce (Primary Highlighted Card) */}
+            <button
+              type="button"
               onClick={() => onNavigate('farmer-create-listing')}
-              className="justify-center py-2.5 px-4 font-bold shadow-md shadow-[#10B981]/20 text-xs cursor-pointer whitespace-nowrap"
+              className="p-4 rounded-2xl bg-gradient-to-r from-[#10B981] to-[#059669] text-white border border-[#10B981] shadow-md shadow-[#10B981]/20 hover:shadow-lg hover:brightness-105 transition-all flex items-center justify-between gap-3 text-left group cursor-pointer"
             >
-              List Produce
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={Building2}
-              iconPosition="left"
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-full bg-white text-[#059669] flex items-center justify-center shrink-0 shadow-xs">
+                  <Plus className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-extrabold text-white block truncate">List Produce</span>
+                  <span className="text-xs text-white/90 block truncate">Add crops for sale</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/90 group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
+
+            {/* 3. Warehouse */}
+            <button
+              type="button"
               onClick={() => onNavigate('farmer-inventory')}
-              className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
+              className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-sm transition-all flex items-center justify-between gap-3 text-left group cursor-pointer"
             >
-              Warehouse ({inventory.length})
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={Truck}
-              iconPosition="left"
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-bold text-[#0B3326] block truncate">
+                    Warehouse ({inventory.length})
+                  </span>
+                  <span className="text-xs text-[#566861] block truncate">Manage stored inventory</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
+
+            {/* 4. Deliveries */}
+            <button
+              type="button"
               onClick={() => onNavigate('farmer-deliveries')}
-              className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
+              className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-sm transition-all flex items-center justify-between gap-3 text-left group cursor-pointer"
             >
-              Deliveries ({deliveries.length})
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={Gavel}
-              iconPosition="left"
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-bold text-[#0B3326] block truncate">
+                    Deliveries ({deliveries.length})
+                  </span>
+                  <span className="text-xs text-[#566861] block truncate">Track delivery activity</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
+
+            {/* 5. Live Auctions */}
+            <button
+              type="button"
               onClick={() => onNavigate('farmer-my-auctions')}
-              className={`${user.role === 'fpo' ? '' : 'col-span-2 '}justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap`}
+              className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-sm transition-all flex items-center justify-between gap-3 text-left group cursor-pointer"
             >
-              Live Auctions ({liveAuctionsCount})
-            </Button>
-            {user.role === 'fpo' && (
-              <Button
-                variant="secondary"
-                size="md"
-                icon={FileSpreadsheet}
-                iconPosition="left"
-                onClick={() => setIsBulkUploadOpen(true)}
-                className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
-              >
-                Bulk Upload (Excel)
-              </Button>
-            )}
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                  <Gavel className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-bold text-[#0B3326] block truncate">
+                    Live Auctions ({liveAuctionsCount})
+                  </span>
+                  <span className="text-xs text-[#566861] block truncate">Participate in auctions</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
+
+            {/* 6. Bulk Upload (Excel) */}
+            <button
+              type="button"
+              onClick={() => setIsBulkUploadOpen(true)}
+              className="p-4 rounded-2xl bg-white border border-[#E5EDE8] hover:border-[#10B981] hover:shadow-sm transition-all flex items-center justify-between gap-3 text-left group cursor-pointer"
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-[#EBF5F0] text-[#10B981] flex items-center justify-center shrink-0">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-bold text-[#0B3326] block truncate">Bulk Upload (Excel)</span>
+                  <span className="text-xs text-[#566861] block truncate">Import listings from Excel</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#566861] group-hover:text-[#10B981] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
           </div>
         </div>
 
