@@ -265,6 +265,16 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             >
               Deliveries ({deliveries.length})
             </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              icon={Gavel}
+              iconPosition="left"
+              onClick={() => onNavigate('farmer-my-auctions')}
+              className="col-span-2 justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
+            >
+              Live Auctions ({liveAuctionsCount})
+            </Button>
           </div>
         </div>
 
@@ -333,8 +343,8 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
           >
             <StatCard
               label="Active Listings"
-              value={directCount}
-              subtext="Fixed-price direct lots"
+              value={directCount + liveAuctionsCount}
+              subtext={`${directCount} direct • ${liveAuctionsCount} live auctions`}
               icon={Package}
               iconColor="#10B981"
               iconBg="#EBF5F0"
