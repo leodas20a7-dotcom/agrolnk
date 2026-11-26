@@ -41,6 +41,7 @@ import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '.
 import { getTimeGreeting } from '../../utils/greeting';
 import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
 import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
+import { supabase } from '../../lib/supabase';
 
 export default function FoodProcessorDashboard({ currentUser, onNavigate, navState }) {
   const activeSession = getCurrentUser();
@@ -186,11 +187,28 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
     window.addEventListener('agrolnk_kyc_updated', handleKycUpdated);
     window.addEventListener('agrolnk_orders_updated', loadData);
     window.addEventListener('agrolnk_deliveries_updated', loadData);
+    window.addEventListener('agrolnk_delivery_updated', loadData);
+    window.addEventListener('agrolnk_listings_updated', loadData);
+    window.addEventListener('agrolnk_financing_updated', loadData);
+    window.addEventListener('storage', loadData);
+
+    const channel = supabase
+      .channel(`processor_dashboard_realtime_${user.id || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financing_requests' }, loadData)
+      .subscribe();
 
     return () => {
       window.removeEventListener('agrolnk_kyc_updated', handleKycUpdated);
       window.removeEventListener('agrolnk_orders_updated', loadData);
       window.removeEventListener('agrolnk_deliveries_updated', loadData);
+      window.removeEventListener('agrolnk_delivery_updated', loadData);
+      window.removeEventListener('agrolnk_listings_updated', loadData);
+      window.removeEventListener('agrolnk_financing_updated', loadData);
+      window.removeEventListener('storage', loadData);
+      supabase.removeChannel(channel);
     };
   }, [user.id, user.email]);
 
