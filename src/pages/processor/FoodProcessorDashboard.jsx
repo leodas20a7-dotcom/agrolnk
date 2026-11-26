@@ -535,10 +535,10 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                             </td>
                             <td className="py-3.5 px-4">
                               <Badge
-                                variant={order.escrowStatus === 'released' ? 'emerald' : order.escrowStatus === 'funded' ? 'blue' : 'amber'}
+                                variant={isOrderPayoutReleased(order) ? 'emerald' : isOrderEscrowPaid(order) ? 'blue' : 'amber'}
                                 size="sm"
                               >
-                                {order.escrowStatus === 'released' ? 'Released to Farmer' : order.escrowStatus === 'funded' ? 'Protected in Escrow' : 'Payment Pending'}
+                                {isOrderPayoutReleased(order) ? 'Released to Farmer' : isOrderEscrowPaid(order) ? 'Paid & Protected' : 'Payment Pending'}
                               </Badge>
                             </td>
                             <td className="py-3.5 px-4 font-medium text-[#566861] capitalize">
@@ -803,8 +803,11 @@ export default function FoodProcessorDashboard({ currentUser, onNavigate, navSta
                                 {formatCurrency(ord.totalAmount)}
                               </td>
                               <td className="py-3.5 px-4">
-                                <Badge variant={ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'emerald' : 'blue'} size="sm">
-                                  {ord.escrowStatus === 'released' || ord.status === 'completed' || ord.adminVerificationStatus === 'approved' ? 'Settled to Bank' : (ord.escrowStatus || 'Escrow Funded')}
+                                <Badge
+                                  variant={isOrderPayoutReleased(ord) ? 'emerald' : isOrderEscrowPaid(ord) ? 'blue' : 'amber'}
+                                  size="sm"
+                                >
+                                  {isOrderPayoutReleased(ord) ? 'Settled to Bank' : isOrderEscrowPaid(ord) ? 'Paid in Escrow' : 'Payment Pending'}
                                 </Badge>
                               </td>
                               <td className="py-3.5 px-4 text-right">
