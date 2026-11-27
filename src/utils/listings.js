@@ -6,6 +6,7 @@ import {
   getCommodityGroup,
   CATEGORY_FALLBACK_IMAGES,
 } from '../data/commodityTaxonomy';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 export const DEFAULT_COMMODITIES = getAllCommodityNames();
 
@@ -31,44 +32,46 @@ export async function seedDefaultCommoditiesToSupabase() {
  * Fetch latest commodities directly from Supabase commodities table
  */
 export async function fetchRemoteCommodities() {
-  try {
-    const { data, error } = await supabase
-      .from('commodities')
-      .select('name, image_url')
-      .order('name', { ascending: true });
+  return cachedFetch('commodities:remote', async () => {
+    try {
+      const { data, error } = await supabase
+        .from('commodities')
+        .select('name, image_url')
+        .order('name', { ascending: true });
 
-    if (error) {
-      console.warn('Supabase commodities query error:', error.message);
-      return getPlatformCommodities();
-    }
-
-    if (Array.isArray(data) && data.length > 0) {
-      const remoteNames = data.map((item) => item.name?.trim()).filter(Boolean);
-      // Cache image URLs
-      data.forEach((item) => {
-        if (item.name && item.image_url && !COMMODITY_IMAGES[item.name.trim()]) {
-          COMMODITY_IMAGES[item.name.trim()] = item.image_url;
-        }
-      });
-      // Store in local storage for fast initial render
-      localStorage.setItem(CUSTOM_COMMODITIES_KEY, JSON.stringify(remoteNames));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('agrolnk_commodities_updated', {
-            detail: { commodities: remoteNames },
-          })
-        );
+      if (error) {
+        console.warn('Supabase commodities query error:', error.message);
+        return getPlatformCommodities();
       }
-      return remoteNames;
-    } else if (Array.isArray(data) && data.length === 0) {
-      // Table exists on Supabase but is empty -> Seed defaults into Supabase
-      await seedDefaultCommoditiesToSupabase();
-      return DEFAULT_COMMODITIES;
+
+      if (Array.isArray(data) && data.length > 0) {
+        const remoteNames = data.map((item) => item.name?.trim()).filter(Boolean);
+        // Cache image URLs
+        data.forEach((item) => {
+          if (item.name && item.image_url && !COMMODITY_IMAGES[item.name.trim()]) {
+            COMMODITY_IMAGES[item.name.trim()] = item.image_url;
+          }
+        });
+        // Store in local storage for fast initial render
+        localStorage.setItem(CUSTOM_COMMODITIES_KEY, JSON.stringify(remoteNames));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('agrolnk_commodities_updated', {
+              detail: { commodities: remoteNames },
+            })
+          );
+        }
+        return remoteNames;
+      } else if (Array.isArray(data) && data.length === 0) {
+        // Table exists on Supabase but is empty -> Seed defaults into Supabase
+        await seedDefaultCommoditiesToSupabase();
+        return DEFAULT_COMMODITIES;
+      }
+    } catch (err) {
+      console.warn('Supabase commodities sync error:', err);
     }
-  } catch (err) {
-    console.warn('Supabase commodities sync error:', err);
-  }
-  return getPlatformCommodities();
+    return getPlatformCommodities();
+  }, 60000);
 }
 
 /**
@@ -141,7 +144,8 @@ if (typeof window !== 'undefined') {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'commodities' },
-        () => {
+        (payload) => {
+          invalidateCache('commodities:');
           fetchRemoteCommodities();
         }
       )
@@ -358,77 +362,82 @@ function mapListingFromDb(row) {
  * Get all listings from Supabase
  */
 export async function getListings() {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('*')
-      .order('created_at', { ascending: false });
+  return cachedFetch('listings:all', async () => {
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Failed to fetch listings from Supabase:', error);
+      if (error) {
+        console.error('Failed to fetch listings from Supabase:', error);
+        return [];
+      }
+
+      return (data || []).map(mapListingFromDb);
+    } catch (err) {
+      console.error('Error in getListings:', err);
       return [];
     }
-
-    return (data || []).map(mapListingFromDb);
-  } catch (err) {
-    console.error('Error in getListings:', err);
-    return [];
-  }
+  }, 4000);
 }
 
 /**
  * Get listings for a specific farmer from Supabase
  */
 export async function getFarmerListings(farmerId) {
-  try {
-    if (!farmerId) return [];
+  if (!farmerId) return [];
+  return cachedFetch(`listings:farmer:${farmerId}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('farmer_id', farmerId)
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('listings')
-      .select('*')
-      .eq('farmer_id', farmerId)
-      .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Failed to fetch farmer listings from Supabase:', error);
+        return [];
+      }
 
-    if (error) {
-      console.error('Failed to fetch farmer listings from Supabase:', error);
+      return (data || []).map(mapListingFromDb);
+    } catch (err) {
+      console.error('Error in getFarmerListings:', err);
       return [];
     }
-
-    return (data || []).map(mapListingFromDb);
-  } catch (err) {
-    console.error('Error in getFarmerListings:', err);
-    return [];
-  }
+  }, 4000);
 }
 
 /**
  * Get active marketplace listings for buyers
  */
 export async function getActiveMarketplaceListings(limit = null) {
-  try {
-    let query = supabase
-      .from('listings')
-      .select('*')
-      .eq('status', 'active')
-      .gt('quantity', 0)
-      .order('created_at', { ascending: false });
+  return cachedFetch(`listings:active:${limit || 'all'}`, async () => {
+    try {
+      let query = supabase
+        .from('listings')
+        .select('*')
+        .eq('status', 'active')
+        .gt('quantity', 0)
+        .order('created_at', { ascending: false });
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+      if (limit) {
+        query = query.limit(limit);
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      console.error('Failed to fetch active marketplace listings from Supabase:', error);
+      if (error) {
+        console.error('Failed to fetch active marketplace listings from Supabase:', error);
+        return [];
+      }
+
+      return (data || []).map(mapListingFromDb);
+    } catch (err) {
+      console.error('Error in getActiveMarketplaceListings:', err);
       return [];
     }
-
-    return (data || []).map(mapListingFromDb);
-  } catch (err) {
-    console.error('Error in getActiveMarketplaceListings:', err);
-    return [];
-  }
+  }, 4000);
 }
 
 /**
@@ -562,6 +571,7 @@ export async function createListing(listingData) {
     }
 
     const mapped = mapListingFromDb({ ...data, village: data?.village || village, min_order_quantity: data?.min_order_quantity ?? validMoq });
+    invalidateCache('listings:');
 
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: mapped }));
@@ -685,6 +695,7 @@ export async function updateListing(listingId, listingData) {
     }
 
     const mapped = mapListingFromDb({ ...data, village: data?.village || village, min_order_quantity: data?.min_order_quantity ?? validMoq });
+    invalidateCache('listings:');
 
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: mapped }));
@@ -933,6 +944,7 @@ export async function deleteListing(listingId, userId) {
   }
 
   // 5. Notify all components and cross-tab listeners
+  invalidateCache('listings:');
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: { deletedId: listingId } }));
     window.dispatchEvent(new Event('storage'));
@@ -1042,6 +1054,7 @@ export async function deleteAllFarmerListings(farmerId, currentListings = []) {
   }
 
   // 6. Notify all components and cross-tab listeners
+  invalidateCache('listings:');
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('agrolnk_listings_updated', {
@@ -1245,6 +1258,7 @@ export async function bulkCreateListings(farmerId, farmerName, rawRows = [], onP
   } catch {}
 
   // Broadcast update events across components and tabs
+  invalidateCache('listings:');
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: { bulkCreated: dbRows.length } }));
     window.dispatchEvent(new Event('storage'));

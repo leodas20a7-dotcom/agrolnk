@@ -22,6 +22,9 @@ export default function InventoryRow({
 
   const dues = calculateStorageRentalDues(inventory);
   const deadline = calculateMonthlyRentDeadline(inventory);
+  const monthlyFee = Number(inventory?.quotedMonthlyRent || inventory?.storageFeeMonthly || 0);
+  const storageDays = Math.max(1, Number(inventory?.storageDays || inventory?.assayedQuality?.storageDays || 30));
+  const durationRent = Math.round(monthlyFee * (storageDays / 30));
   const isStored = inventory?.status === 'stored' || inventory?.status === 'partially_listed';
   const isQuoteProvided = inventory?.status === 'quote_provided';
   const isQuoteRequested = inventory?.status === 'quote_requested';
@@ -81,7 +84,7 @@ export default function InventoryRow({
             )}
             {isQuoteProvided && (
               <Badge variant="blue" size="sm">
-                Quote: ₹{inventory.quotedMonthlyRent || inventory.storageFeeMonthly}/mo
+                Quote: ₹{monthlyFee.toLocaleString('en-IN')}/mo{storageDays > 30 ? ` (₹${durationRent.toLocaleString('en-IN')} / ${storageDays}d)` : ''}
               </Badge>
             )}
             {isInTransit && (
@@ -130,10 +133,15 @@ export default function InventoryRow({
         </div>
 
         <div className="hidden sm:block">
-          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Monthly Storage Fee</span>
+          <span className="text-[10px] text-[#566861] uppercase tracking-wider font-semibold block">Storage Fee</span>
           <span className="font-bold text-sm text-[#0B3326]">
-            ₹{Number(inventory.quotedMonthlyRent || inventory.storageFeeMonthly || 0).toLocaleString('en-IN')}/mo
+            ₹{monthlyFee.toLocaleString('en-IN')}/mo
           </span>
+          {storageDays > 30 && monthlyFee > 0 && (
+            <span className="block text-[10px] font-semibold text-[#10B981]">
+              ₹{durationRent.toLocaleString('en-IN')} / {storageDays}d
+            </span>
+          )}
         </div>
 
         <div>

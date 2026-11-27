@@ -30,6 +30,8 @@ export default function BorrowerTermAcceptanceModal({
   if (!request) return null;
 
   const principal = Number(request.offeredAmount || request.approvedAmount || request.requestedAmount || 50000);
+  const originationFee = Math.round(principal * 0.0025 * 100) / 100;
+  const netDisbursed = Math.round((principal - originationFee) * 100) / 100;
   const rate = Number(request.interestRate || 0.85);
   const tenor = Number(request.tenorDays || 30);
   const estimatedInterest = Math.round(principal * (rate / 100) * (tenor / 30));
@@ -134,11 +136,25 @@ export default function BorrowerTermAcceptanceModal({
           </span>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#E5EDE8]">
-              <span className="text-[#566861] font-medium">Offered Advance Capital</span>
-              <span className="font-extrabold text-base text-[#0B3326]">
-                ₹{principal.toLocaleString('en-IN')}
-              </span>
+            <div className="p-2.5 rounded-xl bg-white border border-[#E5EDE8] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[#566861] font-medium">Sanctioned Principal</span>
+                <span className="font-extrabold text-base text-[#0B3326]">
+                  ₹{principal.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-[#566861]">
+                <span>AgrowLink LSP Origination Fee (0.25%)</span>
+                <span className="font-semibold text-amber-700">
+                  − ₹{originationFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-[#E5EDE8] text-xs">
+                <span className="font-bold text-[#0B3326]">Net Disbursed Amount</span>
+                <span className="font-extrabold text-emerald-700">
+                  ₹{netDisbursed.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

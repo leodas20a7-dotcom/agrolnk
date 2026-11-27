@@ -33,7 +33,7 @@ function mapOrderRowToEscrowTxn(row) {
   const fin = calculateOrderFinancials(Number(row.total_amount || 0));
   const escrowState = String(row.escrow_status || 'pending').toLowerCase();
   const isSettled = escrowState === 'released' || row.status === 'completed';
-  const isLocked = ['funded', 'escrow_secured', 'held', 'disputed'].includes(escrowState);
+  const isLocked = ['funded', 'escrow_secured', 'escrow_locked', 'locked', 'held', 'disputed'].includes(escrowState);
 
   if (!isSettled && !isLocked) return null;
 
@@ -71,7 +71,7 @@ export async function getEscrowTransactions() {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
-      .in('escrow_status', ['funded', 'escrow_secured', 'held', 'disputed', 'released'])
+      .in('escrow_status', ['funded', 'escrow_secured', 'escrow_locked', 'locked', 'held', 'disputed', 'released'])
       .order('updated_at', { ascending: false });
 
     if (error || !Array.isArray(data)) return [];

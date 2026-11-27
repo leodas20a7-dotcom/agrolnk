@@ -43,6 +43,7 @@ import { getDeliveries, assignAdminFailSafeFreightQuote } from '../../utils/deli
 import ProduceDetailModal from '../../components/farmer/ProduceDetailModal';
 import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { invalidateCache } from '../../utils/requestCache';
 import { toast } from '../../context/ToastContext';
 import { getCurrentUser } from '../../utils/auth';
 import { supabase } from '../../lib/supabase';
@@ -140,9 +141,15 @@ export default function AdminDashboard({ currentUser, onNavigate }) {
 
     const channel = supabase
       .channel(`admin_dashboard_realtime_${user.id || 'all'}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        invalidateCache('admin:', 'profile:', 'warehouses:');
+        scheduleRefresh();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
+        invalidateCache('listings:');
+        scheduleRefresh();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'financing_requests' }, scheduleRefresh)
       .subscribe();

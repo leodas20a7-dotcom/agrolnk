@@ -904,7 +904,7 @@ export async function initiateRazorpayLoanRepaymentCheckout({
       borrower_name: userObj?.name || loanObj?.applicantName,
       borrower_role: userObj?.role || loanObj?.applicantRole || 'farmer',
       type: 'Institutional Loan Repayment',
-      settlement_target: 'Samunnati / NABARD Agri-Credit Vault',
+      settlement_target: loanObj?.financierName || 'Financial Institution',
     },
     theme: {
       color: '#0B3326', // AgrowLink Emerald

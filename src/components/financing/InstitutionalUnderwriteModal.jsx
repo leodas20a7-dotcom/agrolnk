@@ -105,6 +105,8 @@ export default function InstitutionalUnderwriteModal({
     approvedAmount * (interestRate / 100) * (tenorDays / 30)
   );
   const totalSettlementReturn = approvedAmount + estimatedInterestReturn;
+  const originationFee = Math.round(Number(approvedAmount || 0) * 0.0025 * 100) / 100;
+  const netDisbursedToBorrower = Math.round((Number(approvedAmount || 0) - originationFee) * 100) / 100;
 
   const isAcceptedByBorrower = request?.status === 'borrower_accepted';
   const isOfferPending = request?.status === 'offer_received';
@@ -507,23 +509,33 @@ export default function InstitutionalUnderwriteModal({
               </div>
 
               {/* Underwriting Yield Simulation */}
-              <div className="p-3.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/20 grid grid-cols-3 gap-2 text-center text-xs">
-                <div>
-                  <span className="text-[10px] text-[#566861] block font-medium">Capital to Disburse</span>
-                  <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
-                    ₹{approvedAmount.toLocaleString('en-IN')}
-                  </span>
+              <div className="p-3.5 rounded-xl bg-[#EBF5F0] border border-[#10B981]/20 space-y-2.5 text-xs">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <span className="text-[10px] text-[#566861] block font-medium">Capital to Disburse</span>
+                    <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                      ₹{approvedAmount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#566861] block font-semibold">Profit Return</span>
+                    <span className="font-bold text-emerald-700 text-xs sm:text-sm">
+                      +₹{estimatedInterestReturn.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#566861] block font-bold">Total Collection</span>
+                    <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
+                      ₹{totalSettlementReturn.toLocaleString('en-IN')}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-[#566861] block font-semibold">Profit Return</span>
-                  <span className="font-bold text-emerald-700 text-xs sm:text-sm">
-                    +₹{estimatedInterestReturn.toLocaleString('en-IN')}
+                <div className="pt-2 border-t border-[#10B981]/20 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#566861]">
+                  <span>
+                    AgrowLink LSP Fee (0.25%): <strong className="text-[#0B3326]">₹{originationFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                   </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-[#566861] block font-bold">Total Collection</span>
-                  <span className="font-bold text-[#0B3326] text-xs sm:text-sm">
-                    ₹{totalSettlementReturn.toLocaleString('en-IN')}
+                  <span>
+                    Net Disbursed to Borrower: <strong className="text-emerald-700">₹{netDisbursedToBorrower.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                   </span>
                 </div>
               </div>

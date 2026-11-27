@@ -1,6 +1,7 @@
 // AgrowLink Strict Role-Based & Conflict-Free Notification Engine (100% Free)
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange, subscribeToCrossTabSync } from './syncChannel';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 const LOCAL_NOTIFICATIONS_KEY = 'agrolnk_user_notifications';
 const DISMISSED_NOTIFICATIONS_KEY = 'agrolnk_dismissed_notifications';
@@ -359,6 +360,12 @@ export async function getNotificationsForUser(user) {
   const currentEmail = user.email ? String(user.email).toLowerCase() : '';
   const currentRole = user.role ? String(user.role).toLowerCase() : '';
 
+  return cachedFetch(`notifications:${currentId || currentEmail}:${currentRole}`, () =>
+    _fetchNotificationsForUserUncached(user, currentId, currentEmail, currentRole),
+  2500);
+}
+
+async function _fetchNotificationsForUserUncached(user, currentId, currentEmail, currentRole) {
   let remoteItems = [];
   let isDbSuccess = false;
 
@@ -768,7 +775,7 @@ export async function getNotificationsForUser(user) {
       if (buyerOrdersRes.status === 'fulfilled' && Array.isArray(buyerOrdersRes.value?.data)) {
         for (const o of buyerOrdersRes.value.data) {
           const escrow = String(o.escrow_status || '').toLowerCase();
-          if (['funded', 'escrow_secured', 'held', 'released'].includes(escrow)) continue;
+          if (['funded', 'escrow_secured', 'escrow_locked', 'locked', 'held', 'released'].includes(escrow)) continue;
           const id = `buyer_order_pay_${o.id}`;
           const num = o.order_number || o.id;
           const refLabel = String(num).startsWith('#') ? num : `#${num}`;
@@ -1243,6 +1250,7 @@ if (typeof window !== 'undefined') {
     supabase
       .channel('public:notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
+        invalidateCache('notifications:');
         if (payload.new) {
           const mapped = mapNotificationFromDb(payload.new);
           if (!mapped) return;

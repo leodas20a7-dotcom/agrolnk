@@ -31,6 +31,7 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 import { getStateFilterOptions } from '../../utils/locations';
 import VerificationRequiredModal from '../../components/verification/VerificationRequiredModal';
+import { invalidateCache } from '../../utils/requestCache';
 
 export default function Marketplace({ currentUser, onNavigate, navState }) {
   const user = currentUser || { name: 'Buyer', id: '', role: 'buyer' };
@@ -193,6 +194,7 @@ export default function Marketplace({ currentUser, onNavigate, navState }) {
     const channel = supabase
       .channel('public:marketplace_listings_feed')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
+        invalidateCache('listings:');
         handleListingsUpdated();
       })
       .subscribe();

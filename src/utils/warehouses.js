@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { createListing } from './listings';
 import { createAuction } from './auctions';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 /**
  * Maps PostgreSQL snake_case database row to camelCase frontend receipt object
@@ -79,22 +80,24 @@ export function cleanTimestamp(val) {
  * Fetch all warehouse receipts directly from Supabase PostgreSQL database
  */
 export async function getWarehouseReceipts() {
-  try {
-    const { data, error } = await supabase
-      .from('warehouse_receipts')
-      .select('*')
-      .order('created_at', { ascending: false });
+  return cachedFetch('warehouses:receipts:all', async () => {
+    try {
+      const { data, error } = await supabase
+        .from('warehouse_receipts')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Failed to fetch warehouse receipts from Supabase:', error);
+      if (error) {
+        console.error('Failed to fetch warehouse receipts from Supabase:', error);
+        return [];
+      }
+
+      return (data || []).map(mapReceiptFromDb).filter(Boolean);
+    } catch (err) {
+      console.error('getWarehouseReceipts error:', err);
       return [];
     }
-
-    return (data || []).map(mapReceiptFromDb).filter(Boolean);
-  } catch (err) {
-    console.error('getWarehouseReceipts error:', err);
-    return [];
-  }
+  }, 3000);
 }
 
 /**
@@ -147,25 +150,27 @@ export function isWarehouseMatch(r, userOrId, profile = null) {
  */
 export async function getFarmerInventory(farmerId) {
   if (!farmerId) return [];
-  try {
-    const { data, error } = await supabase
-      .from('warehouse_receipts')
-      .select('*')
-      .eq('farmer_id', String(farmerId))
-      .order('created_at', { ascending: false });
+  return cachedFetch(`warehouses:farmer:${farmerId}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from('warehouse_receipts')
+        .select('*')
+        .eq('farmer_id', String(farmerId))
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching farmer inventory from database:', error);
-      // Fallback to full fetch & filter
-      const all = await getWarehouseReceipts();
-      return all.filter((r) => r.farmerId === farmerId || r.depositorId === farmerId);
+      if (error) {
+        console.error('Error fetching farmer inventory from database:', error);
+        // Fallback to full fetch & filter
+        const all = await getWarehouseReceipts();
+        return all.filter((r) => r.farmerId === farmerId || r.depositorId === farmerId);
+      }
+
+      return (data || []).map(mapReceiptFromDb).filter(Boolean);
+    } catch (err) {
+      console.error('getFarmerInventory error:', err);
+      return [];
     }
-
-    return (data || []).map(mapReceiptFromDb).filter(Boolean);
-  } catch (err) {
-    console.error('getFarmerInventory error:', err);
-    return [];
-  }
+  }, 3000);
 }
 
 /**
@@ -312,6 +317,7 @@ export async function createWarehouseReceipt(receiptData) {
 
   const mapped = mapReceiptFromDb(data || dbRow);
 
+  invalidateCache('warehouses:', 'notifications:', 'admin:');
   // Trigger UI events
   try {
     window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_created', { detail: mapped }));
@@ -336,6 +342,7 @@ export async function deleteWarehouseReceipt(receiptId) {
       console.error('Failed to delete warehouse receipt from database:', error);
       return false;
     }
+    invalidateCache('warehouses:', 'notifications:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_deleted', { detail: { id: receiptId } }));
       window.dispatchEvent(new Event('storage'));
@@ -374,6 +381,7 @@ export async function provideWarehouseQuote(receiptId, { quotedRatePerTonne, quo
     }
 
     const mapped = mapReceiptFromDb(data);
+    invalidateCache('warehouses:', 'notifications:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_quote_updated', { detail: mapped }));
       window.dispatchEvent(new Event('storage'));
@@ -467,6 +475,7 @@ export async function acceptWarehouseQuote(receiptId, paymentDetails = {}) {
     }
 
     const mapped = mapReceiptFromDb(data);
+    invalidateCache('warehouses:', 'notifications:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_quote_updated', { detail: mapped }));
       window.dispatchEvent(new Event('storage'));
@@ -552,6 +561,7 @@ export async function recordWarehouseRentPayment(receiptId, paymentDetails = {})
     }
 
     const mapped = mapReceiptFromDb(updated);
+    invalidateCache('warehouses:', 'notifications:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_stored', { detail: mapped }));
       window.dispatchEvent(new Event('storage'));
@@ -587,6 +597,7 @@ export async function declineWarehouseQuote(receiptId, reason = 'Quote declined 
     }
 
     const mapped = mapReceiptFromDb(data);
+    invalidateCache('warehouses:', 'notifications:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_quote_updated', { detail: mapped }));
       window.dispatchEvent(new Event('storage'));
@@ -759,6 +770,7 @@ export async function listProduceFromInventory(receiptId, listData, currentUser 
       });
     }
 
+    invalidateCache('warehouses:', 'listings:', 'notifications:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_receipt_stored', { detail: mapReceiptFromDb(updated) }));
       window.dispatchEvent(new CustomEvent('agrolnk_listings_updated', { detail: createdTradeItem }));
@@ -1119,106 +1131,108 @@ const WAREHOUSE_PROFILES_KEY = 'agrolnk_warehouse_profiles';
  * Get all available active warehouses directly from Supabase PostgreSQL database
  */
 export async function getWarehouses() {
-  const activeWarehouses = [];
+  return cachedFetch('warehouses:list', async () => {
+    const activeWarehouses = [];
 
-  try {
-    const { data: dbProfiles, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'warehouse');
+    try {
+      const { data: dbProfiles, error } = await supabase
+        .from('profiles')
+        .select('id, email, name, company_name, phone, state, district, address, kyc_status, meta')
+        .eq('role', 'warehouse');
 
-    if (!error && Array.isArray(dbProfiles)) {
-      if (dbProfiles.length === 0) {
-        try {
-          localStorage.removeItem(WAREHOUSE_PROFILES_KEY);
-        } catch {}
-        return [];
-      }
-
-      dbProfiles.forEach((p) => {
-        const meta = p.meta || {};
-        const isVerified = p.kyc_status === 'verified' || meta.verificationStatus === 'verified';
-
-        if (isVerified) {
-          const approvedCapacity = Number(meta.totalCapacityTonnes || p.totalCapacityTonnes || 2000);
-          const baseRate = Number(meta.monthlyRatePerTonne || p.monthlyRatePerTonne || 350);
-
-          const existingIdx = activeWarehouses.findIndex(
-            (w) => w.id === p.id || (p.email && w.operatorContact?.includes(p.phone)) || w.name?.toLowerCase() === (p.company_name || meta.companyName || p.name || '').toLowerCase()
-          );
-
-          const chambersToUse = (Array.isArray(meta.storageTypes) && meta.storageTypes.length > 0)
-            ? meta.storageTypes
-            : ['Chamber A1 (Multi-Commodity)'];
-
-          const formattedChambers = Array.isArray(chambersToUse) && chambersToUse.length > 0 && typeof chambersToUse[0] === 'object'
-            ? chambersToUse.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
-            : chambersToUse;
-
-          const dynamicWh = {
-            id: p.id || `wh_${Date.now()}`,
-            userId: p.id,
-            email: p.email || '',
-            name: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
-            companyName: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
-            warehouseName: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
-            code: `WH-${(p.district || 'TN').slice(0, 3).toUpperCase()}-${(p.id || '101').slice(0, 4).toUpperCase()}`,
-            wdraCode: meta.wdraCode || 'WDRA/2025/VERIFIED',
-            wdraRegNo: meta.wdraCode || 'WDRA/2025/VERIFIED',
-            location: p.district && p.state ? `${p.district}, ${p.state}` : (p.district || p.state || 'Tamil Nadu'),
-            district: p.district || 'Salem',
-            state: p.state || 'Tamil Nadu',
-            address: p.address ? `${p.address}${p.district ? `, ${p.district}` : ''}` : (p.district || 'Tamil Nadu'),
-            type: 'WDRA Accredited Agri Storage',
-            facilityType: 'WDRA Accredited Agri Storage',
-            capacity: `${approvedCapacity.toLocaleString('en-IN')} MT`,
-            totalCapacityTonnes: approvedCapacity,
-            occupiedTonnes: 0,
-            occupancyPct: 0,
-            occupancyPercent: 0,
-            temperatureRange: (typeof chambersToUse[0] === 'object' && chambersToUse[0]?.temp) || '2°C to 12°C',
-            humidityRange: '85% to 95% RH',
-            monthlyRatePerKg: Number((baseRate / 1000).toFixed(2)),
-            monthlyRatePerTonne: baseRate,
-            chamberRates: meta.chamberRates || {},
-            minBillingDays: Number(meta.minBillingDays || p.minBillingDays || 0),
-            handlingFeePerTonne: Number(meta.handlingFeePerTonne || p.handlingFeePerTonne || 0),
-            enableBulkDiscount: Boolean(meta.enableBulkDiscount || p.enableBulkDiscount || false),
-            bulkDiscountThreshold: Number(meta.bulkDiscountThreshold || p.bulkDiscountThreshold || 50),
-            bulkDiscountRate: Number(meta.bulkDiscountRate || p.bulkDiscountRate || 10),
-            operatorContact: p.phone || meta.phone || '+91 98421 88901',
-            websiteUrl: meta.websiteUrl || '',
-            commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
-            chambers: formattedChambers,
-            isUserSubmitted: true,
-            verificationStatus: 'verified',
-            hasPendingReview: Boolean(meta.hasPendingReview),
-          };
-
-          if (existingIdx >= 0) {
-            activeWarehouses[existingIdx] = { ...activeWarehouses[existingIdx], ...dynamicWh };
-          } else {
-            activeWarehouses.push(dynamicWh);
-          }
+      if (!error && Array.isArray(dbProfiles)) {
+        if (dbProfiles.length === 0) {
+          try {
+            localStorage.removeItem(WAREHOUSE_PROFILES_KEY);
+          } catch {}
+          return [];
         }
-      });
 
-      // Sync verified warehouses into cache in normalized shape so getWarehousesSync / getWarehouseById always resolve chamberRates
-      try {
-        const rawExisting = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
-        const existingCache = rawExisting ? JSON.parse(rawExisting) : {};
-        activeWarehouses.forEach((wh) => {
-          if (wh.id) existingCache[wh.id] = { ...(existingCache[wh.id] || {}), ...wh };
-          if (wh.email) existingCache[wh.email] = { ...(existingCache[wh.email] || {}), ...wh };
+        dbProfiles.forEach((p) => {
+          const meta = p.meta || {};
+          const isVerified = p.kyc_status === 'verified' || meta.verificationStatus === 'verified';
+
+          if (isVerified) {
+            const approvedCapacity = Number(meta.totalCapacityTonnes || p.totalCapacityTonnes || 2000);
+            const baseRate = Number(meta.monthlyRatePerTonne || p.monthlyRatePerTonne || 350);
+
+            const existingIdx = activeWarehouses.findIndex(
+              (w) => w.id === p.id || (p.email && w.operatorContact?.includes(p.phone)) || w.name?.toLowerCase() === (p.company_name || meta.companyName || p.name || '').toLowerCase()
+            );
+
+            const chambersToUse = (Array.isArray(meta.storageTypes) && meta.storageTypes.length > 0)
+              ? meta.storageTypes
+              : ['Chamber A1 (Multi-Commodity)'];
+
+            const formattedChambers = Array.isArray(chambersToUse) && chambersToUse.length > 0 && typeof chambersToUse[0] === 'object'
+              ? chambersToUse.map((st) => `${st.name} (${st.capacity}T - ${st.temp || 'Controlled'})`)
+              : chambersToUse;
+
+            const dynamicWh = {
+              id: p.id || `wh_${Date.now()}`,
+              userId: p.id,
+              email: p.email || '',
+              name: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
+              companyName: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
+              warehouseName: p.company_name || meta.companyName || p.name || 'Agri Storage Hub',
+              code: `WH-${(p.district || 'TN').slice(0, 3).toUpperCase()}-${(p.id || '101').slice(0, 4).toUpperCase()}`,
+              wdraCode: meta.wdraCode || 'WDRA/2025/VERIFIED',
+              wdraRegNo: meta.wdraCode || 'WDRA/2025/VERIFIED',
+              location: p.district && p.state ? `${p.district}, ${p.state}` : (p.district || p.state || 'Tamil Nadu'),
+              district: p.district || 'Salem',
+              state: p.state || 'Tamil Nadu',
+              address: p.address ? `${p.address}${p.district ? `, ${p.district}` : ''}` : (p.district || 'Tamil Nadu'),
+              type: 'WDRA Accredited Agri Storage',
+              facilityType: 'WDRA Accredited Agri Storage',
+              capacity: `${approvedCapacity.toLocaleString('en-IN')} MT`,
+              totalCapacityTonnes: approvedCapacity,
+              occupiedTonnes: 0,
+              occupancyPct: 0,
+              occupancyPercent: 0,
+              temperatureRange: (typeof chambersToUse[0] === 'object' && chambersToUse[0]?.temp) || '2°C to 12°C',
+              humidityRange: '85% to 95% RH',
+              monthlyRatePerKg: Number((baseRate / 1000).toFixed(2)),
+              monthlyRatePerTonne: baseRate,
+              chamberRates: meta.chamberRates || {},
+              minBillingDays: Number(meta.minBillingDays || p.minBillingDays || 0),
+              handlingFeePerTonne: Number(meta.handlingFeePerTonne || p.handlingFeePerTonne || 0),
+              enableBulkDiscount: Boolean(meta.enableBulkDiscount || p.enableBulkDiscount || false),
+              bulkDiscountThreshold: Number(meta.bulkDiscountThreshold || p.bulkDiscountThreshold || 50),
+              bulkDiscountRate: Number(meta.bulkDiscountRate || p.bulkDiscountRate || 10),
+              operatorContact: p.phone || meta.phone || '+91 98421 88901',
+              websiteUrl: meta.websiteUrl || '',
+              commodities: ['Tomato', 'Potato', 'Onion', 'Turmeric', 'Grains', 'Pulses'],
+              chambers: formattedChambers,
+              isUserSubmitted: true,
+              verificationStatus: 'verified',
+              hasPendingReview: Boolean(meta.hasPendingReview),
+            };
+
+            if (existingIdx >= 0) {
+              activeWarehouses[existingIdx] = { ...activeWarehouses[existingIdx], ...dynamicWh };
+            } else {
+              activeWarehouses.push(dynamicWh);
+            }
+          }
         });
-        localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(existingCache));
-      } catch {}
-    }
-  } catch (err) {
-    console.warn('Supabase getWarehouses direct query notice:', err);
-  }
 
-  return activeWarehouses;
+        // Sync verified warehouses into cache in normalized shape so getWarehousesSync / getWarehouseById always resolve chamberRates
+        try {
+          const rawExisting = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+          const existingCache = rawExisting ? JSON.parse(rawExisting) : {};
+          activeWarehouses.forEach((wh) => {
+            if (wh.id) existingCache[wh.id] = { ...(existingCache[wh.id] || {}), ...wh };
+            if (wh.email) existingCache[wh.email] = { ...(existingCache[wh.email] || {}), ...wh };
+          });
+          localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(existingCache));
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('Supabase getWarehouses direct query notice:', err);
+    }
+
+    return activeWarehouses;
+  }, 15000);
 }
 
 export function getWarehousesSync() {
@@ -1261,74 +1275,76 @@ export function getWarehouseProfile(userId, userEmail) {
 export async function getWarehouseOperatorProfile(userIdOrEmail) {
   if (!userIdOrEmail) return null;
 
-  try {
-    const rawTarget = String(userIdOrEmail).trim();
-    let query = supabase.from('profiles').select('*');
-    if (rawTarget.includes('@')) {
-      query = query.ilike('email', rawTarget);
-    } else {
-      query = query.eq('id', rawTarget);
-    }
-    let { data: profile, error } = await query.maybeSingle();
-
-    if (!profile && !rawTarget.includes('@')) {
-      const { data: byEmail } = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('email', rawTarget)
-        .maybeSingle();
-      if (byEmail) profile = byEmail;
-    }
-
-    if (!error && profile) {
-      const meta = profile.meta || {};
-      if (meta.setupCompleted || meta.totalCapacityTonnes || profile.company_name || profile.address) {
-        const isVerified = profile.kyc_status === 'verified';
-        const hasActivePendingChanges = Boolean(meta.pendingChanges && Object.keys(meta.pendingChanges).length > 0 && !isVerified);
-
-        const mapped = {
-          ...meta,
-          userId: profile.id,
-          id: profile.id,
-          email: profile.email,
-          phone: profile.phone || meta.phone || '',
-          role: profile.role || 'warehouse',
-          operatorName: profile.name,
-          companyName: profile.company_name || meta.companyName || meta.warehouseName || '',
-          warehouseName: profile.company_name || meta.warehouseName || meta.companyName || '',
-          state: profile.state || meta.state || 'Tamil Nadu',
-          district: profile.district || meta.district || 'Salem',
-          address: profile.address || meta.address || '',
-          pincode: profile.pincode || meta.pincode || '',
-          monthlyRatePerTonne: Number(meta.monthlyRatePerTonne || 350),
-          monthlyRatePerKg: Number(meta.monthlyRatePerKg || 0.35),
-          chamberRates: meta.chamberRates || {},
-          kycStatus: profile.kyc_status || 'pending',
-          verificationStatus: isVerified ? 'verified' : (profile.kyc_status || meta.verificationStatus || 'pending'),
-          hasPendingReview: isVerified ? false : hasActivePendingChanges,
-          setupCompleted: Boolean(meta.setupCompleted || meta.totalCapacityTonnes || profile.company_name),
-        };
-
-        try {
-          const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
-          const profiles = raw ? JSON.parse(raw) : {};
-          if (profile.id) profiles[profile.id] = mapped;
-          if (profile.email) profiles[profile.email] = mapped;
-          localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
-        } catch {}
-
-        return mapped;
+  const rawTarget = String(userIdOrEmail).trim();
+  return cachedFetch(`warehouses:op:${rawTarget.toLowerCase()}`, async () => {
+    try {
+      let query = supabase.from('profiles').select('id, email, phone, role, name, company_name, state, district, address, pincode, kyc_status, meta');
+      if (rawTarget.includes('@')) {
+        query = query.ilike('email', rawTarget);
+      } else {
+        query = query.eq('id', rawTarget);
       }
-    }
-  } catch (err) {
-    console.warn('Supabase getWarehouseOperatorProfile fetch notice:', err);
-  }
+      let { data: profile, error } = await query.maybeSingle();
 
-  const localProfile = getWarehouseProfile(userIdOrEmail);
-  if (localProfile) {
-    return { ...localProfile, role: localProfile.role || 'warehouse' };
-  }
-  return null;
+      if (!profile && !rawTarget.includes('@')) {
+        const { data: byEmail } = await supabase
+          .from('profiles')
+          .select('id, email, phone, role, name, company_name, state, district, address, pincode, kyc_status, meta')
+          .ilike('email', rawTarget)
+          .maybeSingle();
+        if (byEmail) profile = byEmail;
+      }
+
+      if (!error && profile) {
+        const meta = profile.meta || {};
+        if (meta.setupCompleted || meta.totalCapacityTonnes || profile.company_name || profile.address) {
+          const isVerified = profile.kyc_status === 'verified';
+          const hasActivePendingChanges = Boolean(meta.pendingChanges && Object.keys(meta.pendingChanges).length > 0 && !isVerified);
+
+          const mapped = {
+            ...meta,
+            userId: profile.id,
+            id: profile.id,
+            email: profile.email,
+            phone: profile.phone || meta.phone || '',
+            role: profile.role || 'warehouse',
+            operatorName: profile.name,
+            companyName: profile.company_name || meta.companyName || meta.warehouseName || '',
+            warehouseName: profile.company_name || meta.warehouseName || meta.companyName || '',
+            state: profile.state || meta.state || 'Tamil Nadu',
+            district: profile.district || meta.district || 'Salem',
+            address: profile.address || meta.address || '',
+            pincode: profile.pincode || meta.pincode || '',
+            monthlyRatePerTonne: Number(meta.monthlyRatePerTonne || 350),
+            monthlyRatePerKg: Number(meta.monthlyRatePerKg || 0.35),
+            chamberRates: meta.chamberRates || {},
+            kycStatus: profile.kyc_status || 'pending',
+            verificationStatus: isVerified ? 'verified' : (profile.kyc_status || meta.verificationStatus || 'pending'),
+            hasPendingReview: isVerified ? false : hasActivePendingChanges,
+            setupCompleted: Boolean(meta.setupCompleted || meta.totalCapacityTonnes || profile.company_name),
+          };
+
+          try {
+            const raw = localStorage.getItem(WAREHOUSE_PROFILES_KEY);
+            const profiles = raw ? JSON.parse(raw) : {};
+            if (profile.id) profiles[profile.id] = mapped;
+            if (profile.email) profiles[profile.email] = mapped;
+            localStorage.setItem(WAREHOUSE_PROFILES_KEY, JSON.stringify(profiles));
+          } catch {}
+
+          return mapped;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase getWarehouseOperatorProfile fetch notice:', err);
+    }
+
+    const localProfile = getWarehouseProfile(userIdOrEmail);
+    if (localProfile) {
+      return { ...localProfile, role: localProfile.role || 'warehouse' };
+    }
+    return null;
+  }, 10000);
 }
 
 export async function saveWarehouseProfile(userId, profileData) {
@@ -1539,6 +1555,7 @@ export async function saveWarehouseProfile(userId, profileData) {
       console.warn('Supabase profile database update notice:', dbErr);
     }
 
+    invalidateCache('warehouses:', 'profile:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: updated }));
       window.dispatchEvent(new CustomEvent('agrolnk_kyc_updated', { detail: updated }));
@@ -1633,6 +1650,7 @@ export async function approveWarehouseProfileModification(userId) {
       console.warn('Could not sync approved warehouse profile to Supabase:', dbErr);
     }
 
+    invalidateCache('warehouses:', 'profile:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_profile_updated', { detail: merged }));
       window.dispatchEvent(new CustomEvent('agrolnk_kyc_updated', { detail: merged }));
@@ -1698,6 +1716,7 @@ export async function rejectWarehouseProfileModification(userId, reason = 'Modif
       }
     } catch {}
 
+    invalidateCache('warehouses:', 'profile:', 'admin:');
     try {
       window.dispatchEvent(new CustomEvent('agrolnk_warehouse_profile_updated', { detail: reverted }));
       window.dispatchEvent(new CustomEvent('agrolnk_kyc_updated', { detail: reverted }));

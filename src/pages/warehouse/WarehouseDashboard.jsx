@@ -16,6 +16,7 @@ import ViewModeToggle from '../../components/ui/ViewModeToggle';
 import ReceiptDownloadButton from '../../components/ui/ReceiptDownloadButton';
 import { buildStorageRentReceipt, hasStorageRentPaid } from '../../utils/paymentReceipt';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
+import { invalidateCache } from '../../utils/requestCache';
 import {
   Building2,
   Package,
@@ -182,8 +183,12 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
   useEffect(() => {
     loadData(true);
 
+    let refreshTimer = null;
     const handleInstantUpdate = () => {
-      loadData(false);
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        loadData(false);
+      }, 300);
     };
 
     // 1. Listen to all local custom events for instant zero-latency UI sync
@@ -202,17 +207,18 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
     const channel = supabase
       .channel(`wh_dashboard_realtime_${user.id || 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, () => {
-        loadData(false);
+        invalidateCache('warehouses:');
+        handleInstantUpdate();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, () => {
-        loadData(false);
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, handleInstantUpdate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        loadData(false);
+        invalidateCache('warehouses:', 'profile:');
+        handleInstantUpdate();
       })
       .subscribe();
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       window.removeEventListener('agrolnk_kyc_updated', handleInstantUpdate);
       window.removeEventListener('agrolnk_user_profile_updated', handleInstantUpdate);
       window.removeEventListener('agrolnk_warehouse_profile_updated', handleInstantUpdate);
@@ -268,9 +274,27 @@ export default function WarehouseDashboard({ currentUser, onNavigate, pageMode =
   const pendingLotsCount = activeLotsWithDeadlines.filter((r) => r.isPendingRent).length;
   const overdueLotsCount = activeLotsWithDeadlines.filter((r) => r.isOverdue).length;
   const settledLotsCount = activeLotsWithDeadlines.filter((r) => !r.isPendingRent).length;
-  const totalSettledRevenue = activeLotsWithDeadlines
-    .filter((r) => !r.isPendingRent)
-    .reduce((sum, r) => sum + Number(r.storageFeeMonthly || r.quotedMonthlyRent || 0), 0);
+  const totalSettledRevenue = Math.round(
+    activeLotsWithDeadlines
+      .filter((r) => !r.isPendingRent)
+      .reduce((sum, r) => {
+        if (Number(r.netSettledToWarehouse || 0) > 0) {
+          return sum + Number(r.netSettledToWarehouse);
+        }
+        if (Array.isArray(r.rentPaymentHistory) && r.rentPaymentHistory.length > 0) {
+          const histNet = r.rentPaymentHistory.reduce((hSum, p) => {
+            const net = Number(p?.netWarehouseSettled || (Number(p?.baseAmount || p?.amount || 0) * 0.9975) || 0);
+            return hSum + net;
+          }, 0);
+          if (histNet > 0) return sum + histNet;
+        }
+        const storageDays = Math.max(1, Number(r.storageDays || r.assayedQuality?.storageDays || 30));
+        const monthlyRent = Number(r.storageFeeMonthly || r.quotedMonthlyRent || 0);
+        const baseDurationRent = Number(r.initialPaymentAmount || Math.round(monthlyRent * (storageDays / 30)) || monthlyRent);
+        const warehouseFee = Math.round(baseDurationRent * 0.0025 * 100) / 100;
+        return sum + Math.max(0, baseDurationRent - warehouseFee);
+      }, 0) * 100
+  ) / 100;
 
   const userKycStatus = getResolvedUserKycStatus(user);
   const isKycVerified = userKycStatus === 'verified' || profile?.verificationStatus === 'verified' || profile?.kycStatus === 'verified';

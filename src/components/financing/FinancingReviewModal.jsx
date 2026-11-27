@@ -239,7 +239,7 @@ export default function FinancingReviewModal({
 
               <div className="p-3 rounded-xl bg-white border border-emerald-100 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#566861]">Funded NBFC Advance (80%):</span>
+                  <span className="text-[#566861]">Lender ({curr.financierName || 'NBFC'}) Advance (80%):</span>
                   <span className="font-bold text-[#0B3326]">₹{effectiveApproved.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -338,7 +338,7 @@ export default function FinancingReviewModal({
 
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAF8]">
-                    <span className="text-[#566861] font-medium">NBFC Loan (80%)</span>
+                    <span className="text-[#566861] font-medium">{curr.financierName || 'NBFC'} Loan (80%)</span>
                     <span className="font-bold text-[#10B981]">
                       ₹{effectiveApproved.toLocaleString('en-IN')} ({curr.status === 'disbursed' ? 'Disbursed to Escrow ✓' : 'Approved ✓'})
                     </span>

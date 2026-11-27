@@ -43,6 +43,7 @@ import { getUserBankDetails, maskAccountNumber } from '../../utils/bankDetails';
 import FarmerBankSettingsModal from '../../components/profile/FarmerBankSettingsModal';
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 import { supabase } from '../../lib/supabase';
+import { invalidateCache } from '../../utils/requestCache';
 
 export default function FarmerDashboard({ currentUser, onNavigate }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
@@ -149,8 +150,12 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
 
     loadAll(true);
 
+    let refreshTimer = null;
     const handleLiveRefresh = () => {
-      loadAll(false);
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        if (isMounted) loadAll(false);
+      }, 300);
     };
 
     const events = [
@@ -172,14 +177,24 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
       .channel(`farmer_dashboard_realtime_${user.id || 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleLiveRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, handleLiveRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, handleLiveRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, handleLiveRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
+        invalidateCache('listings:');
+        handleLiveRefresh();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, () => {
+        invalidateCache('auctions:');
+        handleLiveRefresh();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'financing_requests' }, handleLiveRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, handleLiveRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, () => {
+        invalidateCache('warehouses:');
+        handleLiveRefresh();
+      })
       .subscribe();
 
     return () => {
       isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
       events.forEach((evt) => window.removeEventListener(evt, handleLiveRefresh));
       supabase.removeChannel(channel);
       hideGlobalLoader();

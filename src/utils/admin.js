@@ -5,6 +5,7 @@ import { getFinancingRequests } from './financing';
 import { getDeliveries } from './deliveries';
 import { getInventory } from './warehouses';
 import { BUYER_COMMISSION_RATE, SELLER_COMMISSION_RATE } from './commission';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 const ADMIN_KYC_STORAGE_KEY = 'agrolnk_admin_kyc_registry';
 const INITIAL_KYC_USERS = [];
@@ -128,54 +129,81 @@ export function extractUserDocuments(p) {
  * Get all users with KYC status strictly from authoritative Supabase profiles table
  */
 export async function getAllKYCUsers() {
-  try {
-    const { data: dbProfiles, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+  return cachedFetch('admin:kyc:all', async () => {
+    try {
+      const { data: dbProfiles, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error || !Array.isArray(dbProfiles)) {
+      if (error || !Array.isArray(dbProfiles)) {
+        return [];
+      }
+
+      return dbProfiles.map((p) => {
+        const dbKycStatus = p.kyc_status || 'pending';
+        const meta = p.meta || {};
+        const resolvedDocs = extractUserDocuments(p);
+
+        return {
+          id: p.id,
+          name: p.name || 'Registered Partner',
+          role: p.role || 'farmer',
+          email: p.email || '',
+          phone: p.phone || '',
+          state: p.state || 'Tamil Nadu',
+          district: p.district || 'Salem',
+          orgName: p.company_name || `${p.name || 'Partner'} Enterprise`,
+          verificationStatus: dbKycStatus,
+          submittedAt: p.created_at || new Date().toISOString(),
+          verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || new Date().toISOString()) : null,
+          verifiedBy: dbKycStatus === 'verified' ? 'Admin' : null,
+          documents: resolvedDocs,
+          auditNotes: meta.auditNotes || `Registered ${p.role || 'user'}.`,
+          vanStatus: (() => {
+            const candidate = p.van_status || meta.van_status;
+            if (candidate === 'rejected') return 'rejected';
+            if (candidate === 'active') return 'active';
+            if (dbKycStatus === 'verified') return 'active';
+            return candidate || 'pending_bank_approval';
+          })(),
+          virtualAccountNumber: p.virtual_account_number || meta.virtual_account_number || '',
+          virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+          vanBankName: p.van_bank_name || meta.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
+          vanNotes: meta.van_notes || '',
+          bankDetails: meta.bankDetails || p.bank_details || null,
+        };
+      });
+    } catch (err) {
+      console.warn('Could not fetch DB profiles for KYC queue:', err);
       return [];
     }
+  }, 5000);
+}
 
-    return dbProfiles.map((p) => {
-      const dbKycStatus = p.kyc_status || 'pending';
-      const meta = p.meta || {};
-      const resolvedDocs = extractUserDocuments(p);
-
-      return {
-        id: p.id,
-        name: p.name || 'Registered Partner',
-        role: p.role || 'farmer',
-        email: p.email || '',
-        phone: p.phone || '',
-        state: p.state || 'Tamil Nadu',
-        district: p.district || 'Salem',
-        orgName: p.company_name || `${p.name || 'Partner'} Enterprise`,
-        verificationStatus: dbKycStatus,
-        submittedAt: p.created_at || new Date().toISOString(),
-        verifiedAt: dbKycStatus === 'verified' ? (p.updated_at || new Date().toISOString()) : null,
-        verifiedBy: dbKycStatus === 'verified' ? 'Admin' : null,
-        documents: resolvedDocs,
-        auditNotes: meta.auditNotes || `Registered ${p.role || 'user'}.`,
-        vanStatus: (() => {
-          const candidate = p.van_status || meta.van_status;
-          if (candidate === 'rejected') return 'rejected';
-          if (candidate === 'active') return 'active';
-          if (dbKycStatus === 'verified') return 'active';
-          return candidate || 'pending_bank_approval';
-        })(),
-        virtualAccountNumber: p.virtual_account_number || meta.virtual_account_number || '',
-        virtualAccountIfsc: p.virtual_account_ifsc || meta.virtual_account_ifsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
-        vanBankName: p.van_bank_name || meta.van_bank_name || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
-        vanNotes: meta.van_notes || '',
-        bankDetails: meta.bankDetails || p.bank_details || null,
-      };
-    });
-  } catch (err) {
-    console.warn('Could not fetch DB profiles for KYC queue:', err);
-    return [];
-  }
+/**
+ * Lightweight KYC status counts for Admin dashboard (skips heavy meta/document columns)
+ */
+async function getAdminKYCCounts() {
+  return cachedFetch('admin:kyc:counts', async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('kyc_status');
+      if (error || !Array.isArray(data)) {
+        return { pending: 0, verified: 0, total: 0 };
+      }
+      let pending = 0;
+      let verified = 0;
+      for (const row of data) {
+        if (row.kyc_status === 'pending') pending += 1;
+        else if (row.kyc_status === 'verified') verified += 1;
+      }
+      return { pending, verified, total: data.length };
+    } catch {
+      return { pending: 0, verified: 0, total: 0 };
+    }
+  }, 5000);
 }
 
 /**
@@ -338,6 +366,7 @@ export async function updateKYCStatus(userId, newStatus, auditNotes = '', verifi
     }
   }
 
+  invalidateCache('admin:', 'profile:', 'warehouses:');
   window.dispatchEvent(new Event('agrolnk_kyc_updated'));
   window.dispatchEvent(new Event('agrolnk_user_profile_updated'));
   return targetUser;
@@ -407,6 +436,7 @@ export async function updateUserVANProvision(userId, {
     }
   }
 
+  invalidateCache('admin:', 'profile:', 'warehouses:');
   window.dispatchEvent(new Event('agrolnk_kyc_updated'));
   window.dispatchEvent(new Event('agrolnk_user_profile_updated'));
   return {
@@ -421,12 +451,12 @@ export async function updateUserVANProvision(userId, {
  */
 export async function getAdminMetrics() {
   try {
-    const [orders, financing, deliveries, inventory, kycUsers] = await Promise.all([
+    const [orders, financing, deliveries, inventory, kycCounts] = await Promise.all([
       getOrders().catch(() => []),
       getFinancingRequests().catch(() => []),
       getDeliveries().catch(() => []),
       getInventory().catch(() => []),
-      getAllKYCUsers().catch(() => INITIAL_KYC_USERS),
+      getAdminKYCCounts().catch(() => ({ pending: 0, verified: 0, total: 0 })),
     ]);
 
     const rawOrders = (Array.isArray(orders) ? orders : []).filter(
@@ -470,8 +500,8 @@ export async function getAdminMetrics() {
     const totalEscrowLocked = activeEscrowOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
     // KYC Metrics
-    const pendingKYCCount = kycUsers.filter((u) => u.verificationStatus === 'pending').length;
-    const verifiedKYCCount = kycUsers.filter((u) => u.verificationStatus === 'verified').length;
+    const pendingKYCCount = Number(kycCounts?.pending || 0);
+    const verifiedKYCCount = Number(kycCounts?.verified || 0);
 
     // Financing deployed
     const approvedFinancing = (financing || []).filter((f) => f.status === 'approved' || f.status === 'disbursed');
@@ -488,7 +518,7 @@ export async function getAdminMetrics() {
       activeEscrowOrdersCount: activeEscrowOrders.length,
       pendingKYCCount,
       verifiedKYCCount,
-      totalKYCUsers: kycUsers.length,
+      totalKYCUsers: Number(kycCounts?.total || 0),
       totalFinancingDeployed,
       activeDeliveriesCount: (deliveries || []).filter((d) => d.status === 'in_transit' || d.status === 'assigned').length,
       storedWarehouseTonnes: (inventory || []).reduce((sum, i) => sum + (Number(i.totalQuantity) || 0) / 1000, 0),

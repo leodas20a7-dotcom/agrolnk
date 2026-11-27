@@ -32,6 +32,7 @@ import {
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { logoutUser, getCurrentUser, getResolvedUserKycStatus, isUserKycVerified, fetchCurrentProfile } from '../utils/auth';
+import { invalidateCache } from '../utils/requestCache';
 import { supabase } from '../lib/supabase';
 import logoImg from '../assets/Logo.jpeg';
 import PrivacyChatDrawer from '../components/chat/PrivacyChatDrawer';
@@ -97,7 +98,11 @@ export default function DashboardLayout({
 
   // Listen to KYC verification approvals / status updates globally (cross-tab, focus & Realtime)
   useEffect(() => {
-    const syncKyc = async () => {
+    let lastFocusSyncAt = 0;
+    const syncKyc = async (forceRefresh = false) => {
+      if (forceRefresh) {
+        invalidateCache('profile:');
+      }
       const status = getResolvedUserKycStatus(activeUser);
       setCurrentKycStatus(status);
       try {
@@ -117,16 +122,20 @@ export default function DashboardLayout({
     };
 
     const handleVisibilityOrFocus = () => {
-      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        syncKyc();
-      }
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastFocusSyncAt < 30000) return;
+      lastFocusSyncAt = now;
+      syncKyc(false);
     };
 
-    syncKyc();
+    const handleForcedSync = () => syncKyc(true);
 
-    window.addEventListener('agrolnk_kyc_updated', syncKyc);
-    window.addEventListener('storage', syncKyc);
-    window.addEventListener('focus', syncKyc);
+    syncKyc(false);
+
+    window.addEventListener('agrolnk_kyc_updated', handleForcedSync);
+    window.addEventListener('storage', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', handleVisibilityOrFocus);
     }
@@ -145,7 +154,7 @@ export default function DashboardLayout({
               filter: `id=eq.${activeUser.id}`,
             },
             () => {
-              syncKyc();
+              syncKyc(true);
             }
           )
           .subscribe();
@@ -153,9 +162,9 @@ export default function DashboardLayout({
     }
 
     return () => {
-      window.removeEventListener('agrolnk_kyc_updated', syncKyc);
-      window.removeEventListener('storage', syncKyc);
-      window.removeEventListener('focus', syncKyc);
+      window.removeEventListener('agrolnk_kyc_updated', handleForcedSync);
+      window.removeEventListener('storage', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       }

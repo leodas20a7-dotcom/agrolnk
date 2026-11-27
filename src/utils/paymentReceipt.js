@@ -270,8 +270,8 @@ function orderBasics(order) {
 
 export function isOrderEscrowPaid(order) {
   if (!order) return false;
-  const escrow = String(pick(order, 'escrowStatus', 'escrow_status') || '');
-  return ['funded', 'escrow_secured', 'held', 'released'].includes(escrow) || pick(order, 'status') === 'completed';
+  const escrow = String(pick(order, 'escrowStatus', 'escrow_status') || '').toLowerCase();
+  return ['funded', 'escrow_secured', 'escrow_locked', 'locked', 'held', 'released'].includes(escrow) || pick(order, 'status') === 'completed';
 }
 
 export function isOrderPayoutReleased(order) {
@@ -576,6 +576,8 @@ export function isLoanRepaid(loan) {
 
 export function buildLoanDisbursementReceipt(loan) {
   const amount = round2(loan?.approvedAmount || loan?.offeredAmount || loan?.requestedAmount);
+  const originationFee = round2(amount * 0.0025);
+  const netDisbursed = round2(amount - originationFee);
   const requestNumber = loan?.requestNumber || loan?.id || '—';
   return {
     type: 'loan_disbursement',
@@ -591,10 +593,19 @@ export function buildLoanDisbursementReceipt(loan) {
       { label: 'Interest Rate', value: loan?.interestRate !== undefined ? `${loan.interestRate}% per month` : '' },
       { label: 'Tenor', value: loan?.tenorDays ? `${loan.tenorDays} days` : '' },
       { label: 'Disbursement UTR', value: loan?.bankUtr || loan?.paymentId },
+      { label: 'Sanctioned Principal', value: formatReceiptAmount(amount) },
     ],
-    lineItems: [{ label: `Principal — ${loan?.purposeLabel || loan?.commodity || 'Trade Finance'}`, amount }],
-    total: { label: 'Total Principal Disbursed', amount },
-    paymentMode: 'Bank Transfer',
+    lineItems: [
+      { label: `Sanctioned Loan Principal — ${loan?.purposeLabel || loan?.commodity || 'Trade Finance'}`, amount },
+      {
+        label: 'AgrowLink LSP Origination / Technology Fee (0.25%)',
+        note: 'Direct Lending Service Provider (LSP) origination fee (0.25%)',
+        amount: originationFee,
+        negative: true,
+      },
+    ],
+    total: { label: 'Net Disbursed to Borrower', amount: netDisbursed },
+    paymentMode: 'Bank Transfer (RBI LSP Direct)',
   };
 }
 

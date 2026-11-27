@@ -20,6 +20,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { supabase } from '../../lib/supabase';
 import { saveWarehouseProfile, getWarehouseProfile, getWarehouseOperatorProfile } from '../../utils/warehouses';
+import { compressImageToFile, compressImageToBase64 } from '../../utils/imageUpload';
 
 const STORAGE_TYPE_OPTIONS = [
   {
@@ -279,57 +280,73 @@ export default function WarehouseSetupModal({
   const handleFileUpload = async (e, setFile, setName, setUrl) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 25 * 1024 * 1024) {
-        setErrorMessage('File size exceeds 25MB limit.');
+      if (file.size > 15 * 1024 * 1024) {
+        setErrorMessage('File size exceeds 15MB limit.');
         return;
       }
       setName(file.name);
       setFile(file);
+      if (setUrl) setUrl('');
       setErrorMessage('');
-      try {
-        const dataUrl = await readFileAsDataURL(file);
-        if (setUrl && dataUrl) {
-          setUrl(dataUrl);
-        }
-      } catch {}
     }
   };
 
-  const readFileAsDataURL = (fileObj) => {
-    return new Promise((resolve) => {
+  const readSmallPdfAsDataURL = (fileObj) => {
+    return new Promise((resolve, reject) => {
       if (!fileObj) return resolve('');
+      if (fileObj.size > 250 * 1024) {
+        return reject(new Error('Cloud storage upload unavailable and PDF exceeds 250KB inline limit. Please retry or upload a JPG/PNG image.'));
+      }
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => resolve(URL.createObjectURL(fileObj));
+      reader.onload = () => resolve(reader.result || '');
+      reader.onerror = () => resolve('');
       reader.readAsDataURL(fileObj);
     });
   };
 
   const uploadFileToSupabase = async (fileObj, folder = 'kyc') => {
     if (!fileObj) return '';
+    let fileToUpload = fileObj;
+    const isImage = fileObj.type?.startsWith('image/');
+    if (isImage) {
+      try {
+        const compressed = await compressImageToFile(fileObj, { maxWidth: 1200, maxHeight: 1200, quality: 0.78 });
+        if (compressed?.file) {
+          fileToUpload = compressed.file;
+        }
+      } catch {}
+    }
+
     try {
       const safeUserId = (user.id || 'wh').replace(/[^a-zA-Z0-9_-]/g, '_');
       const timestamp = Date.now();
-      const safeName = fileObj.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       // Store documents inside user's designated tenant folder: ${safeUserId}/*
       const path = `${safeUserId}/${folder}_${timestamp}_${safeName}`;
 
-      const { error } = await supabase.storage.from('proof').upload(path, fileObj, {
+      const { error } = await supabase.storage.from('proof').upload(path, fileToUpload, {
         cacheControl: '3600',
         upsert: true,
+        contentType: fileToUpload.type || undefined,
       });
 
-      if (error) {
-        console.warn('Supabase storage upload notice:', error);
-        return await readFileAsDataURL(fileObj);
+      if (!error) {
+        // Store compact bucket path; DocumentViewerModal resolves fresh 15-min signed URLs on demand
+        return path;
       }
-
-      // Generate short-lived signed link (15 minutes) for private documents
-      const { data: signedData } = await supabase.storage.from('proof').createSignedUrl(path, 900);
-      return signedData?.signedUrl || path;
-    } catch {
-      return await readFileAsDataURL(fileObj);
+      console.warn('Supabase storage upload notice:', error);
+    } catch (storageEx) {
+      console.warn('Storage service upload notice:', storageEx);
     }
+
+    if (isImage) {
+      try {
+        return await compressImageToBase64(fileObj, 800, 0.65);
+      } catch {
+        return '';
+      }
+    }
+    return await readSmallPdfAsDataURL(fileObj);
   };
 
   const handleSubmit = async (e) => {

@@ -1,6 +1,20 @@
 // AgrowLink Supabase Authentication & Profile Management Layer
 
 import { supabase } from '../lib/supabase';
+import { cachedFetch, invalidateCache } from './requestCache';
+
+const PROFILE_SCALAR_COLS =
+  'id, name, email, phone, role, state, district, company_name, kyc_status, van_status, virtual_account_number, virtual_account_ifsc, van_bank_name, van_notes, created_at';
+const PROFILE_CORE_COLS =
+  'id, name, email, phone, role, state, district, company_name, kyc_status, created_at';
+
+async function selectProfileScalarBy(buildFilter) {
+  let res = await buildFilter(supabase.from('profiles').select(PROFILE_SCALAR_COLS));
+  if (res.error && (res.error.code === '42703' || res.error.code === 'PGRST204')) {
+    res = await buildFilter(supabase.from('profiles').select(PROFILE_CORE_COLS));
+  }
+  return res;
+}
 
 
 
@@ -615,12 +629,12 @@ export async function syncAuthenticatedUserWithServer() {
       }
     }
 
-    // 2. Fetch authoritative profile directly from database
-    const { data: profile, error: profErr } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .maybeSingle();
+    // 2. Fetch authoritative profile directly from database (scalar columns only to save egress)
+    const { data: profile, error: profErr } = await cachedFetch(
+      `profile:server:${session.user.id}`,
+      () => selectProfileScalarBy((q) => q.eq('id', session.user.id).maybeSingle()),
+      15000
+    );
 
     if (profErr || !profile) {
       return getCurrentUser();
@@ -700,85 +714,84 @@ export async function fetchCurrentProfile() {
 
   if (!lookupId && !lookupEmail) return null;
 
-  let kycStatus = getResolvedUserKycStatus(current);
+  const cacheKey = `profile:current:${lookupId || String(lookupEmail).trim().toLowerCase()}`;
+  return cachedFetch(cacheKey, async () => {
+    let kycStatus = getResolvedUserKycStatus(current);
 
-  try {
-    let profile = null;
-    let error = null;
+    try {
+      let profile = null;
+      let error = null;
 
-    if (lookupId) {
-      const byId = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', lookupId)
-        .maybeSingle();
-      profile = byId.data;
-      error = byId.error;
-    }
-
-    if (!profile && lookupEmail) {
-      const byEmail = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('email', String(lookupEmail).trim())
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      profile = byEmail.data;
-      error = byEmail.error;
-    }
-
-    if (profile && !error) {
-      const resolvedKyc = profile.kyc_status || profile.verification_status || profile.kycStatus || profile.verificationStatus || kycStatus;
-
-      const userObj = {
-        ...(current || {}),
-        id: profile.id || lookupId,
-        name: profile.name || current?.name || 'AgrowLink Participant',
-        email: profile.email || lookupEmail || '',
-        phone: profile.phone || current?.phone || '',
-        role: profile.role || current?.role || 'farmer',
-        state: profile.state || current?.state || '',
-        district: profile.district || current?.district || '',
-        companyName: profile.company_name || current?.companyName || '',
-        kycStatus: resolvedKyc,
-        verificationStatus: resolvedKyc,
-        vanStatus: (() => {
-          const candidate = profile.van_status || profile.meta?.van_status || current?.vanStatus;
-          if (candidate === 'rejected') return 'rejected';
-          if (candidate === 'active') return 'active';
-          if (resolvedKyc === 'verified') return 'active';
-          return candidate || 'pending_bank_approval';
-        })(),
-        virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || current?.virtualAccountNumber || '',
-        virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || current?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
-        vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || current?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
-        vanNotes: profile.van_notes || profile.meta?.van_notes || current?.vanNotes || '',
-        createdAt: profile.created_at,
-      };
-
-      const changed = !current || current.kycStatus !== resolvedKyc || current.verificationStatus !== resolvedKyc;
-      setCurrentUser(userObj);
-      if (changed && typeof window !== 'undefined') {
-        try {
-          window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: userObj }));
-        } catch {}
+      if (lookupId) {
+        const byId = await selectProfileScalarBy((q) => q.eq('id', lookupId).maybeSingle());
+        profile = byId.data;
+        error = byId.error;
       }
 
-      return userObj;
+      if (!profile && lookupEmail) {
+        const byEmail = await selectProfileScalarBy((q) =>
+          q
+            .ilike('email', String(lookupEmail).trim())
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        );
+        profile = byEmail.data;
+        error = byEmail.error;
+      }
+
+      if (profile && !error) {
+        const resolvedKyc = profile.kyc_status || profile.verification_status || profile.kycStatus || profile.verificationStatus || kycStatus;
+
+        const userObj = {
+          ...(current || {}),
+          id: profile.id || lookupId,
+          name: profile.name || current?.name || 'AgrowLink Participant',
+          email: profile.email || lookupEmail || '',
+          phone: profile.phone || current?.phone || '',
+          role: profile.role || current?.role || 'farmer',
+          state: profile.state || current?.state || '',
+          district: profile.district || current?.district || '',
+          companyName: profile.company_name || current?.companyName || '',
+          kycStatus: resolvedKyc,
+          verificationStatus: resolvedKyc,
+          vanStatus: (() => {
+            const candidate = profile.van_status || profile.meta?.van_status || current?.vanStatus;
+            if (candidate === 'rejected') return 'rejected';
+            if (candidate === 'active') return 'active';
+            if (resolvedKyc === 'verified') return 'active';
+            return candidate || 'pending_bank_approval';
+          })(),
+          virtualAccountNumber: profile.virtual_account_number || profile.meta?.virtual_account_number || current?.virtualAccountNumber || '',
+          virtualAccountIfsc: profile.virtual_account_ifsc || profile.meta?.virtual_account_ifsc || current?.virtualAccountIfsc || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_IFSC) || '',
+          vanBankName: profile.van_bank_name || profile.meta?.van_bank_name || current?.vanBankName || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AGROLNK_ESCROW_BANK_NAME) || 'Escrow Nodal Bank',
+          vanNotes: profile.van_notes || profile.meta?.van_notes || current?.vanNotes || '',
+          createdAt: profile.created_at,
+        };
+
+        const changed = !current || current.kycStatus !== resolvedKyc || current.verificationStatus !== resolvedKyc;
+        setCurrentUser(userObj);
+        if (changed && typeof window !== 'undefined') {
+          try {
+            window.dispatchEvent(new CustomEvent('agrolnk_user_profile_updated', { detail: userObj }));
+          } catch {}
+        }
+
+        return userObj;
+      }
+    } catch (err) {
+      console.warn('fetchCurrentProfile notice:', err);
     }
-  } catch (err) {
-    console.warn('fetchCurrentProfile notice:', err);
-  }
 
-  // Update session if status has changed
-  if (current && (current.kycStatus !== kycStatus || current.verificationStatus !== kycStatus)) {
-    current.kycStatus = kycStatus;
-    current.verificationStatus = kycStatus;
-    setCurrentUser(current);
-  }
+    // Update session if status has changed
+    if (current && (current.kycStatus !== kycStatus || current.verificationStatus !== kycStatus)) {
+      current.kycStatus = kycStatus;
+      current.verificationStatus = kycStatus;
+      setCurrentUser(current);
+    }
 
-  return current;
+    return current;
+  }, 15000);
 }
 
 
@@ -869,6 +882,7 @@ export async function updateUserProfile(updatedFields) {
 
 
 
+  invalidateCache('profile:', 'warehouses:', 'admin:');
   // Broadcast event across windows and listeners
 
   try {
@@ -917,6 +931,7 @@ export function getUserRole() {
 
 export function logoutUser() {
   try {
+    invalidateCache();
     authoritativeSessionUser = null;
     localStorage.removeItem(AGROLNK_USER_KEY);
     localStorage.removeItem(IS_AUTH_KEY);

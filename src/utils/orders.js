@@ -8,6 +8,7 @@ import { getCurrentUser } from './auth';
 import { convertVolume, normalizeUnitName } from './pricingUnits';
 import { calculateFreightFinancials } from './commission';
 import { deductListingQuantity } from './listings';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 function mapOrderFromDb(row) {
   if (!row) return null;
@@ -172,95 +173,52 @@ const generateStandardUuid = () => {
  * Get all orders from Supabase merged with local cache
  */
 export async function getOrders() {
-  let remote = [];
-  let isDbSuccess = false;
-  try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+  return cachedFetch('orders:all', async () => {
+    let remote = [];
+    let isDbSuccess = false;
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (!error && Array.isArray(data)) {
-      remote = data.map(mapOrderFromDb);
-      isDbSuccess = true;
-    }
-  } catch (err) {
-    console.error('Error in getOrders:', err);
-  }
-
-  // When database query succeeds, Supabase is the 100% single source of truth (no split-brain overrides or stale local merges)
-  if (isDbSuccess) {
-    clearLegacyOrderOverrideKeys();
-    if (remote.length === 0) {
-      try {
-        localStorage.removeItem(LOCAL_ORDERS_KEY);
-        localStorage.removeItem('agrolnk_orders');
-        localStorage.removeItem('agrolnk_farmer_orders');
-        localStorage.removeItem('agrolnk_buyer_orders');
-      } catch {}
-      return [];
-    }
-
-    const authoritative = remote.map((r) => ({
-      ...r,
-      status: r.status || 'pending',
-      escrowStatus: r.escrowStatus || 'pending',
-      buyerConfirmedArrival: Boolean(r.buyerConfirmedArrival || r.buyerArrivalVerified),
-      buyerArrivalVerified: Boolean(r.buyerArrivalVerified || r.buyerConfirmedArrival),
-    }));
-
-    // Replace local offline cache atomically with authoritative server truth
-    replaceLocalOrders(authoritative);
-    return authoritative;
-  }
-
-  // True offline fallback scoped to the active user when database request failed
-  return getLocalOrders();
-
-  // Guarantee cross-portal sync: If a trade credit application exists in Supabase with an order number,
-  // ensure the order is present so both buyer and farmer immediately see it
-  try {
-    const { data: finReqs } = await supabase
-      .from('financing_requests')
-      .select('*')
-      .not('order_number', 'is', null);
-
-    if (finReqs && finReqs.length > 0) {
-      const knownOrderNums = new Set(combined.map((o) => o.orderNumber));
-      for (const req of finReqs) {
-        if (req.order_number && !knownOrderNums.has(req.order_number)) {
-          const synth = {
-            id: req.order_id || req.id || generateStandardUuid(),
-            orderNumber: req.order_number,
-            listingId: null,
-            auctionId: null,
-            buyerId: req.applicant_id || null,
-            buyerName: req.applicant_name || 'Buyer',
-            farmerId: null,
-            farmerName: 'Verified Producer',
-            commodity: req.commodity || 'Produce',
-            variety: req.variety || 'Standard',
-            grade: req.grade || 'A',
-            quantity: Number(req.quantity || 1),
-            unit: req.unit || 'kg',
-            pricePerUnit: req.quantity && req.transaction_value ? req.transaction_value / req.quantity : 0,
-            totalAmount: Number(req.transaction_value || req.requested_amount || 0),
-            escrowStatus: req.margin_paid ? 'funded' : 'pending',
-            status: 'order_placed',
-            paymentMode: 'trade_credit',
-            financingRequestId: req.id,
-            financingRequestNumber: req.request_number,
-            createdAt: req.created_at || new Date().toISOString(),
-            updatedAt: req.updated_at || new Date().toISOString(),
-          };
-          combined.push(synth);
-          knownOrderNums.add(req.order_number);
-        }
+      if (!error && Array.isArray(data)) {
+        remote = data.map(mapOrderFromDb);
+        isDbSuccess = true;
       }
+    } catch (err) {
+      console.error('Error in getOrders:', err);
     }
-  } catch {}
 
-  return combined;
+    // When database query succeeds, Supabase is the 100% single source of truth (no split-brain overrides or stale local merges)
+    if (isDbSuccess) {
+      clearLegacyOrderOverrideKeys();
+      if (remote.length === 0) {
+        try {
+          localStorage.removeItem(LOCAL_ORDERS_KEY);
+          localStorage.removeItem('agrolnk_orders');
+          localStorage.removeItem('agrolnk_farmer_orders');
+          localStorage.removeItem('agrolnk_buyer_orders');
+        } catch {}
+        return [];
+      }
+
+      const authoritative = remote.map((r) => ({
+        ...r,
+        status: r.status || 'pending',
+        escrowStatus: r.escrowStatus || 'pending',
+        buyerConfirmedArrival: Boolean(r.buyerConfirmedArrival || r.buyerArrivalVerified),
+        buyerArrivalVerified: Boolean(r.buyerArrivalVerified || r.buyerConfirmedArrival),
+      }));
+
+      // Replace local offline cache atomically with authoritative server truth
+      replaceLocalOrders(authoritative);
+      return authoritative;
+    }
+
+    // True offline fallback scoped to the active user when database request failed
+    return getLocalOrders();
+  }, 3000);
 }
 
 /**
@@ -1261,7 +1219,7 @@ export async function updateOrderStatus(orderId, newStatus) {
         if (newStatus === 'completed') {
           updatePayload.escrow_status = 'released';
         } else if (newStatus === 'cancelled') {
-          if (existingOrder?.escrow_status && ['funded', 'escrow_secured', 'held'].includes(existingOrder.escrow_status)) {
+          if (existingOrder?.escrow_status && ['funded', 'escrow_secured', 'escrow_locked', 'locked', 'held'].includes(existingOrder.escrow_status)) {
             updatePayload.escrow_status = 'refunded';
           }
         }
@@ -1690,7 +1648,7 @@ export async function adminHoldOrDisputeOrderEscrow({
     if (['released', 'refunded', 'settled'].includes(currentEscrow) || ['completed', 'cancelled', 'refunded'].includes(currentStatus)) {
       throw new Error(`Cannot place dispute hold on already closed order (${currentEscrow} / ${currentStatus}).`);
     }
-    if (!['funded', 'escrow_secured', 'held', 'disputed'].includes(currentEscrow) || ['pending', 'awaiting_freight_quote', 'freight_quoted'].includes(currentStatus)) {
+    if (!['funded', 'escrow_secured', 'escrow_locked', 'locked', 'held', 'disputed'].includes(currentEscrow) || ['pending', 'awaiting_freight_quote', 'freight_quoted'].includes(currentStatus)) {
       throw new Error(`Cannot place dispute hold on unpaid order (${currentEscrow} / ${currentStatus}).`);
     }
 
@@ -1729,11 +1687,11 @@ if (typeof window !== 'undefined') {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         (payload) => {
+          invalidateCache('orders:', 'notifications:', 'admin:');
           if (payload.new) {
             const mapped = mapOrderFromDb(payload.new);
             saveLocalOrder(mapped);
             broadcastDataChange('orders', payload.eventType || 'UPDATE', mapped);
-            window.dispatchEvent(new CustomEvent('agrolnk_orders_updated', { detail: mapped }));
             window.dispatchEvent(new CustomEvent('agrolnk_order_updated', { detail: mapped }));
           }
         }

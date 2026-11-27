@@ -193,7 +193,8 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
       reservedOrder?.status === 'freight_quoted')
   );
   const freightFin = calculateTransportFinancials(quotedFreightAmount);
-  const combinedPayable = financials.totalBuyerPayable + (hasFreightQuote ? freightFin.totalPayableByFarmer : 0);
+  const buyerFreightPayable = Number(freightFin.totalPayableByBuyer ?? freightFin.totalFreightDeposit ?? 0);
+  const combinedPayable = financials.totalBuyerPayable + (hasFreightQuote ? buyerFreightPayable : 0);
 
   // Dual-Tier Rule: Bulk orders >= 50,000 must use Escrow Virtual Account to eliminate gateway fees
   const isBulkOrder = combinedPayable >= 50000;
@@ -220,7 +221,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
     };
 
     syncRfqDelivery();
-    const pollInterval = setInterval(syncRfqDelivery, 8000);
+    const pollInterval = setInterval(syncRfqDelivery, 25000);
     window.addEventListener('agrolnk_deliveries_updated', syncRfqDelivery);
     window.addEventListener('storage', syncRfqDelivery);
 
@@ -1037,7 +1038,7 @@ export default function OrderModal({ listing, isOpen, onClose, onConfirm, curren
                             Freight + 0.25% Escrow Fee
                           </span>
                           <span className="font-extrabold text-emerald-700 text-sm">
-                            {formatINR(freightFin.totalPayableByFarmer)}
+                            {formatINR(buyerFreightPayable)}
                           </span>
                         </div>
                       </div>

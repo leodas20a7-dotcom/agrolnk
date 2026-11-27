@@ -402,7 +402,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                           {loan.purposeLabel || loan.commodity || 'Working Capital'}
                         </span>
                         <span>&bull;</span>
-                        <span>Samunnati / NABARD Agri-Desk</span>
+                        <span>{loan.financierName || 'Financial Institution'}</span>
                       </div>
                     </div>
                   </div>
@@ -617,7 +617,7 @@ export default function FarmerLoanRepayments({ currentUser, onNavigate }) {
                     Purpose: {selectedLoanForDetail.purposeLabel || selectedLoanForDetail.commodity || 'Urgent Working Capital'}
                   </span>
                   <p className="text-[11px] text-emerald-800 leading-relaxed">
-                    Underwritten by <strong>Samunnati / NABARD Agri-Finance Desk</strong>. Auto-deducted from trade escrow payout upon buyer quality release, or clear balance immediately below.
+                    Underwritten by <strong>{selectedLoanForDetail.financierName || 'Financial Institution'}</strong>. Auto-deducted from trade escrow payout upon buyer quality release, or clear balance immediately below.
                   </p>
                 </div>
 

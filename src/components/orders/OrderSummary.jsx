@@ -193,7 +193,8 @@ export default function OrderSummary({
   );
   const cropFin = calculateOrderFinancials(Number(order.totalAmount || order.total_amount || 0));
   const freightFin = calculateTransportFinancials(quotedFreightAmount);
-  const combinedEscrowPayable = cropFin.totalBuyerPayable + (hasFreightQuote ? freightFin.totalPayableByFarmer : 0);
+  const buyerFreightPayable = Number(freightFin.totalPayableByBuyer ?? freightFin.totalFreightDeposit ?? 0);
+  const combinedEscrowPayable = cropFin.totalBuyerPayable + (hasFreightQuote ? buyerFreightPayable : 0);
 
   const formatRfqTime = (sec) => {
     const mins = Math.floor(sec / 60);
@@ -716,7 +717,7 @@ export default function OrderSummary({
                   Lowest Freight
                 </span>
                 <span className="text-sm font-bold text-[#0B3326] font-heading">
-                  ₹{freightFin.totalPayableByFarmer.toLocaleString('en-IN')}
+                  ₹{buyerFreightPayable.toLocaleString('en-IN')}
                 </span>
               </div>
               <div className="p-2.5 rounded-xl bg-emerald-700 text-white">

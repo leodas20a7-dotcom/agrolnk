@@ -35,6 +35,9 @@ export default function InventoryCard({
 
   const dues = calculateStorageRentalDues(inventory);
   const deadline = calculateMonthlyRentDeadline(inventory);
+  const monthlyFee = Number(inventory?.quotedMonthlyRent || inventory?.storageFeeMonthly || dues?.monthlyRate || 350);
+  const storageDays = Math.max(1, Number(inventory?.storageDays || inventory?.assayedQuality?.storageDays || 30));
+  const durationRent = Math.round(monthlyFee * (storageDays / 30));
   const isStored = inventory?.status === 'stored' || inventory?.status === 'partially_listed';
   const isQuoteProvided = inventory?.status === 'quote_provided';
   const isQuoteRequested = inventory?.status === 'quote_requested';
@@ -104,7 +107,7 @@ export default function InventoryCard({
             )}
             {isQuoteProvided && (
               <Badge variant="blue" size="sm">
-                Quote: ₹{inventory.quotedMonthlyRent || inventory.storageFeeMonthly}/mo
+                Quote: ₹{monthlyFee.toLocaleString('en-IN')}/mo{storageDays > 30 ? ` (₹${durationRent.toLocaleString('en-IN')} / ${storageDays}d)` : ''}
               </Badge>
             )}
             {isInTransit && (
@@ -183,7 +186,7 @@ export default function InventoryCard({
               </span>
             </div>
             <span className="font-bold text-[#0B3326] shrink-0">
-              ₹{Number(inventory.quotedMonthlyRent || inventory.storageFeeMonthly || dues?.monthlyRate || 350).toLocaleString('en-IN')}/mo
+              ₹{monthlyFee.toLocaleString('en-IN')}/mo{storageDays > 30 ? ` (₹${durationRent.toLocaleString('en-IN')}/${storageDays}d)` : ''}
             </span>
           </div>
 
@@ -212,8 +215,10 @@ export default function InventoryCard({
 
           {isQuoteProvided && (
             <div className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-center justify-between">
-              <span className="font-bold">Fee Quoted by Admin</span>
-              <span className="font-extrabold text-blue-700">₹{inventory.quotedMonthlyRent}/mo</span>
+              <span className="font-bold">Fee Quoted ({storageDays}d)</span>
+              <span className="font-extrabold text-blue-700">
+                ₹{monthlyFee.toLocaleString('en-IN')}/mo{storageDays > 30 ? ` (₹${durationRent.toLocaleString('en-IN')} / ${storageDays}d)` : ''}
+              </span>
             </div>
           )}
 

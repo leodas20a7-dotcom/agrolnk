@@ -4,6 +4,8 @@ import Button from '../ui/Button';
 import SearchableSelect from '../ui/SearchableSelect';
 import { supabase } from '../../lib/supabase';
 import { getListingDraft } from '../../utils/listings';
+import { compressImageToFile, compressImageToBase64 } from '../../utils/imageUpload';
+import { invalidateCache } from '../../utils/requestCache';
 
 export default function VerificationRequiredModal({
   isOpen,
@@ -161,46 +163,63 @@ export default function VerificationRequiredModal({
       let fileDataUrl = '';
       let formattedFileSize = '1.5 MB';
 
-      // 1. Convert file to Data URL as resilient offline/preview fallback
+      // 1. Compress image (if applicable) & upload to private Supabase Storage 'proof' bucket
       if (selectedFileObj) {
-        try {
-          fileDataUrl = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result || '');
-            reader.onerror = () => resolve('');
-            reader.readAsDataURL(selectedFileObj);
-          });
-        } catch (readErr) {
-          console.warn('FileReader notice:', readErr);
+        let uploadObj = selectedFileObj;
+        const isImage = selectedFileObj.type?.startsWith('image/');
+        if (isImage) {
+          try {
+            const compressed = await compressImageToFile(selectedFileObj, { maxWidth: 1200, maxHeight: 1200, quality: 0.78 });
+            if (compressed?.file) {
+              uploadObj = compressed.file;
+            }
+          } catch {}
         }
 
         const safeUserId = (currentUser?.id || 'usr').replace(/[^a-zA-Z0-9_-]/g, '_');
         const timestamp = Date.now();
-        const safeDocName = selectedFileObj.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const safeDocName = uploadObj.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         // Isolate each user's compliance documents into their own folder: ${safeUserId}/*
         const storagePath = `${safeUserId}/kyc_${timestamp}_${safeDocName}`;
 
-        const sizeInMb = (selectedFileObj.size / (1024 * 1024)).toFixed(1);
+        const sizeInMb = (uploadObj.size / (1024 * 1024)).toFixed(1);
         formattedFileSize = `${sizeInMb} MB`;
 
-        // Upload file to Supabase Storage 'proof' bucket if available
         try {
           const { data: uploadData, error: uploadErr } = await supabase.storage
             .from('proof')
-            .upload(storagePath, selectedFileObj, {
+            .upload(storagePath, uploadObj, {
               cacheControl: '3600',
               upsert: true,
+              contentType: uploadObj.type || undefined,
             });
 
           if (!uploadErr && uploadData) {
-            // Generate a secure, short-lived signed URL (15 minutes) instead of permanent public URL
-            const { data: signedData } = await supabase.storage
-              .from('proof')
-              .createSignedUrl(storagePath, 900);
-            publicFileUrl = signedData?.signedUrl || storagePath;
+            // Store compact bucket path; DocumentViewerModal creates fresh signed URLs on demand
+            publicFileUrl = storagePath;
           }
         } catch (storageEx) {
           console.warn('Storage service upload notice:', storageEx);
+        }
+
+        // Only compute compact inline fallback if Storage upload failed (never dump multi-MB PDFs in DB JSONB)
+        if (!publicFileUrl) {
+          if (isImage) {
+            try {
+              fileDataUrl = await compressImageToBase64(selectedFileObj, 800, 0.65);
+            } catch {}
+          } else if (selectedFileObj.size <= 250 * 1024) {
+            try {
+              fileDataUrl = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result || '');
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(selectedFileObj);
+              });
+            } catch {}
+          } else {
+            throw new Error('Document storage upload failed. Please retry or upload a JPG/PNG image or smaller PDF (< 250 KB).');
+          }
         }
       }
 
@@ -300,6 +319,7 @@ export default function VerificationRequiredModal({
         }
       } catch {}
 
+      invalidateCache('profile:', 'admin:');
       window.dispatchEvent(new Event('agrolnk_kyc_updated'));
       setIsSubmitted(true);
       if (onSuccess) onSuccess();

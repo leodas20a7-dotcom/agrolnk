@@ -4,6 +4,7 @@ import { broadcastDataChange } from './syncChannel';
 import { sendNotification } from './notifications';
 import { calculateFreightFinancials } from './commission';
 import { getCurrentUser } from './auth';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 export const calculateTransportFinancials = calculateFreightFinancials;
 
@@ -307,78 +308,82 @@ function emitDeliveryUpdated(mapped) {
 }
 
 export async function getDeliveries() {
-  try {
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select('*')
-      .order('created_at', { ascending: false });
+  return cachedFetch('deliveries:all', async () => {
+    try {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Failed to fetch deliveries from Supabase:', error);
+      if (error) {
+        console.error('Failed to fetch deliveries from Supabase:', error);
+        return readScopedLocalDeliveries('all');
+      }
+
+      const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
+      replaceScopedLocalDeliveries('all', authoritative);
+      return authoritative;
+    } catch (err) {
+      console.error('Error in getDeliveries:', err);
       return readScopedLocalDeliveries('all');
     }
-
-    const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
-    replaceScopedLocalDeliveries('all', authoritative);
-    return authoritative;
-  } catch (err) {
-    console.error('Error in getDeliveries:', err);
-    return readScopedLocalDeliveries('all');
-  }
+  }, 2500);
 }
 
 /**
  * Get deliveries for a farmer
  */
 export async function getFarmerDeliveries(farmerId) {
-  try {
-    if (!farmerId) return [];
+  if (!farmerId) return [];
+  return cachedFetch(`deliveries:farmer:${farmerId}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select('*')
+        .eq('farmer_id', farmerId)
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select('*')
-      .eq('farmer_id', farmerId)
-      .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Failed to fetch farmer deliveries:', error);
+        return readScopedLocalDeliveries(`farmer_${farmerId}`);
+      }
 
-    if (error) {
-      console.error('Failed to fetch farmer deliveries:', error);
+      const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
+      replaceScopedLocalDeliveries(`farmer_${farmerId}`, authoritative);
+      return authoritative;
+    } catch (err) {
+      console.error('Error in getFarmerDeliveries:', err);
       return readScopedLocalDeliveries(`farmer_${farmerId}`);
     }
-
-    const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
-    replaceScopedLocalDeliveries(`farmer_${farmerId}`, authoritative);
-    return authoritative;
-  } catch (err) {
-    console.error('Error in getFarmerDeliveries:', err);
-    return readScopedLocalDeliveries(`farmer_${farmerId}`);
-  }
+  }, 2500);
 }
 
 /**
  * Get deliveries for a buyer
  */
 export async function getBuyerDeliveries(buyerId) {
-  try {
-    if (!buyerId) return [];
+  if (!buyerId) return [];
+  return cachedFetch(`deliveries:buyer:${buyerId}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select('*')
+        .eq('buyer_id', buyerId)
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select('*')
-      .eq('buyer_id', buyerId)
-      .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Failed to fetch buyer deliveries:', error);
+        return readScopedLocalDeliveries(`buyer_${buyerId}`);
+      }
 
-    if (error) {
-      console.error('Failed to fetch buyer deliveries:', error);
+      const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
+      replaceScopedLocalDeliveries(`buyer_${buyerId}`, authoritative);
+      return authoritative;
+    } catch (err) {
+      console.error('Error in getBuyerDeliveries:', err);
       return readScopedLocalDeliveries(`buyer_${buyerId}`);
     }
-
-    const authoritative = dedupeDeliveriesList((data || []).map(mapDeliveryFromDb));
-    replaceScopedLocalDeliveries(`buyer_${buyerId}`, authoritative);
-    return authoritative;
-  } catch (err) {
-    console.error('Error in getBuyerDeliveries:', err);
-    return readScopedLocalDeliveries(`buyer_${buyerId}`);
-  }
+  }, 2500);
 }
 
 /**
@@ -386,77 +391,80 @@ export async function getBuyerDeliveries(buyerId) {
  * Includes both 'transport_requested' and 'price_offered' (during the 30-min competitive bidding window before escrow lock)
  */
 export async function getAvailableTransportJobs() {
-  try {
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select('*')
-      .in('status', ['transport_requested', 'price_offered'])
-      .order('created_at', { ascending: false });
+  return cachedFetch('deliveries:available', async () => {
+    try {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select('*')
+        .in('status', ['transport_requested', 'price_offered'])
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Failed to fetch transport jobs:', error);
+      if (error) {
+        console.error('Failed to fetch transport jobs:', error);
+        return [];
+      }
+
+      const rawList = (data || [])
+        .map(mapDeliveryFromDb)
+        .filter(
+          (d) =>
+            d.transporterName !== 'Farmer Direct Transport' &&
+            d.transporterName !== 'Self / Direct Farmer' &&
+            d.freightEscrowStatus !== 'escrow_locked' &&
+            d.freightEscrowStatus !== 'released'
+        );
+
+      const seen = new Set();
+      const deduped = [];
+      for (const d of rawList) {
+        const key = d.orderNumber || d.orderId || d.id;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(d);
+        }
+      }
+      return deduped;
+    } catch (err) {
+      console.error('Error in getAvailableTransportJobs:', err);
       return [];
     }
-
-    const rawList = (data || [])
-      .map(mapDeliveryFromDb)
-      .filter(
-        (d) =>
-          d.transporterName !== 'Farmer Direct Transport' &&
-          d.transporterName !== 'Self / Direct Farmer' &&
-          d.freightEscrowStatus !== 'escrow_locked' &&
-          d.freightEscrowStatus !== 'released'
-      );
-
-    const seen = new Set();
-    const deduped = [];
-    for (const d of rawList) {
-      const key = d.orderNumber || d.orderId || d.id;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(d);
-      }
-    }
-    return deduped;
-  } catch (err) {
-    console.error('Error in getAvailableTransportJobs:', err);
-    return [];
-  }
+  }, 2500);
 }
 
 /**
  * Get deliveries accepted by a transporter
  */
 export async function getTransporterDeliveries(transporterId) {
-  try {
-    if (!transporterId) return await getDeliveries();
+  if (!transporterId) return await getDeliveries();
+  return cachedFetch(`deliveries:transporter:${transporterId}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select('*')
+        .eq('transporter_id', transporterId)
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select('*')
-      .eq('transporter_id', transporterId)
-      .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Failed to fetch transporter deliveries:', error);
+        return [];
+      }
 
-    if (error) {
-      console.error('Failed to fetch transporter deliveries:', error);
+      const rawList = (data || []).map(mapDeliveryFromDb);
+      const seen = new Set();
+      const deduped = [];
+      for (const d of rawList) {
+        const key = d.orderNumber || d.orderId || d.id;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(d);
+        }
+      }
+      return deduped;
+    } catch (err) {
+      console.error('Error in getTransporterDeliveries:', err);
       return [];
     }
-
-    const rawList = (data || []).map(mapDeliveryFromDb);
-    const seen = new Set();
-    const deduped = [];
-    for (const d of rawList) {
-      const key = d.orderNumber || d.orderId || d.id;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(d);
-      }
-    }
-    return deduped;
-  } catch (err) {
-    console.error('Error in getTransporterDeliveries:', err);
-    return [];
-  }
+  }, 2500);
 }
 
 /**
@@ -1248,20 +1256,22 @@ export async function getTransporterStats(transporterId) {
  * Get delivery linked to an order
  */
 export async function getDeliveryForOrder(orderNumberOrId) {
-  try {
-    if (!orderNumberOrId) return null;
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select('*')
-      .or(`order_id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`)
-      .order('created_at', { ascending: false })
-      .limit(1);
+  if (!orderNumberOrId) return null;
+  return cachedFetch(`deliveries:order:${orderNumberOrId}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select('*')
+        .or(`order_id.eq.${orderNumberOrId},order_number.eq.${orderNumberOrId}`)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-    if (error || !data || data.length === 0) return null;
-    return mapDeliveryFromDb(data[0]);
-  } catch {
-    return null;
-  }
+      if (error || !data || data.length === 0) return null;
+      return mapDeliveryFromDb(data[0]);
+    } catch {
+      return null;
+    }
+  }, 2500);
 }
 
 export const acceptDeliveryJob = acceptDelivery;
@@ -1357,10 +1367,10 @@ if (typeof window !== 'undefined') {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'deliveries' },
         (payload) => {
+          invalidateCache('deliveries:', 'notifications:', 'admin:');
           if (payload.new) {
             const mapped = mapDeliveryFromDb(payload.new);
             broadcastDataChange('deliveries', payload.eventType || 'UPDATE', mapped);
-            window.dispatchEvent(new CustomEvent('agrolnk_deliveries_updated', { detail: mapped }));
             window.dispatchEvent(new CustomEvent('agrolnk_delivery_updated', { detail: mapped }));
           }
         }

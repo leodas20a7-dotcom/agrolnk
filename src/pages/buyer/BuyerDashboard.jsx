@@ -36,6 +36,7 @@ import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext
 import { getResolvedUserKycStatus, fetchCurrentProfile, getCurrentUser } from '../../utils/auth';
 import { getStateFilterOptions } from '../../utils/locations';
 import { supabase } from '../../lib/supabase';
+import { invalidateCache } from '../../utils/requestCache';
 
 export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
   const user = (currentUser && (currentUser.id || currentUser.email))
@@ -166,9 +167,18 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
 
     const channel = supabase
       .channel(`buyer_dashboard_realtime_${user.id || 'all'}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_bids' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
+        invalidateCache('listings:');
+        scheduleRefresh();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, () => {
+        invalidateCache('auctions:');
+        scheduleRefresh();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_bids' }, () => {
+        invalidateCache('auctions:');
+        scheduleRefresh();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'financing_requests' }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, scheduleRefresh)

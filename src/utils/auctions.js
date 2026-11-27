@@ -2,6 +2,10 @@
 import { supabase } from '../lib/supabase';
 import { COMMODITY_IMAGES } from './listings';
 import { getCurrentUser, isUserKycVerified } from './auth';
+import { cachedFetch, invalidateCache } from './requestCache';
+
+let lastAuctionFinalizeCheckAt = 0;
+let inFlightFinalizePromise = null;
 
 function mapAuctionFromDb(row) {
   if (!row) return null;
@@ -94,150 +98,168 @@ function mapAuctionFromDb(row) {
  * falling back to client-side concurrent settlement if needed.
  */
 export async function checkAndFinalizeExpiredAuctions() {
-  try {
-    // 1. Try server-side atomic batch RPC (Fastest, zero race conditions, row locked with SKIP LOCKED)
+  const now = Date.now();
+  if (inFlightFinalizePromise) return inFlightFinalizePromise;
+  if (now - lastAuctionFinalizeCheckAt < 45000) return [];
+  lastAuctionFinalizeCheckAt = now;
+
+  inFlightFinalizePromise = (async () => {
     try {
-      const { data: batchRes, error: batchErr } = await supabase.rpc('finalize_expired_auctions_batch');
-      if (!batchErr && batchRes?.success) {
-        if (batchRes.finalized_count > 0 && typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated'));
-          window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
-          window.dispatchEvent(new Event('storage'));
+      // 1. Try server-side atomic batch RPC (Fastest, zero race conditions, row locked with SKIP LOCKED)
+      try {
+        const { data: batchRes, error: batchErr } = await supabase.rpc('finalize_expired_auctions_batch');
+        if (!batchErr && batchRes?.success) {
+          if (batchRes.finalized_count > 0 && typeof window !== 'undefined') {
+            invalidateCache('auctions:', 'orders:', 'notifications:');
+            window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated'));
+            window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
+            window.dispatchEvent(new Event('storage'));
+          }
+          return batchRes;
         }
-        return batchRes;
+      } catch (_rpcErr) {
+        // Fall through to client fallback
       }
-    } catch (_rpcErr) {
-      // Fall through to client fallback
+
+      // 2. Client-side fallback batch iteration
+      const nowIso = new Date().toISOString();
+      const { data: expiredLots, error } = await supabase
+        .from('auctions')
+        .select('id, end_time, status')
+        .eq('status', 'live')
+        .lte('end_time', nowIso);
+
+      if (error || !expiredLots || expiredLots.length === 0) return [];
+
+      const finalizedResults = await Promise.allSettled(
+        expiredLots.map((lot) => finalizeAuction(lot.id))
+      );
+
+      const succeeded = finalizedResults
+        .filter((r) => r.status === 'fulfilled' && r.value)
+        .map((r) => r.value);
+
+      if (succeeded.length > 0 && typeof window !== 'undefined') {
+        invalidateCache('auctions:', 'orders:', 'notifications:');
+        window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated'));
+        window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+
+      return succeeded;
+    } catch (err) {
+      console.warn('Auto-finalize expired auctions notice:', err);
+      return [];
+    } finally {
+      inFlightFinalizePromise = null;
     }
+  })();
 
-    // 2. Client-side fallback batch iteration
-    const nowIso = new Date().toISOString();
-    const { data: expiredLots, error } = await supabase
-      .from('auctions')
-      .select('id, end_time, status')
-      .eq('status', 'live')
-      .lte('end_time', nowIso);
-
-    if (error || !expiredLots || expiredLots.length === 0) return [];
-
-    const finalizedResults = await Promise.allSettled(
-      expiredLots.map((lot) => finalizeAuction(lot.id))
-    );
-
-    const succeeded = finalizedResults
-      .filter((r) => r.status === 'fulfilled' && r.value)
-      .map((r) => r.value);
-
-    if (succeeded.length > 0 && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrolnk_auctions_updated'));
-      window.dispatchEvent(new CustomEvent('agrolnk_orders_updated'));
-      window.dispatchEvent(new Event('storage'));
-    }
-
-    return succeeded;
-  } catch (err) {
-    console.warn('Auto-finalize expired auctions notice:', err);
-    return [];
-  }
+  return inFlightFinalizePromise;
 }
 
 /**
  * Get all auctions from Supabase with authoritative expired state resolution
  */
 export async function getAuctions(limit = null) {
-  try {
-    // Settle expired auctions in the background without blocking the read query
-    checkAndFinalizeExpiredAuctions().catch((e) => console.warn('Background finalize check:', e));
+  return cachedFetch(`auctions:all:${limit || 'all'}`, async () => {
+    try {
+      // Settle expired auctions in the background without blocking the read query
+      checkAndFinalizeExpiredAuctions().catch((e) => console.warn('Background finalize check:', e));
 
-    let query = supabase
-      .from('auctions')
-      .select('*')
-      .order('created_at', { ascending: false });
+      let query = supabase
+        .from('auctions')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+      if (limit) {
+        query = query.limit(limit);
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      console.error('Failed to fetch auctions from Supabase:', error);
+      if (error) {
+        console.error('Failed to fetch auctions from Supabase:', error);
+        return [];
+      }
+
+      const now = Date.now();
+      return (data || []).map((row) => {
+        const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
+        if (row.status === 'live' && isExpired) {
+          return mapAuctionFromDb({ ...row, status: 'completed' });
+        }
+        return mapAuctionFromDb(row);
+      });
+    } catch (err) {
+      console.error('Error in getAuctions:', err);
       return [];
     }
-
-    const now = Date.now();
-    return (data || []).map((row) => {
-      const isExpired = row.end_time && new Date(row.end_time).getTime() <= now;
-      if (row.status === 'live' && isExpired) {
-        return mapAuctionFromDb({ ...row, status: 'completed' });
-      }
-      return mapAuctionFromDb(row);
-    });
-  } catch (err) {
-    console.error('Error in getAuctions:', err);
-    return [];
-  }
+  }, 3000);
 }
 
 /**
  * Get live active auctions (strictly non-expired)
  */
 export async function getLiveAuctions(limit = null) {
-  try {
-    // Settle expired auctions in the background without blocking the read query
-    checkAndFinalizeExpiredAuctions().catch((e) => console.warn('Background finalize check:', e));
+  return cachedFetch(`auctions:live:${limit || 'all'}`, async () => {
+    try {
+      // Settle expired auctions in the background without blocking the read query
+      checkAndFinalizeExpiredAuctions().catch((e) => console.warn('Background finalize check:', e));
 
-    const nowIso = new Date().toISOString();
-    let query = supabase
-      .from('auctions')
-      .select('*')
-      .eq('status', 'live')
-      .gt('end_time', nowIso)
-      .order('created_at', { ascending: false });
+      const nowIso = new Date().toISOString();
+      let query = supabase
+        .from('auctions')
+        .select('*')
+        .eq('status', 'live')
+        .gt('end_time', nowIso)
+        .order('created_at', { ascending: false });
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+      if (limit) {
+        query = query.limit(limit);
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      console.error('Failed to fetch live auctions from Supabase:', error);
+      if (error) {
+        console.error('Failed to fetch live auctions from Supabase:', error);
+        return [];
+      }
+
+      return (data || []).map(mapAuctionFromDb);
+    } catch (err) {
+      console.error('Error in getLiveAuctions:', err);
       return [];
     }
-
-    return (data || []).map(mapAuctionFromDb);
-  } catch (err) {
-    console.error('Error in getLiveAuctions:', err);
-    return [];
-  }
+  }, 3000);
 }
 
 /**
  * Get auctions created by a farmer
  */
 export async function getFarmerAuctions(farmerId) {
-  try {
-    if (!farmerId) return [];
+  if (!farmerId) return [];
+  return cachedFetch(`auctions:farmer:${farmerId}`, async () => {
+    try {
+      await checkAndFinalizeExpiredAuctions();
 
-    await checkAndFinalizeExpiredAuctions();
+      const { data, error } = await supabase
+        .from('auctions')
+        .select('*')
+        .eq('farmer_id', farmerId)
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('auctions')
-      .select('*')
-      .eq('farmer_id', farmerId)
-      .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Failed to fetch farmer auctions:', error);
+        return [];
+      }
 
-    if (error) {
-      console.error('Failed to fetch farmer auctions:', error);
+      return (data || []).map(mapAuctionFromDb);
+    } catch (err) {
+      console.error('Error in getFarmerAuctions:', err);
       return [];
     }
-
-    return (data || []).map(mapAuctionFromDb);
-  } catch (err) {
-    console.error('Error in getFarmerAuctions:', err);
-    return [];
-  }
+  }, 3000);
 }
 
 /**

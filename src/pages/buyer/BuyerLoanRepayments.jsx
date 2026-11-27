@@ -403,7 +403,7 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
                           {loan.commodity || 'Produce Consignment'}
                         </span>
                         <span>&bull;</span>
-                        <span>Samunnati NBFC Credit</span>
+                        <span>{loan.financierName || 'Institutional Credit Desk'}</span>
                       </div>
                     </div>
                   </div>
@@ -618,7 +618,7 @@ export default function BuyerLoanRepayments({ currentUser, onNavigate }) {
                     Order: {selectedLoanForDetail.orderNumber || 'Produce Procurement'}
                   </span>
                   <p className="text-[11px] text-emerald-800 leading-relaxed">
-                    Underwritten by <strong>Samunnati / HDFC Institutional Credit Desk</strong>. Repaying on time keeps your trade credit limit active and unlocks higher borrowing caps.
+                    Underwritten by <strong>{selectedLoanForDetail.financierName || 'Institutional Credit Desk'}</strong>. Repaying on time keeps your trade credit limit active and unlocks higher borrowing caps.
                   </p>
                 </div>
 

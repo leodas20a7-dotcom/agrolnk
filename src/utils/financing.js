@@ -2,6 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { broadcastDataChange } from './syncChannel';
 import { getCurrentUser } from './auth';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 function mapFinancingFromDb(row) {
   if (!row) return null;
@@ -121,27 +122,29 @@ const generateStandardUuid = () => {
  * Get all financing requests strictly from authoritative Supabase public.financing_requests
  */
 export async function getFinancingRequests() {
-  try {
-    const finRes = await supabase
-      .from('financing_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+  return cachedFetch('financing:all', async () => {
+    try {
+      const finRes = await supabase
+        .from('financing_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (finRes.error || !Array.isArray(finRes.data)) {
+      if (finRes.error || !Array.isArray(finRes.data)) {
+        return [];
+      }
+
+      return finRes.data.map((row) => {
+        const mapped = mapFinancingFromDb(row);
+        if (!mapped.applicantKycStatus) {
+          mapped.applicantKycStatus = 'verified';
+        }
+        return mapped;
+      });
+    } catch (err) {
+      console.error('Error in getFinancingRequests:', err);
       return [];
     }
-
-    return finRes.data.map((row) => {
-      const mapped = mapFinancingFromDb(row);
-      if (!mapped.applicantKycStatus) {
-        mapped.applicantKycStatus = 'verified';
-      }
-      return mapped;
-    });
-  } catch (err) {
-    console.error('Error in getFinancingRequests:', err);
-    return [];
-  }
+  }, 3000);
 }
 
 /**
@@ -379,7 +382,7 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
       } else if (rejRpcErr.code !== 'PGRST202' && !String(rejRpcErr.message || '').includes('reject_or_cancel_financing_request_atomic')) {
         throw new Error(rejRpcErr.message || 'Server rejected financing status update.');
       }
-    } else if (rpcLookupId && (nextStatus === 'offer_received' || nextStatus === 'approved')) {
+    } else if (rpcLookupId && (nextStatus === 'offer_received' || (nextStatus === 'approved' && !approvalData.marginPaid))) {
       const offerAmt = Number(approvalData.offeredAmount || approvalData.approvedAmount || reqObj?.requestedAmount || 0);
       if (offerAmt > 0) {
         const { error: offRpcErr } = await supabase.rpc('submit_financier_offer_atomic', {
@@ -387,7 +390,7 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
           p_offered_amount: offerAmt,
           p_interest_rate: Number(approvalData.interestRate ?? 0.85),
           p_tenor_days: Number(approvalData.tenorDays ?? 30),
-          p_offer_notes: nextNotes,
+          p_notes: nextNotes,
         });
         if (!offRpcErr) {
           rpcHandled = true;
@@ -398,7 +401,7 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
     } else if (rpcLookupId && nextStatus === 'borrower_accepted') {
       const { error: accRpcErr } = await supabase.rpc('accept_financier_offer_atomic', {
         p_request_id: rpcLookupId,
-        p_payment_id: approvalData.paymentId || null,
+        p_notes: nextNotes,
       });
       if (!accRpcErr) {
         rpcHandled = true;
@@ -415,23 +418,37 @@ export async function underwriteFinancingRequest(requestIdOrObj, approvalDataOrS
       }
     }
 
+    let existingReq = reqObj;
+    if (!existingReq && (!approvalData.financierName || !approvalData.financierId)) {
+      try {
+        const localAll = getLocalFinancingRequests();
+        existingReq = localAll.find(
+          (r) =>
+            (targetUuid && r.id === targetUuid) ||
+            r.id === targetKey ||
+            r.requestNumber === targetKey ||
+            (reqNum && (r.requestNumber === reqNum || `#${r.requestNumber}` === reqNum))
+        ) || null;
+      } catch {}
+    }
+
     const structuredNotesJson = JSON.stringify({
       status: nextStatus,
-      offeredAmount: approvalData.offeredAmount || approvalData.approvedAmount,
-      interestRate: approvalData.interestRate,
-      tenorDays: approvalData.tenorDays,
-      financierId: approvalData.financierId,
-      financierName: approvalData.financierName,
-      financierEmail: approvalData.financierEmail,
-      offerNotes: approvalData.offerNotes || nextNotes,
-      offeredAt: approvalData.offeredAt || new Date().toISOString(),
-      borrowerAcceptedAt: approvalData.borrowerAcceptedAt,
-      disbursedAt: approvalData.disbursedAt,
-      bankUtr: approvalData.bankUtr,
+      offeredAmount: approvalData.offeredAmount || approvalData.approvedAmount || existingReq?.offeredAmount || existingReq?.approvedAmount,
+      interestRate: approvalData.interestRate ?? existingReq?.interestRate,
+      tenorDays: approvalData.tenorDays ?? existingReq?.tenorDays,
+      financierId: approvalData.financierId || existingReq?.financierId,
+      financierName: approvalData.financierName || existingReq?.financierName,
+      financierEmail: approvalData.financierEmail || existingReq?.financierEmail,
+      offerNotes: approvalData.offerNotes || nextNotes || existingReq?.offerNotes,
+      offeredAt: approvalData.offeredAt || existingReq?.offeredAt || new Date().toISOString(),
+      borrowerAcceptedAt: approvalData.borrowerAcceptedAt || existingReq?.borrowerAcceptedAt,
+      disbursedAt: approvalData.disbursedAt || existingReq?.disbursedAt,
+      bankUtr: approvalData.bankUtr || existingReq?.bankUtr,
       declinedByFinanciers: Array.isArray(approvalData.declinedByFinanciers)
         ? approvalData.declinedByFinanciers
-        : Array.isArray(reqObj?.declinedByFinanciers)
-        ? reqObj.declinedByFinanciers
+        : Array.isArray(existingReq?.declinedByFinanciers)
+        ? existingReq.declinedByFinanciers
         : undefined,
     });
 
@@ -1000,11 +1017,11 @@ if (typeof window !== 'undefined') {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'financing_requests' },
         (payload) => {
+          invalidateCache('financing:', 'notifications:', 'admin:');
           if (payload.new) {
             const mapped = mapFinancingFromDb(payload.new);
             saveLocalFinancingRequest(mapped);
             broadcastDataChange('financing', payload.eventType || 'UPDATE', mapped);
-            window.dispatchEvent(new CustomEvent('agrolnk_financing_updated', { detail: mapped }));
           }
         }
       )
@@ -1074,6 +1091,10 @@ export async function getDisbursements(financierUserOrId, maybeEmail) {
           id: `disb_${r.id}`,
           refNumber: `DISB-2026-00${i + 1}`,
           bankUtr: utrNum,
+          repaymentTransactionId: r.repaymentTransactionId || null,
+          repaidAt: r.repaidAt || null,
+          receiptNumber: r.receiptNumber || null,
+          purposeLabel: r.purposeLabel || null,
           requestId: r.id,
           requestNumber: r.requestNumber,
           applicantName: r.applicantName || 'Applicant Partner',

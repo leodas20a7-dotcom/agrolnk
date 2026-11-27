@@ -1,6 +1,7 @@
 // AgrowLink Buyer-Side Quality Inspection & Assay Engine
 // Full Supabase Sync + Real-time + Local Cache Fallback
 import { supabase } from '../lib/supabase';
+import { cachedFetch, invalidateCache } from './requestCache';
 
 const INSPECTION_STORAGE_KEY = 'agrolnk_inspection_reports';
 const INSPECTION_DELETED_KEY = 'agrolnk_deleted_inspection_ids';
@@ -141,35 +142,37 @@ function saveStoredInspections(reports) {
  * Fetch all inspection records from Supabase with Local Cache Fallback
  */
 export async function getInspectionRecords() {
-  const deleted = getDeletedInspectionIds();
+  return cachedFetch('inspections:all', async () => {
+    const deleted = getDeletedInspectionIds();
 
-  try {
-    const { data, error } = await supabase
-      .from('inspections')
-      .select('*')
-      .neq('status', 'cancelled')
-      .neq('status', 'deleted')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('*')
+        .neq('status', 'cancelled')
+        .neq('status', 'deleted')
+        .order('created_at', { ascending: false });
 
-    if (!error && Array.isArray(data)) {
-      const activeData = data.filter(
-        (row) =>
-          !deleted.includes(String(row.id)) &&
-          !deleted.includes(String(row.order_id)) &&
-          !deleted.includes(String(row.order_number)) &&
-          row.status !== 'cancelled' &&
-          row.status !== 'deleted'
-      );
+      if (!error && Array.isArray(data)) {
+        const activeData = data.filter(
+          (row) =>
+            !deleted.includes(String(row.id)) &&
+            !deleted.includes(String(row.order_id)) &&
+            !deleted.includes(String(row.order_number)) &&
+            row.status !== 'cancelled' &&
+            row.status !== 'deleted'
+        );
 
-      const mapped = activeData.map(mapInspectionFromDb);
-      saveStoredInspections(mapped);
-      return mapped;
+        const mapped = activeData.map(mapInspectionFromDb);
+        saveStoredInspections(mapped);
+        return mapped;
+      }
+    } catch (err) {
+      console.warn('Supabase inspections fetch fallback to local:', err);
     }
-  } catch (err) {
-    console.warn('Supabase inspections fetch fallback to local:', err);
-  }
 
-  return getStoredInspections();
+    return getStoredInspections();
+  }, 3000);
 }
 
 /**
@@ -543,6 +546,7 @@ export async function payInspectionFee(inspectionId, paymentDetails = {}) {
     }
   }
 
+  invalidateCache('inspections:', 'orders:', 'notifications:');
   saveStoredInspections(all);
   return all[index];
 }
@@ -591,6 +595,7 @@ export async function arbitrateDispute(reportId, arbitrationData) {
     console.warn('Could not sync arbitration to Supabase:', err);
   }
 
+  invalidateCache('inspections:', 'orders:', 'notifications:');
   saveStoredInspections(all);
   return all[index];
 }
@@ -606,6 +611,7 @@ export function subscribeToInspections(callback) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'inspections' },
         (payload) => {
+          invalidateCache('inspections:', 'orders:', 'notifications:');
           callback?.(payload);
         }
       )
@@ -667,6 +673,7 @@ export async function deleteInspectionRecord(inspectionId, orderRef = null) {
   saveStoredInspections(filtered);
 
   // 4. Dispatch event for instant UI sync across all open pages
+  invalidateCache('inspections:', 'orders:', 'notifications:');
   window.dispatchEvent(new Event('agrolnk_inspections_updated'));
   return true;
 }

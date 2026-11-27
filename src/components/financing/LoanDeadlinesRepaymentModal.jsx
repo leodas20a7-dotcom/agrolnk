@@ -88,7 +88,7 @@ export default function LoanDeadlinesRepaymentModal({
               orderNumber: selectedLoan.orderNumber || 'General Working Capital',
               borrowerName: user.name || selectedLoan.applicantName || 'Borrower',
               borrowerRole: isFarmer ? 'Producer / Farmer' : 'Wholesale Buyer',
-              institutionName: 'Samunnati / NABARD Agri-Finance Desk',
+              institutionName: selectedLoan.financierName || 'Financial Institution',
               principalAmount: maturity.principal,
               interestAmount: maturity.interest,
               totalPaid: maturity.totalDue,
@@ -251,7 +251,7 @@ export default function LoanDeadlinesRepaymentModal({
                             </Badge>
                           </div>
                           <span className="text-xs text-[#566861] mt-0.5 block">
-                            Financier: <strong>Samunnati / NABARD Agri-Finance</strong> • {loan.commodity || 'Produce Working Capital'}
+                            Financier: <strong>{loan.financierName || 'Financial Institution'}</strong> • {loan.commodity || 'Produce Working Capital'}
                           </span>
                         </div>
 
@@ -357,7 +357,7 @@ export default function LoanDeadlinesRepaymentModal({
                 </span>
               </div>
               <p className="text-xs text-[#566861]">
-                Beneficiary Institution: <strong>Samunnati Agri-Finance Desk / NABARD Escrow Liquidity Vault</strong>
+                Beneficiary Institution: <strong>{selectedLoan.financierName || 'Financial Institution'}</strong>
               </p>
             </div>
 

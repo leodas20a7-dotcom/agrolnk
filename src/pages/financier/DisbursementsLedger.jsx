@@ -91,6 +91,64 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
     .reduce((sum, d) => sum + (Number(d.actualReturn || d.amount) || 0), 0);
 
   const handleExport = () => {
+    const rowsToExport = filteredDisbursements.length > 0 ? filteredDisbursements : disbursements;
+    const escapeCsv = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+
+    const headers = [
+      'Payout ID',
+      'Date',
+      'Loan Request #',
+      'Borrower Name',
+      'Crop / Purpose',
+      'Loan Principal (INR)',
+      'Rate (%/mo)',
+      'Duration (Days)',
+      'Interest Profit (INR)',
+      'Total Return (INR)',
+      'Bank UTR / Payment Ref',
+      'Status',
+    ];
+
+    const csvRows = [
+      headers.map(escapeCsv).join(','),
+      ...rowsToExport.map((d) => {
+        const principal = Number(d.amount || 0);
+        const totalReturn = Number(d.status === 'settled' ? d.actualReturn : d.expectedReturn) || principal;
+        const profit = d.status === 'settled' ? Number(d.realizedYield || 0) : Math.max(0, Math.round(totalReturn - principal));
+        const dateStr = d.disbursedAt
+          ? new Date(d.disbursedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+          : '';
+        return [
+          d.refNumber || '',
+          dateStr,
+          d.requestNumber || '',
+          d.applicantName || '',
+          d.commodity || 'Trade Credit',
+          principal,
+          d.interestRate || 0.85,
+          d.tenorDays || 30,
+          profit,
+          totalReturn,
+          d.bankUtr || d.repaymentTransactionId || 'Pending',
+          d.status === 'settled' ? 'Settled & Realized' : 'Active Facility',
+        ]
+          .map(escapeCsv)
+          .join(',');
+      }),
+    ];
+
+    const csvContent = '\uFEFF' + csvRows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.setAttribute('download', `AgrowLink_Loans_Ledger_${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
     setDownloadSuccess(true);
     setTimeout(() => setDownloadSuccess(false), 3000);
   };
@@ -303,7 +361,7 @@ export default function DisbursementsLedger({ currentUser, onNavigate }) {
                                       totalPaid: d.actualReturn,
                                       txnId: d.repaymentTransactionId || d.bankUtr,
                                       paymentMethod: d.paymentMethod,
-                                      paidAt: d.repaidAt || d.disbursedAt,
+                                      paidAt: d.settledAt || d.repaidAt || d.disbursedAt,
                                     })
                                   : buildLoanDisbursementReceipt({
                                       ...d,

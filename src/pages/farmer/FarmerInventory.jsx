@@ -14,6 +14,7 @@ import ReceiptDetailModal from '../../components/warehouse/ReceiptDetailModal';
 import PayStorageRentModal from '../../components/warehouse/PayStorageRentModal';
 import FinancingRequestModal from '../../components/financing/FinancingRequestModal';
 import FarmerQuoteReviewModal from '../../components/warehouse/FarmerQuoteReviewModal';
+import { invalidateCache } from '../../utils/requestCache';
 import {
   Building2,
   Package,
@@ -104,7 +105,13 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
   useEffect(() => {
     loadData();
 
-    const handleUpdate = () => loadData();
+    let refreshTimer = null;
+    const handleUpdate = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        loadData();
+      }, 300);
+    };
     window.addEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
     window.addEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
     window.addEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);
@@ -117,14 +124,17 @@ export default function FarmerInventory({ currentUser, onNavigate }) {
     const channel = supabase
       .channel(`farmer_inventory_realtime_${user.id || 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_receipts' }, () => {
-        loadData();
+        invalidateCache('warehouses:');
+        handleUpdate();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        loadData();
+        invalidateCache('warehouses:', 'profile:');
+        handleUpdate();
       })
       .subscribe();
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       window.removeEventListener('agrolnk_warehouse_receipt_created', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_quote_updated', handleUpdate);
       window.removeEventListener('agrolnk_warehouse_receipt_stored', handleUpdate);

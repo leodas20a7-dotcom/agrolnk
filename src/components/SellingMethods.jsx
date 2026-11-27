@@ -21,6 +21,7 @@ import { getLiveAuctions } from '../utils/auctions';
 import { getActiveMarketplaceListings, COMMODITY_IMAGES } from '../utils/listings';
 import { supabase } from '../lib/supabase';
 import { hasSpecificVariety } from '../data/commodityTaxonomy';
+import { invalidateCache } from '../utils/requestCache';
 
 // Realistic fallback samples to ensure the homepage always has vibrant real-time data
 const FALLBACK_AUCTIONS = [
@@ -198,6 +199,14 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
     // Subscribe to realtime updates on auctions and listings
     let auctionChannel;
     let listingChannel;
+    let refreshTimer = null;
+
+    const scheduleReload = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        if (isMounted) loadData();
+      }, 500);
+    };
 
     try {
       auctionChannel = supabase
@@ -205,7 +214,10 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'auctions' },
-          () => loadData()
+          () => {
+            invalidateCache('auctions:');
+            scheduleReload();
+          }
         )
         .subscribe();
 
@@ -214,7 +226,10 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'listings' },
-          () => loadData()
+          () => {
+            invalidateCache('listings:');
+            scheduleReload();
+          }
         )
         .subscribe();
     } catch (e) {
@@ -223,6 +238,7 @@ export default function SellingMethods({ onNavigate, onExploreDirect, onExploreA
 
     return () => {
       isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
       if (auctionChannel) supabase.removeChannel(auctionChannel);
       if (listingChannel) supabase.removeChannel(listingChannel);
     };

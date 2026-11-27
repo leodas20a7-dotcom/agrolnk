@@ -1,5 +1,6 @@
 // AgrowLink Cross-Tab & In-App Real-Time Sync Channel (100% Free)
 // Uses native browser BroadcastChannel and CustomEvents for zero-latency, zero-cost cross-tab synchronization.
+import { invalidateCache } from './requestCache';
 
 const CHANNEL_NAME = 'agrolnk_realtime_sync';
 
@@ -24,6 +25,10 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
  */
 export function broadcastDataChange(domain, action, data) {
   if (typeof window === 'undefined') return;
+
+  if (domain) {
+    invalidateCache(`${domain}:`, domain, 'notifications:');
+  }
 
   const payload = {
     domain,
@@ -64,6 +69,9 @@ export function subscribeToCrossTabSync(callback) {
   const handleBroadcastMessage = (event) => {
     try {
       if (event?.data) {
+        if (event.data.domain) {
+          invalidateCache(`${event.data.domain}:`, event.data.domain, 'notifications:');
+        }
         callback(event.data);
       }
     } catch (err) {

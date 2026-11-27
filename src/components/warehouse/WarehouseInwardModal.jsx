@@ -63,8 +63,10 @@ export default function WarehouseInwardModal({
 
   const totalQty = Number(receipt.totalQuantity || receipt.quantity || 1000);
   const computedMonthlyRent = Math.round(((mode === 'inward' ? Number(actualWeight) : totalQty) / 1000) * Number(quotedRatePerTonne || 350));
-  const durationDays = Number(receipt.storageDays || 30);
+  const durationDays = Number(receipt.storageDays || receipt.assayedQuality?.storageDays || 30);
   const computedDurationRent = Math.round(computedMonthlyRent * (durationDays / 30));
+  const warehouseFacilitationFee = Math.round(computedDurationRent * 0.0025 * 100) / 100;
+  const netWarehousePayout = Math.round((computedDurationRent - warehouseFacilitationFee) * 100) / 100;
   const ratePerKg = Number((Number(quotedRatePerTonne || 350) / 1000).toFixed(2));
 
   const handleSendQuote = async (e) => {
@@ -222,22 +224,32 @@ export default function WarehouseInwardModal({
               </div>
 
               {/* Live Rent Computation Display */}
-              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 flex items-center justify-between gap-3">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-[#566861] tracking-wider block">
-                    Calculated Monthly Rent for Farmer
-                  </span>
-                  <span className="text-xl font-extrabold text-[#0B3326] font-heading">
-                    ₹{computedMonthlyRent.toLocaleString('en-IN')}
-                    <span className="text-xs font-medium text-[#566861]"> / month</span>
-                  </span>
-                  <span className="text-[11px] font-semibold text-[#065F46] block mt-0.5">
-                    Est. Total for {durationDays} Days: ₹{computedDurationRent.toLocaleString('en-IN')}
+              <div className="p-4 rounded-2xl bg-[#F2FBF6] border border-[#10B981]/30 space-y-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#566861] tracking-wider block">
+                      Quoted Storage Rent ({durationDays} Days)
+                    </span>
+                    <span className="text-xl font-extrabold text-[#0B3326] font-heading">
+                      ₹{computedDurationRent.toLocaleString('en-IN')}
+                      <span className="text-xs font-medium text-[#566861]">
+                        {' '}(₹{computedMonthlyRent.toLocaleString('en-IN')} / mo)
+                      </span>
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-[#10B981] bg-white px-2.5 py-1 rounded-xl border border-[#10B981]/30 shrink-0">
+                    ₹{ratePerKg} / kg / mo
                   </span>
                 </div>
-                <span className="text-xs font-bold text-[#10B981] bg-white px-2.5 py-1 rounded-xl border border-[#10B981]/30 shrink-0">
-                  ₹{ratePerKg} / kg / mo
-                </span>
+
+                <div className="pt-2 border-t border-[#10B981]/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="text-[#566861]">
+                    Platform Fee (−0.25%): <strong className="text-rose-700">−₹{warehouseFacilitationFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                  </span>
+                  <span className="font-bold text-[#065F46]">
+                    Your Net Payout: ₹{netWarehousePayout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
 
               {/* Assign Chamber */}

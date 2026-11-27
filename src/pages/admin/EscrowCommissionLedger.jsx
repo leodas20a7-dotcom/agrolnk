@@ -128,12 +128,29 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
   const warehouseItems = safeReceipts
     .filter((r) => r.storageFeeMonthly || r.quotedMonthlyRent || r.initialPaymentAmount)
     .map((rcpt) => {
-      const rentVal = Number(rcpt.storageFeeMonthly || rcpt.quotedMonthlyRent || 350);
+      const latestPay = Array.isArray(rcpt.rentPaymentHistory) && rcpt.rentPaymentHistory.length > 0
+        ? rcpt.rentPaymentHistory[0]
+        : null;
+      const storageDays = Math.max(
+        1,
+        Number(latestPay?.extendedDays || rcpt.storageDays || rcpt.assayedQuality?.storageDays || 30)
+      );
+      const monthlyRent = Number(rcpt.storageFeeMonthly || rcpt.quotedMonthlyRent || 350);
+      const durationRentFallback = Math.round(monthlyRent * (storageDays / 30));
+      const rentVal = Number(
+        latestPay?.baseAmount ||
+        latestPay?.amount ||
+        rcpt.initialPaymentAmount ||
+        durationRentFallback ||
+        monthlyRent
+      );
       const fin = calculateWarehouseRentFinancials(rentVal);
       const isPaid = rcpt.initialPaymentStatus === 'paid' || !!rcpt.lastRentPaidAt;
       return {
         ...rcpt,
         ...fin,
+        bookedStorageDays: storageDays,
+        monthlyBaseRent: monthlyRent,
         warehousePaymentState: isPaid ? 'settled' : 'pending',
       };
     });
@@ -988,7 +1005,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                         <tr className="bg-[#F8FAF8] border-b border-[#E5EDE8] text-[#566861] uppercase tracking-wider font-semibold text-[10px]">
                           <th className="py-3.5 px-4">Receipt # &amp; Commodity</th>
                           <th className="py-3.5 px-4">Warehouse Facility</th>
-                          <th className="py-3.5 px-4">Monthly Storage Rent</th>
+                          <th className="py-3.5 px-4">Storage Rent (Duration)</th>
                           <th className="py-3.5 px-4 text-[#1E40AF]">Depositor Paid (+0.25%)</th>
                           <th className="py-3.5 px-4 text-[#10B981]">Warehouse Settled (-0.25%)</th>
                           <th className="py-3.5 px-4 text-[#0B3326]">AgrowLink Fee (0.50%)</th>
@@ -1015,6 +1032,9 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
                             <td className="py-3.5 px-4 font-bold text-[#14211D]">
                               {formatINR(item.baseRent)}
+                              <span className="block text-[10px] font-normal text-[#566861]">
+                                {item.bookedStorageDays || 30}d • {formatINR(item.monthlyBaseRent)}/mo
+                              </span>
                             </td>
 
                             <td className="py-3.5 px-4 font-semibold text-[#1E40AF]">
@@ -1056,7 +1076,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                                   {item.warehousePaymentState === 'settled' && (
                                     <ReceiptDownloadButton
                                       title="Download storage rent receipt"
-                                      buildReceipt={() => buildStorageRentReceipt(item)}
+                                      buildReceipt={() => buildStorageRentReceipt(item, null, 'admin')}
                                     />
                                   )}
                                 </div>
@@ -1393,7 +1413,7 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
                             {item.warehousePaymentState === 'settled' && (
                               <ReceiptDownloadButton
                                 title="Download storage rent receipt"
-                                buildReceipt={() => buildStorageRentReceipt(item)}
+                                buildReceipt={() => buildStorageRentReceipt(item, null, 'admin')}
                               />
                             )}
                             {item.warehousePaymentState === 'settled' ? (
@@ -1418,7 +1438,9 @@ export default function EscrowCommissionLedger({ currentUser, onNavigate }) {
 
                         <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F8FAF8] border border-[#E5EDE8] text-xs">
                           <div>
-                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">Monthly Rent</span>
+                            <span className="text-[10px] text-[#566861] uppercase font-semibold block">
+                              Storage Rent ({item.bookedStorageDays || 30}d)
+                            </span>
                             <span className="font-bold text-[#14211D]">{formatINR(item.baseRent)}</span>
                           </div>
                           <div>

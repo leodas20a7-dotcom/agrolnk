@@ -39,6 +39,7 @@ import DocumentViewerModal from '../../components/admin/DocumentViewerModal';
 import Pagination from '../../components/ui/Pagination';
 import { showGlobalLoader, hideGlobalLoader } from '../../context/LoadingContext';
 import { supabase } from '../../lib/supabase';
+import { invalidateCache } from '../../utils/requestCache';
 
 export default function UserVerificationQueue({ currentUser, onNavigate }) {
   const user = currentUser || {};
@@ -173,6 +174,7 @@ export default function UserVerificationQueue({ currentUser, onNavigate }) {
     const channel = supabase
       .channel('admin_kyc_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        invalidateCache('admin:', 'profile:', 'warehouses:');
         handleUpdate();
       })
       .subscribe();
