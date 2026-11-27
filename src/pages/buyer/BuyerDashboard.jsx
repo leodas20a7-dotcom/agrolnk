@@ -207,6 +207,18 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
     (safeListingsPage - 1) * listingsPerPage,
     safeListingsPage * listingsPerPage
   );
+  const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
+  const safeFinancing = Array.isArray(financingRequests) ? financingRequests : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const activeDeliveriesCount = safeDeliveries.filter(
+    (d) => !['completed', 'cancelled'].includes(d.status)
+  ).length;
+  const activeFinancingCount = safeFinancing.filter(
+    (f) => !['repaid', 'settled', 'closed', 'rejected', 'cancelled'].includes(f.status)
+  ).length;
+  const activeOrdersCount = safeOrders.filter(
+    (o) => !['completed', 'cancelled', 'deleted'].includes(o.status)
+  ).length;
   const totalKg = safeListings.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
 
   const commodities = [
@@ -274,7 +286,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                 iconPosition="left"
                 className="py-2.5 px-3.5 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center shrink-0"
               >
-                Incoming Deliveries ({deliveries.length})
+                {activeDeliveriesCount > 0 ? `Incoming Deliveries (${activeDeliveriesCount})` : 'Incoming Deliveries'}
               </Button>
               <Button
                 variant="secondary"
@@ -284,7 +296,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                 iconPosition="left"
                 className="py-2.5 px-3.5 font-bold shadow-xs text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer justify-center shrink-0"
               >
-                Credit / Financing ({financingRequests.length})
+                {activeFinancingCount > 0 ? `Credit / Financing (${activeFinancingCount})` : 'Credit / Financing'}
               </Button>
               <Button
                 variant="accent"
@@ -294,7 +306,7 @@ export default function BuyerDashboard({ currentUser, onNavigate, navState }) {
                 iconPosition="left"
                 className="py-2.5 px-4 font-bold shadow-xs text-xs cursor-pointer justify-center shrink-0"
               >
-                My Orders ({orders.length})
+                {activeOrdersCount > 0 ? `My Orders (${activeOrdersCount})` : 'My Orders'}
               </Button>
             </div>
           </div>

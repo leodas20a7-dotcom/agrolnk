@@ -212,11 +212,19 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
   const safeAuctions = Array.isArray(auctions) ? auctions : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeInventory = Array.isArray(inventory) ? inventory : [];
+  const safeDeliveries = Array.isArray(deliveries) ? deliveries : [];
+
+  const activeInventory = safeInventory.filter(
+    (r) => !['released', 'dispatched', 'rejected', 'declined', 'sold', 'completed', 'cancelled'].includes(r.status)
+  );
+  const activeDeliveries = safeDeliveries.filter(
+    (d) => !['completed', 'cancelled'].includes(d.status)
+  );
 
   const directCount = activeListings.filter((l) => l.saleType === 'direct' || !l.saleType).length;
   const liveAuctionsCount = safeAuctions.filter((a) => a.status === 'live').length;
   const pendingOrdersCount = safeOrders.filter((o) => o.status === 'pending').length;
-  const totalStoredKg = safeInventory.reduce((sum, i) => sum + (Number(i.totalQuantity) || 0), 0);
+  const totalStoredKg = activeInventory.reduce((sum, i) => sum + (Number(i.totalQuantity) || 0), 0);
 
   return (
     <DashboardLayout currentUser={user} onNavigate={onNavigate}>
@@ -268,7 +276,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               onClick={() => onNavigate('farmer-inventory')}
               className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
             >
-              Warehouse ({inventory.length})
+              {activeInventory.length > 0 ? `Warehouse (${activeInventory.length})` : 'Warehouse'}
             </Button>
             <Button
               variant="secondary"
@@ -278,7 +286,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               onClick={() => onNavigate('farmer-deliveries')}
               className="justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap"
             >
-              Deliveries ({deliveries.length})
+              {activeDeliveries.length > 0 ? `Deliveries (${activeDeliveries.length})` : 'Deliveries'}
             </Button>
             <Button
               variant="secondary"
@@ -288,7 +296,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
               onClick={() => onNavigate('farmer-my-auctions')}
               className={`${user.role === 'fpo' ? '' : 'col-span-2 '}justify-center py-2.5 px-4 font-semibold text-xs border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white cursor-pointer whitespace-nowrap`}
             >
-              Live Auctions ({liveAuctionsCount})
+              {liveAuctionsCount > 0 ? `Live Auctions (${liveAuctionsCount})` : 'Live Auctions'}
             </Button>
             {user.role === 'fpo' && (
               <Button
@@ -385,7 +393,7 @@ export default function FarmerDashboard({ currentUser, onNavigate }) {
             <StatCard
               label="Stored Inventory"
               value={`${(totalStoredKg / 1000).toFixed(1)} T`}
-              subtext={`${inventory.length} active storage receipts`}
+              subtext={`${activeInventory.length} active storage receipts`}
               icon={Building2}
               iconColor="#0B3326"
               iconBg="#F2FBF6"
